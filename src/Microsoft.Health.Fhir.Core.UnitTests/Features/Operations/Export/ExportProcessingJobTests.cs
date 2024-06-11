@@ -8,6 +8,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -31,46 +32,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJob_WhenItSucceeds_ThenOutputsAreInTheResult()
         {
-            string progressResult = string.Empty;
-
-            Progress<string> progress = new Progress<string>((result) =>
-            {
-                progressResult = result;
-            });
-
             var expectedResults = GenerateJobRecord(OperationStatus.Completed);
 
-            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient());
-            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
+            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None);
             Assert.Equal(expectedResults, taskResult);
-
-            // For some reason checking the progress result is flaky. Sometimes it passes and sometimes it is blank. There seems to be a timing error, but debugging it causes it not to happen.
-            // All the steps are synchronous, so I don't see where the issue is happening.
-            // Assert.Equal(expectedResults, progressResult);
         }
 
         [Fact]
         public async Task GivenAnExportJob_WhenItFails_ThenAnExceptionIsThrown()
         {
-            Progress<string> progress = new Progress<string>((result) => { });
-
             var exceptionMessage = "Test job failed";
             var expectedResults = GenerateJobRecord(OperationStatus.Failed, exceptionMessage);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
-            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
             Assert.Equal(exceptionMessage, exception.Message);
         }
 
         [Fact]
         public async Task GivenAnExportJob_WhenItIsCancelled_ThenAnExceptionIsThrown()
         {
-            Progress<string> progress = new Progress<string>((result) => { });
-
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            await Assert.ThrowsAsync<OperationCanceledException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
         [Theory]
@@ -78,29 +64,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(OperationStatus.Running)]
         public async Task GivenAnExportJob_WhenItFinishesInANonTerminalState_ThenAnExceptionIsThrown(OperationStatus status)
         {
-            Progress<string> progress = new Progress<string>((result) => { });
-
             var expectedResults = GenerateJobRecord(status);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient());
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
+            await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
         [Fact]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResults_ThenANewProgressJobIsQueued()
         {
-            string progressResult = string.Empty;
-
-            Progress<string> progress = new Progress<string>((result) =>
-            {
-                progressResult = result;
-            });
-
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
-            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
+            await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None);
 
             Assert.Single(queueClient.JobInfos);
             Assert.Contains(_progressToken, queueClient.JobInfos[0].Definition);
@@ -109,24 +86,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndAFollowupJobExists_ThenANewProgressJobIsNotQueued()
         {
-            string progressResult = string.Empty;
-
-            Progress<string> progress = new Progress<string>((result) =>
-            {
-                progressResult = result;
-            });
-
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             var runningJob = GenerateJobInfo(expectedResults);
             var followUpJob = GenerateJobInfo(expectedResults);
             followUpJob.Id = runningJob.Id + 1;
             queueClient.JobInfos.Add(followUpJob);
 
-            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+            await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
 
             Assert.Single(queueClient.JobInfos);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
@@ -138,15 +108,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(null, null, "range1", "range2")]
         public async Task GivenAnExportJob_WhenItFinishesAPageAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string testRunningJobResourceType, string laterParallelJobResourceType, string testRunningJobFeedRange, string laterParallelJobFeedRange)
         {
-            string progressResult = string.Empty;
-
-            Progress<string> progress = new Progress<string>((result) =>
-            {
-                progressResult = result;
-            });
-
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             // Note: Feed ranges are different which means testRunningJob should queue the next job even though.
             var testRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: testRunningJobResourceType, feedRange: testRunningJobFeedRange));
@@ -156,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             laterParallelRunningJob.Id = 2;
             queueClient.JobInfos.Add(laterParallelRunningJob);
 
-            await processingJob.ExecuteAsync(testRunningJob, progress, CancellationToken.None);
+            await processingJob.ExecuteAsync(testRunningJob, CancellationToken.None);
 
             Assert.True(queueClient.JobInfos.Count == 2); // laterParallelRunningJob + follow up job for testRunningJob.
             Assert.Equal(laterParallelRunningJob, queueClient.JobInfos[0]);
@@ -173,15 +136,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(JobStatus.Running, true)]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued(JobStatus existingJobStatus, bool cancellationRequested)
         {
-            string progressResult = string.Empty;
-
-            Progress<string> progress = new Progress<string>((result) =>
-            {
-                progressResult = result;
-            });
-
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
 
@@ -191,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             existingCanceledJob.CancelRequested = cancellationRequested;
             queueClient.JobInfos.Add(existingCanceledJob);
 
-            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+            await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
 
             Assert.True(queueClient.JobInfos.Count == 1);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);

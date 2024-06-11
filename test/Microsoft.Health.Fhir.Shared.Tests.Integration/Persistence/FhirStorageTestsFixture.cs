@@ -190,12 +190,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeFactory(), SearchService.CreateMockScopeFactory(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
 
             var collection = new ServiceCollection();
 
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));

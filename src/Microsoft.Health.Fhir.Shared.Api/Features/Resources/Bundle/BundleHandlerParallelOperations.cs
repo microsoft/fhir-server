@@ -14,14 +14,12 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -72,8 +70,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
-            const int GCCollectTrigger = 150;
-
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
@@ -84,11 +80,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
-                    if (resourceExecutionContext.Index > 0 && resourceExecutionContext.Index % GCCollectTrigger == 0)
-                    {
-                        RunGarbageCollection();
-                    }
-
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                     // Creating new instances per record in the bundle, and making their access thread-safe.
@@ -126,6 +117,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         watch.Stop();
                         _logger.LogInformation("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
                     }
+                    catch (OperationCanceledException ex)
+                    {
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
+                        _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+                    }
                     catch (FhirTransactionFailedException ex)
                     {
                         _logger.LogError(ex, "BundleHandler - Failed transaction. Canceling Bundle Orchestrator Operation: {ErrorMessage}", ex.Message);
@@ -147,12 +143,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 try
                 {
-                    // The following Task.WaitAll should wait for all requests to finish.
+                    // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
-
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {
@@ -272,6 +267,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     HttpContext httpContext = request.HttpContext;
+
+                    // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
+                    httpContext.RequestAborted = cancellationToken;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))
                     {

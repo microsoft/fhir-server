@@ -77,9 +77,11 @@ BEGIN TRY
           FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
                JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
           WHERE B.IsHistory = 0
+            AND B.ResourceId = A.ResourceId
+            AND B.Version = A.Version
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
-      IF @@rowcount > 0 SET @IsRetry = 1
+      IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
     END
@@ -99,7 +101,7 @@ BEGIN TRY
                ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
-    IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <> PreviousVersion + 1)
+    IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <= PreviousVersion)
       THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
 
     INSERT INTO @PreviousSurrogateIds

@@ -38,8 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ExpressionAccessControl _expressionAccess;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
-        private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
+        private SearchParameterInfo _resourceTypeSearchParameter;
         private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
 
         public SearchOptionsFactory(
@@ -66,8 +66,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
+        }
 
-            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+        private SearchParameterInfo ResourceTypeSearchParameter
+        {
+            get
+            {
+                if (_resourceTypeSearchParameter == null)
+                {
+                    _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+                }
+
+                return _resourceTypeSearchParameter;
+            }
         }
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false)
@@ -313,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     throw new ResourceNotSupportedException(resourceType);
                 }
 
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
+                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
             CheckFineGrainedAccessControl(searchExpressions);
@@ -676,11 +687,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (clinicalScopeResources.Any())
                     {
-                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
                     }
                     else // block all queries
                     {
-                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
                     }
                 }
             }

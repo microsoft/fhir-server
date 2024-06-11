@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ILogger<BundleHandler> _logger;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
-        private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
+        private readonly ConcurrentDictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
@@ -151,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
-            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            _referenceIdDictionary = new ConcurrentDictionary<string, (string resourceId, string resourceType)>();
 
             // Retrieve bundle processing logic.
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
@@ -299,12 +300,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     EntryComponent throttledEntryComponent = null;
                     foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
-                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
-                            responseBundle: responseBundle,
-                            httpVerb: verb,
-                            throttledEntryComponent: throttledEntryComponent,
-                            statistics: statistics,
-                            cancellationToken: cancellationToken);
+                        if (_requests[verb].Any())
+                        {
+                            throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
+                                responseBundle: responseBundle,
+                                httpVerb: verb,
+                                throttledEntryComponent: throttledEntryComponent,
+                                statistics: statistics,
+                                cancellationToken: cancellationToken);
+                        }
                     }
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Batch)
@@ -589,15 +593,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
-            const int GCCollectTrigger = 150;
-
             foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
-                if (resourceContext.Index % GCCollectTrigger == 0 && resourceContext.Index > 0)
-                {
-                    RunGarbageCollection();
-                }
-
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
@@ -613,6 +610,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
 
+                        // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
+                        httpContext.RequestAborted = cancellationToken;
                         SetupContexts(resourceContext, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
@@ -787,8 +786,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.GetDisplayUrl(),
                 requestContext.BaseUri.OriginalString,
                 requestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
+                requestHeaders: httpContext.Request.Headers,
+                responseHeaders: httpContext.Response.Headers)
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
@@ -846,7 +845,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, Dictionary<string, (string resourceId, string resourceType)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {
@@ -870,25 +869,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         break;
                 }
-            }
-        }
-
-        private void RunGarbageCollection()
-        {
-            try
-            {
-                _logger.LogInformation("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
-
-                // Collecting memory up to Generation 2 using default collection mode.
-                // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
-                // SOH compacting is set to true.
-                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
-
-                _logger.LogInformation("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
             }
         }
 

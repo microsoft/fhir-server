@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.TemplateManagement.Models;
+using Microsoft.Health.Fhir.TemplateManagement.Configurations;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -43,5 +43,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines timeout for convert execution to terminate long running templates.
         /// </summary>
         public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Enable the performance telemetry logging.
+        /// </summary>
+        public bool EnableTelemetryLogger { get; set; } = false;
     }
 }

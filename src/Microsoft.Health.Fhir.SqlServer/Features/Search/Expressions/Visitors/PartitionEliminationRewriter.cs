@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SearchParameterInfo _resourceTypeSearchParameter;
+        private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
+        private SearchParameterInfo _resourceTypeSearchParameter;
         private SearchParameterExpression _allTypesExpression;
 
         public PartitionEliminationRewriter(
@@ -42,7 +43,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             _model = model;
             _schemaInformation = schemaInformation;
-            _resourceTypeSearchParameter = searchParameterDefinitionManagerResolver.Invoke().GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+            _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
+        }
+
+        private SearchParameterInfo ResourceTypeSearchParameter
+        {
+            get
+            {
+                if (_resourceTypeSearchParameter == null)
+                {
+                    _resourceTypeSearchParameter = _searchParameterDefinitionManagerResolver.Invoke().GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+                }
+
+                return _resourceTypeSearchParameter;
+            }
         }
 
         private SearchParameterExpression GetAllTypesExpression()
@@ -58,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 resourceTypes[i] = _model.GetResourceTypeName(typeId);
             }
 
-            _allTypesExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
+            _allTypesExpression = Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
 
             return _allTypesExpression;
         }
@@ -74,6 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             int primaryKeyValueIndex = -1;
             bool hasTypeRestriction = false;
+            bool needTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
                 SearchParameterInfo parameter = expression.ResourceTableExpressions[i].Parameter;
@@ -82,9 +97,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     primaryKeyValueIndex = i;
                 }
-                else if (ReferenceEquals(parameter, _resourceTypeSearchParameter))
+                else if (ReferenceEquals(parameter, ResourceTypeSearchParameter))
                 {
                     hasTypeRestriction = true;
+                }
+            }
+
+            // We still need this resource expansion for Smart requests that does system wide search and returns only resources that are part of same
+            // compartment along with universal resources.
+            // Refer to this test case GivenFhirUserClaimPractitioner_WhenAllResourcesRequested_ResourcesInTheSameComparementAndUniversalResourcesAlsoReturned
+            if (!hasTypeRestriction)
+            {
+                for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
+                {
+                    if (expression.SearchParamTableExpressions[i].ToString().Contains(ResourceTypeSearchParameter.Code, StringComparison.Ordinal))
+                    {
+                        needTypeRestriction = true;
+                    }
                 }
             }
 
@@ -97,14 +126,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     // This is already constrained to be one or more resource types.
                     return expression;
                 }
+                else if (needTypeRestriction)
+                {
+                    // Explicitly allow all resource types. SQL tends to create far better query plans than when there is no filter on ResourceTypeId.
 
-                // Explicitly allow all resource types. SQL tends to create far better query plans than when there is no filter on ResourceTypeId.
+                    var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
+                    updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
+                    updatedResourceTableExpressions.Add(GetAllTypesExpression());
 
-                var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
-                updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
-                updatedResourceTableExpressions.Add(GetAllTypesExpression());
+                    return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
+                }
 
-                return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
+                return expression;
             }
 
             // There is a primary key continuation token.

@@ -10,10 +10,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -93,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
+        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenJobExecutionExceptionShouldBeThrown()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
@@ -104,6 +107,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -126,21 +132,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     return new ImportProcessingProgress();
                 });
 
-            Progress<string> progress = new Progress<string>();
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
-            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), progress, CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         [Fact]
@@ -155,8 +163,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     if (callInfo[2] != null) // always true
@@ -168,13 +179,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 });
 
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
-            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), new Progress<string>(), CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
@@ -188,6 +202,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -217,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
@@ -237,11 +254,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return progress;
                 });
 
-            string progressResult = null;
-            var progress = new Progress<string>((r) => { progressResult = r; });
-            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory);
+            var job = new ImportProcessingJob(mediator, queueClient, loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory, auditLogger);
 
-            string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
+            string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);

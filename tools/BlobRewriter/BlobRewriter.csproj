@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Microsoft.Health.Internal.Fhir.BlobRewriter</AssemblyName>
+    <AssemblyName>Fhir.BlobRewriter</AssemblyName>
     <RootNamespace>Microsoft.Health.Internal.Fhir.BlobRewriter</RootNamespace>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>

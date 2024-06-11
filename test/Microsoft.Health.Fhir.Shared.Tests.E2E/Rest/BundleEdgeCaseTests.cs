@@ -4,9 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.Azure.Cosmos.Linq;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -14,13 +18,14 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class BundleEdgeCaseTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
@@ -32,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallelOnCosmosDb()
+        public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallel()
         {
             // #conditionalQueryParallelism
 
@@ -90,6 +95,198 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal(localResourceIdentier, remoteResourceIdentifier);
                 Assert.Equal("2", bundleResponse2.Resource.Entry[i].Resource.Meta.VersionId);
             }
+        }
+
+        [Fact]
+        public async Task WhenProcessingABundle_IfItContainsHistoryEndpointRequests_ThenReturnTheResourcesAsExpected()
+        {
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            // 1 - Post first patient who is created as the base resources to handle all following operations.
+            Patient patient = new Patient()
+            {
+                Name = new List<HumanName> { new HumanName() { Family = "Rush", Given = new List<string> { $"John" } } },
+                Gender = AdministrativeGender.Male,
+                BirthDate = "1974-12-21",
+                Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+            };
+            var firstPatientResponse = await _client.PostAsync("Patient", patient.ToJson(), cancellationToken);
+            Assert.True(firstPatientResponse.Response.IsSuccessStatusCode, "First patient ingestion did not complete as expected.");
+            string patientId = firstPatientResponse.Resource.ToResourceElement().ToPoco<Patient>().Id;
+
+            Bundle bundle = new Bundle() { Type = BundleType.Batch };
+
+            // 2 - Create a query on top of _history endpoint.
+            EntryComponent entryComponent = new EntryComponent()
+            {
+                Resource = null,
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Patient/{patientId}/_history",
+                },
+            };
+            bundle.Entry.Add(entryComponent);
+
+            // 3 - Create a query on top of _history/version endpoint.
+            entryComponent = new EntryComponent()
+            {
+                Resource = null,
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Patient/{patientId}/_history/1",
+                },
+            };
+            bundle.Entry.Add(entryComponent);
+
+            FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new Client.FhirBundleOptions(), cancellationToken);
+            Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "Bundle ingestion did not complete as expected.");
+
+            // 4 - Validate the response of _history endpoint.
+            EntryComponent firstEntry = bundleResponse.Resource.Entry.First();
+            Assert.True(firstEntry.Response.Status == "200", $"The HTTP status code for the _history query is '{firstEntry.Response.Status}'.");
+            Assert.True(firstEntry.Resource is Bundle, "The resource returned by the _history query is not a Bundle.");
+            Assert.True(((Bundle)firstEntry.Resource).Entry.First().Resource.Id == patientId, "The resource returned by the _history query is not the original Patient.");
+
+            // 5 - Validate the response of _history/version endpoint.
+            EntryComponent secondEntry = bundleResponse.Resource.Entry.Last();
+            Assert.True(secondEntry.Response.Status == "200", $"The HTTP status code for the _history/version query is '{secondEntry.Response.Status}'.");
+            Assert.True(secondEntry.Resource is Patient, "The resource returned by the _history/version query is not a Patient.");
+            Assert.True(secondEntry.Resource.Id == patientId, "The resource returned by the _history/version query is not the original Patient.");
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenProcessingMultipleBundlesWithTheSameResource_AndIncreasingTheExpectedVersionInParallel_ThenUpdateTheResourcesAsExpected()
+        {
+            // In this test one edge case scenario is validated: the same resource being updated at the same time by multiple different bundles.
+
+            // At the time when multiple bundles update the same resource, due the way how MergeAsync works, the version will be increased on SQL side and it can be different
+            // than the version expected by Bundle Orchestrator Operation.
+
+            // In this test, this scenario is simulated. The same patient is updated by multiple bundles concurrently, forcing the creation of new versions and 'breaking' the
+            // version expected by Bundle Orchestrator. Bundle Orchestrator must be good enough to handle this situation.
+
+            const int numberOfParallelBundles = 4;
+            const int numberOfPatientsPerBundle = 4;
+            const int maxExpectedVersion = numberOfParallelBundles + 1;
+            const int totalNumberOfExpectedPatients = numberOfParallelBundles * numberOfPatientsPerBundle;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = tokenSource.Token;
+
+            // 1 - Post first patients who are created as the base resources to handle all following parallel operations.
+            Patient[] patientsUserForInitialization = new Patient[numberOfPatientsPerBundle];
+            for (int i = 0; i < numberOfPatientsPerBundle; i++)
+            {
+                Patient patient = new Patient()
+                {
+                    Identifier = new List<Identifier> { new Identifier("http://example.org/patient-ids", "12345") },
+                    Name = new List<HumanName> { new HumanName() { Family = "Doe", Given = new List<string> { $"John {i}" } } },
+                    Gender = AdministrativeGender.Male,
+                    BirthDate = "1990-01-01",
+                    Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+                };
+                var firstPatientResponse = await _client.PostAsync("Patient", patient.ToJson(), cancellationToken);
+                Assert.True(firstPatientResponse.Response.IsSuccessStatusCode, "First patient ingestion did not complete as expected.");
+
+                patientsUserForInitialization[i] = firstPatientResponse.Resource.ToResourceElement().ToPoco<Patient>();
+            }
+
+            // 2 - Compose multiple bundles that will run in parallel.
+            List<Bundle> bundles = new List<Bundle>();
+            for (int i = 0; i < numberOfParallelBundles; i++)
+            {
+                Bundle bundle = new Bundle() { Type = BundleType.Batch };
+                for (int j = 0; j < numberOfPatientsPerBundle; j++)
+                {
+                    // Create Patient clones in memory.
+                    Patient tempPatient = Clone(patientsUserForInitialization[j]);
+
+                    EntryComponent entryComponent = CreateEntryComponent(tempPatient);
+
+                    bundle.Entry.Add(entryComponent);
+                }
+
+                bundles.Add(bundle);
+            }
+
+            // 3 - Post bundles in parallel.
+            List<Task<Client.FhirResponse<Bundle>>> bundleTasks = new List<Task<Client.FhirResponse<Bundle>>>();
+            foreach (var bundle in bundles)
+            {
+                bundleTasks.Add(_client.PostBundleAsync(bundle, new Client.FhirBundleOptions(), cancellationToken));
+            }
+
+            Task.WaitAll(bundleTasks.ToArray());
+
+            // 4 - Validate the response of every bundle.
+            int validatedResources = 0;
+            HashSet<string> uniquePatientIds = new HashSet<string>();
+            foreach (Task<Client.FhirResponse<Bundle>> task in bundleTasks)
+            {
+                Client.FhirResponse<Bundle> fhirResponse = task.Result;
+
+                foreach (EntryComponent item in fhirResponse.Resource.Entry)
+                {
+                    validatedResources++;
+                    string status = item.Response.Status;
+                    if (status != "200" && status != "201")
+                    {
+                        Assert.Fail($"Patient '{item.Resource.Id}' returned HTTP status code {status}.");
+                    }
+
+                    if (!uniquePatientIds.Contains(item.Resource.Id))
+                    {
+                        uniquePatientIds.Add(item.Resource.Id);
+                    }
+
+                    long version = Convert.ToInt64(item.Resource.VersionId);
+                    Assert.True(
+                        version >= 2 && version <= maxExpectedVersion,
+                        $"Versions are expected to be >= than 2 and <= than {maxExpectedVersion} at this point. Current version is {version}.");
+                }
+            }
+
+            Assert.True(
+                validatedResources == totalNumberOfExpectedPatients,
+                $"Number of expected patients ({totalNumberOfExpectedPatients}) is different than the final number of validated resources ({validatedResources}).");
+
+            Assert.True(
+                uniquePatientIds.Count == numberOfPatientsPerBundle,
+                $"Total mumber of created patients ({numberOfPatientsPerBundle}) is different than the number ingested during the test {uniquePatientIds}.");
+        }
+
+        private static Patient Clone(Patient patient)
+        {
+            // Patient does not have a native Clone method.
+
+            Patient clone = new Patient();
+
+            clone.Id = patient.Id;
+            clone.Identifier = patient.Identifier;
+            clone.Name = patient.Name;
+            clone.Gender = patient.Gender;
+            clone.BirthDate = patient.BirthDate;
+            clone.Text = new Narrative($"<div>Cloned at {DateTime.UtcNow.ToString("o")}.</div>");
+
+            return clone;
+        }
+
+        private static EntryComponent CreateEntryComponent(Patient patient)
+        {
+            EntryComponent entryComponent = new EntryComponent()
+            {
+                Resource = patient,
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.PUT,
+                    Url = $"Patient/{patient.Id}",
+                },
+            };
+
+            return entryComponent;
         }
     }
 }

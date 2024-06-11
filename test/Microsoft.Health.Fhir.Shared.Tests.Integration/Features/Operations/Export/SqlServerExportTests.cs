@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerExportTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
+        private readonly ILogger<SqlExportOrchestratorJob> _logger = Substitute.For<ILogger<SqlExportOrchestratorJob>>();
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly ISearchService _searchService;
@@ -59,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService, _exportJobConfiguration);
+                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService, _exportJobConfiguration, _logger);
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 
@@ -125,7 +128,7 @@ END
 retryOnTestException:
             try
             {
-                await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
+                await coordJob.ExecuteAsync(jobInfo, cts.Token);
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
             }
             catch (Exception e)
@@ -149,7 +152,7 @@ retryOnTestException:
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
-            var surrId = DateTime.UtcNow.DateToId();
+            var surrId = DateTimeOffset.UtcNow.ToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
         (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)

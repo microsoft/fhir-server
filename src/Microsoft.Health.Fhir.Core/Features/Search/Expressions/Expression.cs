@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="targetResourceTypes">The target resource type.</param>
         /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The expression.</param>
-        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="referenceSearchParameter"/>.</returns>
+        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceTypes"/> through <paramref name="referenceSearchParameter"/>.</returns>
         public static ChainedExpression Chained(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string[] targetResourceTypes, bool reversed, Expression expression)
         {
             return new ChainedExpression(resourceTypes, referenceSearchParameter, targetResourceTypes, reversed, expression);
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="wildCard">If this is a wildcard include.</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate">If this is include has :iterate (:recurse) modifier.</param>
-        /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>
+        /// <returns>A <see cref="IncludeExpression"/> that represents an include on <paramref name="targetResourceType" /> through <paramref name="referenceSearchParameter" />.</returns>
         public static IncludeExpression Include(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
             return new IncludeExpression(resourceTypes, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate, null);
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="InExpression"/> that represents logical IN operation over <paramref name="expressions"/>.
+        /// Creates a <see cref="InExpression"/> that represents logical IN operation over <paramref name="values"/>.
         /// </summary>
         /// <typeparam name="T">Type of the value included in the expression.</typeparam>
         /// <param name="fieldName">The field name.</param>
@@ -318,14 +318,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <summary>
         /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.
-        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would have the same hash code.
+        /// For example, date=2013&amp;name=Smith and date=2014&amp;name=Trudeau would have the same hash code.
         /// </summary>
         /// <param name="hashCode">The HashCode instance to accumulate into</param>
         public abstract void AddValueInsensitiveHashCode(ref HashCode hashCode);
 
         /// <summary>
         /// Determines whether the given expression is equal to this instance, ignoring any parameterizable values.
-        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would be considered equal
+        /// For example, date=2013&amp;name=Smith and date=2014&amp;name=Trudeau would be considered equal
         /// </summary>
         /// <param name="other">The expression to compare this instance to.</param>
         public abstract bool ValueInsensitiveEquals(Expression other);

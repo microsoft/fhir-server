@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Identity.Client;
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ConvertDataConfiguration _convertConfig;
         private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private readonly FeatureConfiguration _features;
+        private readonly IFhirRuntimeConfiguration _fhirConfig;
 
         public ExportController(
             IMediator mediator,
@@ -68,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             IOptions<FeatureConfiguration> features,
-            ILogger<ExportController> logger)
+            IFhirRuntimeConfiguration fhirConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -76,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(artifactStoreConfig, nameof(artifactStoreConfig));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(fhirConfig, nameof(fhirConfig));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _convertConfig = operationsConfig.Value.ConvertData;
             _artifactStoreConfig = artifactStoreConfig.Value;
             _features = features.Value;
+            _fhirConfig = fhirConfig;
         }
 
         [HttpGet]
@@ -98,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
+            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null,
             [FromQuery(Name = KnownQueryParameterNames.IncludeAssociatedData)] string includeAssociatedData = null,
             [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
@@ -255,7 +258,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string groupId = null,
             string containerName = null,
             string formatName = null,
-            bool isParallel = true,
+            bool? isParallel = true,
             bool includeHistory = false,
             bool includeDeleted = false,
             uint maxCount = 0,
@@ -263,6 +266,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
         {
+            bool isParallelWithDefault = GetExportParallelSetting(isParallel, _fhirConfig);
+
             CreateExportResponse response = await _mediator.ExportAsync(
                 _fhirRequestContextAccessor.RequestContext.Uri,
                 exportType,
@@ -273,7 +278,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId,
                 containerName,
                 formatName,
-                isParallel,
+                isParallelWithDefault,
                 includeDeleted,
                 includeHistory,
                 maxCount,
@@ -383,6 +388,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return (includeHistory, includeDeleted);
+        }
+
+        private static bool GetExportParallelSetting(bool? isParallelFromRequest, IFhirRuntimeConfiguration fhirConfig)
+        {
+            if (isParallelFromRequest is not null)
+            {
+                return isParallelFromRequest.Value;
+            }
+
+            // Api For FHIR defaults to non-parallel export.
+            if (fhirConfig is AzureApiForFhirRuntimeConfiguration)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

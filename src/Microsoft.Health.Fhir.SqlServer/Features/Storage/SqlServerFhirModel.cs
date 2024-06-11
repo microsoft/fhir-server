@@ -19,7 +19,9 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -29,6 +31,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Namotion.Reflection;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -45,14 +48,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _scopedSqlConnectionWrapperFactory;
+        private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<Uri, short> _searchParamUriToId;
-        private ConcurrentDictionary<string, int> _systemToId;
-        private ConcurrentDictionary<string, int> _quantityCodeToId;
+        private FhirMemoryCache<int> _systemToId;
+        private FhirMemoryCache<int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
         private Dictionary<string, byte> _compartmentTypeToId;
         private int _highestInitializedVersion;
@@ -64,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
-            Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
+            IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {
@@ -152,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public bool TryGetSystemId(string system, out int systemId)
         {
             ThrowIfNotInitialized();
-            return _systemToId.TryGetValue(system, out systemId);
+            return _systemToId.TryGet(system, out systemId);
         }
 
         public int GetSystemId(string system)
@@ -174,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
         {
             ThrowIfNotInitialized();
-            return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
+            return _quantityCodeToId.TryGet(code, out quantityCodeId);
         }
 
         public async Task EnsureInitialized()
@@ -193,7 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
@@ -216,7 +219,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeBase(CancellationToken cancellationToken)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
@@ -278,8 +281,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                     var resourceTypeIdToTypeName = new Dictionary<short, string>();
                     var searchParamUriToId = new Dictionary<Uri, short>();
-                    var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                    var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
                     var compartmentTypeToId = new Dictionary<string, byte>();
 
@@ -334,26 +335,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // result set 5
                     await reader.NextResultAsync(cancellationToken);
 
+                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-                        systemToId.TryAdd(value, systemId);
+                        _systemToId.TryAdd(value, systemId);
                     }
 
                     // result set 6
                     await reader.NextResultAsync(cancellationToken);
 
+                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-                        quantityCodeToId.TryAdd(value, quantityCodeId);
+                        _quantityCodeToId.TryAdd(value, quantityCodeId);
                     }
 
                     _resourceTypeToId = resourceTypeToId;
                     _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
                     _searchParamUriToId = searchParamUriToId;
-                    _systemToId = systemToId;
-                    _quantityCodeToId = quantityCodeToId;
                     _claimNameToId = claimNameToId;
                     _compartmentTypeToId = compartmentTypeToId;
                     _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
@@ -363,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
@@ -421,9 +422,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
+        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
         {
-            if (cache.TryGetValue(stringValue, out int id))
+            if (cache.TryGet(stringValue, out int id))
             {
                 return id;
             }
@@ -433,7 +434,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // Forgive me father, I have sinned.
             // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
             // and overall logic of preparing data for insert.
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true).Result)
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {

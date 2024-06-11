@@ -18,9 +18,8 @@ namespace Microsoft.Health.JobManagement
         /// Execute the job.
         /// </summary>
         /// <param name="jobInfo">The Job Info.</param>
-        /// <param name="progress">Report job progress.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Job result in string. </returns>
-        public Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken);
+        public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken);
     }
 }

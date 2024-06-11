@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -19,6 +20,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlRetryServiceTests : IClassFixture<SqlServerFhirStorageTestsFixture>
@@ -306,7 +308,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
@@ -319,7 +321,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;

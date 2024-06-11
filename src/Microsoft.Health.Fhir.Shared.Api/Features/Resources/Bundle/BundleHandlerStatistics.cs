@@ -4,8 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Utility;
@@ -15,11 +14,11 @@ using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    internal sealed class BundleHandlerStatistics : BaseOperationStatistics
+    public sealed class BundleHandlerStatistics : BaseOperationStatistics
     {
         private const string LoggingCategory = "bundleStatistics";
 
-        private readonly List<BundleHandlerStatisticEntry> _entries;
+        private readonly ConcurrentBag<BundleHandlerStatisticEntry> _entries;
 
         public BundleHandlerStatistics(
             BundleType? bundleType,
@@ -32,10 +31,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleProcessingLogic = bundleProcessingLogic;
             OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
-            _entries = new List<BundleHandlerStatisticEntry>();
+            _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
         }
 
         public int NumberOfResources { get; }
+
+        public int RegisteredEntries => _entries.Count;
 
         public BundleType? BundleType { get; }
 
@@ -53,8 +54,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 .ToArray();
 
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
-            int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 499);
-            int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 299);
+            int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 500);
+            int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
 
             JObject serializableEntity = JObject.FromObject(new
             {
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 processingLogic = BundleProcessingLogic.ToString(),
                 optimizedQuerySet = OptimizedQueryProcessing.ToString(),
                 numberOfResources = NumberOfResources,
+                registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
                 success = successedRequests,
                 errors = failedRequests,

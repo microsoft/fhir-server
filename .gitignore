@@ -295,3 +295,6 @@ install-aso/
 
 # Azurite temporary files
 __*
+
+# For our Mac friends
+.DS_Store

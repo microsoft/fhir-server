@@ -34,10 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             _searchService = searchService;
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 

@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     public class BulkDeleteProcessingJobTests
     {
         private IDeletionService _deleter;
-        private IProgress<string> _progress;
         private BulkDeleteProcessingJob _processingJob;
         private ISearchService _searchService;
         private IQueueClient _queueClient;
@@ -45,8 +44,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
             _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
-
-            _progress = new Progress<string>((result) => { });
         }
 
         [Fact]
@@ -64,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
                 .Returns(args => 3);
 
-            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None));
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
@@ -86,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
                 .Returns(args => 3);
 
-            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None));
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 

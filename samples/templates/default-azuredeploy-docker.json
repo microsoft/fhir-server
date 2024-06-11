@@ -230,6 +230,18 @@
             "metadata": {
                 "description": "Supports parallel background task running"
             }
+        },
+        "telemetryProviderType": {
+            "type": "string",
+            "defaultValue": "ApplicationInsights",
+            "allowedValues": [
+                "ApplicationInsights",
+                "OpenTelemetry",
+                "None"
+            ],
+            "metadata": {
+                "description": "The type of Telemetry provider being used for telemetry logging to Application Insights resource."
+            }
         }
     },
     "variables": {
@@ -343,7 +355,8 @@
                     "ftpsState": "Disabled"
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "clientAffinityEnabled": false
+                "clientAffinityEnabled": false,
+                "httpsOnly": true
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
@@ -358,7 +371,7 @@
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
                         "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString'))]"
                     ],
-                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
+                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{', '\"Telemetry__Provider\": \"', parameters('telemetryProviderType'), '\",', '\"Telemetry__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\",', '\"Telemetry__ConnectionString\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).ConnectionString, '\"', '}'))), variables('combinedFhirServerConfigProperties'))]"
                 },
                 {
                     "apiVersion": "2018-11-01",
@@ -389,7 +402,7 @@
                         "allow": false
                     }
                 },
-                                {
+                {
                     "apiVersion": "2020-12-01",
                     "name": "ftp",
                     "type": "basicPublishingCredentialsPolicies",
@@ -551,7 +564,7 @@
             ],
             "properties": {
                 "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
-                "principalId": "b542f965-4eec-4682-8999-78dd501df864"
+                "principalId": "89e25294-a480-4657-a77d-bf69c28a836c"
             }
         },
         {

@@ -42,7 +42,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("connection timeout expired", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("existing connection was forcibly closed by the remote host", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection was recovered and rowcount in the first query is not available", StringComparison.OrdinalIgnoreCase)
-                    || str.Contains("connection was successfully established with the server, but then an error occurred during the login process", StringComparison.OrdinalIgnoreCase);
+                    || str.Contains("connection was successfully established with the server, but then an error occurred during the login process", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("server provided routing information, but timeout already expired", StringComparison.OrdinalIgnoreCase);
 
             ////A severe error occurred on the current command.  The results, if any, should be discarded.
             ////Meaning:

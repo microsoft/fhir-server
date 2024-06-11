@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -21,9 +23,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     {
         protected ResourceActionResult()
         {
+            Headers = new HeaderDictionary();
         }
 
         protected ResourceActionResult(TResult result)
+            : this()
         {
             Result = result;
         }
@@ -47,13 +51,22 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Gets or sets the action result Headers.
         /// </summary>
-        internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
+        internal IHeaderDictionary Headers { get; }
 
-        public override Task ExecuteResultAsync(ActionContext context)
+        public override async Task ExecuteResultAsync(ActionContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            var fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+            RequestContextAccessor<IFhirRequestContext> fhirContext = null;
+
+            try
+            {
+                fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+            }
+            catch (ObjectDisposedException ode)
+            {
+                throw new ServiceUnavailableException(Resources.NotAbleToCreateTheFinalResultsOfAnOperation, ode);
+            }
 
             HttpResponse response = context.HttpContext.Response;
 
@@ -68,12 +81,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             foreach (KeyValuePair<string, StringValues> header in Headers)
             {
-                if (response.Headers.ContainsKey(header.Key))
+                try
                 {
-                    response.Headers.Remove(header.Key);
+                    response.Headers[header.Key] = header.Value;
                 }
-
-                response.Headers.Add(header);
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
             }
 
             ActionResult result;
@@ -86,7 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 result = new ObjectResult(GetResultToSerialize());
             }
 
-            return result.ExecuteResultAsync(context);
+            await result.ExecuteResultAsync(context);
         }
 
         protected virtual object GetResultToSerialize()

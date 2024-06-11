@@ -48,10 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
 
@@ -88,7 +87,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             definition.DeleteOperation,
                             maxDeleteCount: null,
                             deleteAll: true,
-                            versionType: definition.VersionType),
+                            versionType: definition.VersionType,
+                            allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                         cancellationToken);
                 }
                 catch (IncompleteOperationException<long> ex)
@@ -104,9 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
-                    jobException.RequestCancellationOnFailure = true;
-                    throw jobException;
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
                 }
 
                 if (types.Count > 1)

@@ -80,6 +80,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     var connectionStringBuilder = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
                     var databaseName = connectionStringBuilder.InitialCatalog += "_" + startupType.Name;
+                    var temp = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
+                    temp.InitialCatalog = databaseName;
+                    ConnectionString = temp.ToString();
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
                     configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
@@ -147,6 +150,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             _builtConfiguration = Server.Services.GetRequiredService<IConfiguration>();
         }
+
+        internal string ConnectionString { get; private set; }
 
         public TestServer Server { get; }
 
