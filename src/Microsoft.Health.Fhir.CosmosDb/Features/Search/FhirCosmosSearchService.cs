@@ -576,7 +576,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return new SearchResult(
-                results,
+                results.ToList(),
                 continuationToken,
                 searchOptions.Sort,
                 searchOptions.UnsupportedSearchParams);

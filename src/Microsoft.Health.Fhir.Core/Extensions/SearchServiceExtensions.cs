@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                         matchedResults.AddRange(
                             results?.Results
                                 .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
-                                .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+                                .Take(Math.Max(count.HasValue ? 0 : results.Results.Count, count.GetValueOrDefault() - matchedResults.Count)));
                     }
                 }
                 while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));

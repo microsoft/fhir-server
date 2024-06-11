@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 null,
                 null);
             var searchEntry = new SearchResultEntry(wrapper);
-            return new SearchResult(Enumerable.Repeat(searchEntry, 1), continuationToken, null, new List<Tuple<string, string>>());
+            return new SearchResult(Enumerable.Repeat(searchEntry, 1).ToList(), continuationToken, null, new List<Tuple<string, string>>());
         }
     }
 }

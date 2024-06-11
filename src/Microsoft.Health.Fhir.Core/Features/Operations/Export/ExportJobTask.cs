@@ -541,7 +541,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult.Results, anonymizer);
+                    ProcessSearchResults(searchResult.Results.ToList(), anonymizer);
                 }
 
                 if (searchResult.ContinuationToken == null)
@@ -680,7 +680,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         _exportJobRecord.SmartRequest);
                 }
 
-                ProcessSearchResults(searchResult.Results, anonymizer);
+                ProcessSearchResults(searchResult.Results.ToList(), anonymizer);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -697,7 +697,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             progress.MarkFilterFinished();
         }
 
-        private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
+        private void ProcessSearchResults(IReadOnlyCollection<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
             foreach (SearchResultEntry result in searchResults)
             {

@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (result.Results.Any())
             {
-                if (result.Results.Count() > 1)
+                if (result.Results.Count > 1)
                 {
                     _logger.LogWarning("More than one SearchParameter found with url {Url}. This may cause unpredictable behavior.", url);
                 }

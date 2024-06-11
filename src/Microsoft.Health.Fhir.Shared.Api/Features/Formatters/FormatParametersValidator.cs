@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     throw new NotAcceptableException(Api.Resources.UnsupportedFormatParameter);
                 }
 
-                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
+                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value).ToList());
 
                 // Overrides output format type
                 httpContext.Response.ContentType = closestClientMediaType;
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementOnStartup();
 
-            IEnumerable<string> formats = typedStatement.Select("CapabilityStatement.format").Select(x => (string)x.Value);
+            var formats = typedStatement.Select("CapabilityStatement.format").Select(x => (string)x.Value).ToList();
 
             return _supportedFormats.GetOrAdd(resourceFormat, format =>
             {

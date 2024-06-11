@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 }
             }
 
-            return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+            return new SearchResult(searchResult.Results.ToList(), nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
 
         private async Task<SearchResult> SearchIncludes(
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             if ((_modelInfoProvider.Version == FhirSpecification.R5) ||
                 (types.Any() && !types.Contains(_revinclude.resourceType)))
             {
-                return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+                return new SearchResult(new List<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
 
             var searchParameters = new List<Tuple<string, string>>
@@ -480,7 +480,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             if (!dateResourceTypes.Any())
             {
-                return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+                return new SearchResult(new List<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
 
             var searchParameters = new List<Tuple<string, string>>
@@ -534,7 +534,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             if (!nonDateResourceTypes.Any())
             {
-                return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+                return new SearchResult(new List<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
 
             var searchParameters = new List<Tuple<string, string>>
@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 var filteredTypes = compartmentResourceTypes.Intersect(types).ToList();
                 if (!filteredTypes.Any())
                 {
-                    return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+                    return new SearchResult(new List<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
                 }
 
                 searchParameters.Add(Tuple.Create(SearchParameterNames.ResourceType, string.Join(',', filteredTypes)));

@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(GetAllSearchParameters))]
         public async Task CheckSearchParameter(
             string resourceType,
-            IEnumerable<SearchParameterInfo> parameters)
+            IReadOnlyCollection<SearchParameterInfo> parameters)
         {
             foreach (var parameterInfo in parameters)
             {

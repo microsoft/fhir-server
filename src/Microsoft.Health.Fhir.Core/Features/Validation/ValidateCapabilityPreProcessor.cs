@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             if (request is IRequireCapability provider)
             {
-                if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities(), cancellationToken))
+                if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities().ToList(), cancellationToken))
                 {
                     throw new MethodNotAllowedException(Core.Resources.RequestedActionNotAllowed);
                 }

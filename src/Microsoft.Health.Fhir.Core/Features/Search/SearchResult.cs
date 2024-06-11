@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="searchIssues">List of search issues found.</param>
         public SearchResult(
-            IEnumerable<SearchResultEntry> results,
+            IReadOnlyCollection<SearchResultEntry> results,
             string continuationToken,
             IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortOrder,
             IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
@@ -47,14 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             UnsupportedSearchParameters = unsupportedSearchParameters;
             TotalCount = totalCount;
-            Results = Enumerable.Empty<SearchResultEntry>();
+            Results = new List<SearchResultEntry>();
             SearchIssues = Array.Empty<OperationOutcomeIssue>();
         }
 
         /// <summary>
         /// Gets the search results.
         /// </summary>
-        public IEnumerable<SearchResultEntry> Results { get; }
+        public IReadOnlyCollection<SearchResultEntry> Results { get; }
 
         /// <summary>
         /// Gets the list of unsupported search parameters.

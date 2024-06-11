@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 });
 
             var searchResult = new SearchResult(
-                Enumerable.Empty<SearchResultEntry>(),
+                new List<SearchResultEntry>(),
                 null,
                 null,
                 new[] { Tuple.Create("unknown1", "unknown") });
