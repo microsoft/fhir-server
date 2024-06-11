@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             {
                 await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
                 Assert.False(cts.IsCancellationRequested);
