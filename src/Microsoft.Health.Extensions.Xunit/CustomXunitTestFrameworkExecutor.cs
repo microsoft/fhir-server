@@ -194,7 +194,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
         /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
         /// </summary>
-        private sealed class CustomAssemblyInfo : IAssemblyInfo
+        private sealed class CustomAssemblyInfo : LongLivedMarshalByRefObject, IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
             private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
