@@ -212,31 +212,31 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 return;
             }
 
-            ////try
-            ////{
-            ////    ////await DbSetupSemaphore.WaitAsync(cancellationToken);
-            ////    try
-            ////    {
-            ////        SqlConnection.ClearAllPools();
+            try
+            {
+                ////await DbSetupSemaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    SqlConnection.ClearAllPools();
 
-            ////        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-            ////        await connection.OpenAsync(cancellationToken);
-            ////        await using SqlCommand command = connection.CreateCommand();
-            ////        command.CommandTimeout = 600;
-            ////        command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                    await connection.OpenAsync(cancellationToken);
+                    await using SqlCommand command = connection.CreateCommand();
+                    command.CommandTimeout = 60;
+                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
 
-            ////        await command.ExecuteNonQueryAsync(cancellationToken);
-            ////        await connection.CloseAsync();
-            ////    }
-            ////    finally
-            ////    {
-            ////        ////DbSetupSemaphore.Release();
-            ////    }
-            ////}
-            ////catch (Exception ex)
-            ////{
-            ////    Trace.TraceError("Failed to delete database: " + ex.Message);
-            ////}
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    await connection.CloseAsync();
+                }
+                finally
+                {
+                    ////DbSetupSemaphore.Release();
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("Failed to delete database: " + ex.Message);
+            }
 
             await Task.CompletedTask;
         }
