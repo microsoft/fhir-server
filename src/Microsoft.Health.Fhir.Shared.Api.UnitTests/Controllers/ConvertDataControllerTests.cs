@@ -90,6 +90,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetJsonValidConvertDataParams(),
                 GetJsonValidConvertDataParamsIgnoreCasesAllLowercase(),
                 GetJsonValidConvertDataParamsIgnoreCasesAllUppercase(),
+                GetJsonValidConvertDataParamsAndDateTimeAsStringEnabled(),
+                GetJsonValidConvertDataParamsAndDateTimeAsStringDisabled(),
             };
 
         public static TheoryData<Parameters> FhirValidBody =>
@@ -189,6 +191,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(FhirValidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
+            var treatDatesAsStrings = body.GetSingleValue<FhirBoolean>(ConvertDataProperties.JsonDeserializationTreatDatesAsStrings) ?? new FhirBoolean();
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataEnabledController.ConvertData(body);
             await _mediator.Received().Send(
@@ -196,7 +199,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
                 && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)
                 && r.TemplateCollectionReference == body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.TemplateCollectionReference)).Value.ToString()
-                && r.RootTemplate == body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.RootTemplate)).Value.ToString()),
+                && r.RootTemplate == body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.RootTemplate)).Value.ToString()
+                && r.JsonDeserializationTreatDatesAsStrings == (treatDatesAsStrings.Value ?? false)),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
         }
@@ -302,6 +306,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private static Parameters GetJsonValidConvertDataParams()
         => GetConvertDataParams(Samples.SampleJsonMessage, "Json", _testImageReference, _testJsonRootTemplate);
 
+        private static Parameters GetJsonValidConvertDataParamsAndDateTimeAsStringEnabled()
+        => GetConvertDataParams(Samples.SampleJsonMessage, "Json", _testImageReference, _testJsonRootTemplate, true);
+
+        private static Parameters GetJsonValidConvertDataParamsAndDateTimeAsStringDisabled()
+        => GetConvertDataParams(Samples.SampleJsonMessage, "Json", _testImageReference, _testJsonRootTemplate, false);
+
         private static Parameters GetJsonValidConvertDataParamsIgnoreCasesAllLowercase()
         => GetConvertDataParams(Samples.SampleJsonMessage, "json", _testImageReference, _testJsonRootTemplate);
 
@@ -317,15 +327,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private static Parameters GetFhirValidConvertDataParamsIgnoreCasesAllUppercase()
         => GetConvertDataParams(Samples.SampleFhirStu3Message, "FHIR", _testImageReference, _testFhirStu3ToR4RootTemplate);
 
-        private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
+        private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate, bool? treatDatesAsStrings = null)
         {
-            var parametersResource = new Parameters();
-            parametersResource.Parameter = new List<Parameters.ParameterComponent>();
+            var parametersResource = new Parameters()
+            {
+                Parameter = new List<Parameters.ParameterComponent>(),
+            };
 
             AddParamComponent(parametersResource, ConvertDataProperties.InputData, inputData);
             AddParamComponent(parametersResource, ConvertDataProperties.InputDataType, inputDataType);
             AddParamComponent(parametersResource, ConvertDataProperties.TemplateCollectionReference, templateSetReference);
             AddParamComponent(parametersResource, ConvertDataProperties.RootTemplate, rootTemplate);
+
+            if (treatDatesAsStrings.HasValue)
+            {
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.JsonDeserializationTreatDatesAsStrings, Value = new FhirBoolean(treatDatesAsStrings) });
+            }
 
             return parametersResource;
         }
