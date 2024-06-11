@@ -142,9 +142,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             {
                 await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
             }
-            catch (AggregateException age)
+            catch (TaskCanceledException)
             {
-                Assert.True(age.InnerException is TaskCanceledException);
                 Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
                 Assert.False(cts.IsCancellationRequested);
 
