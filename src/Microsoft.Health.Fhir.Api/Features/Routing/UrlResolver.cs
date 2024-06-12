@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request.Host.Value);
         }
 
-        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
+        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
         {
             string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
 
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     else
                     {
                         // 3. The exclude unsupported parameters
-                        IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
+                        var removedValues = searchParamsToRemove[searchParam.Key].ToList();
                         StringValues usedValues = removedValues.Any()
                             ? new StringValues(
                                 searchParam.Value.Select(x => x.SplitByOrSeparator().Except(removedValues).JoinByOrSeparator())

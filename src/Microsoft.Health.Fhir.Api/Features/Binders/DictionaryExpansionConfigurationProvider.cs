@@ -48,7 +48,7 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 
         var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        EnumerateKeys(keys, data);
+        EnumerateKeys((IReadOnlyCollection<string>)keys, data);
 
         Data = data;
     }
@@ -86,7 +86,7 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         }
     }
 
-    private void EnumerateKeys(IEnumerable<string> keys, Dictionary<string, string> data, string path = null)
+    private void EnumerateKeys(IReadOnlyCollection<string> keys, Dictionary<string, string> data, string path = null)
     {
         foreach (string keyName in keys.Distinct())
         {
@@ -103,7 +103,7 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
                 }
             }
 
-            IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
+            var innerKeys = (IReadOnlyCollection<string>)_configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
             EnumerateKeys(innerKeys, data, keyPath);
         }
     }

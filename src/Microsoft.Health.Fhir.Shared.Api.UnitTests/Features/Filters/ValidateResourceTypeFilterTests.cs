@@ -80,12 +80,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        private static ActionExecutingContext CreateContext(Base type)
+        [Fact]
+        public void GivenAnPatchFhirAction_WhenPostingAParametersObject_ThenTheResultIsSuccessful()
+        {
+            var filter = new ValidateResourceTypeFilterAttribute();
+
+            var parameters = new Parameters();
+            parameters.Add("resource", new Observation());
+            var context = CreateContext(parameters, true);
+
+            filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenAnPatchFhirAction_WhenPostingAParametersObservationObject_ThenATypeMistatchExceptionShouldBeThrown()
+        {
+            var filter = new ValidateResourceTypeFilterAttribute();
+
+            var context = CreateContext(new Observation(), true);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        private static ActionExecutingContext CreateContext(Base type, bool paramsResource = false)
         {
             return new ActionExecutingContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
-                new Dictionary<string, object> { { "resource", type } },
+                new Dictionary<string, object> { { (!paramsResource) ? "resource" : "paramsResource", type } },
                 FilterTestsHelper.CreateMockFhirController());
         }
     }
