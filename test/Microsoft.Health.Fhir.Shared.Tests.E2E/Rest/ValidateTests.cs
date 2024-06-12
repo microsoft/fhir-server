@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
-        public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
+        public async Task GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Organization/$validate", "Organization", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Patient/$validate", "Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         [InlineData("CarePlan/$validate", "CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
-        public async void GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
+        public async Task GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(
             "Patient/$validate",
             "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}")]
-        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload)
+        public async Task GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
             Exception exception = null;
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}",
             "Resource type in the URL must match resourceType in the resource.",
             "TypeName")]
-        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string expression)
+        public async Task GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string expression)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
+        public async Task GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
             var parser = new FhirJsonParser();
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenUnpresentIdRequest_WhenValidateIt_ThenAnErrorShouldBeReturned()
+        public async Task GivenUnpresentIdRequest_WhenValidateIt_ThenAnErrorShouldBeReturned()
         {
             var exception = await Assert.ThrowsAsync<FhirClientException>(async () =>
             await _client.ValidateByIdAsync(ResourceType.Patient, "-1", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"));
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
+        public async Task GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
         {
             Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
@@ -165,7 +166,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
+        public async Task GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenAValidateRequest_WhenAnInvalidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
+        public async Task GivenAValidateRequest_WhenAnInvalidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}}]}";
 
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
+        public async Task GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
         {
             var patient = Samples.GetJson("Patient");
             var profile = "abc";
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
+        public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
 #if !Stu3

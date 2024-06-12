@@ -56,14 +56,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return Expression.GreaterThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(truncated.AddTicks(TimeSpan.TicksPerMillisecond)));
+                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
                 case BinaryOperator.GreaterThanOrEqual:
                     if (original == truncated)
                     {
                         return Expression.GreaterThanOrEqual(
                             SqlFieldName.ResourceSurrogateId,
                             null,
-                            ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(truncated));
+                            new DateTimeOffset(truncated).ToSurrogateId());
                     }
 
                     goto case BinaryOperator.GreaterThan;
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return Expression.LessThan(
                             SqlFieldName.ResourceSurrogateId,
                             null,
-                            ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(truncated));
+                            new DateTimeOffset(truncated).ToSurrogateId());
                     }
 
                     goto case BinaryOperator.LessThanOrEqual;
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return Expression.LessThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(truncated.AddTicks(TimeSpan.TicksPerMillisecond)));
+                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
                 case BinaryOperator.NotEqual:
                 case BinaryOperator.Equal: // expecting eq to have been rewritten as a range
                 default:

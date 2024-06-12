@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
     public sealed class MetricEmitterAttributeTests
     {
         [Fact]
-        public async void BundleEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
+        public async Task BundleEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             IBundleMetricHandler metricHandler = Substitute.For<IBundleMetricHandler>();
             metricHandler.EmitLatency(Arg.Any<BundleMetricNotification>());
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
         }
 
         [Fact]
-        public async void SearchEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
+        public async Task SearchEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             ISearchMetricHandler metricHandler = Substitute.For<ISearchMetricHandler>();
             metricHandler.EmitLatency(Arg.Any<SearchMetricNotification>());
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
         }
 
         [Fact]
-        public async void CrudEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
+        public async Task CrudEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             ICrudMetricHandler metricHandler = Substitute.For<ICrudMetricHandler>();
             metricHandler.EmitLatency(Arg.Any<CrudMetricNotification>());

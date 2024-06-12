@@ -67,11 +67,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var operationOutcomeIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, "Id was Invalid");
 
-            var validationError = Task.FromResult(new ValidationResult(new[] { new FhirValidationFailure("Id", operationOutcomeIssue.Diagnostics, operationOutcomeIssue) }));
-            validationError.Result.Errors[0].ErrorCode = "Custom";
+            var validationError = new ValidationResult(new[] { new FhirValidationFailure("Id", operationOutcomeIssue.Diagnostics, operationOutcomeIssue) });
+            validationError.Errors[0].ErrorCode = "Custom";
             mockValidator
                 .ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>())
-                .Returns(validationError);
+                .Returns(Task.FromResult(validationError));
 
             var exception = await Assert.ThrowsAsync<ResourceNotValidException>(async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
 

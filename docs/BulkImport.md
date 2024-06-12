@@ -3,20 +3,19 @@
 There are two modes of $import supported today-
 
 1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
-1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated and versionId from resource Meta (if present in resource JSON).
+1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated, or both lastUpdated and versionId, from resource Meta (if present in resource JSON). There are no performance differences between incremental and initial modes.  
 
 The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
 
 ## Prerequisites
 
 * NDJSON FHIR data to be imported.
-* Each NDJSON file should contain resources of only one type.
-* You may have multiple NDJSON files per resource type.
+* You may have multiple NDJSON files in single import.
 
 ### Current limitations
 
-* Conditional references in resources are not supported for initial mode import.
-* If multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
+* In initial mode, resources with conditional references will be logged as errors. In incremental mode, resources with conditional references will be loaded but references will not be resolved.
+* If multiple input resource records share the same resource ID, they are deduplicated. This logic choses one record for load, while the rest are logged as errors. In initial mode deduplication is performed on resource ID. In incremental mode, if lastUpdated is not provided, deduplication is the same as in the initial mode. If lastUpdated is provided, then resource records are deduplicated on a combination of resource ID and lastUpdated. The choice of record for load is not deterministic, as it is dependent on the processing order of records, and this order is not guaranteed by distributed parallel import design.
 
 ## How to use $import
 
@@ -105,7 +104,8 @@ Content-Type:application/fhir+json
 | Parameter Name      | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
-| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -127,6 +127,10 @@ Content-Type:application/fhir+json
         {
             "name": "mode",
             "valueString": "IncrementalLoad"
+        },
+        {
+            "name": "allowNegativeVersions",
+            "valueBoolean": true
         },
         {
             "name": "input",
@@ -316,7 +320,8 @@ Below are some errors you may encounter:
 1. Deploy the FHIR server, SQL Server database, and the storage account in the same region to avoid data movement across regions.
 1. The optimal NDJSON file size for import is >=50MB (or >=20K resources, no upper limit). Consider combining smaller files together.
 1. For optimal performance total size of files in single import should be large (>=100GB or >=100M resources, no upper limit). 
-1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports. There is no limit on number of files in single import (tested with 50K files). 
+1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports.
+1. There is no limit on number of files in single import (tested with 50K files). Small number of files (up to single file) is preferred. 
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.

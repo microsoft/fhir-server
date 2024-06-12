@@ -266,6 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ResourceType = input.Type,
                     GroupId = groupId,
                     ImportMode = coordDefinition.ImportMode,
+                    AllowNegativeVersions = coordDefinition.AllowNegativeVersions,
                 };
 
                 definitions.Add(importJobPayload);
