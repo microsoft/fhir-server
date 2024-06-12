@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.SearchParameterState
 {
@@ -173,7 +174,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithNoQueries_WhenHandling_ThenAllSearchParametersAreReturned()
+        public async Task GivenARequestWithNoQueries_WhenHandling_ThenAllSearchParametersAreReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>());
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithAValidUrl_WhenHandling_ThenSearchParameterMatchingUrlIsReturned()
+        public async Task GivenARequestWithAValidUrl_WhenHandling_ThenSearchParameterMatchingUrlIsReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Url, ResourceId) });
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithAValidCode_WhenHandling_ThenSearchParameterMatchingCodeIsReturned()
+        public async Task GivenARequestWithAValidCode_WhenHandling_ThenSearchParameterMatchingCodeIsReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated") });
@@ -231,7 +232,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithAValidResourceType_WhenHandling_ThenSearchParametersMatchingResourceTypeAreReturned()
+        public async Task GivenARequestWithAValidResourceType_WhenHandling_ThenSearchParametersMatchingResourceTypeAreReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
@@ -252,7 +253,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithAValidCodeAndResourceType_WhenHandling_ThenSearchParameterMatchingCodeAndResourceTypeIsReturned()
+        public async Task GivenARequestWithAValidCodeAndResourceType_WhenHandling_ThenSearchParameterMatchingCodeAndResourceTypeIsReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
@@ -269,7 +270,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestWithAValidCodeAndResourceTypeThatDonotHaveMatchinSearchParameters_WhenHandling_ThenNoSearchParametersAreReturned()
+        public async Task GivenARequestWithAValidCodeAndResourceTypeThatDonotHaveMatchinSearchParameters_WhenHandling_ThenNoSearchParametersAreReturned()
         {
             // Arrange
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "nomatch") });

@@ -219,14 +219,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 bundleTasks.Add(_client.PostBundleAsync(bundle, new Client.FhirBundleOptions(), cancellationToken));
             }
 
-            Task.WaitAll(bundleTasks.ToArray());
+            await Task.WhenAll(bundleTasks.ToArray());
 
             // 4 - Validate the response of every bundle.
             int validatedResources = 0;
             HashSet<string> uniquePatientIds = new HashSet<string>();
             foreach (Task<Client.FhirResponse<Bundle>> task in bundleTasks)
             {
-                Client.FhirResponse<Bundle> fhirResponse = task.Result;
+                Client.FhirResponse<Bundle> fhirResponse = await task;
 
                 foreach (EntryComponent item in fhirResponse.Resource.Entry)
                 {
