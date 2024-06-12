@@ -91,11 +91,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
         {
             if (keys == null || keys.Count == 0)
             {
-                return new List<ResourceDateKey>();
+                return new List<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>();
             }
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
@@ -110,11 +110,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var resourceId = reader.Read(table.ResourceId, 1);
                     var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
                     var version = reader.Read(table.Version, 3);
-                    return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
+                    string matchedVersion = null;
+                    RawResource matchedRawResource = null;
+                    if (reader.FieldCount > 4 && version == 0)
+                    {
+                        matchedVersion = reader.Read(table.Version, 4).ToString();
+                        matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5), FhirResourceFormat.Json, true);
+                    }
+
+                    return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedRawResource));
                 },
                 _logger,
                 cancellationToken);
             return resources;
+        }
+
+        private static string ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index)
+        {
+            var rawResourceBytes = reader.GetSqlBytes(index).Value;
+            string rawResource;
+            if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
+            {
+                rawResource = _invisibleResource;
+            }
+            else
+            {
+                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                rawResource = decompress(rawResourceStream);
+            }
+
+            return rawResource;
         }
 
         internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
@@ -133,29 +158,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var version = reader.Read(VLatest.Resource.Version, 3);
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
-            var rawResourceBytes = reader.GetSqlBytes(6).Value;
+            var rawResource = ReadRawResource(reader, decompress, 6);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
-
-            string rawResource;
-            if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
-            {
-                rawResource = _invisibleResource;
-            }
-            else
-            {
-                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                rawResource = decompress(rawResourceStream);
-            }
-
             return new ResourceWrapper(
                 resourceId,
                 version.ToString(CultureInfo.InvariantCulture),
                 getResourceTypeName(resourceTypeId),
                 new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                 readRequestMethod ? new ResourceRequest(requestMethod) : null,
-                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                resourceSurrogateId.ToLastUpdated(),
                 isDeleted,
                 searchIndices: null,
                 compartmentIndices: null,

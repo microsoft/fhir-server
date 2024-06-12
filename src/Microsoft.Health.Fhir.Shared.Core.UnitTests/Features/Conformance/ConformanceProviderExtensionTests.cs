@@ -13,6 +13,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using ResourceVersionPolicy = Hl7.Fhir.Model.CapabilityStatement.ResourceVersionPolicy;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData(ResourceVersionPolicy.NoVersion, false)]
         [InlineData(ResourceVersionPolicy.Versioned, true)]
         [InlineData(ResourceVersionPolicy.VersionedUpdate, true)]
-        public async void GivenCoreConfigWithVersioningPolicy_WhenCheckingIfKeepHistory_ThenCorrectValueIsReturned(ResourceVersionPolicy versioningPolicy, bool expectedKeepHistory)
+        public async Task GivenCoreConfigWithVersioningPolicy_WhenCheckingIfKeepHistory_ThenCorrectValueIsReturned(ResourceVersionPolicy versioningPolicy, bool expectedKeepHistory)
         {
             const ResourceType resourceType = ResourceType.Patient;
 

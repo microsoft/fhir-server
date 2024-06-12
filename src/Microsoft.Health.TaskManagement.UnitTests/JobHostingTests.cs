@@ -405,7 +405,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             tokenSource.Cancel();
-            host.Wait();
+            await host;
 
             Assert.Equal(numberOfJobs, jobs.Where(t => t.Status == JobStatus.Completed).Count());
             Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber} > 5");
