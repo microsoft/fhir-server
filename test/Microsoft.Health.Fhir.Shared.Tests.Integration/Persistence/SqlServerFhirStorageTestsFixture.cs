@@ -124,9 +124,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISearchService SearchService => _searchService;
 
-        internal static string GetDatabaseName(string testName)
+        internal static string GetDatabaseName(string testClassName)
         {
-            return $"{ModelInfoProvider.Version}_{testName}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            return $"{ModelInfoProvider.Version}_{testClassName}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         }
 
         public async Task InitializeAsync()

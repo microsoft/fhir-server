@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3)); // this is too short for Azure
         }
 
+        internal bool DropDatabase => false;
+
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
@@ -194,9 +196,9 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             await connection.CloseAsync();
         }
 
-        public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default, bool trueDrop = false)
+        public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (!trueDrop)
+            if (!DropDatabase)
             {
                 return;
             }

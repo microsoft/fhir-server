@@ -17,14 +17,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlDataReaderExtensionsTests
+    public class SqlDataReaderExtensionsTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly string _connectionString;
 
-        public SqlDataReaderExtensionsTests()
+        public SqlDataReaderExtensionsTests(SqlServerFhirStorageTestsFixture fixture)
         {
-            var fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlDataReaderExtensionsTests)));
-            fixture.InitializeAsync().Wait();
             _connectionString = fixture.TestConnectionString;
         }
 

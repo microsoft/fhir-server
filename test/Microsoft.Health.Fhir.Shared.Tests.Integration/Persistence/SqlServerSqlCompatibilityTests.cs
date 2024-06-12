@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds()
         {
-            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds");
+            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             var insertedElements = new List<string>();
 
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 if (version >= Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5) && version <= SchemaVersionConstants.Max)
                 {
-                    string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds_V{version}");
+                    string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
                     FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
 
-            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful");
+            string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
                 schemaVersion,

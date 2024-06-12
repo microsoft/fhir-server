@@ -23,17 +23,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlRetryServiceTests
+    public class SqlRetryServiceTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
         private const int SqlDivByZeroErrorNumber = 8134;
         private const int SqlDefaultErrorNumber = 50000;
 
-        public SqlRetryServiceTests(ITestOutputHelper output)
+        public SqlRetryServiceTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
-            _fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlRetryServiceTests)));
-            _fixture.InitializeAsync().Wait();
+            _fixture = fixture;
             _output = output;
         }
 
