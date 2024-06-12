@@ -86,6 +86,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.NotEmpty(patient.Id);
             Assert.Equal("Smith", patient.Name.First().Family);
             Assert.Equal("2001-01-10", patient.BirthDate);
+            Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
         }
 
         [Fact]
@@ -126,7 +127,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 templateProviderFactory,
                 convertProcessorFactory,
                 convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
 
             IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             authorizationService.CheckAccess(default, default).ReturnsForAnyArgs(DataActions.ConvertData);
@@ -149,7 +151,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleJsonRequest()
         {
-            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient", true);
         }
 
         private static ConvertDataRequest GetSampleFhirRequest()
