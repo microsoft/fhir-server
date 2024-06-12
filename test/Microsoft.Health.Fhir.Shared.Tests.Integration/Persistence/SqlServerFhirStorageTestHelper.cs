@@ -104,6 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+
+            throw new InvalidOperationException("Test");
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
