@@ -75,12 +75,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion = 0, string databaseName = null, IOptions<CoreFeatureConfiguration> coreFeatures = null)
+        public SqlServerFhirStorageTestsFixture()
+            : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
+        {
+        }
+
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
             _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
-            _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion == 0 ? SchemaVersionConstants.Max : maximumSupportedSchemaVersion;
-            _databaseName = databaseName == null ? $"Integration_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}" : databaseName;
+            _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
+            _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
@@ -93,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CommandTimeout = TimeSpan.FromMinutes(3),
             });
 
-            SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, _maximumSupportedSchemaVersion);
+            SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
             _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
         }
@@ -110,8 +115,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; private set; }
 
-        internal ISqlServerFhirStorageTestHelper SqlHelper => _testHelper;
-
         internal SqlRetryService SqlRetryService { get; private set; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
@@ -120,14 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SchemaInformation SchemaInformation { get; private set; }
 
-        internal TestSqlHashCalculator SqlQueryHashCalculator { get; private set; }
-
-        internal ISearchService SearchService => _searchService;
-
-        internal static string GetDatabaseName(string testClassName)
-        {
-            return $"{ModelInfoProvider.Version}_{testClassName}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-        }
+        internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
         public async Task InitializeAsync()
         {
