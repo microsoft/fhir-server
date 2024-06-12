@@ -13,5 +13,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Vid = "vidParameter";
         public const string CompartmentType = "compartmentTypeParameter";
         public const string Bundle = "bundle";
+        public const string ParamsResource = "paramsResource";
     }
 }

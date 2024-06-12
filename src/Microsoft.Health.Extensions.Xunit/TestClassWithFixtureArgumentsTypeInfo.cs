@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// A special <see cref="ITypeInfo"/> for a test class that will use a fixture instantiated with with a single set of constructor arguments.
     /// The <see cref="Name"/> property is customized to be of the form Namespace.Class(Arg1, Arg2)
     /// </summary>
-    public class TestClassWithFixtureArgumentsTypeInfo : IReflectionTypeInfo
+    public class TestClassWithFixtureArgumentsTypeInfo : LongLivedMarshalByRefObject, IReflectionTypeInfo
     {
         private readonly ITypeInfo _typeInfoImplementation;
 
