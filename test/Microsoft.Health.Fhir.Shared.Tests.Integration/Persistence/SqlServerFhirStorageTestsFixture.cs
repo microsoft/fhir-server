@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SqlQueueClient _sqlQueueClient;
 
         public SqlServerFhirStorageTestsFixture()
-            : this(SchemaVersionConstants.Max, $"{ModelInfoProvider.Version}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}")
+            : this(SchemaVersionConstants.Max, $"{ModelInfoProvider.Version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
         {
         }
 
