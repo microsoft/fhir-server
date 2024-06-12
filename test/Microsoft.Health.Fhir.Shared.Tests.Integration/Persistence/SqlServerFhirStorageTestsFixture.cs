@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal static string GetDatabaseName(string test = null)
         {
-            return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", "_").Replace(":", "_")}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
+            return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
         public async Task InitializeAsync()
