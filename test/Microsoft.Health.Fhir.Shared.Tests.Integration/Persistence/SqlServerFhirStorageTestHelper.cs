@@ -222,7 +222,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                     command.CommandTimeout = 15;
                     command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
 
-                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    ////await command.ExecuteNonQueryAsync(cancellationToken);
                     await connection.CloseAsync();
                 }
                 finally
