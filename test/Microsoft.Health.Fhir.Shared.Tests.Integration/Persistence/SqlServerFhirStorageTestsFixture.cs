@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SqlQueueClient _sqlQueueClient;
 
         public SqlServerFhirStorageTestsFixture()
-            : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
+            : this(SchemaVersionConstants.Max, $"{ModelInfoProvider.Version}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}")
         {
         }
 
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
-            _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
+            _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion == 0 ? SchemaVersionConstants.Max : maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
@@ -98,12 +98,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CommandTimeout = TimeSpan.FromMinutes(3),
             });
 
-            SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
+            SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, _maximumSupportedSchemaVersion);
 
             _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
         }
 
         public string TestConnectionString { get; private set; }
+
+        internal ISearchService SearchService => _searchService;
 
         internal SqlTransactionHandler SqlTransactionHandler { get; private set; }
 
@@ -123,7 +125,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SchemaInformation SchemaInformation { get; private set; }
 
-        internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
+        internal TestSqlHashCalculator SqlQueryHashCalculator { get; private set; }
+
+        internal ISqlServerFhirStorageTestHelper SqlHelper => _testHelper;
+
+        internal static string GetDatabaseName(string testName)
+        {
+            return $"{ModelInfoProvider.Version}_{testName}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        }
 
         public async Task InitializeAsync()
         {

@@ -32,14 +32,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlCustomQueryTests : IClassFixture<FhirStorageTestsFixture>
+    public class SqlCustomQueryTests
     {
-        private readonly FhirStorageTestsFixture _fixture;
+        private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
 
-        public SqlCustomQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
+        public SqlCustomQueryTests(ITestOutputHelper output)
         {
-            _fixture = fixture;
+            _fixture = new SqlServerFhirStorageTestsFixture(0, SqlServerFhirStorageTestsFixture.GetDatabaseName("SqlCustomQueryTests"));
+            _fixture.InitializeAsync().Wait();
             _output = output;
         }
 
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
-            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var conn = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
             Skip.If(
