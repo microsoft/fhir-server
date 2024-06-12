@@ -711,7 +711,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
-            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+            expected_resources.Add((await AddObservationToPatient(null, dates[0], tag)).First());
 
             // Get observations
             var returnedResults = await GetResultsFromAllPagesAsync($"Observation?_tag={tag}&_sort=date&subject:missing=true");
@@ -740,7 +740,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
-            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+            expected_resources.Add((await AddObservationToPatient(null, dates[0], tag)).First());
 
             // Get observations
             var returnedResults = await GetResultsFromAllPagesAsync($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true");
@@ -769,7 +769,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
-            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+            expected_resources.Add((await AddObservationToPatient(null, dates[0], tag)).First());
 
             // Get observations
             var returnedResults = await GetResultsFromAllPagesAsync($"Observation?_tag={tag}&_sort=-_lastUpdated&subject:missing=true");
