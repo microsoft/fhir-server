@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
+        private static readonly object _locker = new object();
+        private static bool? _isAzure = null;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -198,6 +200,22 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
+            if (!_isAzure.HasValue)
+            {
+                lock (_locker)
+                {
+                    if (!_isAzure.HasValue)
+                    {
+                        _isAzure = IsAzure(); // cannot await in the lock
+                    }
+                }
+            }
+
+            if (_isAzure.Value)
+            {
+                return;
+            }
+
             try
             {
                 SqlConnection.ClearAllPools();
@@ -208,7 +226,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 command.CommandTimeout = 15;
                 command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
 
-                ////await command.ExecuteNonQueryAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
                 await connection.CloseAsync();
             }
             catch (Exception ex)
@@ -357,6 +375,15 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
             var result = new SqlConnection(connectionBuilder.ToString());
             return result;
+        }
+
+        private bool IsAzure()
+        {
+            using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);
+            using var cmd = new SqlCommand("SELECT patindex('%Azure SQL%',@@version)", conn);
+            conn.Open();
+            var value = cmd.ExecuteScalar();
+            return (int)value > 0;
         }
     }
 }
