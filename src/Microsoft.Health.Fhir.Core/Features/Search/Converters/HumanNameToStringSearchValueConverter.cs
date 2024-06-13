@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            var givenNames = value.Select("given").ToList();
-            var prefixes = value.Select("prefix").ToList();
-            var suffixes = value.Select("suffix").ToList();
+            IEnumerable<ITypedElement> givenNames = value.Select("given");
+            IEnumerable<ITypedElement> prefixes = value.Select("prefix");
+            IEnumerable<ITypedElement> suffixes = value.Select("suffix");
             var family = value.Scalar("family") as string;
             var text = value.Scalar("text") as string;
 

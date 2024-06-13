@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     null));
 
             var searchResult = new SearchResult(
-                Enumerable.Repeat(result, resultCount).ToList(),
+                Enumerable.Repeat(result, resultCount),
                 null,
                 null,
                 Array.Empty<Tuple<string, string>>());

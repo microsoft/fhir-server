@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             { ResourceFormat.Xml, KnownContentTypes.XmlContentType },
         };
 
-        internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, string contentType, IReadOnlyCollection<string> acceptHeaders)
+        internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, string contentType, IEnumerable<string> acceptHeaders)
         {
             // When overriding the MediaType with the query string parameter
             // some browsers don't display the response when returning "application/fhir+xml".

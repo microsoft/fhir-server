@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             ListSummaries();
         }
 
-        public IList<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
+        public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
         {
             if (disablePull)
             {
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return LoadBySummary(summary);
         }
 
-        public IList<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
+        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
         {
             var summary = ListSummaries(false, disableCacheRefresh);
             return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .Select(x => x.ResourceUri).ToList();
         }
 
-        private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
+        private static string GetHashForSupportedProfiles(IEnumerable<ArtifactSummary> summaries)
         {
             if (summaries == null)
             {

@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             _searchOptionsFactory.Create(ResourceType.Patient.ToString(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(searchOptions);
 
-            var searchResult = new SearchResult(new List<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
+            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None).Returns(searchResult);
             _searchService.SearchHistoryAsync(
                 KnownResourceTypes.Patient,

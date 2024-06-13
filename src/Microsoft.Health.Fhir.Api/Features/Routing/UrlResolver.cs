@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request.Host.Value);
         }
 
-        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
         {
             string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
 

@@ -181,11 +181,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
-            var jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
-                .AsSelf()
-                .ToList();
+                .AsSelf();
 
             foreach (TypeRegistrationBuilder job in jobs)
             {

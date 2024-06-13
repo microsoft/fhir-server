@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ResourceNotValidException : FhirException
     {
-        public ResourceNotValidException(IReadOnlyCollection<OperationOutcomeIssue> validationFailures)
+        public ResourceNotValidException(IEnumerable<OperationOutcomeIssue> validationFailures)
         {
             EnsureArg.IsNotNull(validationFailures, nameof(validationFailures));
 
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        public ResourceNotValidException(IReadOnlyCollection<ValidationFailure> validationFailures)
+        public ResourceNotValidException(IEnumerable<ValidationFailure> validationFailures)
         {
             EnsureArg.IsNotNull(validationFailures, nameof(validationFailures));
 

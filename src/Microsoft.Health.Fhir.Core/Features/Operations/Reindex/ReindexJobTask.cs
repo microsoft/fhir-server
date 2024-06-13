@@ -523,7 +523,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         if (results != null)
                         {
-                            _reindexJobRecord.Progress += results.Results.Count;
+                            _reindexJobRecord.Progress += results.Results.Count();
                             decimal progress = 0;
                             decimal rounded = 0;
                             if (_reindexJobRecord.Count > 0 && _reindexJobRecord.Progress > 0)

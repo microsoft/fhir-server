@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             IEnumerable<SearchParamTableExpression> sortedIncludeExpressions = includeExpressions;
             if (includeExpressions.Any(e => ((IncludeExpression)e.Predicate).Iterate))
             {
-                List<SearchParamTableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.Predicate).Iterate).ToList();
+                IEnumerable<SearchParamTableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.Predicate).Iterate);
                 List<SearchParamTableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.Predicate).Iterate).ToList();
                 sortedIncludeExpressions = nonIncludeIterateExpressions.Concat(SortIncludeIterateExpressions(includeIterateExpressions));
             }

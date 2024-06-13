@@ -426,11 +426,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            var dups = resources.Except(results.Loaded).Except(results.Conflicts).ToList();
+            var dups = resources.Except(results.Loaded).Except(results.Conflicts);
 
             return GetErrors(dups, results.Conflicts);
 
-            List<string> GetErrors(IReadOnlyCollection<ImportResource> dups, IReadOnlyCollection<ImportResource> conflicts)
+            List<string> GetErrors(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts)
             {
                 var errors = new List<string>();
                 foreach (var resource in dups)

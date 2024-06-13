@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var request = new SearchResourceHistoryRequest("Patient");
 
-            var searchResult = new SearchResult(new List<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
+            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
 
             _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
 

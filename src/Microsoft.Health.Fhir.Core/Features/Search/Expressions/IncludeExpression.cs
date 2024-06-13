@@ -36,11 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             SearchParameterInfo referenceSearchParameter,
             string sourceResourceType,
             string targetResourceType,
-            IReadOnlyCollection<string> referencedTypes,
+            IEnumerable<string> referencedTypes,
             bool wildCard,
             bool reversed,
             bool iterate,
-            IReadOnlyCollection<string> allowedResourceTypesByScope = null)
+            IEnumerable<string> allowedResourceTypesByScope = null)
         {
             EnsureArg.HasItems(resourceTypes, nameof(resourceTypes));
 

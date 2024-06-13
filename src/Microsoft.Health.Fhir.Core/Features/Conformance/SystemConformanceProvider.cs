@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            var providers = providerFactory.Value.ToList();
+                            IEnumerable<IProvideCapability> providers = providerFactory.Value;
                             foreach (IProvideCapability provider in providers)
                             {
                                 Stopwatch watch = Stopwatch.StartNew();
