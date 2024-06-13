@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
-        private static readonly SemaphoreSlim DbSetupSemaphore = new(32); // max number of concurrent requests to the master database is 64
+        private static readonly SemaphoreSlim DbSetupSemaphore = new(14); // max number of concurrent requests to the master database is 64 and we run 4 FHIR versions in parallel
         private static readonly object _locker = new object();
         private static bool? _isAzure = null;
 
