@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
+        private static readonly SemaphoreSlim DbSetupSemaphore = new(4);
         private static readonly object _locker = new object();
         private static bool? _isAzure = null;
 
@@ -84,7 +85,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         BEGIN
                           CREATE DATABASE {databaseName};
                         END";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
+
+                    await DbSetupSemaphore.WaitAsync(cancellationToken);
+                    try
+                    {
+                        await command.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    finally
+                    {
+                        DbSetupSemaphore.Release();
+                    }
+
                     await connection.CloseAsync();
                 });
 
@@ -207,17 +218,25 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
             try
             {
-                SqlConnection.ClearAllPools();
+    await DbSetupSemaphore.WaitAsync(cancellationToken);
+    try
+    {
+     SqlConnection.ClearAllPools();
 
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                await connection.OpenAsync(cancellationToken);
-                await using SqlCommand command = connection.CreateCommand();
-                command.CommandTimeout = 15;
-                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                    await connection.OpenAsync(cancellationToken);
+                    await using SqlCommand command = connection.CreateCommand();
+                    command.CommandTimeout = 15;
+                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
 
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 await connection.CloseAsync();
-            }
+    }
+    finally
+    {
+     DbSetupSemaphore.Release();
+    }
+   }
             catch (Exception ex)
             {
                 Trace.TraceError("Failed to delete database: " + ex.Message);
