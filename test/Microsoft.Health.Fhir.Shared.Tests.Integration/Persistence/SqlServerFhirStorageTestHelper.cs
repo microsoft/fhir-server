@@ -379,11 +379,14 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         private bool IsAzure()
         {
-            using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);
-            using var cmd = new SqlCommand("SELECT patindex('%Azure SQL%',@@version)", conn);
-            conn.Open();
-            var value = cmd.ExecuteScalar();
-            return (int)value > 0;
+            try
+            {
+                using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);
+                using var cmd = new SqlCommand("SELECT patindex('%SQL Azure%',@@version)", conn);
+                conn.Open();
+                var value = cmd.ExecuteScalar();
+                return (int)value > 0;
+            }
         }
     }
 }
