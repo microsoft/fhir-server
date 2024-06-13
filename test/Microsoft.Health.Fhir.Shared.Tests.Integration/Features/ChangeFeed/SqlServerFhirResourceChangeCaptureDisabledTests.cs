@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"ChangeCaptureDisabled");
+                string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("ChangeCaptureDisabled");
 
                 // this will either create the database or upgrade the schema.
                 var coreFeatureConfigOptions = Options.Create(new CoreFeatureConfiguration() { SupportsResourceChangeCapture = false });
