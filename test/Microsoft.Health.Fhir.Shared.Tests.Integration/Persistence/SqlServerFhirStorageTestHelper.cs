@@ -200,18 +200,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (!_isAzure.HasValue)
-            {
-                lock (_locker)
-                {
-                    if (!_isAzure.HasValue)
-                    {
-                        _isAzure = IsAzure(); // cannot await in the lock
-                    }
-                }
-            }
-
-            if (_isAzure.Value)
+            if (IsAzure())
             {
                 return;
             }
@@ -379,11 +368,22 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         private bool IsAzure()
         {
-            using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);
-            using var cmd = new SqlCommand("SELECT patindex('%SQL Azure%',@@version)", conn);
-            conn.Open();
-            var value = cmd.ExecuteScalar();
-            return (int)value > 0;
+            if (!_isAzure.HasValue)
+            {
+                lock (_locker)
+                {
+                    if (!_isAzure.HasValue)
+                    {
+                        using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);  // cannot await in the lock
+                        using var cmd = new SqlCommand("SELECT patindex('%Azure%',@@version)", conn);
+                        conn.Open();
+                        var value = cmd.ExecuteScalar();
+                        _isAzure = (int)value > 0;
+                    }
+                }
+            }
+
+            return _isAzure.Value;
         }
     }
 }
