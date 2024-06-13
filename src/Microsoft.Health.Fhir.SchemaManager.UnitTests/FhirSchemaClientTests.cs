@@ -23,7 +23,7 @@ public class FhirSchemaClientTests
     private readonly ISchemaManagerDataStore _schemaManagerDataStore = Substitute.For<ISchemaManagerDataStore>();
 
     [Fact]
-    public async void GivenCurrentVersionAboveOne_GetAvailableVersions_ShouldReturnCorrectVersionsAsync()
+    public async Task GivenCurrentVersionAboveOne_GetAvailableVersions_ShouldReturnCorrectVersionsAsync()
     {
         // Arrange
         int currentVersion = 5;
@@ -45,7 +45,7 @@ public class FhirSchemaClientTests
     }
 
     [Fact]
-    public async void GivenCurrentVersionOfMax_GetAvailableVersionsShouldReturnOneVersion()
+    public async Task GivenCurrentVersionOfMax_GetAvailableVersionsShouldReturnOneVersion()
     {
         // Arrange
         _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(SchemaVersionConstants.Max);
