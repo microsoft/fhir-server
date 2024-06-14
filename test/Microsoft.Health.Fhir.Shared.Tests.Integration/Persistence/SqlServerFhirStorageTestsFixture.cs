@@ -300,7 +300,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DisposeAsync()
         {
-            await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            if (_testHelper != null)
+            {
+                await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            }
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
