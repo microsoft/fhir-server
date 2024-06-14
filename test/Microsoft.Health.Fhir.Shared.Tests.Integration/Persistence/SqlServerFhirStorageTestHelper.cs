@@ -207,6 +207,11 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
+            if (IsAzure())
+            {
+                return;
+            }
+
             try
             {
                 using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);

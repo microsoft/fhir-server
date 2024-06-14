@@ -301,27 +301,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DisposeAsync()
         {
-            await DisposeAsync(true);
-            GC.SuppressFinalize(this);
+            ////await DisposeAsync(true);
+            ////GC.SuppressFinalize(this);
+            if (_testHelper != null)
+            {
+                await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            }
         }
 
-        protected virtual async Task DisposeAsync(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
+        ////protected virtual async Task DisposeAsync(bool disposing)
+        ////{
+        ////    if (_disposed)
+        ////    {
+        ////        return;
+        ////    }
 
-            if (disposing)
-            {
-                if (_testHelper != null)
-                {
-                    await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
-                }
-            }
+        ////    if (disposing)
+        ////    {
+        ////        if (_testHelper != null)
+        ////        {
+        ////            await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+        ////        }
+        ////    }
 
-            _disposed = true;
-        }
+        ////    _disposed = true;
+        ////}
 
         protected SqlConnection GetSqlConnection(string connectionString)
         {
