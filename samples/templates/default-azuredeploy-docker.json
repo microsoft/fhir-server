@@ -492,20 +492,6 @@
                         "tier": "[variables('sqlSkuTier')]"
                     },
                     "type": "databases"
-                },
-                {
-                    "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
-                    "apiVersion": "2014-04-01",
-                    "dependsOn": [
-                        "[variables('sqlServerDerivedName')]"
-                    ],
-                    "location": "[resourceGroup().location]",
-                    "name": "AllowAllWindowsAzureIps",
-                    "properties": {
-                        "endIpAddress": "0.0.0.0",
-                        "startIpAddress": "0.0.0.0"
-                    },
-                    "type": "firewallrules"
                 }
             ]
         },
