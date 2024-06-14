@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
-        private bool _disposed;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -301,23 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _testHelper.DeleteDatabase(_databaseName);
-            }
-
-            _disposed = true;
+            _testHelper.DeleteDatabase(_databaseName);
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
