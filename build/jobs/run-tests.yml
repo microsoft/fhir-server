@@ -92,13 +92,10 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
-          $testNamePatterns = @("${{ parameters.version }}_*")
-          foreach ($pattern in $testNamePatterns) {
-            $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
-            foreach ($resource in $resources) {
-              Write-Host "Cleaning up $($resource.ResourceName)"
-              Remove-AzResource -ResourceId $resource.ResourceId -Force
-            }
+          $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name "${{ parameters.version }}_*"
+          foreach ($resource in $resources) {
+            Write-Host "Cleaning up $($resource.ResourceName)"
+            Remove-AzResource -ResourceId $resource.ResourceId -Force
           }
 
 - job: 'cosmosE2eTests'
