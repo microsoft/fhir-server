@@ -84,6 +84,23 @@ jobs:
     env:
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
+  - task: AzurePowerShell@5
+    displayName: 'Drop Sql Integration Databases'
+    condition: succeededOrFailed()
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+          $testNamePatterns = @("${{ parameters.version }}_*")
+          foreach ($pattern in $testNamePatterns) {
+            $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
+            foreach ($resource in $resources) {
+              Write-Host "Cleaning up $($resource.ResourceName)"
+              Remove-AzResource -ResourceId $resource.ResourceId -Force
+            }
+          }
+
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
