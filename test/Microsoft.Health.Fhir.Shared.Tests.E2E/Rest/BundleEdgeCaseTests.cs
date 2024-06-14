@@ -258,6 +258,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"Total mumber of created patients ({numberOfPatientsPerBundle}) is different than the number ingested during the test {uniquePatientIds}.");
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABundleWithInvalidType_WhenExecution_BadRequestReturned()
+        {
+            // 1 - Retrieve bundle template from file.
+            string body = Samples.GetJson("Bundle-TransactionInvalidType");
+
+            // 2 - Execute the bundle.
+            var fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () =>
+                {
+                    try
+                    {
+                        await _client.PostAsync(string.Empty, body);
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is FhirClientException fhirException)
+                        {
+                            throw fhirException;
+                        }
+
+                        throw;
+                    }
+                });
+
+            // 3 - We expect a bad request and correct message.
+            var expectedMessage = "Value 'file:null' cannot be cast to a member of enumeration BundleType";
+            Assert.NotNull(fhirException);
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Contains(expectedMessage, fhirException.Message);
+        }
+
         private static Patient Clone(Patient patient)
         {
             // Patient does not have a native Clone method.
