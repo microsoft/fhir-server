@@ -50,7 +50,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
+    public class SqlServerFhirStorageTestsFixture : IServiceProvider, IDisposable
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
@@ -298,9 +298,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public void Dispose()
         {
-            await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            _testHelper.DeleteDatabase(_databaseName);
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
