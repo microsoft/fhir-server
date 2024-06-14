@@ -75,10 +75,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     // Create the database.
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-
-                    await using SqlCommand command = connection.CreateCommand();
+                    using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                    connection.Open();
+                    using SqlCommand command = connection.CreateCommand();
                     command.CommandTimeout = 300;
                     command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
@@ -89,27 +88,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        await command.ExecuteNonQueryAsync(cancellationToken);
+                        command.ExecuteNonQuery();
                     }
                     finally
                     {
                         DbSetupSemaphore.Release();
                     }
-
-                    await connection.CloseAsync();
                 });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
-
             await _dbSetupRetryPolicy.ExecuteAsync(
                 async () =>
                 {
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-                    await using SqlCommand sqlCommand = connection.CreateCommand();
+                    using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(databaseName, null);
+                    connection.Open();
+                    using SqlCommand sqlCommand = connection.CreateCommand();
                     sqlCommand.CommandText = "SELECT 1";
-                    await sqlCommand.ExecuteScalarAsync(cancellationToken);
-                    await connection.CloseAsync();
+                    sqlCommand.ExecuteScalar();
+                    await Task.CompletedTask;
                 });
 
             schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
@@ -211,30 +207,16 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (IsAzure())
-            {
-                return;
-            }
-
             try
             {
-                await DbSetupSemaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    SqlConnection.ClearAllPools();
+                using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                connection.Open();
+                using SqlCommand command = connection.CreateCommand();
+                command.CommandTimeout = 15;
+                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                command.ExecuteNonQuery();
 
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-                    await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 15;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                    await connection.CloseAsync();
-                }
-                finally
-                {
-                    DbSetupSemaphore.Release();
-                }
+                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
