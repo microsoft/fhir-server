@@ -205,7 +205,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             await connection.CloseAsync();
         }
 
-        public void DeleteDatabase(string databaseName)
+        public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -213,6 +213,8 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 conn.Open();
                 using var cmd = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}", conn);
                 cmd.ExecuteNonQuery();
+
+                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
