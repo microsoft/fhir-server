@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
+                ////await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                ////await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
         }
 
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                     finally
                     {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
+                        ////await testHelper.DeleteDatabase(snapshotDatabaseName);
                     }
                 }
             });
