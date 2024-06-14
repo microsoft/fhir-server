@@ -33,6 +33,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Namotion.Reflection;
 using Newtonsoft.Json;
+using SemVer;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -207,10 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await InitializeBase(cancellationToken);
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
-            if (runAllInitialization)
-            {
-                await InitializeSearchParameterStatuses(cancellationToken);
-            }
+            await InitializeSearchParameterStatuses(cancellationToken);
 
             _highestInitializedVersion = version;
 
@@ -368,16 +366,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
+                _logger.LogInformation("Initializing search parameters statuses.");
                 sqlCommandWrapper.CommandText = @"
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-    
+
                         UPDATE dbo.SearchParam
                         SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
-                        COMMIT TRANSACTION";
+                        WHERE dbo.SearchParam.Status IS NULL
+                        COMMIT TRANSACTION
+
+                        SELECT @@ROWCOUNT AS RowsAffected";
 
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
@@ -418,7 +420,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                object value = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                if (value is int intValue)
+                {
+                    _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", intValue);
+                }
+                else
+                {
+                    _logger.LogError("Cannot determine the number of Search Parameters initialized.");
+                }
             }
         }
 
