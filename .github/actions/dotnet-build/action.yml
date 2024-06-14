@@ -1,0 +1,29 @@
+name: dotnet build
+description: Builds the packages and ensures their quality by running tests.
+inputs:
+  assemblyVersion:
+    description: The scaler assembly's version.
+    required: true
+  buildConfiguration:
+    default: Debug
+    description: The dotnet build configuration.
+    required: false
+  fileVersion:
+    description: The scaler assembly's file version.
+    required: true
+  informationalVersion:
+    description: The scaler assembly's informational version.
+    required: true
+  majorMinorPatch:
+    description: The major.minor.patch version to use.
+    required: true
+  dotnet-version:
+    description: 'The version of the .NET SDK to use'
+    required: true
+    default: '8.0.202' # Default version if not specified
+runs:
+  using: composite
+  steps:
+    - name: Build
+      shell: bash
+      run: dotnet build "./Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror

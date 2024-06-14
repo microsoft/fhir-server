@@ -1,0 +1,30 @@
+name: clean storage Accounts
+description: Removes blob containers from test storage accounts
+
+inputs:
+  environmentName:
+    description: Deployment environment name
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Clean Storage Accounts
+      uses: azure/powershell@v2
+      with:
+        azPSVersion: "latest"
+        inlineScript: |
+          $currentUtcTime = [DateTime]::UtcNow
+          Get-AzContext
+          $storageAccounts = Get-AzStorageAccount -ResourceGroupName ${{ inputs.environmentName }}
+          foreach ($storageAccount in $storageAccounts) {
+
+              $storageContainers = Get-AzStorageContainer -Name * -Context $storageAccount.Context
+              foreach ($container in $storageContainers) {
+                  $ageDiff = $currentUtcTime - $container.CloudBlobContainer.Properties.LastModified.UtcDateTime
+                  if($ageDiff.TotalDays -ge 3) {
+                      Write-Host "Deleting container $($container.Name)"
+                      $container.CloudBlobContainer.Delete()
+                  }
+              }
+          }

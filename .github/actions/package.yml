@@ -1,0 +1,93 @@
+steps:
+
+  # Package web
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R4.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R4B.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
+
+  # Package nugets
+  - powershell: |
+      & dotnet pack $(Build.SourcesDirectory) --output $(Build.ArtifactStagingDirectory)/nupkgs --no-build --configuration=Release -p:PackageVersion=$(nuGetVersion)
+    name: PackNugets
+
+  # Publish artifacts
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish web artifacts'
+    inputs:
+      pathToPublish: '$(build.artifactStagingDirectory)/web'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish samples'
+    inputs:
+      pathToPublish: './samples/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish testauthenvironment.json'
+    inputs:
+      pathToPublish: './testauthenvironment.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish global.json'
+    inputs:
+      pathToPublish: './global.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish test configuration jsons'
+    inputs:
+      pathToPublish: './test/Configuration/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish release directory'
+    inputs:
+      pathToPublish: './release/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish nuget artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/nupkgs'
+      artifactName: 'nuget'
+      publishLocation: 'container'
+
+  - task: CopyFiles@2
+    displayName: 'copy symbols'
+    inputs:
+      sourceFolder: '$(build.sourcesDirectory)'
+      contents: |
+        **/*.pdb
+        !**/*.UnitTests.pdb
+      targetFolder: '$(build.artifactStagingDirectory)/symbols'
+      cleanTargetFolder: true
+      flattenFolders: true
+      overWrite: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish symbol artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/symbols'
+      artifactName: 'symbols'
+      publishLocation: 'container'
+      

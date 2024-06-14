@@ -1,0 +1,12 @@
+name: dotnet test
+description: 'Runs the unit tests for the Fhir solution'
+inputs:
+  buildConfiguration:
+    description: 'The build configuration to use'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Unit Tests
+      shell: bash
+      run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~Core.UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal

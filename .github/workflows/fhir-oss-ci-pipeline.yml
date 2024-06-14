@@ -1,0 +1,261 @@
+# DESCRIPTION: 	
+# Builds, tests, and packages the solution for the main branch.	
+
+on: 
+  pull_request
+
+permissions:
+   id-token: write
+   contents: read
+
+defaults:
+  run:
+    working-directory: src
+    shell: bash
+
+env:
+  buildConfiguration: Release
+  azureSubscriptionEndpoint: docker-build
+  azureContainerRegistryName: healthplatformregistry
+  connectedServiceName: Microsoft Health Open Source Subscription
+  composeLocation: build/docker/docker-compose.yaml
+  imageTag: ${{github.run_number}}
+  outputPath: ${{github.workspace}}/artifacts
+  defaultDotNetVersion: net8.0
+
+jobs:
+  setup:
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    env:
+      deploymentEnvironmentName: $vars.CIRESOURCEGROUPROOT
+      appServicePlanName: $vars.CIRESOURCEGROUPROOT-linux
+      resourceGroupName: $vars.CIRESOURCEGROUPROOT
+    outputs:
+      assemblyVersion: ${{ steps.version.outputs.assemblyVersion }}
+      fileVersion: ${{ steps.version.outputs.fileVersion }}
+      informationalVersion: ${{ steps.version.outputs.informationalVersion }}
+      majorMinorPatch: ${{ steps.version.outputs.majorMinorPatch }}
+      semVer: ${{steps.version.outputs.SemVer}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Latest .Net SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: 'global.json'
+          dotnet-version: |
+            8.x
+
+      - name: Determine Semver
+        id: version
+        uses: ./.github/actions/update-semver
+
+      # - name: Azure Login
+      #   uses: azure/login@v2
+      #   with:
+      #     client-id: ${{secrets.AZURE_CLIENT_ID}}
+      #     subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      #     tenant-id: ${{secrets.AZURE_TENANT_ID}}
+      #     enable-AzPSSession: true
+
+      # - name: Clean Storage Accounts
+      #   uses: ./.github/actions/clean-storage-accounts
+      #   with:
+      #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
+      # - name: Cleanup Integration Test databases
+      #   uses: ./.github/actions/cleanup-integration-test-databases
+      #   with:
+      #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
+  buildAndUnitTest:
+    runs-on: windows-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check DotNet Version
+        run: dotnet --version
+
+      - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          assemblyVersion: ${{needs.setup.outputs.assemblyVersion}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          fileVersion: ${{needs.setup.outputs.fileVersion}}
+          informationalVersion: ${{needs.setup.outputs.informationalVersion}}
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+      - name: TestCore
+        uses: ./.github/actions/dotnet-test-core
+        with:
+          buildConfiguration: ${{env.buildConfiguration}}
+      - name: TestWeb
+        uses: ./.github/actions/dotnet-test-web
+        with:
+          buildConfiguration: ${{env.buildConfiguration}}
+
+      # - name: Generate SBOM
+      #   run: |
+      #     curl -Lo $RUNNER_TEMP/sbom-tool https://github.com/microsoft/sbom-tool/releases/latest/download/sbom-tool-linux-x64
+      #     chmod +x $RUNNER_TEMP/sbom-tool
+      #     $RUNNER_TEMP/sbom-tool generate -b ${{env.outputPath}} -bc . -V Verbose -ps "Organization: Microsoft" -pv ${{needs.setup.outputs.majorMinorPatch}} -pn ${{needs.setup.outputs.informationalVersion}}
+ 
+      # - name: Upload a Build Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: build
+      #     path: ${{env.outputPath}}
+      - name: Create Nuget packages
+        shell: bash
+        run: |
+          echo "Creating Nuget packages"
+          dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
+
+      - name: Upload Nuget Packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: ${{env.outputPath}}/nupkgs
+
+      - name: samples
+        shell: bash
+        run: |
+          echo "Copying samples to deploy directory"
+          cp -r ${{github.workspace}}/samples ${{env.outputPath}}/deploy
+
+      - name: Copying testauthenvironment.json to deploy directory
+        shell: bash
+        run: |
+          echo "Copying testauthenvironment.json to deploy directory"
+          cp ${{github.workspace}}/testauthenvironment.json ${{env.outputPath}}/deploy/
+
+      - name: Copying global.json to deploy directory
+        shell: bash
+        run: |
+          echo "Copying global.json to deploy directory"
+          cp ${{github.workspace}}/global.json ${{env.outputPath}}/deploy/
+
+      - name: Copying test configuration json to deploy directory
+        shell: bash
+        run: |
+          echo "Copying test configuration json to deploy directory"
+          cp ${{github.workspace}}/test/Configuration/testconfiguration.json ${{env.outputPath}}/deploy/
+
+      - name: Copying docker compose root file to deploy directory
+        shell: bash
+        run: |
+          echo "Copying docker compose root file to deploy directory"
+          cp ${{github.workspace}}/release/docker-compose.yaml ${{env.outputPath}}/deploy
+
+      - name: Copying pdb files to symbols directory
+        shell: bash
+        run: |
+          echo "Copying pdb files to deploy symbols"
+          find ${{github.workspace}}/src -type f -name "*.pdb" ! -name "*UnitTest*" -exec cp {} ${{env.outputPath}}/symbols \;
+
+      - name: Publish Stu3 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "Stu3"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R4 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R4"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R4B Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R4B"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R5 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R5"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Docker Build Stu3 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
+          fhirSchemaVersion: "Stu3"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R4 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
+          fhirSchemaVersion: "R4"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R4B Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
+          fhirSchemaVersion: "R4B"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R5 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
+          fhirSchemaVersion: "R5"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Upload deploy directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy
+          path: ${{env.outputPath}}/deploy
+
+      # - name: Upload Symbols
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: symbols
+      #     path: ${{env.outputPath}}/bin/${{env.buildConfiguration}}/net5.0/publish
+
+  # runIntegrationTests:
+  #   runs-on: [self-hosted, 1ES.Pool=GithubRunPool, Windows]
+  #   needs : buildAndUnitTest
+  #   steps:
+    # - name: Checkout
+    #     uses: actions/checkout@v4
+    #     with:
+    #       fetch-depth: 0
+  #     - name: Download Build Artifact for Testing
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: artifacts
+      # - name: Install Latest .Net SDK
+      #   uses: actions/setup-dotnet@v4
+      #   with:
+      #     global-json-file: 'global.json'
+      #     dotnet-version: |
+      #       6.x
+      #       8.x
+      # -  name: Docker add main tag
+      #   uses: ./.github/actions/docker-add-main-tag
+      #   with:
+      #     assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+      #     imageTag: ${{env.imageTag}}
+      #     azureContainerRegistryName: ${{env.azureContainerRegistryName}}
+      #     connectedServiceName: ${{env.connectedServiceName}}

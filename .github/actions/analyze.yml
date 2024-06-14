@@ -1,0 +1,201 @@
+parameters:
+  analyzeARMTemplates: true
+  analyzeBinaries: true
+  analyzePackages: true
+  runAntiMalware: true
+  credScanDirectory: '$(Build.SourcesDirectory)'
+
+steps:
+- task: UseDotNet@2
+  displayName: Use .NET Core sdk
+  inputs:
+    useGlobalJson: true
+
+- ${{ if eq(parameters.analyzeBinaries, 'true') }}:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download Binaries'
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(Agent.TempDirectory)/artifacts'
+      artifactName: 'deploy'
+
+- ${{ if eq(parameters.analyzePackages, 'true') }}:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download NuGet Packages'
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(Build.SourcesDirectory)/artifacts'
+      artifactName: 'nuget'
+
+- ${{ if eq(parameters.analyzeBinaries, 'true') }}:
+  - task: ExtractFiles@1
+    displayName: 'Extract Stu3 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.Stu3.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/Stu3'
+  - task: ExtractFiles@1
+    displayName: 'Extract R4 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4'
+  - task: ExtractFiles@1
+    displayName: 'Extract R4B Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4B.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4b'
+  - task: ExtractFiles@1
+    displayName: 'Extract R5 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R5.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r5'
+
+- ${{ if eq(parameters.runAntiMalware, 'true') }}:
+  - task: AntiMalware@4
+    inputs:
+      InputType: 'Basic'
+      ScanType: 'CustomScan'
+      FileDirPath: '$(Build.SourcesDirectory)'
+      EnableServices: true
+      TreatSignatureUpdateFailureAs: 'Standard'
+      SignatureFreshness: 'OneDay'
+      TreatStaleSignatureAs: 'Error'
+
+- ${{ if eq(parameters.analyzeARMTemplates, 'true') }}:
+  - task: Armory@2
+    inputs:
+      targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
+      targetFiles: 'f|*.json'
+      excludePassesFromLog: false
+
+  - task: TemplateAnalyzer@3  
+    displayName: 'Run Template Analyzer'  
+    inputs:   
+        ToolVersion: Latest
+        AnalyzeDirectory: '$(Build.SourcesDirectory)/samples/templates'
+        Verbose: false
+        IncludeNonSecurityRules: true
+
+- task: CredScan@3
+  inputs:
+    scanFolder: ${{ parameters.credScanDirectory }}
+    outputFormat: 'pre'
+    suppressionsFile: 'CredScanSuppressions.json'
+    verboseOutput: true
+
+- task: CSRF@1
+  inputs:
+      Path: '$(Build.SourcesDirectory)'
+      ToolVersion: Latest
+
+- task: Trivy@1
+  displayName: 'Run Trivy'
+  inputs:
+    Target: '$(Build.SourcesDirectory)/build/docker'
+    Severities: all
+    VulTypes: all
+
+- task: PSScriptAnalyzer@1
+  displayName: 'Run PSScriptAnalyzer'
+  inputs:
+    Path: '$(Build.SourcesDirectory)'
+    Settings: required
+    IgnorePattern: .gdn
+    Recurse: true
+
+- task: RoslynAnalyzers@3
+  inputs:
+    userProvideBuildInfo: 'msBuildInfo'
+    msBuildArchitecture: 'DotNetCore'
+    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net8.0'
+  
+- task: BinSkim@4
+  inputs:
+    toolVersion:        Latest
+    InputType:          Basic
+    Function:           analyze
+    AnalyzeTargetGlob:  'f|$(Agent.TempDirectory)/artifacts/**/*Microsoft.Health.*.dll'
+
+ ## PoliCheck@2 does not need to be added since it is run internally
+
+ ## Tools that are no longer supported:
+ # AutoApplicability@1, CodeMetrics@1, VulnerabilityAssessment@0
+
+- task: SdtReport@2
+  condition: succeededOrFailed()
+  continueOnError: True
+  inputs:
+    GdnExportAllTools: false
+    GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    GdnExportGdnToolCredScan: true
+    GdnExportGdnToolCSRF: true
+    GdnExportGdnToolRoslynAnalyzers: true
+    BinSkim: true
+    CredScan: true
+
+- task: PublishSecurityAnalysisLogs@3
+  condition: succeededOrFailed()
+  continueOnError: True
+  inputs:
+    ArtifactName: 'CodeAnalysisLogs'
+    ArtifactType: 'Container'
+    AllTools: false
+    AntiMalware: ${{ eq(parameters.runAntiMalware, 'true') }}
+    APIScan: false
+    Armory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    Bandit: false
+    BinSkim: false
+    CodesignValidation: false
+    CredScan: true
+    CSRF: true
+    ESLint: false
+    Flawfinder: false
+    FortifySCA: false
+    FxCop: false
+    ModernCop: false
+    MSRD: false
+    PoliCheck: false
+    RoslynAnalyzers: true
+    SDLNativeRules: false
+    Semmle: false
+    SpotBugs: false
+    TSLint: false
+    WebScout: false
+    ToolLogsNotFoundAction: 'Standard'
+
+- task: PostAnalysis@2
+  condition: succeededOrFailed()
+  inputs:
+    GdnBreakAllTools: false
+    GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    GdnBreakGdnToolCredScan: true
+    GdnBreakGdnToolCSRF: true
+    GdnBreakGdnToolRoslynAnalyzers: true
+    BinSkim: true
+    CredScan: true
+
+- task: TSAUpload@2
+  condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
+  displayName: 'TSA upload'
+  inputs:
+    tsaVersion: 'TsaV2' 
+    codebase: 'NewOrUpdate'
+    GdnPublishTsaOnboard: false
+    GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
+    GdnPublishTsaExportedResultsPublishable: true
+
+- task: DeleteFiles@1
+  displayName: 'Delete files to make space'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: '**\*'
+
+- task: DropValidatorTask@0
+  displayName: 'SBOM Validator and Publisher Task'
+  inputs:
+    BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
+    OutputPath: 'output.json'
+    ValidateSignature: true
+    Verbosity: 'Verbose'
+    continueOnError: true

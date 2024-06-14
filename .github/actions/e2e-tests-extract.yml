@@ -1,0 +1,10 @@
+parameters:
+- name: version
+  type: string
+
+steps:
+  - task: ExtractFiles@1
+    displayName: 'Extract E2E Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
+      destinationFolder: '$(Agent.TempDirectory)/E2ETests/'

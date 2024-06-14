@@ -1,0 +1,62 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+on: 
+  pull_request
+
+env:
+    buildConfiguration: Release
+    azureSubscriptionEndpoint: docker-build
+    azureContainerRegistryName: healthplatformregistry
+    connectedServiceName: Microsoft Health Open Source Subscription
+    composeLocation: build/docker/docker-compose.yaml
+    imageTag: ${{github.run_number}}
+    outputPath: ${{github.workspace}}/artifacts
+
+jobs:
+  buildTestAndPackage:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.204
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      shell: bash
+      run: dotnet build "./Microsoft.Health.Fhir.sln" --no-restore
+      # run: dotnet build "./Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror 
+      
+    # - name: Test
+    #   run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~UnitTests" --verbosity normal
+    #   #       run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~Core.UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+
+    - name: Create Nuget packages
+      run: |
+        echo "Creating Nuget packages"
+        dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build -c Release
+      # dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
+
+    - name: Upload Nuget Packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget
+        path: ${{env.outputPath}}/nupkgs
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        #what is the compliant way to use secrets in github actions, look at 
+        # https://docs.opensource.microsoft.com/
+
+    - name: Build Docker image
+      run: |
+        docker build -t myregistry.azurecr.io/myimage:${{ github.sha }} .
+        docker push myregistry.azurecr.io/myimage:${{ github.sha }}

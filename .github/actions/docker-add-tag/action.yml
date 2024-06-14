@@ -1,0 +1,36 @@
+name: Docker Add Main tag
+description: 'Adds the main tag to the images for all supported FHIR versions'
+
+inputs:
+  sourceTag:
+    description: 'The tag to apply to the images'
+    required: true
+  targetTag:
+    description: 'The tag to apply to the images'
+    required: true
+  fhirSchemaVersion:
+    description: 'The FHIR schema version to package'
+    required: true
+  azureContainerRegistry:
+    description: 'The Azure Container Registry to push the images to'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id: ${{secrets.AZURE_CLIENT_ID}}
+        subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+        tenant-id: ${{secrets.AZURE_TENANT_ID}}
+        enable-AzPSSession: true
+    - name: Add Tag to Docker Images
+      shell: bash
+      run: |
+        az acr login -n ${{inputs.azureContainerRegistry}}
+        sourceImage="${{inputs.azureContainerRegistry}}/${{inputs.fhirSchemaVersion}}_fhir-server:${{inputs.sourceTag}}"
+        targetImage="${{inputs.azureContainerRegistry}}/${{inputs.fhirSchemaVersion}}_fhir-server:${{inputs.targetTag}}"
+        docker pull $sourceImage
+        docker tag $sourceImage $targetImage
+        docker push $targetImage
