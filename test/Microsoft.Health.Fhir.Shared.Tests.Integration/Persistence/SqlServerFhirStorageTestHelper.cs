@@ -209,12 +209,10 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         {
             try
             {
-                using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
-                connection.Open();
-                using SqlCommand command = connection.CreateCommand();
-                command.CommandTimeout = 15;
-                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                command.ExecuteNonQuery();
+                using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                conn.Open();
+                using var cmd = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}", conn);
+                cmd.ExecuteNonQuery();
 
                 await Task.CompletedTask;
             }
