@@ -93,7 +93,7 @@ jobs:
       ScriptType: inlineScript
       Inline: |
           $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name "${{ parameters.version }}_*"
-          foreach ($resource in $resources) {
+          ForEach -Parallel ($resource in $resources) {
             Write-Host "Cleaning up $($resource.ResourceName)"
             Remove-AzResource -ResourceId $resource.ResourceId -Force
           }
