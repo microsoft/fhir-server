@@ -84,6 +84,12 @@ jobs:
     env:
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
+- job: "DropSqlIntegrationDatabases"
+  dependsOn: ["SqlIntegrationTests"]
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
   - task: AzurePowerShell@5
     displayName: 'Drop Sql Integration Databases'
     condition: succeededOrFailed()
