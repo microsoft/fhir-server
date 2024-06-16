@@ -59,7 +59,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class FhirStorageTestsFixture : IAsyncLifetime, IDisposable
+    public class FhirStorageTestsFixture : IAsyncLifetime
     {
         private readonly IServiceProvider _fixture;
         private readonly ResourceIdProvider _resourceIdProvider;
@@ -130,10 +130,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
-        public void Dispose()
-        {
-            (_fixture as IDisposable)?.Dispose();
-        }
+        ////public void Dispose()
+        ////{
+        ////    (_fixture as IDisposable)?.Dispose();
+        ////}
 
         public async Task InitializeAsync()
         {

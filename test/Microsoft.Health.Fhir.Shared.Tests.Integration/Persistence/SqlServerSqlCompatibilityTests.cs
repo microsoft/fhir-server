@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                fhirStorageTestsFixture.Dispose();
+                await fhirStorageTestsFixture.DisposeAsync();
             }
         }
     }
