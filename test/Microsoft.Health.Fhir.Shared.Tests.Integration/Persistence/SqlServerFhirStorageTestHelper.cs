@@ -211,25 +211,22 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (IsAzure())
-            {
-                return;
-            }
+            ////if (IsAzure())
+            ////{
+            ////    return;
+            ////}
 
             try
             {
-                await DbSetupSemaphore.WaitAsync(cancellationToken);
+                DbSetupSemaphore.Wait();
                 try
                 {
                     SqlConnection.ClearAllPools();
-
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-                    await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 15;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                    await connection.CloseAsync();
+                    using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                    conn.Open();
+                    using var cmd = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}", conn);
+                    cmd.ExecuteNonQuery();
+                    await Task.CompletedTask;
                 }
                 finally
                 {
