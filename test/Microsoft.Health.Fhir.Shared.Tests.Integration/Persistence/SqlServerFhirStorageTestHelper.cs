@@ -41,8 +41,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
         private static readonly SemaphoreSlim DbSetupSemaphore = new(14); // max number of concurrent requests to the master database is 64 and we run 4 FHIR versions in parallel
-        private static readonly object _locker = new object();
-        private static bool? _isAzure = null;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -211,11 +209,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (IsAzure())
-            {
-                return;
-            }
-
             try
             {
                 await DbSetupSemaphore.WaitAsync(cancellationToken);
@@ -382,26 +375,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
             var result = new SqlConnection(connectionBuilder.ToString());
             return result;
-        }
-
-        private bool IsAzure()
-        {
-            if (!_isAzure.HasValue)
-            {
-                lock (_locker)
-                {
-                    if (!_isAzure.HasValue)
-                    {
-                        using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName);  // cannot await in the lock
-                        using var cmd = new SqlCommand("SELECT patindex('%Azure%',@@version)", conn);
-                        conn.Open();
-                        var value = cmd.ExecuteScalar();
-                        _isAzure = (int)value > 0;
-                    }
-                }
-            }
-
-            return _isAzure.Value;
         }
     }
 }
