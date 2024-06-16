@@ -218,15 +218,18 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
             try
             {
-                DbSetupSemaphore.Wait();
+                await DbSetupSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     SqlConnection.ClearAllPools();
-                    using var conn = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
-                    conn.Open();
-                    using var cmd = new SqlCommand($"DROP DATABASE IF EXISTS {databaseName}", conn);
-                    cmd.ExecuteNonQuery();
-                    await Task.CompletedTask;
+
+                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                    await connection.OpenAsync(cancellationToken);
+                    await using SqlCommand command = connection.CreateCommand();
+                    command.CommandTimeout = 15;
+                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    await connection.CloseAsync();
                 }
                 finally
                 {
