@@ -1010,12 +1010,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
                     cmd.Parameters.AddWithValue("@Id", _parameterId);
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None, null, false, true).Result;
                     return value == null ? _defaultValue : (double)value == 1;
                 }
                 catch (Exception)
                 {
-                    return null;
+                    return _defaultValue;
                 }
             }
         }
