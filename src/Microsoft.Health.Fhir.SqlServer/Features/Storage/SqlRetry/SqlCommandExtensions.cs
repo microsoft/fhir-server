@@ -24,10 +24,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await retryService.ExecuteReaderAsync(cmd, readerToResult, logger, logMessage, cancellationToken, isReadOnly);
         }
 
-        public static async Task<object> ExecuteScalarAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false)
+        public static async Task<object> ExecuteScalarAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
         {
             object scalar = null;
-            await retryService.ExecuteSql(cmd, async (sql, cancel) => { scalar = await sql.ExecuteScalarAsync(cancel); }, logger, logMessage, cancellationToken, isReadOnly);
+            await retryService.ExecuteSql(cmd, async (sql, cancel) => { scalar = await sql.ExecuteScalarAsync(cancel); }, logger, logMessage, cancellationToken, isReadOnly, disableRetries);
             return scalar;
         }
     }

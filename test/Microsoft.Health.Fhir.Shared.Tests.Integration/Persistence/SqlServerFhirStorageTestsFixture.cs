@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SqlQueueClient _sqlQueueClient;
 
         public SqlServerFhirStorageTestsFixture()
-            : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
+            : this(SchemaVersionConstants.Max, GetDatabaseName())
         {
         }
 
@@ -124,6 +124,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SchemaInformation SchemaInformation { get; private set; }
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
+
+        internal static string GetDatabaseName(string test = null)
+        {
+            return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
+        }
 
         public async Task InitializeAsync()
         {
