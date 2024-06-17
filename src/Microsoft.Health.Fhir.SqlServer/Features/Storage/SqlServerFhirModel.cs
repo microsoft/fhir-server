@@ -368,18 +368,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogInformation("Initializing search parameters statuses.");
                 sqlCommandWrapper.CommandText = @"
-                        SET XACT_ABORT ON
-                        BEGIN TRANSACTION
-                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+                        SET XACT_ABORT ON;
+                        BEGIN TRANSACTION;
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
 
                         UPDATE dbo.SearchParam
                         SET Status = ISNULL(dbo.SearchParam.Status, sps.Status), LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
-                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL
-                        COMMIT TRANSACTION
+                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
 
-                        SELECT @@ROWCOUNT AS RowsAffected";
+                        SELECT @RowsAffected = @@ROWCOUNT;
+                        COMMIT TRANSACTION;";
 
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
@@ -420,15 +420,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
-                object value = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-                if (value is int intValue)
-                {
-                    _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", intValue);
-                }
-                else
-                {
-                    _logger.LogError("Cannot determine the number of Search Parameters initialized.");
-                }
+                sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });
+
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                int rowsAffected = (int)sqlCommandWrapper.Parameters["@RowsAffected"].Value;
+                _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", rowsAffected);
             }
         }
 
