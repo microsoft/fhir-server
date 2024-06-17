@@ -9,10 +9,14 @@ using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class CosmosDbInitializationTests
     {
         [Fact]
