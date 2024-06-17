@@ -373,10 +373,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
                         UPDATE dbo.SearchParam
-                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        SET Status = ISNULL(dbo.SearchParam.Status, sps.Status), LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
-                        WHERE dbo.SearchParam.Status IS NULL
+                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL
                         COMMIT TRANSACTION
 
                         SELECT @@ROWCOUNT AS RowsAffected";
