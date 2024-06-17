@@ -76,9 +76,6 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
     public async Task GivenADatabaseWithNullSearchParameterStatuses_WhenInitializing_ThenSearchParameterStatusesNotNull()
     {
         // Arrange
-        var defaultSearchParameterStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
-        List<ResourceSearchParameterStatus> updatedSearchparameterStatuses = [];
-
         using (SqlConnectionWrapper sqlConnectionWrapper = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
         using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
         {
