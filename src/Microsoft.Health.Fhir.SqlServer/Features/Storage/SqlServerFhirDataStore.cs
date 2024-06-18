@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new ProcessingFlag("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _sqlRetryService, _logger);
+                    _ignoreInputLastUpdated ??= new ProcessingFlag("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
                 }
             }
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputVersion ??= new ProcessingFlag("MergeResources.IgnoreInputVersion.IsEnabled", false, _sqlRetryService, _logger);
+                    _ignoreInputVersion ??= new ProcessingFlag("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
                 }
             }
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDeduping ??= new ProcessingFlag("MergeResources.RawResourceDeduping.IsEnabled", true, _sqlRetryService, _logger);
+                    _rawResourceDeduping ??= new ProcessingFlag("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
                 }
             }
         }
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
+                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
                 {
                     surrId = transactionId + index;
                     resource.LastModified = surrId.ToLastUpdated();
@@ -459,7 +459,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
-                    if (_ignoreInputVersion.IsEnabled())
+                    if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
                     {
                         foreach (var resource in resources)
                         {
@@ -860,7 +860,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)
         {
-            if (!_rawResourceDeduping.IsEnabled())
+            if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
             {
                 return false;
             }
@@ -962,7 +962,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class ProcessingFlag
         {
-            private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
@@ -970,15 +969,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private readonly string _parameterId;
             private readonly bool _defaultValue;
 
-            public ProcessingFlag(string parameterId, bool defaultValue, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+            public ProcessingFlag(string parameterId, bool defaultValue, ILogger<SqlServerFhirDataStore> logger)
             {
                 _parameterId = parameterId;
                 _defaultValue = defaultValue;
-                _sqlRetryService = sqlRetryService;
                 _logger = logger;
             }
 
-            public bool IsEnabled()
+            public bool IsEnabled(ISqlRetryService sqlRetryService)
             {
                 if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
                 {
@@ -992,30 +990,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         return _isEnabled;
                     }
 
-                    var isEnabled = IsEnabledInDatabase();
-                    if (isEnabled.HasValue)
-                    {
-                        _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
-                    }
+                    _isEnabled = IsEnabledInDatabase(sqlRetryService);
+                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
             }
 
-            private bool? IsEnabledInDatabase()
+            private bool IsEnabledInDatabase(ISqlRetryService sqlRetryService)
             {
                 try
                 {
                     using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
                     cmd.Parameters.AddWithValue("@Id", _parameterId);
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    var value = cmd.ExecuteScalarAsync(sqlRetryService, _logger, CancellationToken.None, disableRetries: true).Result;
                     return value == null ? _defaultValue : (double)value == 1;
                 }
                 catch (Exception)
                 {
-                    return null;
+                    return _defaultValue;
                 }
             }
         }
