@@ -412,10 +412,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
+                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 100)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
-                        await Task.Delay(5000, cancellationToken);
+                        await Task.Delay(500, cancellationToken);
                         continue;
                     }
 
