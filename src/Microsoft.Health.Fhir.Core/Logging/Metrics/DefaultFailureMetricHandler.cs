@@ -11,21 +11,21 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public sealed class DefaultFailureMetricHandler : BaseMeterMetricHandler, IFailureMetricHandler
     {
-        private readonly Counter<long> _counterErrors;
-        private readonly Counter<long> _counterHttpErrors;
+        private readonly Counter<long> _counterExceptions;
+        private readonly Counter<long> _counterHttpFailures;
 
         public DefaultFailureMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _counterErrors = MetricMeter.CreateCounter<long>("Failures.Exceptions");
-            _counterHttpErrors = MetricMeter.CreateCounter<long>("Failures.HttpFailures");
+            _counterExceptions = MetricMeter.CreateCounter<long>("Failures.Exceptions");
+            _counterHttpFailures = MetricMeter.CreateCounter<long>("Failures.HttpFailures");
         }
 
         public void EmitException(IExceptionMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _counterErrors.Add(
+            _counterExceptions.Add(
                 1,
                 KeyValuePair.Create<string, object>("OperationName", notification.OperationName),
                 KeyValuePair.Create<string, object>("Severity", notification.Severity),
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _counterErrors.Add(
+            _counterHttpFailures.Add(
                 1,
                 KeyValuePair.Create<string, object>("OperationName", notification.OperationName));
         }

@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 
         string ExceptionType { get; set; }
 
-        public string Severity { get; set; }
+        string Severity { get; set; }
     }
 }
