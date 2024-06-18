@@ -415,6 +415,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 300)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
+                        await _sqlRetryService.TryLogEvent(nameof(ImportResourcesInternalAsync), "Warn", $"retries={retries} error={sqlEx.Message}", null, cancellationToken);
                         await Task.Delay(500, cancellationToken);
                         continue;
                     }
