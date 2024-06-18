@@ -204,6 +204,23 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         }
 
         [Fact]
+        public void GivenARecord_WhenAnErrorIsLogged_ThenGenerateTheMetricAccordingly()
+        {
+            LogRecord log = CreateLogRecord(
+                DateTime.UtcNow,
+                Guid.NewGuid().ToString(),
+                LogLevel.Error,
+                new EventId(1),
+                "Creating a log record",
+                null,
+                null);
+
+            _enricher.OnEnd(log);
+
+            _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
         public void GivenRequest_WhenOperatoinNameIsAbsentAndHttpContextIsNull_ThenOperationNameShouldNotBeAdded()
         {
             _httpContextAccessor.HttpContext.ReturnsNull();

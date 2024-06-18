@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -71,7 +72,8 @@ namespace Microsoft.Health.Fhir.Shared.Web
 
         private void EmitMetricBasedOnLogs(LogRecord data)
         {
-            if (data.Exception != null)
+            // Metrics should be emitted if there is an exception, or if an error is logged.
+            if (data.Exception != null || data.LogLevel == LogLevel.Error)
             {
                 string operationName = string.Empty;
                 var request = _httpContextAccessor.HttpContext?.Request;
@@ -80,10 +82,11 @@ namespace Microsoft.Health.Fhir.Shared.Web
                     operationName = request.GetOperationName(includeRouteValues: false);
                 }
 
+                string exceptionType = data.Exception == null ? "ExceptionTypeNotDefined" : data.Exception.GetType().Name;
                 var notification = new ExceptionMetricNotification()
                 {
                     OperationName = operationName,
-                    ExceptionType = data.Exception.GetType().Name,
+                    ExceptionType = exceptionType,
                     Severity = data.LogLevel.ToString(),
                 };
                 _failureMetricHandler.EmitException(notification);
