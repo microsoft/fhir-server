@@ -33,7 +33,6 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Namotion.Reflection;
 using Newtonsoft.Json;
-using SemVer;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
