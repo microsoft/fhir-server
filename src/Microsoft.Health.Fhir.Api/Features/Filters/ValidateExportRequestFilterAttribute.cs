@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -61,14 +62,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 acceptHeaderValue.Count != 1 ||
                 !string.Equals(acceptHeaderValue[0], KnownContentTypes.JsonContentType, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
 
             if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
                 preferHeaderValue.Count != 1 ||
                 !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, preferHeaderValue.FirstOrDefault(), PreferHeaderName));
             }
 
             // Validate that the request does not contain query parameters that are not supported.

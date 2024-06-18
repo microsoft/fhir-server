@@ -54,8 +54,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
+            var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
             SqlServerFhirStorageTestHelper testHelper1 = null;
             SqlServerFhirStorageTestHelper testHelper2 = null;
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // The schema upgrade scripts starting from v7 were made idempotent.
                 if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
                 {
-                    var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot_Diff");
 
                     SqlServerFhirStorageTestHelper testHelper = null;
                     SchemaUpgradeRunner upgradeRunner;

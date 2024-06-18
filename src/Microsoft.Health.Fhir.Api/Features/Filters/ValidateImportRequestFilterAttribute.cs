@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 preferHeaderValue.Count != 1 ||
                 !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, preferHeaderValue.FirstOrDefault(), PreferHeaderName));
             }
 
             if (string.Equals(context.HttpContext.Request.Method, "POST", StringComparison.OrdinalIgnoreCase))
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     contentTypeHeaderValue.Count != 1 ||
                     !contentTypeHeaderValue[0].Contains(ContentTypeHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
+                    throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, contentTypeHeaderValue.FirstOrDefault(), HeaderNames.ContentType));
                 }
             }
         }

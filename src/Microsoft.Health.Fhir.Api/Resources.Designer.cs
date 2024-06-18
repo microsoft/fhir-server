@@ -790,7 +790,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
+        ///   Looks up a localized string similar to Value supplied, {0},  for the &quot;{1}&quot; header is not supported..
         /// </summary>
         public static string UnsupportedHeaderValue {
             get {
