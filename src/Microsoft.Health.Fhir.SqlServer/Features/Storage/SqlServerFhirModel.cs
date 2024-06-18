@@ -186,10 +186,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ThrowIfCurrentSchemaVersionIsNull();
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
-            await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
+            await Initialize((int)_schemaInformation.Current, CancellationToken.None);
         }
 
-        public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
+        public async Task Initialize(int version, CancellationToken cancellationToken)
         {
             // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
