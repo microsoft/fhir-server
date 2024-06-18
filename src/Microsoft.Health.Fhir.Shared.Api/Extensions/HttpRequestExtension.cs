@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Extensions
                     }
                 }
 
-                return $"{request.Method} {name}";
+                return $"{request.Method} {name}".Trim();
             }
 
             return null;

@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using OpenTelemetry;
 using OpenTelemetry.Logs;
 
@@ -19,12 +20,17 @@ namespace Microsoft.Health.Fhir.Shared.Web
     public class AzureMonitorOpenTelemetryLogEnricher : BaseProcessor<LogRecord>
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IFailureMetricHandler _failureMetricHandler;
 
-        public AzureMonitorOpenTelemetryLogEnricher(IHttpContextAccessor httpContextAccessor)
+        public AzureMonitorOpenTelemetryLogEnricher(
+            IHttpContextAccessor httpContextAccessor,
+            IFailureMetricHandler failureMetricHandler)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
+            EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             _httpContextAccessor = httpContextAccessor;
+            _failureMetricHandler = failureMetricHandler;
         }
 
         public override void OnEnd(LogRecord data)
@@ -42,6 +48,8 @@ namespace Microsoft.Health.Fhir.Shared.Web
 
                 AddOperationName(newAttributes);
                 data.Attributes = newAttributes.ToList();
+
+                EmitMetricBasedOnLogs(data);
             }
 
             base.OnEnd(data!);
@@ -58,6 +66,27 @@ namespace Microsoft.Health.Fhir.Shared.Web
                 {
                     attributes[KnownApplicationInsightsDimensions.OperationName] = name;
                 }
+            }
+        }
+
+        private void EmitMetricBasedOnLogs(LogRecord data)
+        {
+            if (data.Exception != null)
+            {
+                string operationName = string.Empty;
+                var request = _httpContextAccessor.HttpContext?.Request;
+                if (request != null)
+                {
+                    operationName = request.GetOperationName(includeRouteValues: false);
+                }
+
+                var notification = new ExceptionMetricNotification()
+                {
+                    OperationName = operationName,
+                    ExceptionType = data.Exception.GetType().Name,
+                    Severity = data.LogLevel.ToString(),
+                };
+                _failureMetricHandler.EmitException(notification);
             }
         }
     }
