@@ -5,16 +5,11 @@
 
 #nullable enable
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using EnsureThat;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using OpenTelemetry;
 using OpenTelemetry.Logs;
@@ -57,25 +52,11 @@ namespace Microsoft.Health.Fhir.Shared.Web
             var request = _httpContextAccessor.HttpContext?.Request;
             if (request != null)
             {
-                var name = request.Path.Value;
-                if (request.RouteValues != null
-                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
-                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
-                {
-                    name = $"{controller}/{action}";
-                    var parameterArray = request.RouteValues.Keys?.Where(
-                        k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
-                    if (parameterArray != null && parameterArray.Any())
-                    {
-                        name += $" [{string.Join("/", parameterArray)}]";
-                    }
-                }
+                string name = request.GetOperationName();
 
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    attributes[KnownApplicationInsightsDimensions.OperationName] = $"{request.Method} {name}";
+                    attributes[KnownApplicationInsightsDimensions.OperationName] = name;
                 }
             }
         }

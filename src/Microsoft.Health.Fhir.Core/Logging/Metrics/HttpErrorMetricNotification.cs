@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class HttpErrorMetricNotification : IHttpErrorMetricNotification
+    public sealed class HttpErrorMetricNotification : IHttpFailureMetricNotification
     {
         public string OperationName { get; set; }
     }

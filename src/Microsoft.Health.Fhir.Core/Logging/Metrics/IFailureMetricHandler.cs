@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     public interface IFailureMetricHandler
     {
-        void EmitHttpError(IHttpErrorMetricNotification notification);
+        void EmitHttpFailure(IHttpFailureMetricNotification notification);
 
-        void EmitError(IErrorMetricNotification notification);
+        void EmitException(IExceptionMetricNotification notification);
     }
 }

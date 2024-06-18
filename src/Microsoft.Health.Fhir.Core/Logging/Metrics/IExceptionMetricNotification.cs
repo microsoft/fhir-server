@@ -5,11 +5,11 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class ErrorMetricNotification : IErrorMetricNotification
+    public interface IExceptionMetricNotification
     {
-        public string OperationName { get; set; }
+        string OperationName { get; set; }
 
-        public string ExceptionType { get; set; }
+        string ExceptionType { get; set; }
 
         public string Severity { get; set; }
     }
