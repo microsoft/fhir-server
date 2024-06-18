@@ -129,10 +129,10 @@ SELECT TOP 1 O.name
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
 CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
-   @p0 datetime2
-  ,@p1 datetime2
-  ,@p2 nvarchar(256)
-  ,@p3 nvarchar(256)
+   @p0 nvarchar(256)
+  ,@p1 nvarchar(256)
+  ,@p2 datetime2
+  ,@p3 datetime2
   ,@p4 int
 AS
 set nocount on
