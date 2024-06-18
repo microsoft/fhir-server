@@ -60,7 +60,7 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         await _fixture.SqlServerSearchParameterStatusDataStore.UpsertStatuses(updatedSearchparameterStatuses, CancellationToken.None);
 
         // Act - exception will be thrown when getting status if any are null.
-        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, true, CancellationToken.None);
+        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, CancellationToken.None);
         var reInitializedSearchParameterStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
 
         // Assert
@@ -101,7 +101,7 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         }
 
         // Act - Max + 1 is okay as we're not applying schema but testing init.
-        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max + 1, true, CancellationToken.None);
+        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max + 1, CancellationToken.None);
 
         // Assert
         await CheckSearchParametersForInvalid();

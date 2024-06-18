@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
-            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
