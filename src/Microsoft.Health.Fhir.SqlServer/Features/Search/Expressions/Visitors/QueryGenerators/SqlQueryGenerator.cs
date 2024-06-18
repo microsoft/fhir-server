@@ -253,10 +253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     AppendHistoryClause(delimitedClause, context.ResourceVersionTypes); // This does not hurt today, but will be neded with resource history separation
 
-                    if (expression.SearchParamTableExpressions.Count == 0)
-                    {
-                        AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
-                    }
+                    AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
                 }
 
                 if (!searchOptions.CountOnly)
