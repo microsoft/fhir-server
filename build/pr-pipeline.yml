@@ -167,7 +167,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerAdminPassword: $([stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
@@ -207,7 +207,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerAdminPassword: $($[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
@@ -249,7 +249,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerAdminPassword: $([stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
@@ -291,7 +291,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerAdminPassword: $([stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
