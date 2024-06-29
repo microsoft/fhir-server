@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     return _bundleHttpContextAccessor.HttpContext.Request;
                 }
 
-                return _httpContextAccessor.HttpContext.Request;
+                return _httpContextAccessor?.HttpContext?.Request;
             }
         }
 
@@ -321,11 +321,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                ActionContext?.HttpContext,
                 routeName,
                 null,
-                Request.Scheme,
-                Request.Host.Value);
+                Request?.Scheme,
+                Request?.Host.Value);
         }
 
         private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
