@@ -25,14 +25,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// Lightweight SQL store client.
     /// </summary>
-    /// <typeparam name="T">class used in logger</typeparam>
-    internal class SqlStoreClient<T>
+    internal class SqlStoreClient
     {
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly ILogger<T> _logger;
+        private readonly ILogger _logger;
         private const string _invisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -144,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             //// ignore invisible resources
             return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
@@ -184,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
+                await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             }
@@ -207,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<long> MergeResourcesGetTransactionVisibilityAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTransactionVisibility", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTransactionVisibility", CommandType = CommandType.StoredProcedure };
             var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(transactionIdParam);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -216,7 +215,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(transactionIdParam);
@@ -256,7 +255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             var affectedRowsParam = new SqlParameter("@affectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(affectedRowsParam);
@@ -266,7 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesCommitTransaction", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesCommitTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             if (failureReason != null)
             {
@@ -278,14 +277,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesPutTransactionInvisibleHistoryAsync(long transactionId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionInvisibleHistory", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionInvisibleHistory", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         internal async Task<int> MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesAdvanceTransactionVisibility", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand { CommandText = "dbo.MergeResourcesAdvanceTransactionVisibility", CommandType = CommandType.StoredProcedure };
             var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(affectedRowsParam);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -295,14 +294,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<IReadOnlyList<long>> MergeResourcesGetTimeoutTransactionsAsync(int timeoutSec, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTimeoutTransactions", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand { CommandText = "dbo.MergeResourcesGetTimeoutTransactions", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TimeoutSec", timeoutSec);
-            return await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return reader.GetInt64(0); }, _logger, cancellationToken);
+            return await cmd.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetInt64(0), _logger, cancellationToken);
         }
 
         internal async Task<IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)>> GetTransactionsAsync(long startNotInclusiveTranId, long endInclusiveTranId, CancellationToken cancellationToken, DateTime? endDate = null)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetTransactions", CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand { CommandText = "dbo.GetTransactions", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@StartNotInclusiveTranId", startNotInclusiveTranId);
             cmd.Parameters.AddWithValue("@EndInclusiveTranId", endInclusiveTranId);
             if (endDate.HasValue)
@@ -324,7 +323,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<IReadOnlyList<ResourceDateKey>> GetResourceDateKeysByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            await using var cmd = new SqlCommand { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@IncludeHistory", true);
             cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);

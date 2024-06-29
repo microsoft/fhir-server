@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,14 +16,12 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class TransactionWatchdog : Watchdog<TransactionWatchdog>
+    internal sealed class TransactionWatchdog : Watchdog<TransactionWatchdog>
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly IResourceWrapperFactory _factory;
         private readonly ILogger<TransactionWatchdog> _logger;
-        private CancellationToken _cancellationToken;
-        private const double _periodSec = 3;
-        private const double _leasePeriodSec = 20;
+        private const string AdvancedVisibilityTemplate = "TransactionWatchdog advanced visibility on {Transactions} transactions.";
 
         public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, ISqlRetryService sqlRetryService, ILogger<TransactionWatchdog> logger)
             : base(sqlRetryService, logger)
@@ -33,49 +32,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         }
 
         internal TransactionWatchdog()
-            : base()
         {
             // this is used to get param names for testing
         }
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-            await StartAsync(true, _periodSec, _leasePeriodSec, cancellationToken);
-        }
+        public override double LeasePeriodSec { get; internal set; } = 20;
 
-        protected override async Task ExecuteAsync()
+        public override bool AllowRebalance { get; internal set; } = true;
+
+        public override double PeriodSec { get; internal set; } = 3;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("TransactionWatchdog starting...");
-            var affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
-            _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
+            var affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(cancellationToken);
+
+            _logger.Log(
+                affectedRows > 0 ? LogLevel.Information : LogLevel.Debug,
+                AdvancedVisibilityTemplate,
+                affectedRows);
 
             if (affectedRows > 0)
             {
                 return;
             }
 
-            var timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, _cancellationToken);
+            IReadOnlyList<long> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
             if (timeoutTransactions.Count > 0)
             {
                 _logger.LogWarning("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
-                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"found timed out transactions={timeoutTransactions.Count}", null, _cancellationToken);
+                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"found timed out transactions={timeoutTransactions.Count}", null, cancellationToken);
             }
             else
             {
-                _logger.LogInformation("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
+                _logger.Log(
+                    timeoutTransactions.Count > 0 ? LogLevel.Information : LogLevel.Debug,
+                    "TransactionWatchdog found {Transactions} timed out transactions",
+                    timeoutTransactions.Count);
             }
 
             foreach (var tranId in timeoutTransactions)
             {
                 var st = DateTime.UtcNow;
                 _logger.LogInformation("TransactionWatchdog found timed out transaction={Transaction}, attempting to roll forward...", tranId);
-                var resources = await _store.GetResourcesByTransactionIdAsync(tranId, _cancellationToken);
+                var resources = await _store.GetResourcesByTransactionIdAsync(tranId, cancellationToken);
                 if (resources.Count == 0)
                 {
-                    await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", _cancellationToken);
+                    await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", cancellationToken);
                     _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources=0", tranId);
-                    await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, _cancellationToken);
+                    await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, cancellationToken);
                     continue;
                 }
 
@@ -84,12 +88,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     _factory.Update(resource);
                 }
 
-                await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(_ => new MergeResourceWrapper(_, true, true)).ToList(), false, 0, _cancellationToken);
-                await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, _cancellationToken);
+                await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, cancellationToken);
+                await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, cancellationToken);
                 _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources={Resources}", tranId, resources.Count);
-                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources={resources.Count}", st, _cancellationToken);
+                await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources={resources.Count}", st, cancellationToken);
 
-                affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
+                affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(cancellationToken);
                 _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
             }
         }

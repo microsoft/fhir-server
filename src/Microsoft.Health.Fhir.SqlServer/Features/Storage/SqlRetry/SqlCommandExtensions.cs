@@ -14,17 +14,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public static class SqlCommandExtensions
     {
-        public static async Task ExecuteNonQueryAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
+        public static async Task ExecuteNonQueryAsync(this SqlCommand cmd, ISqlRetryService retryService, ILogger logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
         {
             await retryService.ExecuteSql(cmd, async (sql, cancel) => await sql.ExecuteNonQueryAsync(cancel), logger, logMessage, cancellationToken, isReadOnly, disableRetries);
         }
 
-        public static async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult, TLogger>(this SqlCommand cmd, ISqlRetryService retryService, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false)
+        public static async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(this SqlCommand cmd, ISqlRetryService retryService, Func<SqlDataReader, TResult> readerToResult, ILogger logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false)
         {
             return await retryService.ExecuteReaderAsync(cmd, readerToResult, logger, logMessage, cancellationToken, isReadOnly);
         }
 
-        public static async Task<object> ExecuteScalarAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
+        public static async Task<object> ExecuteScalarAsync(this SqlCommand cmd, ISqlRetryService retryService, ILogger logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
         {
             object scalar = null;
             await retryService.ExecuteSql(cmd, async (sql, cancel) => { scalar = await sql.ExecuteScalarAsync(cancel); }, logger, logMessage, cancellationToken, isReadOnly, disableRetries);
