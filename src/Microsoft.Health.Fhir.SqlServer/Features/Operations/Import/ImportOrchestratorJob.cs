@@ -11,6 +11,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
@@ -140,6 +141,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     _logger.LogJobInformation(ex, jobInfo, "Failed to register processing jobs.");
                 }
 
+                await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+            }
+            catch (CredentialUnavailableException ex)
+            {
+                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.-CredentialUnavailableException");
+                errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity cannot access storage account.", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (Exception ex)
