@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -51,7 +52,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         [InlineData("The MetadataAddress or Authority must use HTTPS unless disabled for development by setting RequireHttpsMetadata=false.", "The security configuration requires the authority to be set to an https address.")]
         public async Task GivenAnHttpContextWithException_WhenExecutingBaseExceptionMiddleware_TheResponseShouldBeOperationOutcome(string exceptionMessage, string diagnosticMessage)
         {
-            var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => throw new Exception(exceptionMessage));
+            IFailureMetricHandler failureMetricHandler = Substitute.For<IFailureMetricHandler>();
+
+            var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => throw new Exception(exceptionMessage), failureMetricHandler);
 
             baseExceptionMiddleware.ExecuteResultAsync(Arg.Any<HttpContext>(), Arg.Any<IActionResult>()).Returns(Task.CompletedTask);
 
@@ -64,23 +67,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
                     Arg.Is<OperationOutcomeResult>(x => x.StatusCode == HttpStatusCode.InternalServerError &&
                                             x.Result.Id == _correlationId &&
                                             x.Result.Issue[0].Diagnostics == diagnosticMessage));
+
+            failureMetricHandler.Received(1).EmitHttpFailure(Arg.Any<IHttpFailureMetricNotification>());
         }
 
         [Fact]
         public async Task GivenAnHttpContextWithNoException_WhenExecutingBaseExceptionMiddleware_TheResponseShouldBeEmpty()
         {
-            var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => Task.CompletedTask);
+            IFailureMetricHandler failureMetricHandler = Substitute.For<IFailureMetricHandler>();
+
+            var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => Task.CompletedTask, failureMetricHandler);
 
             await baseExceptionMiddleware.Invoke(_context);
 
             Assert.Equal(200, _context.Response.StatusCode);
             Assert.Null(_context.Response.ContentType);
             Assert.Equal(0, _context.Response.Body.Length);
+
+            failureMetricHandler.Received(0).EmitHttpFailure(Arg.Any<IHttpFailureMetricNotification>());
         }
 
-        private BaseExceptionMiddleware CreateBaseExceptionMiddleware(RequestDelegate nextDelegate)
+        private BaseExceptionMiddleware CreateBaseExceptionMiddleware(RequestDelegate nextDelegate, IFailureMetricHandler failureMetricHandler)
         {
-            return Substitute.ForPartsOf<BaseExceptionMiddleware>(nextDelegate, NullLogger<BaseExceptionMiddleware>.Instance, _fhirRequestContextAccessor, _formatParametersValidator);
+            return Substitute.ForPartsOf<BaseExceptionMiddleware>(
+                nextDelegate,
+                NullLogger<BaseExceptionMiddleware>.Instance,
+                failureMetricHandler,
+                _fhirRequestContextAccessor,
+                _formatParametersValidator);
         }
     }
 }
