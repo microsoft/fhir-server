@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                         throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
                     }
 
-                    if (results?.Results.Any() == true)
+                    if (results?.Results?.Any() == true)
                     {
                         matchedResults.AddRange(
                             results?.Results
