@@ -25,7 +25,16 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
+            Ping();
+
             ExecuteAsync().Wait();
+        }
+
+        private static void Ping()
+        {
+            using var cmd = new SqlCommand("SELECT db_name()");
+            var result = (string)cmd.ExecuteScalarAsync(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance, default).Result;
+            Console.WriteLine($"Ping completed: {result}");
         }
 
         private static async Task ExecuteAsync()
