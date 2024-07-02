@@ -536,6 +536,70 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
+        [Fact]
+        public void GivenSearchParamFromCustomFhirResource_WhenCustomTypeIsUnknown_ThenResourceNotSupportedExceptionShouldBeThrown()
+        {
+            const string resourceType = "Formulary";
+            const string paramName1 = KnownQueryParameterNames.Text;
+            const string value1 = "123";
+
+            var oldModelInfoProvider = ModelInfoProvider.Instance;
+            try
+            {
+                IModelInfoProvider modelInfoProvider = Substitute.For<IModelInfoProvider>();
+                modelInfoProvider.IsKnownResource(resourceType).Returns(false);
+                ModelInfoProvider.SetProvider(modelInfoProvider);
+
+                var queryParameters = new[]
+                {
+                    Tuple.Create(paramName1, value1),
+                };
+
+                Assert.Throws<ResourceNotSupportedException>(() =>
+                {
+                    _ = CreateSearchOptions(
+                        resourceType: resourceType,
+                        queryParameters: queryParameters);
+                });
+            }
+            finally
+            {
+                ModelInfoProvider.SetProvider(oldModelInfoProvider);
+            }
+        }
+
+        [Fact]
+        public void GivenSearchParamFromCustomFhirResource_WhenCustomTypeIsKnown_ThenCorrectExpressionShouldBeGenerated()
+        {
+            const string resourceType = "Formulary";
+            const string paramName1 = KnownQueryParameterNames.Text;
+            const string value1 = "123";
+
+            var oldModelInfoProvider = ModelInfoProvider.Instance;
+            try
+            {
+                IModelInfoProvider modelInfoProvider = Substitute.For<IModelInfoProvider>();
+                modelInfoProvider.IsKnownResource(resourceType).Returns(true);
+                ModelInfoProvider.SetProvider(modelInfoProvider);
+
+                var queryParameters = new[]
+                {
+                    Tuple.Create(paramName1, value1),
+                };
+
+                SearchOptions options = CreateSearchOptions(
+                    resourceType: resourceType,
+                    queryParameters: queryParameters);
+
+                Assert.NotNull(options);
+                ValidateResourceTypeSearchParameterExpression(options.Expression, resourceType);
+            }
+            finally
+            {
+                ModelInfoProvider.SetProvider(oldModelInfoProvider);
+            }
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
