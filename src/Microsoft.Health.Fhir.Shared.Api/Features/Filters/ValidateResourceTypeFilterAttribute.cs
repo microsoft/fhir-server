@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -31,6 +32,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 var resource = ParseResource((Resource)parsedModel);
                 ValidateType(resource, (string)actionModelType);
+            }
+
+            // Validated Resource Type of Parameters
+            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.ParamsResource, out var parsedParamModel))
+            {
+                var resource = ParseResource((Resource)parsedParamModel);
+                ValidateType(resource, KnownResourceTypes.Parameters);
             }
         }
 
