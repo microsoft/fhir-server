@@ -43,6 +43,9 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
         private static readonly bool MultiResourceTypes = bool.Parse(ConfigurationManager.AppSettings["MultiResourceTypes"]);
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
+        private static readonly bool CombineBlobs = bool.Parse(ConfigurationManager.AppSettings["CombineBlobs"]);
+        private static readonly string OutputSuffix = ConfigurationManager.AppSettings["OutputSuffix"];
+        private static readonly bool ReplaceResourceIds = bool.Parse(ConfigurationManager.AppSettings["ReplaceResourceIds"]);
 
         public static void Main()
         {
@@ -52,11 +55,11 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: Starting...");
             var blobs = WritesEnabled
-                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith($".{ExtensionFilter}", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
-                      : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase)).Take(SourceBlobs);
+                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith($".{ExtensionFilter}", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs).ToList()
+                      : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase)).Take(SourceBlobs).ToList();
             if (WritesEnabled)
             {
-                Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={blobs.Count()}.");
+                Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={blobs.Count}.");
             }
 
             var sw = Stopwatch.StartNew();
@@ -64,7 +67,68 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var totalLines = 0L;
             var sourceBlobs = 0L;
             var targetBlobs = 0L;
-            if (MultiResourceTypes)
+            if (CombineBlobs)
+            {
+                var blobName = blobs.First().Name.Replace(".ndjson", $"{OutputSuffix}.ndjson", StringComparison.OrdinalIgnoreCase);
+                targetBlobs = 1;
+                using var stream = targetContainer.GetBlockBlobClient(blobName).OpenWrite(true);
+                using var writer = new StreamWriter(stream);
+                var baseDate = DateTime.Parse(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:00.000")).AddDays(-SourceBlobs);
+                var milliseconds = 0;
+                var guids = GetNWMGuids();
+                Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: guids={guids.Count}.");
+                foreach (var blob in blobs)
+                {
+                    if (totalLines == guids.Count)
+                    {
+                        break;
+                    }
+
+                    sourceBlobs++;
+                    foreach (var line in GetLinesInBlob(sourceContainer, blob.Name))
+                    {
+                        if (totalLines == guids.Count)
+                        {
+                            break;
+                        }
+
+                        totalLines++;
+                        if (WritesEnabled)
+                        {
+                            if (AddMeta)
+                            {
+                                if (totalLines % 7500 == 0 || ReplaceResourceIds)
+                                {
+                                    milliseconds++;
+                                }
+
+                                var date = baseDate.AddMilliseconds(milliseconds);
+                                var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
+                                var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
+                                if (ReplaceResourceIds)
+                                {
+                                    var resourceId = guids[(int)totalLines - 1];
+                                    lineWithMeta = ReplaceResourceId(lineWithMeta, resourceId);
+                                }
+
+                                writer.WriteLine(lineWithMeta);
+                            }
+                            else
+                            {
+                                writer.WriteLine(line);
+                            }
+                        }
+
+                        if (totalLines % 100000 == 0)
+                        {
+                            Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+                        }
+                    }
+                }
+
+                writer.Flush();
+            }
+            else if (MultiResourceTypes)
             {
                 BatchExtensions.ExecuteInParallelBatches(blobs, Threads, BlobRangeSize, (reader, blobInt) =>
                 {
@@ -122,16 +186,56 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static List<string> GetLinesInBlobGroup(BlobContainerClient sourceContainer, IList<BlobItem> blobs)
+        private static string ReplaceResourceId(string jsonString, string resourceId)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var idShort = jsonString.Substring(idStart, 50);
+            var idEnd = idShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
+            var currentResourceId = idShort.Substring(0, idEnd);
+            return jsonString.Replace($"\"id\":\"{currentResourceId}\"", $"\"id\":\"{resourceId}\"", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static List<string> GetNWMGuids()
+        {
+            var dist = new List<(int Dups, int Repeat)>();
+            dist.Add((Dups: 25830, Repeat: 10));
+            dist.Add((Dups: 39024, Repeat: 9));
+            dist.Add((Dups: 38037, Repeat: 8));
+            dist.Add((Dups: 42891, Repeat: 7));
+            dist.Add((Dups: 53599, Repeat: 6));
+            dist.Add((Dups: 69176, Repeat: 5));
+            dist.Add((Dups: 92795, Repeat: 4));
+            dist.Add((Dups: 138026, Repeat: 3));
+            dist.Add((Dups: 277551, Repeat: 2));
+            dist.Add((Dups: 640020, Repeat: 1));
+            var guids = new List<string>();
+            foreach (var d in dist)
+            {
+                for (var i = 0; i < d.Dups; i++)
+                {
+                    var guid = Guid.NewGuid().ToString();
+                    for (var j = 0; j < d.Repeat; j++)
+                    {
+                        guids.Add(guid);
+                    }
+                }
+            }
+
+            return guids.OrderBy(_ => RandomNumberGenerator.GetInt32(1000000)).ToList();
+        }
+
+        private static List<string> GetLinesInBlobGroup(BlobContainerClient sourceContainer, IEnumerable<BlobItem> blobs)
         {
             var sw = Stopwatch.StartNew();
             var direct = new List<string>();
+            var blobCount = 0;
             Parallel.ForEach(blobs, new ParallelOptions { MaxDegreeOfParallelism = Threads }, (blob) =>
             {
                 var temp = new List<string>();
                 foreach (var line in GetLinesInBlob(sourceContainer, blob.Name))
                 {
                     temp.Add(line);
+                    Interlocked.Increment(ref blobCount);
                 }
 
                 lock (direct)
@@ -139,7 +243,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     direct.AddRange(temp);
                 }
             });
-            Console.WriteLine($"{DateTime.UtcNow:s}: Read sourceBlobs={blobs.Count} lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
+            Console.WriteLine($"{DateTime.UtcNow:s}: Read sourceBlobs={blobCount} lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
             return direct.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
         }
 
@@ -245,7 +349,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static long CopyBlob(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
         {
             var lines = 0L;
-            var baseDate = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex);
+            var baseDate = DateTime.Parse(DateTime.UtcNow.ToString("yyyy-MM-ddT00:00:00.000")).AddMinutes(-SourceBlobs).AddMinutes(blobIndex / BlobRangeSize); // all blobs in range will get the same starting last updated
             var milliseconds = 0;
             using var stream = targetContainer.GetBlockBlobClient(blobName).OpenWrite(true);
             using var writer = new StreamWriter(stream);
@@ -261,7 +365,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                             milliseconds++;
                         }
 
-                        var date = baseDate.AddMilliseconds(lines);
+                        var date = baseDate.AddMilliseconds(milliseconds);
                         var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
                         var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
                         writer.WriteLine(lineWithMeta);
@@ -337,7 +441,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                                     milliseconds++;
                                 }
 
-                                var date = baseDate.AddMilliseconds(lines);
+                                var date = baseDate.AddMilliseconds(milliseconds);
                                 var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
                                 var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
                                 writer.WriteLine(lineWithMeta);
