@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private readonly ConcurrentDictionary<string, CosmosClient> _cosmosClients;
+        private static CosmosClient _cosmosClient;
         private readonly object _lockObject;
 
         public FhirCosmosClientInitializer(
@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _requestHandlerFactory = requestHandlerFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
-            _cosmosClients = new ConcurrentDictionary<string, CosmosClient>();
             _lockObject = new object();
         }
 
@@ -60,24 +59,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             string key = string.IsNullOrEmpty(configuration.Host) ? "local" : configuration.Host;
 
             // Thread-safe logic to ensure that a single instance of CosmosClient is created per host.
-            if (_cosmosClients.TryGetValue(key, out CosmosClient client1))
+            if (_cosmosClient != null)
             {
-                return client1;
+                return _cosmosClient;
             }
             else
             {
                 lock (_lockObject)
                 {
-                    if (_cosmosClients.TryGetValue(key, out CosmosClient client2))
-                    {
-                        return client2;
-                    }
-                    else
-                    {
-                        var client = CreateCosmosClientInternal(configuration);
-                        _cosmosClients.TryAdd(key, client);
-                        return client;
-                    }
+                    _cosmosClient = CreateCosmosClientInternal(configuration);
+                    return _cosmosClient;
                 }
             }
         }
