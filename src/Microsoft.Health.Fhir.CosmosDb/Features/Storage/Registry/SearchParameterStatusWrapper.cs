@@ -7,6 +7,7 @@ using System;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 

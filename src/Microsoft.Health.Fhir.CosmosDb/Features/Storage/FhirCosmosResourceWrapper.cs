@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Newtonsoft.Json;
 

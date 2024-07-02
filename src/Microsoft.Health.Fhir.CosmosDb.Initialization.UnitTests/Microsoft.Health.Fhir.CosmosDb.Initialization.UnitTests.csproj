@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Test.Utilities" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+    </PackageReference>
+   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb.Initialization\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
+  </ItemGroup>
+
+</Project>

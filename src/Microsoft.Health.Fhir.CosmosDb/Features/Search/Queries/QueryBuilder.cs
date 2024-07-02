@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 

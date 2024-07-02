@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage

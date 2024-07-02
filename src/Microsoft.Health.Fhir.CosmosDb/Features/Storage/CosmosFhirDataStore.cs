@@ -31,7 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
             {
-                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+                throw new MissingSearchIndicesException(string.Format(Microsoft.Health.Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
@@ -308,11 +308,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                 {
                     _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                 }
 
                 _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
             }
 
             while (true)
@@ -337,13 +337,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     if (weakETag != null)
                     {
                         _logger.LogInformation("ResourceNotFound: ResourceNotFoundByIdAndVersion");
-                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                        throw new ResourceNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                     }
 
                     if (!allowCreate)
                     {
                         _logger.LogInformation("MethodNotAllowed: ResourceCreationNotAllowed");
-                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                        throw new MethodNotAllowedException(Microsoft.Health.Fhir.Core.Resources.ResourceCreationNotAllowed);
                     }
 
                     throw;
@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
 
                     _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
@@ -562,8 +562,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        _logger.LogError(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
 
                     case HttpStatusCode.ServiceUnavailable:
                         _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");

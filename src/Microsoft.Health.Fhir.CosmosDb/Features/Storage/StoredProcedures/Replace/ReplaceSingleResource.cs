@@ -7,18 +7,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.Replace;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace
 {
     internal class ReplaceSingleResource : StoredProcedureBase
     {
+        public ReplaceSingleResource()
+            : base(new ReplaceSingleResourceMetadata())
+        {
+        }
+
         public async Task<FhirCosmosResourceWrapper> Execute(Scripts client, FhirCosmosResourceWrapper resource, string matchVersionId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             StoredProcedureExecuteResponse<FhirCosmosResourceWrapper> result =
-                await ExecuteStoredProc<FhirCosmosResourceWrapper>(
+                await ExecuteStoredProcAsync<FhirCosmosResourceWrapper>(
                     client,
                     resource.PartitionKey,
                     cancellationToken,

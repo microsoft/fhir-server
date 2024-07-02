@@ -12,7 +12,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Polly;
 using Polly.Retry;
 

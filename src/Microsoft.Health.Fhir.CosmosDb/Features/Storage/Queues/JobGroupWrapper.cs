@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;

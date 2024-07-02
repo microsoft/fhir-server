@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,9 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -37,6 +40,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
+            ICollectionSetup collectionSetup,
+            ICollectionDataUpdater collectionDataUpdater,
+            RetryExceptionPolicyFactory retryPolicyFactory,
             ILogger<CosmosContainerProvider> logger,
             IMediator mediator,
             IEnumerable<ICollectionInitializer> collectionInitializers)
@@ -46,19 +52,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
+            EnsureArg.IsNotNull(collectionSetup, nameof(collectionSetup));
+            EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
             _logger = logger;
             _mediator = mediator;
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
-
-            _initializationOperation = new RetryableInitializationOperation(
-                () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
-
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
                 collectionId));
+            _initializationOperation = new RetryableInitializationOperation(async () =>
+            {
+                await InitializeDataStoreAsync(collectionSetup, collectionDataUpdater, cosmosDataStoreConfiguration, retryPolicyFactory, collectionInitializers);
+            });
         }
 
         public Container Container
@@ -73,6 +81,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 return _container.Value;
+            }
+        }
+
+        private async Task InitializeDataStoreAsync(
+          ICollectionSetup collectionSetup,
+          ICollectionDataUpdater collectionDataUpdater,
+          CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+          RetryExceptionPolicyFactory retryPolicyFactory,
+          IEnumerable<ICollectionInitializer> collectionInitializers)
+        {
+            try
+            {
+                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
+                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
+                {
+                    await collectionSetup.CreateDatabaseAsync(retryPolicyFactory.RetryPolicy, cancellationTokenSource.Token); // We need valid cancellation token
+                    await collectionSetup.CreateCollectionAsync(collectionInitializers, retryPolicyFactory.RetryPolicy, cancellationTokenSource.Token);
+                    await collectionSetup.UpdateFhirCollectionSettingsAsync(cancellationTokenSource.Token);
+                    await collectionDataUpdater.ExecuteAsync(_container.Value, cancellationTokenSource.Token);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogLevel logLevel = LogLevel.Critical;
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} Initialization has failed.", cosmosDataStoreConfiguration.DatabaseId);
+                throw;
             }
         }
 

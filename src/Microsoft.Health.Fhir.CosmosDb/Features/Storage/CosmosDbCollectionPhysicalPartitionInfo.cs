@@ -18,7 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
