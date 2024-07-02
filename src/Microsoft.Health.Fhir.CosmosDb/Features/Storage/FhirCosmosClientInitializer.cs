@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private static CosmosClient _cosmosClient;
+        private CosmosClient _cosmosClient;
         private readonly object _lockObject;
 
         public FhirCosmosClientInitializer(
@@ -56,9 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            string key = string.IsNullOrEmpty(configuration.Host) ? "local" : configuration.Host;
-
-            // Thread-safe logic to ensure that a single instance of CosmosClient is created per host.
+            // Thread-safe logic to ensure that a single instance of CosmosClient is created.
             if (_cosmosClient != null)
             {
                 return _cosmosClient;
@@ -67,7 +65,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 lock (_lockObject)
                 {
-                    _cosmosClient = CreateCosmosClientInternal(configuration);
+                    if (_cosmosClient == null)
+                    {
+                        _cosmosClient = CreateCosmosClientInternal(configuration);
+                    }
+
                     return _cosmosClient;
                 }
             }
