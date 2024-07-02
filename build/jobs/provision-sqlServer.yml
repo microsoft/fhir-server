@@ -7,9 +7,6 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'auto'
-- name: sqlServerAdminPassword
-  type: string
-  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -33,7 +30,6 @@ jobs:
         Add-Type -AssemblyName System.Web
      
         $templateParameters = @{
-            sqlAdminPassword = "${{parameters.sqlServerAdminPassword}}"
             sqlServerName = "${{parameters.sqlServerName}}".ToLower()
             sqlSchemaAutomaticUpdatesEnabled = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
