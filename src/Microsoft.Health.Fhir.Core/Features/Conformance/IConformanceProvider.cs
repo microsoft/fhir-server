@@ -32,6 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// </summary>
         /// <param name="queries">Query to check.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        Task<bool> SatisfiesAsync(IEnumerable<CapabilityQuery> queries, CancellationToken cancellationToken = default(CancellationToken));
+        Task<bool> SatisfiesAsync(IReadOnlyCollection<CapabilityQuery> queries, CancellationToken cancellationToken = default(CancellationToken));
     }
 }

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             SearchParameterInfo referenceSearchParameter,
             string sourceResourceType,
             string targetResourceType,
-            IEnumerable<string> referencedTypes,
+            IReadOnlyCollection<string> referencedTypes,
             bool wildCard,
             bool reversed,
             bool iterate,

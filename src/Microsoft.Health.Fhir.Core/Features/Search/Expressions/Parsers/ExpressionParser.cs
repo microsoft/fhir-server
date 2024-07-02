@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceTypes, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IEnumerable<string> allowedResourceTypesByScope)
+        public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IReadOnlyCollection<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();
 
