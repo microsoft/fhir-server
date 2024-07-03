@@ -7,10 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -62,7 +66,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ProcessingFlag _ignoreInputLastUpdated;
         private static ProcessingFlag _ignoreInputVersion;
         private static ProcessingFlag _rawResourceDeduping;
-        private static readonly object _flagLocker = new object();
+        private static readonly object _parameterLocker = new object();
+        private static string _warehouse;
+        private static bool _warehouseIsSet;
+        private static string _adlsContainer;
+        private static string _adlsConnectionString;
+        private static string _adlsAccountName;
+        private static string _adlsAccountKey;
+        private static BlobContainerClient _adlsClient;
+        private static bool _adlsIsSet;
 
         public SqlServerFhirDataStore(
             SqlServerFhirModel model,
@@ -96,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_ignoreInputLastUpdated == null)
             {
-                lock (_flagLocker)
+                lock (_parameterLocker)
                 {
                     _ignoreInputLastUpdated ??= new ProcessingFlag("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
                 }
@@ -104,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_ignoreInputVersion == null)
             {
-                lock (_flagLocker)
+                lock (_parameterLocker)
                 {
                     _ignoreInputVersion ??= new ProcessingFlag("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
                 }
@@ -112,9 +124,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_rawResourceDeduping == null)
             {
-                lock (_flagLocker)
+                lock (_parameterLocker)
                 {
                     _rawResourceDeduping ??= new ProcessingFlag("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
+                }
+            }
+
+            if (!_warehouseIsSet)
+            {
+                lock (_parameterLocker)
+                {
+                    if (!_warehouseIsSet)
+                    {
+                        _warehouse = GetStorageParameter("MergeResources.Warehouse");
+                        _warehouseIsSet = true;
+                    }
+                }
+            }
+
+            if (!_adlsIsSet)
+            {
+                lock (_parameterLocker)
+                {
+                    if (!_adlsIsSet)
+                    {
+                        _adlsAccountName = GetStorageParameter("MergeResources.AdlsAccountName");
+                        if (_adlsAccountName != null)
+                        {
+                            _adlsAccountKey = GetStorageParameter("MergeResources.AdlsAccountKey");
+                            _adlsConnectionString = $"DefaultEndpointsProtocol=https;AccountName={_adlsAccountName};AccountKey={_adlsAccountKey};EndpointSuffix=core.windows.net";
+                            var db = _sqlRetryService.Database.Length < 50 ? _sqlRetryService.Database : _sqlRetryService.Database.Substring(0, 50);
+                            _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
+                            _adlsClient = GetAdlsContainer();
+                        }
+
+                        _adlsIsSet = true;
+                    }
                 }
             }
         }
@@ -122,6 +167,105 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
+
+#pragma warning disable CA2016
+        private async Task PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            var blobName = GetBlobName(transactionId, null, "ndjson");
+        retry:
+            try
+            {
+                using var stream = await _adlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var writer = new StreamWriter(stream);
+                var offset = 0;
+                foreach (var resource in resources)
+                {
+                    //// TODO: Add later resource.OffsetInFile = offset;
+                    var line = resource.ResourceWrapper.RawResource.Data;
+                    offset += Encoding.UTF8.GetByteCount(line) + eol;
+                    await writer.WriteLineAsync(line);
+                }
+
+                await writer.FlushAsync();
+            }
+            catch (Exception e)
+            {
+                await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Error", e.ToString(), start, cancellationToken);
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Task.Delay(1000, cancellationToken);
+                    goto retry;
+                }
+
+                throw;
+            }
+
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"Resources={resources.Count}", start, cancellationToken);
+        }
+
+        private async Task PutStringsToAdls(IEnumerable<string> lines, long transactionId, string suffix, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            var blobName = GetBlobName(transactionId, suffix, "csv");
+            var count = 0;
+        retry:
+            try
+            {
+                using var stream = await _adlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var writer = new StreamWriter(stream);
+                foreach (var line in lines)
+                {
+                    await writer.WriteLineAsync(line);
+                    count++;
+                }
+
+                await writer.FlushAsync();
+            }
+            catch (Exception e)
+            {
+                await StoreClient.TryLogEvent("PutStringsToAdls", "Error", e.ToString(), start, cancellationToken);
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Task.Delay(1000, cancellationToken);
+                    goto retry;
+                }
+
+                throw;
+            }
+
+            await StoreClient.TryLogEvent("PutStringsToAdls", "Warn", $"blob={blobName} lines={count}", start, cancellationToken);
+        }
+
+        private static string GetBlobName(long transactionId, string suffix, string ext)
+        {
+            return suffix == null
+                          ? $"tran-{transactionId}.{ext}"
+                          : $"tran-{transactionId}-{suffix}.{ext}";
+        }
+
+        private static BlobContainerClient GetAdlsContainer() // creates if does not exist
+        {
+            var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
+            var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+
+            if (!blobContainerClient.Exists())
+            {
+                lock (_parameterLocker)
+                {
+                    blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+                    if (!blobContainerClient.Exists())
+                    {
+                        var container = blobServiceClient.CreateBlobContainer(_adlsContainer); // TODO: This can fail on multiple VMs.
+                        blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+                    }
+                }
+            }
+
+            return blobContainerClient;
+        }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
@@ -694,21 +838,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
-            new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+            if (_adlsAccountName == null)
+            {
+                new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+            }
+            else
+            {
+                await PutStringsToAdls(new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "ResourceWriteClaim", cancellationToken);
+                await PutStringsToAdls(new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "ReferenceSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenText", cancellationToken);
+                await PutStringsToAdls(new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "StringSearchParam", cancellationToken);
+                await PutStringsToAdls(new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "UriSearchParam", cancellationToken);
+                await PutStringsToAdls(new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "NumberSearchParam", cancellationToken);
+                await PutStringsToAdls(new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "QuantitySearchParam", cancellationToken);
+                await PutStringsToAdls(new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "DateTimeSearchParam", cancellationToken);
+                await PutStringsToAdls(new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "ReferenceTokenCompositeSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenTokenCompositeSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenDateTimeCompositeSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenQuantityCompositeSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenStringCompositeSearchParam", cancellationToken);
+                await PutStringsToAdls(new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenNumberNumberCompositeSearchParam", cancellationToken);
+            }
+
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -959,6 +1125,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
+        }
+
+        private string GetStorageParameter(string parameterId)
+        {
+            lock (_parameterLocker)
+            {
+                try
+                {
+                    using var cmd = new SqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = @Id";
+                    cmd.Parameters.AddWithValue("@Id", parameterId);
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    return value == null ? null : (string)value;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
         }
 
         private class ProcessingFlag
