@@ -17,14 +17,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
     internal class CollectionUpgradeManager : IUpgradeManager
     {
-        private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
+        private readonly IReadOnlyCollection<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
         private readonly ILogger<CollectionUpgradeManager> _logger;
 
         public CollectionUpgradeManager(
-            IEnumerable<ICollectionUpdater> collectionUpdater,
+            IReadOnlyCollection<ICollectionUpdater> collectionUpdater,
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosDbDistributedLockFactory lockFactory,
