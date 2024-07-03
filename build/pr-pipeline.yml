@@ -167,6 +167,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'

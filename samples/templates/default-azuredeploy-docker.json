@@ -313,6 +313,12 @@
             }
         },
         {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[variables('appServicePlanName')]",
+            "location": "[resourceGroup().location]"
+        },
+        {
             "apiVersion": "2018-11-01",
             "type": "Microsoft.Web/sites",
             "name": "[variables('serviceName')]",
@@ -321,7 +327,10 @@
             },
             "location": "[resourceGroup().location]",
             "identity": {
-                "type": "SystemAssigned"
+                "type": "SystemAssigned, UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]": {}
+                }
             },
             "properties": {
                 "name": "[parameters('serviceName')]",
@@ -352,7 +361,8 @@
                 "httpsOnly": true
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]"
             ],
             "resources": [
                 {
@@ -460,15 +470,25 @@
             },
             "properties": {
                 "version": "12.0",
+                "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]",
                 "administrators": {
                     "administratorType": "ActiveDirectory",
                     "azureADOnlyAuthentication": true,
-                    "login": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
-                    "sid": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
-                    "tenantId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.tenantId]",
-                    "principalType": "Application"
+                    "principalType": "User",
+                    "login": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').principalId]",
+                    "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').principalId]",
+                    "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').tenantId]"
                 }
             },
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]": {}
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]"
+            ],
             "resources": [
                 {
                     "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
@@ -554,7 +574,7 @@
                 "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]"
             }
         },
-                {
+        {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
@@ -601,7 +621,8 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"            },
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').clientId, ';')]"
+            },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
                 "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
