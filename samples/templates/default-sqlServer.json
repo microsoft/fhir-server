@@ -37,6 +37,12 @@
     },
     "resources": [
         {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[variables('appServicePlanName')]",
+            "location": "[resourceGroup().location]"
+        },
+        {
             "name": "[parameters('sqlServerName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
@@ -62,6 +68,9 @@
                     "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName'))]": {}
                 }
             },
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName'))]"
+            ],
             "resources": [
                 {
                     "apiVersion": "2014-04-01",
