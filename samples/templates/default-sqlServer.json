@@ -9,18 +9,18 @@
                 "description": "Name of Sql Server (existing or new). If empty, a name will be generated."
             }
         },
-        "sqlAdminPassword": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The password for the sql admin user if using SQL server."
-            }
-        },
         "sqlLocation": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
             "metadata": {
                 "description": "An override location for the sql server database."
+            }
+        },
+        "userAssignedManagedIdentityName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of the user assigned managed identity to be used for the sql server."
             }
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
@@ -45,9 +45,22 @@
                 "FhirServerSolution": "FhirServerSqlServer"
             },
             "properties": {
-                "administratorLogin": "fhirAdmin",
-                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
-                "version": "12.0"
+                "version": "12.0",
+                "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName'))]",
+                "administrators": {
+                    "administratorType": "ActiveDirectory",
+                    "azureADOnlyAuthentication": true,
+                    "principalType": "User",
+                    "login": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName')), '2018-11-30').principalId]",
+                    "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName')), '2018-11-30').principalId]",
+                    "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName')), '2018-11-30').tenantId]"
+                }
+            },
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName'))]": {}
+                }
             },
             "resources": [
                 {

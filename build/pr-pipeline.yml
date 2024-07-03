@@ -167,6 +167,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       schemaAutomaticUpdatesEnabled: 'auto'
+      userAssignedManagedIdentityName: $(appServicePlanName)
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
