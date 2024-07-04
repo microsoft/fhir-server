@@ -313,6 +313,7 @@
             }
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "name": "[variables('appServicePlanName')]",
