@@ -39,7 +39,7 @@
         {
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
-            "name": "[variables('userAssignedManagedIdentityName')]",
+            "name": "[parameters('userAssignedManagedIdentityName')]",
             "location": "[resourceGroup().location]"
         },
         {
