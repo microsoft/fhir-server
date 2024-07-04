@@ -20,7 +20,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             Ensure.That(host, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Host)}").IsNotNullOrEmpty();
 
             string date = DateTime.UtcNow.ToString("R");
-            string aadToken = await GenerateAADAuthToken(host, cancellationToken);
+            string accessToken = await GenerateAccessToken(host, cancellationToken);
 
             using var httpRequestMessage = new HttpRequestMessage(
                 HttpMethod.Get,
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 Headers =
                 {
-                    { "authorization", aadToken },
+                    { "authorization", accessToken },
                     { "x-ms-version", "2018-12-31" },
                     { "x-ms-date", date },
                 },
@@ -164,21 +164,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return $"type=master&ver=1.0&sig={signature}";
         }
 
-        private async Task<string> GenerateAADAuthToken(string host, CancellationToken cancellationToken)
+        private async Task<string> GenerateAccessToken(string host, CancellationToken cancellationToken)
         {
-            string aadToken = string.Empty;
-            var aadResourceUri = new Uri(host);
+            string accessToken = string.Empty;
+            var resourceURI = new Uri(host);
             try
             {
-                aadToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(aadResourceUri, cancellationToken);
-                aadToken = HttpUtility.UrlEncode($"type=aad&ver=1.0&sig={aadToken}");
+                accessToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(resourceURI, cancellationToken);
+                accessToken = HttpUtility.UrlEncode($"type=aad&ver=1.0&sig={accessToken}");
             }
             catch (AccessTokenProviderException ex)
             {
-                _logger.LogWarning(ex, "Failed to get AAD access token from managed identity.");
+                _logger.LogError(ex, "Failed to get access token from managed identity.");
             }
 
-            return aadToken;
+            return accessToken;
         }
 
         private record PartitionKeyRange;
