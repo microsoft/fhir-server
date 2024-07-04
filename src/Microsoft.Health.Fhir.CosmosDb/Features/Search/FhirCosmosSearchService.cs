@@ -23,7 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             catch (OperationCanceledException)
             {
                 _logger.LogWarning("Request Too Costly (ConditionalRequestTooCostly)");
-                throw new RequestTooCostlyException(Core.Resources.ConditionalRequestTooCostly);
+                throw new RequestTooCostlyException(Microsoft.Health.Fhir.Core.Resources.ConditionalRequestTooCostly);
             }
 
             if (!chainedResults.Any())
@@ -555,10 +555,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.NotSupported,
-                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+                        string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
 
                 _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
-                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                throw new InvalidSearchOperationException(string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
             }
 
             return (int)count;
@@ -572,7 +572,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Warning,
                         OperationOutcomeConstants.IssueType.Incomplete,
-                        Core.Resources.TruncatedIncludeMessage));
+                        Microsoft.Health.Fhir.Core.Resources.TruncatedIncludeMessage));
             }
 
             return new SearchResult(

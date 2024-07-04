@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitSortParameter(SortExpression expression, Context context)
         {
-            throw new SearchOperationNotSupportedException(Core.Resources.SortNotSupported);
+            throw new SearchOperationNotSupportedException(Microsoft.Health.Fhir.Core.Resources.SortNotSupported);
         }
 
         public object VisitMissingField(MissingFieldExpression expression, Context context)
