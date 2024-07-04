@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
-            var builder = new CosmosClientBuilder(host, key)
+            var builder = new CosmosClientBuilder(host, new DefaultAzureCredential())
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
