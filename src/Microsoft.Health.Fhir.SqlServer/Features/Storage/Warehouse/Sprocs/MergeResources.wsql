@@ -1,0 +1,143 @@
+﻿--DROP PROCEDURE dbo.MergeResources
+GO
+CREATE PROCEDURE dbo.MergeResources @TransactionId bigint, @AdlsContainer varchar(100), @AdlsAccountName varchar(100), @AdlsAccountKey varchar(100)
+AS
+set nocount on
+DECLARE @st datetime = getUTCdate()
+       ,@SP varchar(100) = 'MergeResources'
+       ,@Mode varchar(200) = 'T='+convert(varchar,@TransactionId)
+       ,@AffectedRows int = 0
+
+BEGIN TRY
+  --INSERT INTO dbo.Resource 
+  --       ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+  --  SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
+  --    FROM @Resources
+
+  BEGIN TRANSACTION
+
+  EXECUTE('
+    COPY INTO dbo.ResourceWriteClaim
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-ResourceWriteClaim.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.ReferenceSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-ReferenceSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenText
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenText.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.StringSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-StringSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.UriSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-UriSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.NumberSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-NumberSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.QuantitySearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-QuantitySearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.DateTimeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-DateTimeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.ReferenceTokenCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-ReferenceTokenCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenTokenCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenTokenCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenDateTimeCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenDateTimeCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenQuantityCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenQuantityCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenStringCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenStringCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  EXECUTE('
+    COPY INTO dbo.TokenNumberNumberCompositeSearchParam
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-TokenNumberNumberCompositeSearchParam.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
+
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  
+  THROW
+END CATCH
+GO
+--DECLARE @TransactionId bigint = 0
+--       ,@AdlsContainer varchar(100) = ''
+--       ,@AdlsAccountName varchar(100) = ''
+--       ,@AdlsAccountKey varchar(100) = ''
+
+--EXECUTE dbo.MergeResources 5108463636597045889, @AdlsContainer, @AdlsAccountName, @AdlsAccountKey
+--SELECT TOP 100 * FROM EventLog ORDER BY EventDate DESC 

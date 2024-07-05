@@ -1,0 +1,36 @@
+﻿CREATE PROCEDURE dbo.LogEvent    
+   @Process         varchar(100)
+  ,@Status          varchar(10)
+  ,@Mode            varchar(200)   = NULL    
+  ,@Action          varchar(20)    = NULL    
+  ,@Target          varchar(100)   = NULL    
+  ,@Rows            bigint         = NULL    
+  ,@Start           datetime       = NULL
+  ,@Text            varchar(3500) = NULL
+  ,@Retry           int            = NULL
+AS
+set nocount on
+INSERT INTO dbo.EventLog    
+    (    
+         Process
+        ,Status
+        ,Mode
+        ,Action
+        ,Target
+        ,Rows
+        ,Milliseconds
+        ,EventDate
+        ,EventText
+        ,SPID
+    )    
+  SELECT @Process
+        ,@Status
+        ,@Mode
+        ,@Action
+        ,@Target
+        ,@Rows
+        ,datediff(millisecond,@Start,getUTCdate())
+        ,EventDate = getUTCdate()
+        ,Text = @Text
+        ,@@SPID
+GO

@@ -38,6 +38,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
+using Microsoft.SqlServer.Management.XEvent;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -67,7 +68,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ProcessingFlag _ignoreInputVersion;
         private static ProcessingFlag _rawResourceDeduping;
         private static readonly object _parameterLocker = new object();
-        private static string _warehouse;
+        private static string _warehouseServer;
+        private static string _warehouseDatabase;
+        private static string _warehouseAuthentication;
         private static bool _warehouseIsSet;
         private static string _adlsContainer;
         private static string _adlsConnectionString;
@@ -136,7 +139,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (!_warehouseIsSet)
                     {
-                        _warehouse = GetStorageParameter("MergeResources.Warehouse");
+                        _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
+                        _warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
+                        _warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
                         _warehouseIsSet = true;
                     }
                 }
@@ -873,10 +878,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await PutStringsToAdls(new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenQuantityCompositeSearchParam", cancellationToken);
                 await PutStringsToAdls(new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenStringCompositeSearchParam", cancellationToken);
                 await PutStringsToAdls(new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenNumberNumberCompositeSearchParam", cancellationToken);
+
+                await MergeResourcesIntoWarehouse(transactionId, cancellationToken);
             }
 
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private async Task MergeResourcesIntoWarehouse(long transactionId, CancellationToken cancellationToken)
+        {
+            var st = DateTime.UtcNow;
+            try
+            {
+                using var conn = new SqlConnection($"server={_warehouseServer};database={_warehouseDatabase};{_warehouseAuthentication}");
+                using var cmd = new SqlCommand("dbo.MergeResources", conn);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+                cmd.Parameters.AddWithValue("@AdlsContainer", _adlsContainer);
+                cmd.Parameters.AddWithValue("@AdlsAccountName", _adlsAccountName);
+                cmd.Parameters.AddWithValue("@AdlsAccountKey", _adlsAccountKey);
+                await conn.OpenAsync(cancellationToken);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error merging resources into warehouse");
+                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Error", ex.Message, st, cancellationToken);
+            }
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
