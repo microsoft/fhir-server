@@ -279,6 +279,7 @@
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
+        "managedIdentityName": "[concat(if(empty(parameters('sqlServerName')), variables('serviceName'), parameters('sqlServerName')), '-uami')]",
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
@@ -316,7 +317,7 @@
             "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
-            "name": "[variables('appServicePlanName')]",
+            "name": "[variables('managedIdentityName')]",
             "location": "[resourceGroup().location]"
         },
         {
@@ -330,7 +331,7 @@
             "identity": {
                 "type": "SystemAssigned, UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]": {}
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
                 }
             },
             "properties": {
@@ -363,7 +364,7 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
             ],
             "resources": [
                 {
@@ -471,24 +472,24 @@
             },
             "properties": {
                 "version": "12.0",
-                "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]",
+                "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
                 "administrators": {
                     "administratorType": "ActiveDirectory",
                     "azureADOnlyAuthentication": true,
                     "principalType": "User",
-                    "login": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').principalId]",
-                    "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').principalId]",
-                    "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').tenantId]"
+                    "login": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').principalId]",
+                    "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').principalId]",
+                    "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').tenantId]"
                 }
             },
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]": {}
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
                 }
             },
             "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName'))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
             ],
             "resources": [
                 {
@@ -622,7 +623,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('appServicePlanName')), '2018-11-30').clientId, ';')]"
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').clientId, ';')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
@@ -635,8 +636,10 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": true
-            },
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": false
+           },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
             "sku": {
