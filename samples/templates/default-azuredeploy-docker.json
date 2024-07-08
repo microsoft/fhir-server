@@ -636,7 +636,9 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": true
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": false
            },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
