@@ -86,7 +86,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                     if (!isAcceptHeaderValid)
                     {
-                        throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                        var headerValue = string.Join(',', acceptHeaders.Select(x => x.MediaType.Value));
+                        throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
                     }
                 }
             }
