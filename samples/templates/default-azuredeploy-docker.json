@@ -314,7 +314,6 @@
             }
         },
         {
-            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "name": "[variables('managedIdentityName')]",
@@ -627,7 +626,7 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
             ]
         },
         {
