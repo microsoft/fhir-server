@@ -626,7 +626,7 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
             ]
         },
         {
