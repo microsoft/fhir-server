@@ -26,17 +26,6 @@ stages:
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
 
-- stage: UpdateRandom
-  displayName: 'Determine Random String'
-  dependsOn: []
-  jobs:
-  - job: Password
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/update-sqlAdminPassword.yml
-
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
