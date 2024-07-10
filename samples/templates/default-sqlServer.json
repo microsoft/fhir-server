@@ -70,21 +70,6 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedManagedIdentityName'))]"
-            ],
-            "resources": [
-                {
-                    "apiVersion": "2014-04-01",
-                    "dependsOn": [
-                        "[parameters('sqlServerName')]"
-                    ],
-                    "location": "[resourceGroup().location]",
-                    "name": "AllowAllWindowsAzureIps",
-                    "properties": {
-                        "endIpAddress": "0.0.0.0",
-                        "startIpAddress": "0.0.0.0"
-                    },
-                    "type": "firewallrules"
-                }
             ]
         }
     ]
