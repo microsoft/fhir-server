@@ -132,7 +132,13 @@ jobs:
             }
           }
         }
-
+         if("${{ parameters.sql }}" -eq "true")
+        {
+          $sqlName = "${{ parameters.sqlServerName }}".ToLower()
+          $fireWallRuleName = "AzureAgentFirewall-${{ parameters.version }}"
+          $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
+          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlName -FirewallRuleName $fireWallRuleName -StartIPAddress $agentIp -EndIPAddress $agentIP
+        }
   - template: ./provision-healthcheck.yml
     parameters: 
       webAppName: ${{ parameters.webAppName }}
