@@ -20,10 +20,15 @@ steps:
                       | Select-Object -ExpandProperty oidcToken
                       | Set-Variable idToken
 
-      Write-Host "Current AZURE_FEDERATED_TOKEN_FILE: $AZURE_FEDERATED_TOKEN_FILE"
-
       # Write token to file
-      $env:AZURE_FEDERATED_TOKEN_FILE = "$(Agent.TempDirectory)\azToken.txt"
-      $idToken | Out-File -FilePath $env:AZURE_FEDERATED_TOKEN_FILE
+      $env:AZURE_FEDERATED_TOKEN_FILE = "$($env:AGENT_TEMPDIRECTORY)\azToken.txt"
+      
+      # Set the Azure DevOps output variable
+      Write-Output "##vso[task.setvariable variable=AZURE_FEDERATED_TOKEN_FILE]$env:AZURE_FEDERATED_TOKEN_FILE"
 
-      Write-Host "Changed AZURE_FEDERATED_TOKEN_FILE to $env:AZURE_FEDERATED_TOKEN_FILE"
+      $clientId = (Get-AzContext).Account.Id
+      $tenantId = (Get-AzContext).Tenant.Id
+
+      # Write others things
+      Write-Output "##vso[task.setvariable variable=AZURE_CLIENT_ID]$clientId"
+      Write-Output "##vso[task.setvariable variable=AZURE_TENANT_ID]$tenantId"
