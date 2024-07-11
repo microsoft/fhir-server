@@ -10,26 +10,42 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
+      Write-Output "Starting to generate federated token file..."
+      
       # Request fresh idToken
-      Invoke-RestMethod -Headers @{
+      Write-Output "Requesting fresh idToken..."
+      $response = Invoke-RestMethod -Headers @{
                         Authorization  = "Bearer $(System.AccessToken)"
                         'Content-Type' = 'application/json'
                       } `
                       -Uri "${env:SYSTEM_OIDCREQUESTURI}?api-version=7.1&serviceConnectionId=${env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID}" `
-                      -Method Post `
-                      | Select-Object -ExpandProperty oidcToken
-                      | Set-Variable idToken
+                      -Method Post -ErrorAction Stop -PassThru
+      
+      $responseCode = $response.StatusCode
+      Write-Output "FedererResponse code: $responseCode"
+
+      $idToken = $response.Content | ConvertFrom-Json | Select-Object -ExpandProperty oidcToken
+      Write-Output "Received idToken."
 
       # Write token to file
       $env:AZURE_FEDERATED_TOKEN_FILE = "$(Agent.TempDirectory)/azToken.txt"
       $idToken | Out-File -FilePath $env:AZURE_FEDERATED_TOKEN_FILE
+      Write-Output "Token written to file: $env:AZURE_FEDERATED_TOKEN_FILE"
       
       # Set the Azure DevOps output variable
+      Write-Output "Setting Azure DevOps output variable for token file..."
       Write-Output "##vso[task.setvariable variable=AZURE_FEDERATED_TOKEN_FILE]$env:AZURE_FEDERATED_TOKEN_FILE"
-
+      
+      # Retrieve clientId and tenantId
+      Write-Output "Retrieving clientId and tenantId..."
       $clientId = (Get-AzContext).Account.Id
       $tenantId = (Get-AzContext).Tenant.Id
+      Write-Output "clientId: $clientId"
+      Write-Output "tenantId: $tenantId"
 
-      # Write others things
+      # Set the Azure DevOps output variables for clientId and tenantId
+      Write-Output "Setting Azure DevOps output variables for clientId and tenantId..."
       Write-Output "##vso[task.setvariable variable=AZURE_CLIENT_ID]$clientId"
       Write-Output "##vso[task.setvariable variable=AZURE_TENANT_ID]$tenantId"
+
+      Write-Output "Finished generating federated token file."
