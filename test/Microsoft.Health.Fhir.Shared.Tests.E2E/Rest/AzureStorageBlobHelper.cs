@@ -5,11 +5,13 @@
 
 using System;
 using System.Linq;
+using Azure.Core;
 using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
+using IdentityServer4.Models;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
 {
@@ -60,7 +62,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                 return new BlobServiceClient(StorageEmulatorConnectionString);
             }
 
-            var credential = new DefaultAzureCredential();
+            TokenCredential credential;
+
+            if (IsAzurePipelinesRun())
+            {
+                credential = new AzurePipelinesCredential(
+                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_TenantId"),
+                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_ClientId"),
+                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_ServiceConnectionId"),
+                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_SystemAccessToken"));
+            }
+            else
+            {
+               credential = new DefaultAzureCredential();
+            }
+
             var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
             return blobServiceClient;
         }
@@ -78,6 +94,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             EnsureArg.IsNotNull(uri, nameof(uri));
 
             return uri.Host.Split('.')[0].Equals("127", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsAzurePipelinesRun()
+        {
+            string[] variableNames = [
+                "AzurePipelinesCredential_ClientId",
+                "AzurePipelinesCredential_TenantId",
+                "AzurePipelinesCredential_ServiceConnectionId",
+                "AzurePipelinesCredential_SystemAccessToken",
+            ];
+
+            foreach (var variableName in variableNames)
+            {
+                string variableValue = Environment.GetEnvironmentVariable(variableName);
+                if (string.IsNullOrEmpty(variableValue))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

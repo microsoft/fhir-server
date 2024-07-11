@@ -35,7 +35,6 @@ steps:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
-
         $appServiceName = "${{ parameters.appServiceName }}"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
@@ -60,7 +59,6 @@ steps:
         $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
 
-
         Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -80,6 +78,10 @@ steps:
         # ----------------------------------------
 
         dotnet dev-certs https
+
+        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_ClientId]$env:AZURESUBSCRIPTION_CLIENT_ID "
+        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_TenantId]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_ServiceConnectionId]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
@@ -124,3 +126,7 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'AzurePipelinesCredential_ClientId': $(AzurePipelinesCredential_ClientId)
+      'AzurePipelinesCredential_TenantId': $(AzurePipelinesCredential_TenantId)
+      'AzurePipelinesCredential_ServiceConnectionId': $(AzurePipelinesCredential_ServiceConnectionId)
+      'AzurePipelinesCredential_SystemAccessToken': $(System.AccessToken)

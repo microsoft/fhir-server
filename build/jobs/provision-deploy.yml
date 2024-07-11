@@ -127,8 +127,16 @@ jobs:
               New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
             }
           }
+
+          # Assign the pipeline deployment principal storage data access for tests.
+          $context = Get-AzContext
+          $servicePrincipalId = $context.Account.Id
+          Write-Host "Service Principal Object Id: $servicePrincipalId"
+          $resourceGroupResourceId = (Get-AzResourceGroup -Name $resourceGroupName).ResourceId
+          New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
         }
-         if("${{ parameters.sql }}" -eq "true")
+
+        if("${{ parameters.sql }}" -eq "true")
         {
           $sqlName = "${{ parameters.sqlServerName }}".ToLower()
           $fireWallRuleName = "AzureAgentFirewall-${{ parameters.version }}"
