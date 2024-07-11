@@ -14,17 +14,17 @@ steps:
       
       # Request fresh idToken
       Write-Output "Requesting fresh idToken..."
-      $response = Invoke-RestMethod -Headers @{
+      $response = Invoke-WebRequest -Headers @{
                         Authorization  = "Bearer $(System.AccessToken)"
                         'Content-Type' = 'application/json'
                       } `
                       -Uri "${env:SYSTEM_OIDCREQUESTURI}?api-version=7.1&serviceConnectionId=${env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID}" `
-                      -Method Post -ErrorAction Stop -PassThru
+                      -Method Post -ErrorAction Stop
       
       $responseCode = $response.StatusCode
-      Write-Output "FedererResponse code: $responseCode"
+      Write-Output "Response code: $responseCode"
 
-      $idToken = $response.Content | ConvertFrom-Json | Select-Object -ExpandProperty oidcToken
+      $idToken = ($response.Content | ConvertFrom-Json).oidcToken
       Write-Output "Received idToken."
 
       # Write token to file
