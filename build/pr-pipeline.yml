@@ -54,9 +54,6 @@ stages:
   displayName: 'Run R4 Tests'
   dependsOn:
   - BuildArtifacts
-  - setupEnvironment
-  - deployR4
-  - deployR4Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
