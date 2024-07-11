@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
@@ -26,12 +27,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class FhirCosmosClientInitializer : ICosmosClientInitializer
     {
+        private const StringComparison _hashCodeStringComparison = StringComparison.Ordinal;
+
         private readonly ICosmosClientTestProvider _testProvider;
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private CosmosClient _cosmosClient;
         private readonly object _lockObject;
+
+        private CosmosClient _cosmosClient;
+        private int _cosmosKeyHashCode;
 
         public FhirCosmosClientInitializer(
             ICosmosClientTestProvider testProvider,
@@ -49,6 +54,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _lockObject = new object();
+
+            _cosmosClient = null;
         }
 
         /// <inheritdoc />
@@ -57,21 +64,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             // Thread-safe logic to ensure that a single instance of CosmosClient is created.
-            if (_cosmosClient != null)
-            {
-                return _cosmosClient;
-            }
-            else
+            if (_cosmosClient == null || IsNewConnectionKey(configuration))
             {
                 lock (_lockObject)
                 {
-                    if (_cosmosClient == null)
+                    if (_cosmosClient == null || IsNewConnectionKey(configuration))
                     {
                         _cosmosClient = CreateCosmosClientInternal(configuration);
+                        _cosmosKeyHashCode = configuration.Key.GetHashCode(_hashCodeStringComparison);
                     }
 
                     return _cosmosClient;
                 }
+            }
+            else
+            {
+                return _cosmosClient;
             }
         }
 
@@ -136,6 +144,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return builder.Build();
+        }
+
+        private bool IsNewConnectionKey(CosmosDataStoreConfiguration configuration)
+        {
+            // Local configuration is not empty and hashvcode is empty - first process access.
+            if (!string.IsNullOrEmpty(configuration.Key) && _cosmosKeyHashCode == 0)
+            {
+                return true;
+            }
+            else if (string.IsNullOrEmpty(configuration.Key) && _cosmosKeyHashCode != 0) // Local's key configuration is empty, but a key hash code is present - using local emulator.
+            {
+                return false;
+            }
+            else if (configuration.Key.GetHashCode(_hashCodeStringComparison) == _cosmosKeyHashCode) // Hash code is the same, no need to recreate the client.
+            {
+                return false;
+            }
+            else
+            {
+                return true; // Hash code is different, need to recreate the client.
+            }
         }
 
         private class FhirCosmosSerializer : CosmosSerializer

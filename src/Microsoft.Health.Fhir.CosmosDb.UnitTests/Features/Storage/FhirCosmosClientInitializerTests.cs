@@ -53,6 +53,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void CreateClient_WhenTwoTheSameKeyIsProvidedTwice_ThenCosmosDbClientsCreatedAreTheSame()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+
+            Assert.True(client1 == client2);
+        }
+
+        [Fact]
+        public void CreateClient_WhenTwoDifferentKeysAreProvided_ThenCosmosDbClientCreatedIsDifferent()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA"});
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "BBBB" });
+
+            Assert.True(client1 != client2);
+        }
+
+        [Fact]
         public void CreateClient_EmptyPreferredLocations_DoesNotSetPreferredLocations()
         {
             _cosmosDataStoreConfiguration.PreferredLocations = new string[] { };
