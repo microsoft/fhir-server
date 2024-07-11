@@ -468,10 +468,7 @@
             "properties": {
                 "administratorLogin": "fhirAdmin",
                 "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
-                "version": "12.0",
-                "administrators": {
-                    "azureADOnlyAuthentication": true           
-                }
+                "version": "12.0"
             },
             "resources": [
                 {
@@ -509,22 +506,6 @@
                         "startIpAddress": "0.0.0.0"
                     },
                     "type": "firewallrules"
-                },
-                {
-                    "type": "administrators",
-                    "name": "activeDirectory",
-                    "apiVersion": "2023-05-01-preview",
-                    "location": "[resourceGroup().location]",
-                    "properties": {
-                        "administratorType": "ActiveDirectory",
-                        "login": "[variables('serviceName')]",
-                        "sid": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]",
-                        "tenantId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.tenantId]",
-                        "azureADOnlyAuthentication": true                         
-                    },
-                    "dependsOn": [
-                        "[variables('sqlServerDerivedName')]"
-                    ]
                 }
             ]
         },
@@ -621,7 +602,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity;')]"
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;User ID=', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin, ''),';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
@@ -634,8 +615,7 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": true,
-                "allowSharedKeyAccess": false
+                "supportsHttpsTrafficOnly": true
             },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
