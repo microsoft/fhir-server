@@ -25,6 +25,36 @@ stages:
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
+
+- stage: BuildUnitTests
+  displayName: 'Build and run unit tests'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
+  - job: Windows_dotnet8
+    pool:
+      name: '$(DefaultWindowsPool)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: $(defaultBuildFramework)
+        unitTest: false
+        codeCoverage: true
+  - job: Linux_dotnet6
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: 'net6.0'
+  
  
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
@@ -50,13 +80,319 @@ stages:
         packageArtifacts: true
         packageIntegrationTests: true
 
+- stage: AnalyzeSecurity
+  displayName: 'Run Security Analysis and Validate'
+  dependsOn:
+  - BuildUnitTests
+  - BuildArtifacts
+  jobs:
+  - job: Guardian
+    pool:
+      name: '$(DefaultWindowsPool)'
+    steps:
+    - template: ./jobs/analyze.yml
+
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+  jobs:
+  - template: ./jobs/docker-build-all.yml
+    parameters: 
+      tag: $(ImageTag)
+      buildPlatform: $(testDockerImagePlatforms)
+
+- stage: provisionEnvironment
+  displayName: Provision Environment
+  dependsOn: []
+  jobs:
+  - job: provision
+    displayName: 'Create Resource Group'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          try
+          {
+            Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+          }
+          catch
+          {}
+          New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+
+          try
+          {
+            # TEMP FOR TESTING Assign the pipeline deployment principal storage
+            $context = Get-AzContext
+            $clientId = $context.Account.Id
+            $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
+            $servicePrincipalId = $servicePrincipal.Id
+            $resourceGroupResourceId = (Get-AzResourceGroup -Name $resourceGroupName).ResourceId
+            New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
+          }
+          catch
+          {}
+
+- stage: setupEnvironment
+  displayName: Setup Test Environment
+  dependsOn:
+  - UpdateVersion
+  - provisionEnvironment
+  jobs:
+  - template: ./jobs/cleanup-aad.yml
+  - job: setup
+    displayName: 'Setup AAD'
+    dependsOn:
+    - cleanupAad
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
+
+- stage: deploySqlServer
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      userAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+
+- stage: deployStu3
+  displayName: 'Deploy STU3 CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployStu3Sql
+  displayName: 'Deploy STU3 SQL Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameSql)
+      appServicePlanName: '$(appServicePlanName)-sql'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      reindexEnabled: true
+
+- stage: deployR4
+  displayName: 'Deploy R4 CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4Sql
+  displayName: 'Deploy R4 SQL Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      appServicePlanName: '$(appServicePlanName)-sql'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      reindexEnabled: true
+
+- stage: deployR4B
+  displayName: 'Deploy R4B CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      webAppName: $(DeploymentEnvironmentNameR4B)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4BSql
+  displayName: 'Deploy R4B SQL Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4BSql)
+      appServicePlanName: '$(appServicePlanName)-sql'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      reindexEnabled: true
+
+- stage: deployR5
+  displayName: 'Deploy R5 CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR5Sql
+  displayName: 'Deploy R5 SQL Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
+      appServicePlanName: '$(appServicePlanName)-sql'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      reindexEnabled: true
+
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
+  - deployStu3
+  - deployStu3Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+      appServiceName: $(DeploymentEnvironmentName)
+
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
   - BuildArtifacts
+  - setupEnvironment
+  - deployR4
+  - deployR4Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR4B
+  displayName: 'Run R4B Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
+  - deployR4B
+  - deployR4BSql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+
+- stage: testR5
+  displayName: 'Run R5 Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
+  - deployR5
+  - deployR5Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(DeploymentEnvironmentNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
+
+- stage: cleanup
+  displayName: 'Cleanup Azure Environment'
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR4B
+  - testR5
+  jobs:
+  - template: ./jobs/cleanup.yml
+
