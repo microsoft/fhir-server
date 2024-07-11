@@ -408,7 +408,7 @@
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
                     "location": "[resourceGroup().location]",
-                    "dependsOn":[
+                    "dependsOn": [
                         "[variables('serviceName')]"
                     ],
                     "properties": {
@@ -455,7 +455,7 @@
                     }
                 ]
             }
-        },
+        },    
         {
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
@@ -470,7 +470,7 @@
                 "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
                 "version": "12.0",
                 "administrators": {
-                    "azureADOnlyAuthentication": true           
+                    "azureADOnlyAuthentication": true
                 }
             },
             "resources": [
@@ -497,6 +497,7 @@
                     "type": "databases"
                 },
                 {
+                    "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
                     "type": "administrators",
                     "name": "activeDirectory",
                     "apiVersion": "2023-05-01-preview",
@@ -506,7 +507,7 @@
                         "login": "[variables('serviceName')]",
                         "sid": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]",
                         "tenantId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.tenantId]",
-                        "azureADOnlyAuthentication": true                         
+                        "azureADOnlyAuthentication": true
                     },
                     "dependsOn": [
                         "[variables('sqlServerDerivedName')]"
@@ -515,6 +516,7 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2022-09-01",
             "name": "webAppIPsSQLFirewall",
@@ -534,7 +536,7 @@
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
                     "contentVersion": "1.0.0.0",
-                   
+
                     "parameters": {
                         "webAppOutboundIpAddresses": {
                             "type": "array",
@@ -621,7 +623,7 @@
                 "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]"
             }
         },
-                {
+        {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
