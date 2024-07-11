@@ -73,14 +73,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         _cosmosClient = CreateCosmosClientInternal(configuration);
                         _cosmosKeyHashCode = configuration.Key.GetHashCode(_hashCodeStringComparison);
                     }
-
-                    return _cosmosClient;
                 }
             }
-            else
-            {
-                return _cosmosClient;
-            }
+
+            return _cosmosClient;
         }
 
         public Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId)
