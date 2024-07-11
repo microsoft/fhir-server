@@ -21,7 +21,7 @@ steps:
                       | Set-Variable idToken
 
       # Write token to file
-      $env:AZURE_FEDERATED_TOKEN_FILE = "$(AGENT_TEMPDIRECTORY)/azToken.txt"
+      $env:AZURE_FEDERATED_TOKEN_FILE = "$(Agent.TempDirectory)/azToken.txt"
       $idToken | Out-File -FilePath $env:AZURE_FEDERATED_TOKEN_FILE
       
       # Set the Azure DevOps output variable

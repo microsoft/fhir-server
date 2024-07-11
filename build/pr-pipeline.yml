@@ -114,6 +114,9 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
+    - template: ./jobs/generate-federated-token-file.yml
+      parameters: 
+        serviceConnectionName: $(ConnectedServiceName)
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
       inputs:
