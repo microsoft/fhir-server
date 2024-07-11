@@ -121,25 +121,6 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          # Request fresh idToken
-          Invoke-RestMethod -Headers @{
-                            Authorization  = "Bearer $(System.AccessToken)"
-                            'Content-Type' = 'application/json'
-                          } `
-                          -Uri "${env:SYSTEM_OIDCREQUESTURI}?api-version=7.1&serviceConnectionId=${env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID}" `
-                          -Method Post `
-                          | Select-Object -ExpandProperty oidcToken
-                          | Set-Variable idToken
-
-          # Fetch current context
-          $azContext = Get-AzContext
-
-          # Start new Az session
-          Connect-AzAccount -ApplicationId $azContext.Account.Id `
-                            -TenantId $azContext.Tenant.Id `
-                            -SubscriptionId $azContext.Subscription.Id `
-                            -FederatedToken $idToken
-                            
           try
           {
             Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force

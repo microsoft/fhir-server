@@ -1,0 +1,29 @@
+parameters:
+- name: serviceConnectionName
+  type: string
+
+steps:
+- task: AzurePowerShell@5
+  displayName: Generate Federated Token File
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnectionName }}
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      # Request fresh idToken
+      Invoke-RestMethod -Headers @{
+                        Authorization  = "Bearer $(System.AccessToken)"
+                        'Content-Type' = 'application/json'
+                      } `
+                      -Uri "${env:SYSTEM_OIDCREQUESTURI}?api-version=7.1&serviceConnectionId=${env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID}" `
+                      -Method Post `
+                      | Select-Object -ExpandProperty oidcToken
+                      | Set-Variable idToken
+
+      Write-Host "Current AZURE_FEDERATED_TOKEN_FILE: $AZURE_FEDERATED_TOKEN_FILE"
+
+      # Write token to file
+      $env:AZURE_FEDERATED_TOKEN_FILE = "$(Agent.TempDirectory)\azToken.txt"
+      $idToken | Out-File -FilePath $env:AZURE_FEDERATED_TOKEN_FILE
+
+      Write-Host "Changed AZURE_FEDERATED_TOKEN_FILE to $env:AZURE_FEDERATED_TOKEN_FILE"

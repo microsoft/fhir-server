@@ -11,6 +11,10 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
+  - template: ./generate-federated-token-file.yml
+    parameters: 
+      serviceConnectionName: $(ConnectedServiceName)
+
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
     inputs:
@@ -78,10 +82,6 @@ steps:
         # ----------------------------------------
 
         dotnet dev-certs https
-
-        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_ClientId]$env:AZURESUBSCRIPTION_CLIENT_ID "
-        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_TenantId]$env:AZURESUBSCRIPTION_TENANT_ID"
-        Write-Host "##vso[task.setvariable variable=AzurePipelinesCredential_ServiceConnectionId]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'

@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                 return new BlobServiceClient(StorageEmulatorConnectionString);
             }
 
+            /*
             TokenCredential credential;
 
             if (IsAzurePipelinesRun())
@@ -76,6 +77,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             {
                credential = new DefaultAzureCredential();
             }
+            */
+
+            DefaultAzureCredential credential = new();
 
             var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
             return blobServiceClient;

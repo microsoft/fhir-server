@@ -74,6 +74,10 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
+  - template: ./generate-federated-token-file.yml
+    parameters: 
+      serviceConnectionName: $(ConnectedServiceName)
+
   - task: DotNetCoreCLI@2
     displayName: 'Run Sql Integration Tests'
     inputs:
