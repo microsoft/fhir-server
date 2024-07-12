@@ -48,10 +48,7 @@
             "metadata": {
                 "description": "The principal type of the administrator for the sql server."
             }
-        },
-    },
-    "variables": {
-        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', parameters('sqlServerName'))]"
+        }
     },
     "resources": [
         {

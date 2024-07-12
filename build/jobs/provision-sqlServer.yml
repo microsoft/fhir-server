@@ -44,8 +44,13 @@ jobs:
         }
 
         if ($adminType-eq "userAssignedManagedIdentity") {
-          # Fetch principalId and tenantId for managed identity
-          $identity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName
+          # Get the location of the resource group
+          $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
+          $location = $resourceGroupDetails.Location
+
+          # Create user-assigned managed identity
+          $identity = New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location
+
           $principalId = $identity.PrincipalId
           $tenantId = $identity.TenantId
           $templateParameters = @{
