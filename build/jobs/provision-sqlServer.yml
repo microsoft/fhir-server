@@ -43,7 +43,7 @@ jobs:
           exit 1
         }
 
-        if ($adminType-eq "userAssignedManagedIdentity") {
+        if ($adminType -eq "userAssignedManagedIdentity") {
           # Get the location of the resource group
           $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
           $location = $resourceGroupDetails.Location
@@ -62,7 +62,7 @@ jobs:
           }
         }
 
-        if (${{ parameters.adminType }} -eq "federatedServiceConnection") {
+        if ($adminType -eq "federatedServiceConnection") {
           $clientId = (Get-AzContext).Account.Id
           $tenantId = (Get-AzContext).Tenant.Id
 

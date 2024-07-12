@@ -172,7 +172,6 @@ stages:
 - stage: deployIntegrationTestSqlServer
   displayName: 'Deploy Integration Test SQLServer'
   dependsOn:
-  - provisionEnvironment
   - setupEnvironment
   jobs:
   - template: ./jobs/provision-sqlServer.yml
@@ -346,6 +345,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - deployIntegrationTestSqlServer
   - deployStu3
   - deployStu3Sql
   jobs:
@@ -361,6 +361,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - deployIntegrationTestSqlServer
   - deployR4
   - deployR4Sql
   jobs:
@@ -376,6 +377,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - deployIntegrationTestSqlServer
   - deployR4B
   - deployR4BSql
   jobs:
@@ -391,6 +393,7 @@ stages:
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
+  - deployIntegrationTestSqlServer
   - deployR5
   - deployR5Sql
   jobs:
