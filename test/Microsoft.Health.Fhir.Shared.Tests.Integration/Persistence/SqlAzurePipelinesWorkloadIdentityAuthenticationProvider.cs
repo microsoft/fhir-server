@@ -10,10 +10,11 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.Identity.Client;
+using Microsoft.SqlServer.Dac;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
-public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthenticationProvider
+public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthenticationProvider, IUniversalAuthProvider
 {
     private AzurePipelinesCredential _azurePipelinesCredential;
 
@@ -30,34 +31,13 @@ public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthen
         return new SqlAuthenticationToken(token.Token, token.ExpiresOn);
     }
 
-    public override bool IsSupported(SqlAuthenticationMethod authenticationMethod) => authenticationMethod.Equals(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity);
-
-    /*
-
-    public override bool IsSupported(SqlAuthenticationMethod authenticationMethod)
+    public string GetValidAccessToken()
     {
-        if (!authenticationMethod.Equals(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity))
-        {
-            return false;
-        }
+        var tokenContext = new TokenRequestContext(["https://database.windows.net/.default"]);
+        var token = _azurePipelinesCredential.GetToken(tokenContext, CancellationToken.None);
 
-        string[] variableNames = [
-                "AZURESUBSCRIPTION_CLIENT_ID",
-                "AZURESUBSCRIPTION_TENANT_ID",
-                "AZURESUBSCRIPTION_SERVICE_CONNECTION_ID",
-                "SYSTEM_ACCESSTOKEN",
-            ];
-
-        foreach (var variableName in variableNames)
-        {
-            string variableValue = Environment.GetEnvironmentVariable(variableName);
-            if (string.IsNullOrEmpty(variableValue))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return token.Token;
     }
-    */
+
+    public override bool IsSupported(SqlAuthenticationMethod authenticationMethod) => authenticationMethod.Equals(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity);
 }

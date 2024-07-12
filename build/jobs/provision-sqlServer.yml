@@ -68,7 +68,7 @@ jobs:
 
           $templateParameters = @{
               sqlServerName = $sqlServerName 
-              sqlAdministratorLogin = $(ConnectedServiceName)
+              sqlAdministratorLogin = "$(ConnectedServiceName) - $clientId"
               sqlAdministratorSid = $clientId
               sqlAdministratorTenantId = $tenantId
               sqlServerPrincipalType = "Application"
