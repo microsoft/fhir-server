@@ -260,12 +260,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_parameterLocker)
                 {
-                    blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
-                    if (!blobContainerClient.Exists())
-                    {
-                        var container = blobServiceClient.CreateBlobContainer(_adlsContainer); // TODO: This can fail on multiple VMs.
-                        blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
-                    }
+                    blobContainerClient.CreateIfNotExists();
                 }
             }
 
