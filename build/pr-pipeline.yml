@@ -166,6 +166,7 @@ stages:
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
+      adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployIntegrationTestSqlServer
@@ -178,7 +179,7 @@ stages:
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
-      adminApplicationId: $[ stageDependencies.provisionEnvironment.provision.outputs['ProvisionResourceGroup.AZURE_CLIENT_ID'] ]
+      adminType: 'federatedServiceConnection'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'

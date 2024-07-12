@@ -3,10 +3,12 @@ parameters:
   type: string
 - name: sqlServerName
   type: string
-- name: adminUserAssignedManagedIdentityName
+- name: adminType
   type: string
-  default: ''
-- name: adminApplicationId
+  values:
+  - userAssignedManagedIdentity
+  - federatedServiceConnection
+- name: adminUserAssignedManagedIdentityName
   type: string
   default: ''
 
@@ -32,35 +34,40 @@ jobs:
         Add-Type -AssemblyName System.Web
 
         $adminUserAssignedManagedIdentityName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
-        $adminApplicationId = "${{ parameters.adminApplicationId }}"
+        $adminType = "${{ parameters.adminType }}"
+        $resourceGroup = "${{ parameters.resourceGroup }}"
+        $sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
 
-        if ($adminUserAssignedManagedIdentityName -ne "") {
+        if ($adminType -eq "userAssignedManagedIdentity" -and $adminUserAssignedManagedIdentityName -eq "") {
+          Write-Error "adminUserAssignedManagedIdentityName must be provided when adminType is userAssignedManagedIdentity."
+          exit 1
+        }
+
+        if ($adminType-eq "userAssignedManagedIdentity") {
           # Fetch principalId and tenantId for managed identity
-          $identity = Get-AzUserAssignedIdentity -ResourceGroupName "${{ parameters.resourceGroup }}" -Name $adminUserAssignedManagedIdentityName
+          $identity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName
           $principalId = $identity.PrincipalId
           $tenantId = $identity.TenantId
           $templateParameters = @{
-              sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+              sqlServerName = $sqlServerName 
               sqlAdministratorLogin = $principalId
               sqlAdministratorSid = $principalId
               sqlAdministratorTenantId = $tenantId
               sqlServerPrincipalType = "User"
           }
-        } elseif ($adminApplicationId -ne "") {
-          # Fetch principalId and tenantId for service principal
-          $app = Get-AzADServicePrincipal -ApplicationId $adminApplicationId
-          $principalId = $app.Id
-          $tenantId = $app.AppOwnerTenantId
+        }
+
+        if (${{ parameters.adminType }} -eq "federatedServiceConnection") {
+          $clientId = (Get-AzContext).Account.Id
+          $tenantId = (Get-AzContext).Tenant.Id
+
           $templateParameters = @{
               sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
-              sqlAdministratorLogin = $principalId
-              sqlAdministratorSid = $principalId
+              sqlAdministratorLogin = $clientId
+              sqlAdministratorSid = $clientId
               sqlAdministratorTenantId = $tenantId
               sqlServerPrincipalType = "Application"
           }
-        } else {
-          Write-Error "Either adminUserAssignedManagedIdentityName or adminApplicationId must be provided."
-          exit 1
         }
 
         Write-Host "Provisioning Sql server"
