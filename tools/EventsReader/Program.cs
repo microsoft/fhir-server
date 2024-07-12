@@ -5,6 +5,9 @@
 
 using System.Configuration;
 using System.Diagnostics;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -26,8 +29,42 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
             Ping();
+            PingStorage();
 
-            ExecuteAsync().Wait();
+            ////ExecuteAsync().Wait();
+        }
+
+#pragma warning disable CA1303 // Do not pass literals as localized parameters
+        private static void PingStorage()
+        {
+            var containerClient = new BlobContainerClient(new Uri("https://sergeyperfstandard.blob.core.windows.net/test"), new DefaultAzureCredential(true));
+            containerClient.CreateIfNotExists();
+            var blobClient = containerClient.GetBlockBlobClient("ABC.txt");
+
+            using var readStream = blobClient.OpenRead();
+            using var reader = new StreamReader(readStream);
+            var line = string.Empty;
+            while (!reader.EndOfStream)
+            {
+                line = reader.ReadLine();
+            }
+
+            Console.WriteLine($"Reads from storage completed. {line}");
+
+            using var writeStream = blobClient.OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            line = line == "ABC" ? "XYZ" : line == "XYZ" ? "ABC" : line;
+            writer.WriteLine(line);
+            Console.WriteLine($"Writes to storage completed. {line}");
+
+            using var readStream2 = blobClient.OpenRead();
+            using var reader2 = new StreamReader(readStream2);
+            while (!reader2.EndOfStream)
+            {
+                line = reader2.ReadLine();
+            }
+
+            Console.WriteLine($"Reads from storage after writes completed. {line}");
         }
 
         private static void Ping()
