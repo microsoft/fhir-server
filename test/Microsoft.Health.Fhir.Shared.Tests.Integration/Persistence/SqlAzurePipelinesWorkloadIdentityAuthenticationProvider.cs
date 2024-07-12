@@ -17,23 +17,22 @@ public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthen
 {
     private AzurePipelinesCredential _azurePipelinesCredential;
 
+    public SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(AzurePipelinesCredential azurePipelinesCredential)
+    {
+        _azurePipelinesCredential = azurePipelinesCredential;
+    }
+
     public override async Task<SqlAuthenticationToken> AcquireTokenAsync(SqlAuthenticationParameters parameters)
     {
-        string clientId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
-        string tenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
-        string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
-        string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
-
-        if (_azurePipelinesCredential == null)
-        {
-            _azurePipelinesCredential = new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
-        }
-
         var tokenContext = new TokenRequestContext(["https://database.windows.net/.default"]);
         var token = await _azurePipelinesCredential.GetTokenAsync(tokenContext, CancellationToken.None);
 
         return new SqlAuthenticationToken(token.Token, token.ExpiresOn);
     }
+
+    public override bool IsSupported(SqlAuthenticationMethod authenticationMethod) => authenticationMethod.Equals(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity);
+
+    /*
 
     public override bool IsSupported(SqlAuthenticationMethod authenticationMethod)
     {
@@ -60,4 +59,5 @@ public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthen
 
         return true;
     }
+    */
 }
