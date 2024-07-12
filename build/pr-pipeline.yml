@@ -172,21 +172,26 @@ stages:
   dependsOn:
   - setupEnvironment
   jobs:
-  - task: AzurePowerShell@5
-    displayName: Generate Federated Token File
-    inputs:
-      azureSubscription: ${{ parameters.serviceConnectionName }}
-      azurePowerShellVersion: latestVersion
-      ScriptType: inlineScript
-      Inline: |
-        Write-Output "Getting federated credential client id..."
-        $clientId = (Get-AzContext).Account.Id
-        Write-Output "##vso[task.setvariable variable=AZURE_CLIENT_ID]$clientId"
+  - job: getClientId
+    displayName: 'Get Client Id'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: Generate Federated Token File
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          Write-Output "Getting federated credential client id..."
+          $clientId = (Get-AzContext).Account.Id
+          Write-Output "##vso[task.setvariable variable=AZURE_CLIENT_ID;isOutput=true]$clientId"
+    name: getClientIdJob
+
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
-      adminApplicationId: "$(AZURE_CLIENT_ID)"
+      adminApplicationId: "$(getClientIdJob.AZURE_CLIENT_ID)"
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
