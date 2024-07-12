@@ -138,7 +138,7 @@ stages:
           $clientId = $context.Account.Id
           $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
           $servicePrincipalId = $servicePrincipal.Id
-          $resourceGroupResourceId = (Get-AzResourceGroup -Name $resourceGroupName).ResourceId
+          $resourceGroupResourceId = (Get-AzResourceGroup -Name $(ResourceGroupName)).ResourceId
           New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
 
 - stage: setupEnvironment
