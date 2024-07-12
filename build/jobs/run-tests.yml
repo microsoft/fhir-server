@@ -88,7 +88,7 @@ jobs:
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
-      'SqlServer:ConnectionString': 'Server=tcp:$(integrationSqlServerName).database.windows.net,1433;Initial Catalog=FHIR${{ parameters.version }};Persist Security Info=False;Authentication=Active Directory Workload Identity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURE_CLIENT_ID);'
+      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=Active Directory Workload Identity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURE_CLIENT_ID);'
 
 - job: 'cosmosE2eTests'
   dependsOn: []

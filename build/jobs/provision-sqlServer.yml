@@ -67,7 +67,7 @@ jobs:
           $tenantId = (Get-AzContext).Tenant.Id
 
           $templateParameters = @{
-              sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+              sqlServerName = $sqlServerName 
               sqlAdministratorLogin = $clientId
               sqlAdministratorSid = $clientId
               sqlAdministratorTenantId = $tenantId
@@ -78,4 +78,7 @@ jobs:
         Write-Host "Provisioning Sql server"
         Write-Host "Resource Group: ${{ parameters.resourceGroup }}"
         Write-Host "SqlServerName: ${{ parameters.sqlServerName }}"
-        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+
+        $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
+        New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
