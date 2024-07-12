@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static string _warehouseServer;
         private static string _warehouseDatabase;
         private static string _warehouseAuthentication;
+        private static string _warehouseUser;
         private static bool _warehouseIsSet;
         private static string _adlsContainer;
         private static string _adlsConnectionString;
@@ -142,6 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
                         _warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
                         _warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
+                        _warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
                         _warehouseIsSet = true;
                     }
                 }
@@ -886,7 +888,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var st = DateTime.UtcNow;
             try
             {
-                using var conn = new SqlConnection($"server={_warehouseServer};database={_warehouseDatabase};{_warehouseAuthentication}");
+                using var conn = new SqlConnection($"server={_warehouseServer};database={_warehouseDatabase};authentication={_warehouseAuthentication};{(string.IsNullOrEmpty(_warehouseUser) ? string.Empty : $"user={_warehouseUser}")}");
                 using var cmd = new SqlCommand("dbo.MergeResources", conn);
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
@@ -895,6 +897,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@AdlsAccountKey", _adlsAccountKey);
                 await conn.OpenAsync(cancellationToken);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
+                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Warn", $"T={transactionId}", st, cancellationToken);
             }
             catch (Exception ex)
             {
