@@ -492,22 +492,69 @@
                         "tier": "[variables('sqlSkuTier')]"
                     },
                     "type": "databases"
-                },
-                {
-                    "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
-                    "apiVersion": "2014-04-01",
-                    "dependsOn": [
-                        "[variables('sqlServerDerivedName')]"
-                    ],
-                    "location": "[resourceGroup().location]",
-                    "name": "AllowAllWindowsAzureIps",
-                    "properties": {
-                        "endIpAddress": "0.0.0.0",
-                        "startIpAddress": "0.0.0.0"
-                    },
-                    "type": "firewallrules"
                 }
             ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "webAppIPsSQLFirewall",
+            "properties": {
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                    "webAppOutboundIpAddresses": {
+                        "value": "[split(reference(concat('Microsoft.Web/sites/',variables('serviceName'))).possibleOutboundIpAddresses,',')]"
+                    },
+                    "sqlServerName": {
+                        "value": "[variables('sqlServerDerivedName')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                   
+                    "parameters": {
+                        "webAppOutboundIpAddresses": {
+                            "type": "array",
+                            "metadata": {
+                                "description": "Array of possible Outbound IP addresses for the Web Application"
+                            }
+                        },
+                        "sqlServerName": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Name of the logical SQL Server"
+                            }
+                        }
+                    },
+                    "resources": [
+                        {
+                            "comments": "Add the Outbound IP Addresses from the Web App",
+                            "type": "Microsoft.Sql/servers/firewallRules",
+                            "apiVersion": "2015-05-01-preview",
+                            "name": "[concat(parameters('sqlServerName'), '/Allow WebApp Outbound IP ',copyIndex('webAppOutboundIPAddressesCopy'))]",
+                            "properties": {
+                                "startIpAddress": "[parameters('webAppOutboundIpAddresses')[copyIndex('webAppOutboundIPAddressesCopy')]]",
+                                "endIpAddress": "[parameters('webAppOutboundIpAddresses')[copyIndex('webAppOutboundIPAddressesCopy')]]"
+                            },
+                            "copy": {
+                                "name": "webAppOutboundIPAddressesCopy",
+                                "count": "[length(parameters('webAppOutboundIpAddresses'))]"
+                            }
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('serviceName'))]"
+            ],
+            "metadata": {
+                "description": "FireWall Rule setup"
+            }
         },
         {
             "type": "Microsoft.KeyVault/vaults",
