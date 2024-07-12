@@ -125,6 +125,13 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          # TEMP FOR TESTING Assign the pipeline deployment principal storage
+          $context = Get-AzContext
+          $clientId = $context.Account.Id
+          $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
+          $servicePrincipalId = $servicePrincipal.Id
+          $resourceGroupResourceId = (Get-AzResourceGroup -Name $(ResourceGroupName)).ResourceId
+
           try
           {
             Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
@@ -133,12 +140,7 @@ stages:
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
-          # TEMP FOR TESTING Assign the pipeline deployment principal storage
-          $context = Get-AzContext
-          $clientId = $context.Account.Id
-          $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
-          $servicePrincipalId = $servicePrincipal.Id
-          $resourceGroupResourceId = (Get-AzResourceGroup -Name $(ResourceGroupName)).ResourceId
+          # TEMP FOR TESTING?
           New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
 
 - stage: setupEnvironment

@@ -11,10 +11,6 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - template: ./generate-federated-token-file.yml
-    parameters: 
-      serviceConnectionName: $(ConnectedServiceName)
-
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
     inputs:
@@ -83,6 +79,10 @@ steps:
 
         dotnet dev-certs https
 
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID "
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
@@ -126,10 +126,7 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
-      'AZURE_CLIENT_ID': $(AZURE_CLIENT_ID)
-      'AZURE_TENANT_ID': $(AZURE_TENANT_ID)
-      'AZURE_FEDERATED_TOKEN_FILE': $(AZURE_FEDERATED_TOKEN_FILE)
-      # 'AzurePipelinesCredential_ClientId': $(AzurePipelinesCredential_ClientId)
-      # 'AzurePipelinesCredential_TenantId': $(AzurePipelinesCredential_TenantId)
-      # 'AzurePipelinesCredential_ServiceConnectionId': $(AzurePipelinesCredential_ServiceConnectionId)
-      # 'AzurePipelinesCredential_SystemAccessToken': $(System.AccessToken)
+      'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
+      'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)

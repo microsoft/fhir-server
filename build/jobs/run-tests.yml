@@ -80,6 +80,17 @@ jobs:
     parameters: 
       serviceConnectionName: $(ConnectedServiceName)
 
+  - task: AzurePowerShell@5
+    displayName: 'Set Workload Identity Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID "
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
   - task: DotNetCoreCLI@2
     displayName: 'Run Sql Integration Tests'
     inputs:
@@ -88,7 +99,7 @@ jobs:
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
-      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=Active Directory Workload Identity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURE_CLIENT_ID);'
+      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=Active Directory Workload Identity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
 
 - job: 'cosmosE2eTests'
   dependsOn: []

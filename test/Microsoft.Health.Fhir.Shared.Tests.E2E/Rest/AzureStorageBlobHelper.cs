@@ -62,24 +62,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                 return new BlobServiceClient(StorageEmulatorConnectionString);
             }
 
-            /*
             TokenCredential credential;
 
             if (IsAzurePipelinesRun())
             {
                 credential = new AzurePipelinesCredential(
-                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_TenantId"),
-                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_ClientId"),
-                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_ServiceConnectionId"),
-                    Environment.GetEnvironmentVariable("AzurePipelinesCredential_SystemAccessToken"));
+                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID"),
+                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID"),
+                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"),
+                    Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN"));
             }
             else
             {
                credential = new DefaultAzureCredential();
             }
-            */
-
-            DefaultAzureCredential credential = new();
 
             var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
             return blobServiceClient;
@@ -103,10 +99,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E
         private static bool IsAzurePipelinesRun()
         {
             string[] variableNames = [
-                "AzurePipelinesCredential_ClientId",
-                "AzurePipelinesCredential_TenantId",
-                "AzurePipelinesCredential_ServiceConnectionId",
-                "AzurePipelinesCredential_SystemAccessToken",
+                "AZURESUBSCRIPTION_CLIENT_ID",
+                "AZURESUBSCRIPTION_TENANT_ID",
+                "AZURESUBSCRIPTION_SERVICE_CONNECTION_ID",
+                "SYSTEM_ACCESSTOKEN",
             ];
 
             foreach (var variableName in variableNames)

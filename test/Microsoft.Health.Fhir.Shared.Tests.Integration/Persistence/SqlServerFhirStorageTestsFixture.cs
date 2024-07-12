@@ -180,6 +180,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
 
+            SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity, new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider());
+
             _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
 
