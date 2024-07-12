@@ -166,7 +166,7 @@ stages:
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
-      userAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployIntegrationTestSqlServer
   displayName: 'Deploy Integration Test SQLServer'
