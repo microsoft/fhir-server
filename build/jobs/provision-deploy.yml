@@ -58,7 +58,7 @@ jobs:
         $additionalProperties = $flattenedTestConfig
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
-        $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+        $additionalProperties["SqlServer__AllowDatabaseCreation"] = "false"
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
         $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
@@ -132,9 +132,11 @@ jobs:
         if("${{ parameters.sql }}" -eq "true")
         {
           $sqlName = "${{ parameters.sqlServerName }}".ToLower()
+          $sqlIntTestName = "$($sqlName)inttest"
           $fireWallRuleName = "AzureAgentFirewall-${{ parameters.version }}"
           $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
           New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlName -FirewallRuleName $fireWallRuleName -StartIPAddress $agentIp -EndIPAddress $agentIP
+          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlIntTestName -FirewallRuleName $fireWallRuleName -StartIPAddress $agentIp -EndIPAddress $agentIP
         }
   - template: ./provision-healthcheck.yml
     parameters: 
