@@ -132,18 +132,13 @@ stages:
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
-          try
-          {
-            # TEMP FOR TESTING Assign the pipeline deployment principal storage
-            $context = Get-AzContext
-            $clientId = $context.Account.Id
-            $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
-            $servicePrincipalId = $servicePrincipal.Id
-            $resourceGroupResourceId = (Get-AzResourceGroup -Name $resourceGroupName).ResourceId
-            New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
-          }
-          catch
-          {}
+          # TEMP FOR TESTING Assign the pipeline deployment principal storage
+          $context = Get-AzContext
+          $clientId = $context.Account.Id
+          $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
+          $servicePrincipalId = $servicePrincipal.Id
+          $resourceGroupResourceId = (Get-AzResourceGroup -Name $resourceGroupName).ResourceId
+          New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
