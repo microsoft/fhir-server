@@ -67,8 +67,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             if (IsAzurePipelinesRun())
             {
                 credential = new AzurePipelinesCredential(
-                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID"),
                     Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID"),
+                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID"),
                     Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"),
                     Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN"));
             }
