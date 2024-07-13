@@ -1,12 +1,13 @@
 ﻿--DROP PROCEDURE dbo.MergeResources
 GO
-CREATE PROCEDURE dbo.MergeResources @TransactionId bigint, @AdlsContainer varchar(100), @AdlsAccountName varchar(100), @AdlsAccountKey varchar(100)
+CREATE PROCEDURE dbo.MergeResources @TransactionId bigint, @AdlsContainer varchar(100), @AdlsAccountName varchar(100), @AdlsAccountKey varchar(100), @AffectedRows int = 0 OUT
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'MergeResources'
        ,@Mode varchar(200) = 'T='+convert(varchar,@TransactionId)
-       ,@AffectedRows int = 0
+
+SET @AffectedRows = 0
 
 BEGIN TRY
   --INSERT INTO dbo.Resource 

@@ -895,9 +895,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@AdlsContainer", _adlsContainer);
                 cmd.Parameters.AddWithValue("@AdlsAccountName", _adlsAccountName);
                 cmd.Parameters.AddWithValue("@AdlsAccountKey", _adlsAccountKey);
+                var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                cmd.Parameters.Add(affectedRowsParam);
                 await conn.OpenAsync(cancellationToken);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
-                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Warn", $"T={transactionId}", st, cancellationToken);
+                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Warn", $"T={transactionId} Rows={(int)affectedRowsParam.Value}", st, cancellationToken);
             }
             catch (Exception ex)
             {
