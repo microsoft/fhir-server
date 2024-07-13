@@ -52,6 +52,12 @@
     },
     "resources": [
         {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[parameters('userAssignedManagedIdentityName')]",
+            "location": "[resourceGroup().location]"
+        },
+        {
             "name": "[parameters('sqlServerName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2020-11-01-preview",

@@ -10,7 +10,6 @@ parameters:
   - federatedServiceConnection
 - name: adminUserAssignedManagedIdentityName
   type: string
-  default: ''
 
 jobs:
 - job: provisionEnvironment
