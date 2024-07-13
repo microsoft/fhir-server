@@ -159,7 +159,7 @@ stages:
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployIntegrationTestSqlServer
-  displayName: 'Deploy SQLServer'
+  displayName: 'Deploy Integration Test SQLServer'
   dependsOn:
   - setupEnvironment
   jobs:
