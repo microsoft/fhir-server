@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
                         _warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
                         _warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
-                        _warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
+                        _warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
                         _warehouseIsSet = true;
                     }
                 }

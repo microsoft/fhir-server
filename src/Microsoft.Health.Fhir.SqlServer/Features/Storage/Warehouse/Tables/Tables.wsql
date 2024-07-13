@@ -94,16 +94,6 @@ CREATE TABLE dbo.TokenText
     Text                        varchar(400)       NOT NULL
 )
 GO
-CREATE TABLE dbo.TokenSearchParam
-(
-    ResourceTypeId              smallint                NOT NULL,
-    ResourceSurrogateId         bigint                  NOT NULL,
-    SearchParamId               smallint                NOT NULL,
-    SystemId                    int                     NULL,
-    Code                        varchar(256)            NOT NULL,
-    --CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
-)
-GO
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
