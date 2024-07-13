@@ -11,12 +11,6 @@ parameters:
 - name: adminUserAssignedManagedIdentityName
   type: string
   default: ''
-- name: sqlServerNewOrExisting
-  type: string
-  default: 'new'
-  values:
-  - new
-  - existing
 
 jobs:
 - job: provisionEnvironment
@@ -65,7 +59,6 @@ jobs:
               sqlAdministratorSid = $principalId
               sqlAdministratorTenantId = $tenantId
               sqlServerPrincipalType = "User"
-              sqlServerNewOrExisting = "${{ parameters.sqlServerNewOrExisting }}"
           }
         }
 

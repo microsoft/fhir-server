@@ -117,7 +117,6 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
 
 - stage: deployR4
@@ -158,7 +157,6 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
 
 - stage: deployR4B
@@ -197,7 +195,6 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestApplicationResource)
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlServerNewOrExisting: 'existing'
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
 
@@ -239,5 +236,4 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
