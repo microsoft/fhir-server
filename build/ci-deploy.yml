@@ -62,6 +62,23 @@ stages:
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
+- stage: deploySqlServer
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      adminType: 'userAssignedManagedIdentity'
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)inttest
+      adminType: 'federatedServiceConnection'
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -85,6 +102,7 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -99,6 +117,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
 
 - stage: deployR4
@@ -124,6 +143,7 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -138,6 +158,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
 
 - stage: deployR4B
@@ -163,6 +184,7 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -175,6 +197,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestApplicationResource)
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlServerNewOrExisting: 'existing'
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
 
@@ -201,6 +224,7 @@ stages:
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -215,4 +239,5 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlServerNewOrExisting: 'existing'
       reindexEnabled: true
