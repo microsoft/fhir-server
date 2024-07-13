@@ -352,7 +352,7 @@ stages:
   - setupEnvironment
   - deployR4
   - deployR4Sql
-  - 
+  - deployIntegrationTestSqlServer
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
