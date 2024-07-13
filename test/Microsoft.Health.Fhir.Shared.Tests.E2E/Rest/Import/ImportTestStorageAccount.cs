@@ -4,11 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Azure.Core;
-using Azure.Storage;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
-using IdentityServer4.Models;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {

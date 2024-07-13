@@ -482,12 +482,6 @@
                     "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').tenantId]"
                 }
             },
-            "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
-                }
-            },
             "dependsOn": [
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
             ],

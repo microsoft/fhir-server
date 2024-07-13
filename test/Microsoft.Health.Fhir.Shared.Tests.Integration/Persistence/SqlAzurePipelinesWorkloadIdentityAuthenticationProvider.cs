@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
 public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthenticationProvider, IUniversalAuthProvider
 {
-    private AzurePipelinesCredential _azurePipelinesCredential;
+    private readonly AzurePipelinesCredential _azurePipelinesCredential;
 
     public SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(AzurePipelinesCredential azurePipelinesCredential)
     {
