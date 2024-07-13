@@ -157,6 +157,12 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+
+- stage: deployIntegrationTestSqlServer
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - setupEnvironment
+  jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
@@ -330,6 +336,7 @@ stages:
   - setupEnvironment
   - deployStu3
   - deployStu3Sql
+  - deployIntegrationTestSqlServer
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -345,6 +352,7 @@ stages:
   - setupEnvironment
   - deployR4
   - deployR4Sql
+  - 
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -360,6 +368,7 @@ stages:
   - setupEnvironment
   - deployR4B
   - deployR4BSql
+  - deployIntegrationTestSqlServer
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -375,6 +384,7 @@ stages:
   - setupEnvironment
   - deployR5
   - deployR5Sql
+  - deployIntegrationTestSqlServer
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
