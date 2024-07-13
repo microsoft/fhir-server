@@ -76,10 +76,6 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
-  - template: ./generate-federated-token-file.yml
-    parameters: 
-      serviceConnectionName: $(ConnectedServiceName)
-
   - task: AzurePowerShell@5
     displayName: 'Set Workload Identity Variables'
     inputs:

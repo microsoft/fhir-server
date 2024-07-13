@@ -114,24 +114,13 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./jobs/generate-federated-token-file.yml
-      parameters: 
-        serviceConnectionName: $(ConnectedServiceName)
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
-      name: ProvisionResourceGroup
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          # TEMP FOR TESTING Assign the pipeline deployment principal storage
-          $context = Get-AzContext
-          $clientId = $context.Account.Id
-          $servicePrincipal = Get-AzADServicePrincipal -Filter "appId eq '$clientId'"
-          $servicePrincipalId = $servicePrincipal.Id
-          $resourceGroupResourceId = (Get-AzResourceGroup -Name $(ResourceGroupName)).ResourceId
-
           try
           {
             Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
@@ -140,8 +129,6 @@ stages:
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
-          # TEMP FOR TESTING?
-          New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
