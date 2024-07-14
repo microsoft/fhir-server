@@ -890,6 +890,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var st = DateTime.UtcNow;
             try
             {
+                await System.Net.Dns.GetHostEntryAsync(_warehouseServer, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Dns error resolving warehouse");
+                await StoreClient.TryLogEvent("Dns.GetHostEntryAsync", "Error", $"{ex.Message} s={_warehouseServer}", st, cancellationToken);
+                throw;
+            }
+
+            try
+            {
                 using var conn = new SqlConnection(_warehouseConnectionString);
                 using var cmd = new SqlCommand("dbo.MergeResources", conn);
                 cmd.CommandType = CommandType.StoredProcedure;
