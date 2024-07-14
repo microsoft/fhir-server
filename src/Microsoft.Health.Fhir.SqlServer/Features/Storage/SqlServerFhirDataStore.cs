@@ -891,6 +891,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 await System.Net.Dns.GetHostEntryAsync(_warehouseServer, cancellationToken);
+                await StoreClient.TryLogEvent("Dns.GetHostEntryAsync", "Warn", _warehouseServer, st, cancellationToken);
             }
             catch (Exception ex)
             {
