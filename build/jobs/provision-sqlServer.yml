@@ -11,9 +11,12 @@ parameters:
 - name: adminUserAssignedManagedIdentityName
   type: string
   default: ''
+- name: deploymentName
+  type: string
+  default: ''
 
 jobs:
-- job: 'provisionSql_${{ parameters.sqlServerName }}'
+- job: 'provisionSql_${{ parameters.deploymentName }}'
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'

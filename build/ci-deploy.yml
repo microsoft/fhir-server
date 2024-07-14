@@ -73,11 +73,13 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      deploymentName: "AppServer"
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
       adminType: 'federatedServiceConnection'
+      deploymentName: "IntegrationTests"
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
