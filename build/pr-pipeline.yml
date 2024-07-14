@@ -164,13 +164,13 @@ stages:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)
+      sqlServerName: '${{ variables.DeploymentEnvironmentName }}'
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)inttest
+      sqlServerName: '${{ variables.DeploymentEnvironmentName }}inttest'
       adminType: 'federatedServiceConnection'
 
 - stage: deployStu3
