@@ -96,6 +96,10 @@ jobs:
       testRunTitle: '${{ parameters.version }} Integration'
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=Active Directory Workload Identity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
 - job: 'cosmosE2eTests'
   dependsOn: []
