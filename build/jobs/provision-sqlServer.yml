@@ -13,17 +13,11 @@ parameters:
   default: ''
 
 jobs:
-- job: provisionEnvironment
+- job: 'provisionSql_${{ parameters.sqlServerName }}'
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: 'resolute-oss-tenant-info'
-
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
