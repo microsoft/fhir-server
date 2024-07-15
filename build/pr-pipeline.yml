@@ -128,7 +128,7 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
-    - template: ./tasks/add-resource-group-role-assignments.yml
+    - template: ./jobs/add-resource-group-role-assignments.yml
       parameters:
         azureSubscription: $(ConnectedServiceName)
         resourceGroupName: $(ResourceGroupName)
