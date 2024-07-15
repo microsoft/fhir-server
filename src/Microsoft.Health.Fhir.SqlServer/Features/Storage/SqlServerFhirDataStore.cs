@@ -904,6 +904,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 using var conn = new SqlConnection(_warehouseConnectionString);
                 using var cmd = new SqlCommand("dbo.MergeResources", conn);
+                cmd.CommandTimeout = 600;
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
                 cmd.Parameters.AddWithValue("@AdlsContainer", _adlsContainer);
