@@ -22,9 +22,6 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'tool'
-- name: sqlServerAdminPassword
-  type: string
-  default: ''
 - name: sqlServerName
   type: string
   default: ''
@@ -90,7 +87,6 @@ jobs:
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
@@ -132,7 +128,6 @@ jobs:
             }
           }
         }
-
   - template: ./provision-healthcheck.yml
     parameters: 
       webAppName: ${{ parameters.webAppName }}

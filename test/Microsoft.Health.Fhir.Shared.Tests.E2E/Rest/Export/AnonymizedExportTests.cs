@@ -371,7 +371,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         private async Task<BlobContainerClient> InitializeAnonymizationContainer()
         {
-            BlobServiceClient blobClient = AzureStorageBlobHelper.CreateBlobServiceClient(TestExportStoreUriEnvironmentVariableName, TestExportStoreKeyEnvironmentVariableName);
+            var storageUri = new Uri(Environment.GetEnvironmentVariable(TestExportStoreUriEnvironmentVariableName));
+            BlobServiceClient blobClient = AzureStorageBlobHelper.GetBlobServiceClient(storageUri);
             BlobContainerClient container = blobClient.GetBlobContainerClient("anonymization");
             await container.CreateIfNotExistsAsync();
             return container;
@@ -409,14 +410,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         private async Task<IEnumerable<string>> DownloadBlobAndParse(IList<Uri> blobUri)
         {
-            (Uri storageUri, StorageSharedKeyCredential credential, string connectionString) = AzureStorageBlobHelper.GetStorageCredentialsFromEnvironmentVariables(
-                TestExportStoreUriEnvironmentVariableName,
-                TestExportStoreKeyEnvironmentVariableName);
             var result = new List<string>();
 
             foreach (Uri uri in blobUri)
             {
-                BlockBlobClient blob = AzureStorageBlobHelper.CreateBlockBlobClient(uri, credential, connectionString);
+                var blob = AzureStorageBlobHelper.GetBlobClient(uri);
                 var response = await blob.DownloadContentAsync();
                 var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");

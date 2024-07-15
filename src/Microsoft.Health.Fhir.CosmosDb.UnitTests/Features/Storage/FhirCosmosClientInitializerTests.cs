@@ -53,6 +53,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void CreateClient_WhenTwoTheSameKeyIsProvidedTwice_ThenCosmosDbClientsCreatedAreTheSame()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+            var client3 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+
+            Assert.True(client1 == client2);
+            Assert.True(client2 == client3);
+            Assert.True(client1 == client3);
+        }
+
+        [Fact]
+        public void CreateClient_WhenTwoDifferentKeysAreProvided_ThenCosmosDbClientCreatedIsDifferent()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA"});
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "BBBB" });
+            var client3 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+
+            Assert.True(client1 != client2);
+            Assert.True(client2 != client3);
+            Assert.True(client1 != client3);
+        }
+
+        [Fact]
         public void CreateClient_EmptyPreferredLocations_DoesNotSetPreferredLocations()
         {
             _cosmosDataStoreConfiguration.PreferredLocations = new string[] { };
