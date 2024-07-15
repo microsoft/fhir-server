@@ -128,17 +128,10 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
-    - task: AzurePowerShell@5
-      displayName: 'Add Resource Group Role Assignments'
-      inputs:
+    - template: ./tasks/add-resource-group-role-assignments.yml
+      parameters:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          $clientId = (Get-AzContext).Account.Id
-          $servicePrincipalId = (Get-AzADServicePrincipal -Filter "appId eq '$clientId'").Id
-          $resourceGroupResourceId = (Get-AzResourceGroup -Name $(ResourceGroupName)).ResourceId
-          New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
+        resourceGroupName: $(ResourceGroupName)
 
 - stage: setupEnvironment
   displayName: Setup Test Environment

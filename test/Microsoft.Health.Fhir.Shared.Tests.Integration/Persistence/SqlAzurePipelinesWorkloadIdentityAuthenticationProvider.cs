@@ -14,7 +14,7 @@ using Microsoft.SqlServer.Dac;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
-public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthenticationProvider, IUniversalAuthProvider
+public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthenticationProvider
 {
     private readonly AzurePipelinesCredential _azurePipelinesCredential;
 
@@ -29,14 +29,6 @@ public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthen
         var token = await _azurePipelinesCredential.GetTokenAsync(tokenContext, CancellationToken.None);
 
         return new SqlAuthenticationToken(token.Token, token.ExpiresOn);
-    }
-
-    public string GetValidAccessToken()
-    {
-        var tokenContext = new TokenRequestContext(["https://database.windows.net/.default"]);
-        var token = _azurePipelinesCredential.GetToken(tokenContext, CancellationToken.None);
-
-        return token.Token;
     }
 
     public override bool IsSupported(SqlAuthenticationMethod authenticationMethod) => authenticationMethod.Equals(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity);

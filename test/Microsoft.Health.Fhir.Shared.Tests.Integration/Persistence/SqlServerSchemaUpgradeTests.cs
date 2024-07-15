@@ -10,7 +10,6 @@ using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Azure.Identity;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider.")]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
@@ -198,31 +197,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-            SchemaCompareDatabaseEndpoint source;
-            SchemaCompareDatabaseEndpoint target;
 
             var testConnectionString1 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
             var testConnectionString2 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
 
-            // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
-            string federatedClientID = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
-            string federatedTenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
-            string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
-            string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
-
-            if (!string.IsNullOrEmpty(federatedClientID) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
-            {
-                AzurePipelinesCredential azurePipelinesCredential = new(federatedTenantId, federatedClientID, serviceConnectionId, systemAccessToken);
-                var accessTokenProvider = new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(azurePipelinesCredential);
-                source = new SchemaCompareDatabaseEndpoint(testConnectionString1, accessTokenProvider);
-                target = new SchemaCompareDatabaseEndpoint(testConnectionString2, accessTokenProvider);
-            }
-            else
-            {
-                source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
-                target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
-            }
-
+            var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
+            var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
             var comparison = new SchemaComparison(source, target)
             {
                 Options = { IgnoreWhitespace = true, IgnoreComments = true },
@@ -275,7 +255,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
-            var remainingDifferences = result.Differences?.Where(
+            var remainingDifferences = result.Differences.Where(
                 d => d != null && !deprecatedObjectToIgnore.Any(
                     i =>
                         (d.SourceObject?.ObjectType?.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||

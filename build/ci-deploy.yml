@@ -50,6 +50,10 @@ stages:
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+    - template: ./tasks/add-resource-group-role-assignments.yml
+      parameters:
+        azureSubscription: $(ConnectedServiceName)
+        resourceGroupName: $(ResourceGroupName)
 
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment

@@ -62,20 +62,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                 return new BlobServiceClient(StorageEmulatorConnectionString);
             }
 
-            TokenCredential credential;
-
-            if (IsAzurePipelinesRun())
-            {
-                credential = new AzurePipelinesCredential(
+            TokenCredential credential = IsAzurePipelinesRun()
+                ? new AzurePipelinesCredential(
                     Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID"),
                     Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID"),
                     Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"),
-                    Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN"));
-            }
-            else
-            {
-               credential = new DefaultAzureCredential();
-            }
+                    Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN"))
+                : new DefaultAzureCredential();
 
             var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
             return blobServiceClient;
@@ -83,7 +76,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
         public static BlobContainerClient GetBlobContainerClient(Uri storageServiceUri, string blobContainerName)
         {
-            // Create the BlobServiceClient and BlobContainerClient once
             BlobServiceClient blobServiceClient = GetBlobServiceClient(storageServiceUri);
             BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
             return containerClient;

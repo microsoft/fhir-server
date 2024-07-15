@@ -314,7 +314,7 @@
             }
         },
         {
-            "condition": "[or(equals(parameters('solutionType'), 'FhirServerCosmosDB'), and(equals(parameters('solutionType'), 'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'existing')))]",
+            "condition": "[or(equals(parameters('solutionType'), 'FhirServerCosmosDB'), and(equals(parameters('solutionType'), 'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'new')))]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "name": "[variables('managedIdentityName')]",
