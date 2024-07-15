@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     if (_cosmosClient == null || IsNewConnectionKey(configuration))
                     {
                         _cosmosClient = CreateCosmosClientInternal(configuration);
-                        _cosmosKeyHashCode = configuration.Key.GetHashCode(_hashCodeStringComparison);
+                        _cosmosKeyHashCode = string.IsNullOrWhiteSpace(configuration.Key) ? 0 : configuration.Key.GetHashCode(_hashCodeStringComparison);
                     }
                 }
             }
@@ -144,12 +144,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private bool IsNewConnectionKey(CosmosDataStoreConfiguration configuration)
         {
-            // Local configuration is not empty and hashvcode is empty - first process access.
-            if (!string.IsNullOrEmpty(configuration.Key) && _cosmosKeyHashCode == 0)
+            // Configuration key is not empty and hashcode is empty - first process access.
+            if (!string.IsNullOrWhiteSpace(configuration.Key) && _cosmosKeyHashCode == 0)
             {
                 return true;
             }
-            else if (string.IsNullOrEmpty(configuration.Key) && _cosmosKeyHashCode != 0) // Local's key configuration is empty, but a key hash code is present - using local emulator.
+            else if (string.IsNullOrWhiteSpace(configuration.Key)) // Configuration key is empty  - using local emulator.
             {
                 return false;
             }
