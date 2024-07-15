@@ -156,6 +156,7 @@ stages:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
       appServiceName: $(DeploymentEnvironmentName)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -194,6 +195,7 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4B ***********************
 - stage: redeployR4B
@@ -232,6 +234,7 @@ stages:
       version: R4B
       keyVaultName: $(DeploymentEnvironmentNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R5 ***********************
 - stage: redeployR5
@@ -270,6 +273,7 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** Finalize ***********************
 - stage: DockerAddTag

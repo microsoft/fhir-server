@@ -1,28 +1,26 @@
-
 parameters:
 - name: resourceGroup
   type: string
 - name: sqlServerName
   type: string
-- name: schemaAutomaticUpdatesEnabled
+- name: adminType
   type: string
-  default: 'auto'
-- name: sqlServerAdminPassword
+  values:
+  - userAssignedManagedIdentity
+  - federatedServiceConnection
+- name: adminUserAssignedManagedIdentityName
+  type: string
+  default: ''
+- name: deploymentName
   type: string
   default: ''
 
 jobs:
-- job: provisionEnvironment
+- job: 'provisionSql_${{ parameters.deploymentName }}'
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: 'resolute-oss-tenant-info'
-
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
@@ -31,14 +29,53 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
-     
-        $templateParameters = @{
-            sqlAdminPassword = "${{parameters.sqlServerAdminPassword}}"
-            sqlServerName = "${{parameters.sqlServerName}}".ToLower()
-            sqlSchemaAutomaticUpdatesEnabled = "${{parameters.schemaAutomaticUpdatesEnabled}}"
+
+        $adminUserAssignedManagedIdentityName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
+        $adminType = "${{ parameters.adminType }}"
+        $resourceGroup = "${{ parameters.resourceGroup }}"
+        $sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+
+        if ($adminType -eq "userAssignedManagedIdentity" -and $adminUserAssignedManagedIdentityName -eq "") {
+          Write-Error "adminUserAssignedManagedIdentityName must be provided when adminType is userAssignedManagedIdentity."
+          exit 1
+        }
+
+        if ($adminType -eq "userAssignedManagedIdentity") {
+          # Get the location of the resource group
+          $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
+          $location = $resourceGroupDetails.Location
+
+          # Create user-assigned managed identity
+          $identity = New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location
+
+          $principalId = $identity.PrincipalId
+          $tenantId = $identity.TenantId
+          $templateParameters = @{
+              sqlServerName = $sqlServerName 
+              sqlAdministratorLogin = $principalId
+              sqlAdministratorSid = $principalId
+              sqlAdministratorTenantId = $tenantId
+              sqlServerPrincipalType = "User"
+          }
+        }
+
+        if ($adminType -eq "federatedServiceConnection") {
+          $clientId = (Get-AzContext).Account.Id
+          $tenantId = (Get-AzContext).Tenant.Id
+
+          $templateParameters = @{
+              sqlServerName = $sqlServerName 
+              sqlAdministratorLogin = "$(ConnectedServiceName) - $clientId"
+              sqlAdministratorSid = $clientId
+              sqlAdministratorTenantId = $tenantId
+              sqlServerPrincipalType = "Application"
+          }
         }
 
         Write-Host "Provisioning Sql server"
         Write-Host "Resource Group: ${{ parameters.resourceGroup }}"
         Write-Host "SqlServerName: ${{ parameters.sqlServerName }}"
-        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+
+        $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
+        New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
