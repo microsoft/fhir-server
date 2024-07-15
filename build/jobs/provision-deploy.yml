@@ -22,9 +22,6 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'tool'
-- name: sqlServerAdminPassword
-  type: string
-  default: ''
 - name: sqlServerName
   type: string
   default: ''
@@ -90,7 +87,6 @@ jobs:
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
@@ -131,13 +127,6 @@ jobs:
               New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
             }
           }
-        }
-         if("${{ parameters.sql }}" -eq "true")
-        {
-          $sqlName = "${{ parameters.sqlServerName }}".ToLower()
-          $fireWallRuleName = "AzureAgentFirewall-${{ parameters.version }}"
-          $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
-          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlName -FirewallRuleName $fireWallRuleName -StartIPAddress $agentIp -EndIPAddress $agentIP
         }
   - template: ./provision-healthcheck.yml
     parameters: 
