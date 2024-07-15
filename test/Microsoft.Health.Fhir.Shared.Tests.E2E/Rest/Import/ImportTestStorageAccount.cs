@@ -4,34 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Azure.Storage;
+using Azure.Storage.Blobs;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
     public class ImportTestStorageAccount
     {
         private const string TestImportStoreUriEnvironmentVariableName = "TestIntegrationStoreUri";
-        private const string TestImportStoreKeyEnvironmentVariableName = "TestIntegrationStoreKey";
 
         public ImportTestStorageAccount()
         {
             InitializeFromEnvironmentVariables();
         }
 
-        public string ConnectionString { get; private set; }
-
         public Uri StorageUri { get; private set; }
 
-        public StorageSharedKeyCredential SharedKeyCredential { get; private set; }
+        public BlobServiceClient BlobServiceClient { get; private set; }
 
         private void InitializeFromEnvironmentVariables()
         {
-            (Uri storageUri, StorageSharedKeyCredential credential, string connectionString) = AzureStorageBlobHelper.GetStorageCredentialsFromEnvironmentVariables(
-                TestImportStoreUriEnvironmentVariableName,
-                TestImportStoreKeyEnvironmentVariableName);
-            StorageUri = storageUri;
-            SharedKeyCredential = credential;
-            ConnectionString = connectionString;
+            StorageUri = new Uri(Environment.GetEnvironmentVariable(TestImportStoreUriEnvironmentVariableName));
+            BlobServiceClient = AzureStorageBlobHelper.GetBlobServiceClient(StorageUri);
         }
     }
 }
