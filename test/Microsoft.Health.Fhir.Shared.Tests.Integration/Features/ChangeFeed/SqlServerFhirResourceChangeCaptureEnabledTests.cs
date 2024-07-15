@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == "2" && x.ResourceId == id));
 
             // negative versions are filtered out according to the existing logic because they are historical
-            Assert.Empty(resourceChanges.Where(x => x.ResourceVersion.ToString() == "-1" && x.ResourceId == id));
+            Assert.DoesNotContain(resourceChanges, x => x.ResourceVersion.ToString() == "-1" && x.ResourceId == id);
         }
 
         [Fact]

@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.DoesNotContain(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
             Parameters parameters = new Parameters();
             if (!string.IsNullOrEmpty(profile))
             {
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.DoesNotContain(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
         [Theory]
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.DoesNotContain(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
         [Fact]

@@ -50,10 +50,10 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             var addTelemetryProviderMethod = startup.GetType().GetMethod(AddTelemetryProviderMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
             addTelemetryProviderMethod.Invoke(startup, new object[] { services });
 
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
@@ -65,10 +65,10 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             var addTelemetryProviderMethod = startup.GetType().GetMethod(AddTelemetryProviderMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
             addTelemetryProviderMethod.Invoke(startup, new object[] { services });
 
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
@@ -80,10 +80,10 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             var addTelemetryProviderMethod = startup.GetType().GetMethod(AddTelemetryProviderMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
             addTelemetryProviderMethod.Invoke(startup, new object[] { services });
 
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
         [Theory]
@@ -106,8 +106,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             {
                 Assert.NotEmpty(services.Where(descriptor =>
                     descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
-                Assert.Empty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+                Assert.DoesNotContain(services, descriptor =>
+                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
 
                 var configureServiceOptions = provider.GetRequiredService<IConfigureOptions<ApplicationInsightsServiceOptions>>();
                 var serviceOptions = new ApplicationInsightsServiceOptions();
@@ -131,10 +131,10 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             }
             else
             {
-                Assert.Empty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
-                Assert.Empty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+                Assert.DoesNotContain(services, descriptor =>
+                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
+                Assert.DoesNotContain(services, descriptor =>
+                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
             }
         }
 
@@ -158,12 +158,12 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             }
             else
             {
-                Assert.Empty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+                Assert.DoesNotContain(services, descriptor =>
+                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
             }
 
-            Assert.Empty(services.Where(descriptor =>
-                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
+            Assert.DoesNotContain(services, descriptor =>
+                descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
         }
 
         private IConfiguration BuildConfiguration(string provider, string instrumentationKey, string connectionString)
