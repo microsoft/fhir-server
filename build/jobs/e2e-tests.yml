@@ -20,7 +20,7 @@ steps:
       Inline: |
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
-        
+
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -34,17 +34,6 @@ steps:
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
-
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
-        $allStorageAccounts = ""
-        foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
-
-            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
-            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
-            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
-        }
-        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         $appServiceName = "${{ parameters.appServiceName }}"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
@@ -68,15 +57,11 @@ steps:
         $integrationStoreUri = $integrationStoreSettings[0].Value
         Write-Host "$integrationStoreUri"
         $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
-        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
-        
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
-        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
- 
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -93,6 +78,10 @@ steps:
         # ----------------------------------------
 
         dotnet dev-certs https
+
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
@@ -137,3 +126,7 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
+      'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
