@@ -128,6 +128,10 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+    - template: ./jobs/add-resource-group-role-assignments.yml
+      parameters:
+        azureSubscription: $(ConnectedServiceName)
+        resourceGroupName: $(ResourceGroupName)
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
@@ -154,8 +158,15 @@ stages:
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      userAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      adminType: 'userAssignedManagedIdentity'
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      deploymentName: "AppServer"
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)inttest
+      adminType: 'federatedServiceConnection'
+      deploymentName: "IntegrationTests"
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
@@ -330,6 +341,7 @@ stages:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
       appServiceName: $(DeploymentEnvironmentName)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -344,6 +356,7 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4B
   displayName: 'Run R4B Tests'
@@ -358,6 +371,7 @@ stages:
       version: R4B
       keyVaultName: $(DeploymentEnvironmentNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -372,6 +386,7 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
