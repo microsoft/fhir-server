@@ -291,7 +291,10 @@
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
-        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]"
+        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]",
+        "cosmosCustomRoleDefinitionId": "[guid('sql-role-definition-', resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName')))]",
+        "cosmosCustomRoleAssignmentId": "[guid(variables('cosmosCustomRoleDefinitionId'), resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName')))]"
+
     },
     "resources": [
         {
@@ -400,7 +403,7 @@
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
                     "location": "[resourceGroup().location]",
-                    "dependsOn":[
+                    "dependsOn": [
                         "[variables('serviceName')]"
                     ],
                     "properties": {
@@ -413,7 +416,7 @@
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
                     "location": "[resourceGroup().location]",
-                    "dependsOn":[
+                    "dependsOn": [
                         "[variables('serviceName')]"
                     ],
                     "properties": {
@@ -461,6 +464,50 @@
                 ]
             }
         },
+
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions",
+            "apiVersion": "2021-04-15",
+            "name": "[format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleDefinitionId') )]",
+            "properties": {
+                "roleName": "CosmosCustomRole",
+                "type": "CustomRole",
+                "assignableScopes": [
+                    "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+                ],
+                "permissions": [
+                    {
+                        "dataActions": [
+                            "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+                            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*",
+                            "Microsoft.DocumentDB/databaseAccounts/throughputSettings/*",
+                            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*",
+                            "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*"
+                        ]
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+            "apiVersion": "2021-04-15",
+            "name": "[format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleAssignmentId'))]",
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', split(format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleDefinitionId')), '/')[0], split(format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleDefinitionId')), '/')[1])]",
+                "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', split(format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleDefinitionId')), '/')[0], split(format('{0}/{1}', variables('serviceName'), variables('cosmosCustomRoleDefinitionId')), '/')[1])]"
+            ]
+        },
+
         {
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
@@ -511,6 +558,7 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2022-09-01",
             "name": "webAppIPsSQLFirewall",
@@ -530,7 +578,7 @@
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
                     "contentVersion": "1.0.0.0",
-                   
+
                     "parameters": {
                         "webAppOutboundIpAddresses": {
                             "type": "array",
@@ -680,7 +728,7 @@
                 "supportsHttpsTrafficOnly": true,
                 "allowBlobPublicAccess": false,
                 "allowSharedKeyAccess": false
-           },
+            },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
             "sku": {
