@@ -102,9 +102,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
 
         private static bool HasDatabaseOverloadPattern(string str)
         {
-            return str.Contains("request limit for the database", StringComparison.OrdinalIgnoreCase) && str.Contains("has been reached", StringComparison.OrdinalIgnoreCase);
+            return (str.Contains("request limit for the database", StringComparison.OrdinalIgnoreCase) && str.Contains("has been reached", StringComparison.OrdinalIgnoreCase))
+                   || str.Contains("fabric compute capacity has exceeded its limits", StringComparison.OrdinalIgnoreCase);
 
             ////The request limit for the database is 200 and has been reached.
+            ////Unable to complete the action because your organization’s Fabric compute capacity has exceeded its limits. Try again later.
         }
 
         // TODO: Remove when source of this exception is identified
