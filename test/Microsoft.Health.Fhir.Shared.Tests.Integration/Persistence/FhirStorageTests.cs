@@ -446,9 +446,9 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
             foreach (var item in list)
             {
-                Assert.Equal(SaveOutcomeType.Updated, item.Result.Outcome);
+                Assert.Equal(SaveOutcomeType.Updated, (await item).Outcome);
 
-                deserializedList.Add(item.Result.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer));
+                deserializedList.Add((await item).RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer));
             }
 
             var allObservations = deserializedList.Select(x => ((Quantity)x.Value).Value.GetValueOrDefault()).Distinct();

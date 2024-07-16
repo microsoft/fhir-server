@@ -43,6 +43,14 @@
             "max": "1",
             "documentation": "The root template to use while transforming the data. Supported default values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04` for input data type `Hl7v2`, `CCD`, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` for input data type `Ccda`, `ExamplePatient`, `Stu3ChargeItem` for data type `Json`, and use resource name as root template for `Fhir`",
             "type": "string"
+        },
+        {
+            "name": "jsonDeserializationTreatDatesAsStrings",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Used when InputDateType == `Json`. Determines if date time values in the InputData are treated as simple strings when Json deserialization occurs.",
+            "type": "boolean"
         }
     ]
 }

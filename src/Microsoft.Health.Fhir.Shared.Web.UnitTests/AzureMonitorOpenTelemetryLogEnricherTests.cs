@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;
 using OpenTelemetry.Logs;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
 
         private readonly AzureMonitorOpenTelemetryLogEnricher _enricher;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly HttpContext _httpContext;
 
         public AzureMonitorOpenTelemetryLogEnricherTests()
@@ -38,7 +40,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _httpContext = Substitute.For<HttpContext>();
             _httpContextAccessor.HttpContext.Returns(_httpContext);
             _httpContext.Request.Returns(Substitute.For<HttpRequest>());
-            _enricher = new AzureMonitorOpenTelemetryLogEnricher(_httpContextAccessor);
+            _failureMetricHandler = Substitute.For<IFailureMetricHandler>();
+            _enricher = new AzureMonitorOpenTelemetryLogEnricher(_httpContextAccessor, _failureMetricHandler);
         }
 
         [Fact]
@@ -58,6 +61,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.Equal(
                 operationName,
                 log.Attributes.SingleOrDefault(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Value);
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         [Fact]
@@ -83,6 +88,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.Equal(
                 operationName,
                 log.Attributes.SingleOrDefault(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Value);
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         [Fact]
@@ -112,6 +119,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.Equal(
                 operationName,
                 log.Attributes.SingleOrDefault(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Value);
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         [Fact]
@@ -143,6 +152,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.Equal(
                 operationName,
                 log.Attributes.Where(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Select(kv => kv.Value).FirstOrDefault());
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         [Fact]
@@ -167,6 +178,46 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             Assert.Equal(
                 operationName,
                 log.Attributes.Where(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Select(kv => kv.Value).FirstOrDefault());
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Theory]
+        [InlineData(LogLevel.Information)]
+        [InlineData(LogLevel.Warning)]
+        [InlineData(LogLevel.Critical)]
+        [InlineData(LogLevel.Error)]
+        public void GivenARecord_WhenThereIsAnException_ThenGenerateTheMetricAccordingly(LogLevel logLevel)
+        {
+            LogRecord log = CreateLogRecord(
+                DateTime.UtcNow,
+                Guid.NewGuid().ToString(),
+                logLevel,
+                new EventId(1),
+                "Creating a log record",
+                new InvalidOperationException("Test"),
+                null);
+
+            _enricher.OnEnd(log);
+
+            _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
+        public void GivenARecord_WhenAnErrorIsLogged_ThenGenerateTheMetricAccordingly()
+        {
+            LogRecord log = CreateLogRecord(
+                DateTime.UtcNow,
+                Guid.NewGuid().ToString(),
+                LogLevel.Error,
+                new EventId(1),
+                "Creating a log record",
+                null,
+                null);
+
+            _enricher.OnEnd(log);
+
+            _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         [Fact]
@@ -177,6 +228,8 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
 
             _enricher.OnEnd(log);
             Assert.DoesNotContain(log.Attributes, kv => kv.Key == KnownApplicationInsightsDimensions.OperationName);
+
+            _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         public static LogRecord CreateLogRecord()
