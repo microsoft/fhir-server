@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlCustomQueryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageVersioningPolicyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
@@ -33,6 +34,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerColumnTypeChangeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSearchParameterInitializationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTests.cs" />

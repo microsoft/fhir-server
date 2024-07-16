@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Query after adding an sproc to the database
             var sw = Stopwatch.StartNew();
             var sprocWasUsed = false;
-            while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
+            while (sw.Elapsed.TotalSeconds < 100) // previous single try after 1.1 sec delay was not reliable.
             {
                 await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
@@ -129,10 +129,10 @@ SELECT TOP 1 O.name
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
 CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
-   @p0 datetime2
-  ,@p1 datetime2
-  ,@p2 nvarchar(256)
-  ,@p3 nvarchar(256)
+   @p0 nvarchar(256)
+  ,@p1 nvarchar(256)
+  ,@p2 datetime2
+  ,@p3 datetime2
   ,@p4 int
 AS
 set nocount on

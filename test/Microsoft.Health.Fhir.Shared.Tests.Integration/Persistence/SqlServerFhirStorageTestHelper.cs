@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
-        private static readonly SemaphoreSlim DbSetupSemaphore = new(4);
+        private static readonly SemaphoreSlim DbSetupSemaphore = new(14); // max number of concurrent requests to the master database is 64 and we run 4 FHIR versions in parallel
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -61,11 +61,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _dbSetupRetryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
-                    retryCount: 20,
+                    retryCount: 5,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
-
-        internal bool DropDatabase => true;
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
@@ -79,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await connection.OpenAsync(cancellationToken);
 
                     await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 600;
+                    command.CommandTimeout = 300;
                     command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
                         BEGIN
@@ -116,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
-            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
@@ -211,11 +209,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            if (!DropDatabase)
-            {
-                return;
-            }
-
             try
             {
                 await DbSetupSemaphore.WaitAsync(cancellationToken);
@@ -226,9 +219,8 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                     await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                     await connection.OpenAsync(cancellationToken);
                     await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 600;
+                    command.CommandTimeout = 15;
                     command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-
                     await command.ExecuteNonQueryAsync(cancellationToken);
                     await connection.CloseAsync();
                 }

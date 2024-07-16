@@ -14,10 +14,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Exceptions
@@ -26,28 +28,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<BaseExceptionMiddleware> _logger;
+        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFormatParametersValidator _parametersValidator;
 
         public BaseExceptionMiddleware(
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
+            IFailureMetricHandler failureMetricHandler,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFormatParametersValidator parametersValidator)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(parametersValidator, nameof(parametersValidator));
 
             _next = next;
             _logger = logger;
+            _failureMetricHandler = failureMetricHandler;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _parametersValidator = parametersValidator;
         }
 
         public async Task Invoke(HttpContext context)
         {
+            bool doesOperationOutcomeHaveError = false;
             try
             {
                 await _next(context);
@@ -105,13 +112,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     operationOutcome,
                     exception is ServiceUnavailableException ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.InternalServerError);
 
+                doesOperationOutcomeHaveError = true;
+
                 await ExecuteResultAsync(context, result);
+            }
+            finally
+            {
+                EmitHttpFailureMetricInCaseOfError(context, doesOperationOutcomeHaveError);
             }
         }
 
         protected internal virtual async Task ExecuteResultAsync(HttpContext context, IActionResult result)
         {
             await result.ExecuteResultAsync(new ActionContext { HttpContext = context });
+        }
+
+        private void EmitHttpFailureMetricInCaseOfError(HttpContext context, bool doesOperationOutcomeHaveError)
+        {
+            if (context.Response.StatusCode >= 500 || doesOperationOutcomeHaveError)
+            {
+                string operationName = context.Request.GetOperationName(includeRouteValues: false);
+
+                _failureMetricHandler.EmitHttpFailure(
+                    new HttpErrorMetricNotification() { OperationName = operationName });
+            }
         }
     }
 }

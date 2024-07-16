@@ -96,13 +96,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);

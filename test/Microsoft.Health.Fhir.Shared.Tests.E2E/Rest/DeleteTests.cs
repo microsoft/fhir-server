@@ -74,6 +74,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenADeletedResource_WhenSearchWithNotModifier_ThenDeletedResourcesShouldNotBeReturned()
+        {
+            FhirResponse<Flag> response = await _client.CreateAsync(Samples.GetJsonSample("Flag").ToPoco<Flag>());
+
+            // Delete all Flag resources
+            await _client.DeleteAllResources(ResourceType.Flag, null);
+
+            var searchResults = await _client.SearchAsync("Flag?identifier:not=123");
+
+            Assert.True(searchResults.Resource.Entry == null || searchResults.Resource.Entry.Count == 0);
+        }
+
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully()
         {

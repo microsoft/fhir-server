@@ -170,6 +170,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
+        [InlineData("gt1980-05-10", "lt1980-05-12", 1, 2, 3, 4, 5)] // Any dates with end time greater than 1980-05-10 and start time less than 1980-05-12.
+        public async Task GivenTwoDateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue1, string queryValue2, params int[] expectedIndices)
+        {
+            try
+            {
+                Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"date={queryValue1}&date={queryValue2}&code={Fixture.Coding.Code}");
+
+                Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
+
+                ValidateBundle(bundle, expected);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Theory]
         [InlineData("***")]
         [InlineData("!")]
         public async Task GivenAnInvalidDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
