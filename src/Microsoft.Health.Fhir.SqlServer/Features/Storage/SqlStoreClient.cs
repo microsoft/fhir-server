@@ -25,13 +25,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// Lightweight SQL store client.
     /// </summary>
-    internal class SqlStoreClient
+    /// <typeparam name="T">class used in logger</typeparam>
+    internal class SqlStoreClient<T>
     {
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly ILogger _logger;
+        private readonly ILogger<T> _logger;
         private const string _invisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
