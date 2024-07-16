@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await retryService.ExecuteReaderAsync(cmd, readerToResult, logger, logMessage, cancellationToken, isReadOnly);
         }
 
-
         public static async Task<object> ExecuteScalarAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
         {
             object scalar = null;
