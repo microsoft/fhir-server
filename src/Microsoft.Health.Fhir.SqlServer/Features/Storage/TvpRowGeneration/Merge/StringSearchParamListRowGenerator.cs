@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             foreach (var row in GenerateRows(resources))
             {
-                yield return $"{row.ResourceTypeId},{row.ResourceSurrogateId},{row.SearchParamId},{row.Text},{(row.IsMin ? 1 : 0)},{(row.IsMax ? 1 : 0)}";
+                yield return $"{row.ResourceTypeId},{row.ResourceSurrogateId},{row.SearchParamId},{row.Text.Replace(",", " ", System.StringComparison.InvariantCultureIgnoreCase)},{(row.IsMin ? 1 : 0)},{(row.IsMax ? 1 : 0)}";
             }
         }
     }
