@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
         private readonly CoreFeatureConfiguration _config;
-        private CancellationToken _cancellationToken;
 
         public SubscriptionProcessorWatchdog(
             SqlStoreClient store,
@@ -48,22 +47,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string LastEventProcessedTransactionId => $"{Name}.{nameof(LastEventProcessedTransactionId)}";
 
-        internal async Task StartAsync(CancellationToken cancellationToken, double? periodSec = null, double? leasePeriodSec = null, double? retentionPeriodDays = null)
+        public override double LeasePeriodSec { get; internal set; } = 20;
+
+        public override bool AllowRebalance { get; internal set; } = true;
+
+        public override double PeriodSec { get; internal set; } = 3;
+
+        protected override async Task InitAdditionalParamsAsync()
         {
-            _cancellationToken = cancellationToken;
             await InitLastProcessedTransactionId();
-            await StartAsync(true, periodSec ?? 3, leasePeriodSec ?? 20, cancellationToken);
         }
 
-        protected override async Task ExecuteAsync()
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"{Name}: starting...");
-            var lastTranId = await GetLastTransactionId();
-            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
+            var lastTranId = await GetLastTransactionId(cancellationToken);
+            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
 
             _logger.LogInformation($"{Name}: last transaction={lastTranId} visibility={visibility}.");
 
-            var transactionsToProcess = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken);
+            var transactionsToProcess = await _store.GetTransactionsAsync(lastTranId, visibility, cancellationToken);
             _logger.LogDebug($"{Name}: found transactions={transactionsToProcess.Count}.");
 
             if (transactionsToProcess.Count == 0)
@@ -88,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     transactionsToQueue.Add(jobDefinition);
                 }
 
-                await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: _cancellationToken, definitions: transactionsToQueue.ToArray());
+                await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: cancellationToken, definitions: transactionsToQueue.ToArray());
             }
 
             await UpdateLastEventProcessedTransactionId(transactionsToProcess.Max(x => x.TransactionId));
@@ -96,16 +99,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger.LogInformation($"{Name}: completed. transactions={transactionsToProcess.Count}");
         }
 
-        private async Task<long> GetLastTransactionId()
+        private async Task<long> GetLastTransactionId(CancellationToken cancellationToken)
         {
-            return await GetLongParameterByIdAsync(LastEventProcessedTransactionId, _cancellationToken);
+            return await GetLongParameterByIdAsync(LastEventProcessedTransactionId, cancellationToken);
         }
 
         private async Task InitLastProcessedTransactionId()
         {
             using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, @LastTranId");
             cmd.Parameters.AddWithValue("@Id", LastEventProcessedTransactionId);
-            cmd.Parameters.AddWithValue("@LastTranId", await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken));
+            cmd.Parameters.AddWithValue("@LastTranId", await _store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None));
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
 
