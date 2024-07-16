@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class SubscriptionProcessorWatchdog : Watchdog<SubscriptionProcessorWatchdog>
     {
-        private readonly SqlStoreClient _store;
+        private readonly SqlStoreClient<SubscriptionProcessorWatchdog> _store;
         private readonly ILogger<SubscriptionProcessorWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private CancellationToken _cancellationToken;
 
         public SubscriptionProcessorWatchdog(
-            SqlStoreClient store,
+            SqlStoreClient<SubscriptionProcessorWatchdog> store,
             ISqlRetryService sqlRetryService,
             IQueueClient queueClient,
             IOptions<CoreFeatureConfiguration> coreConfiguration,

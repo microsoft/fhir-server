@@ -159,9 +159,7 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services.Add<SqlStoreClient>()
-                .Singleton()
-                .AsSelf();
+            services.Add<SqlStoreClient<InvisibleHistoryCleanupWatchdog>>().Singleton().AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 
