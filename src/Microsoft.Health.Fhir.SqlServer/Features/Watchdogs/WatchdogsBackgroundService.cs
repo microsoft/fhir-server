@@ -24,17 +24,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
+        private readonly SubscriptionProcessorWatchdog _subscriptionProcessorWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
-            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
+            SubscriptionProcessorWatchdog subscriptionProcessorWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
+            _subscriptionProcessorWatchdog = EnsureArg.IsNotNull(subscriptionProcessorWatchdog, nameof(subscriptionProcessorWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -53,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _subscriptionProcessorWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             await Task.WhenAny(tasks);
