@@ -12,16 +12,16 @@ function IsCiTestAadUser {
         return $true;
     }
 
-    if ($displayName.StartsWith("msh-fhir-pr-") -or $displayName.StartsWith("msh-fhir-ci2-"))
-    {
-        return $true;
-    }
+    #if ($displayName.StartsWith("msh-fhir-pr-") -or $displayName.StartsWith("msh-fhir-ci2-"))
+    #{
+    #    return $true;
+    #}
 
-    if (($displayName.StartsWith("dcm-pr") -and $displayName.Contains("User")) -or
-        ($displayName.StartsWith("dcm-pr") -and $displayName.Contains("user")))
-    {
-        return $true;
-    }
+    #if (($displayName.StartsWith("dcm-pr") -and $displayName.Contains("User")) -or
+    #    ($displayName.StartsWith("dcm-pr") -and $displayName.Contains("user")))
+    #{
+    #    return $true;
+    #}
 
     return $false;
 }
@@ -31,8 +31,8 @@ function IsCiTestAadApplication {
  param([string]$displayName)
  
     if ($displayName.Contains("fhir-pr") -or
-        $displayName.Contains("dcm-pr") -or
-		$displayName.Contains(".resoluteopensource.onmicrosoft.com")) -or
+        #$displayName.Contains("dcm-pr") -or
+		#$displayName.Contains(".resoluteopensource.onmicrosoft.com") -or
         ($displayName.Contains("pr") -and $displayName.Contains("-smart-")) -or
         ($displayName.Contains("pr") -and $displayName.Contains("-smartUserClient")) -or
         ($displayName.Contains("pr") -and $displayName.Contains("nativeClient")) -or
@@ -43,16 +43,19 @@ function IsCiTestAadApplication {
     return $false;
 }
 
-Connect-MgGraph -Scopes "Application.ReadWrite.All, User.ReadWrite.All" -UseDeviceCode
+# Connect-MgGraph -Scopes "Application.ReadWrite.All, User.ReadWrite.All"
 
-$dateLimit = (Get-Date).AddMonths(-6)
+$dateLimit = (Get-Date).AddMonths(-1)
 
 ##################################################
 Write-Host ""
 Write-Host "## Deleting AAD Users"
 
 $azureUsers = Get-MgUser -All:$true
+$totalCount = $azureUsers.length
 $counter = 0
+
+Write-Host "Total users: $totalCount"
 
 foreach ($aadUser in $azureUsers) {
 
@@ -72,7 +75,10 @@ Write-Host ""
 Write-Host "## Deleting AAD Applications"
 
 $azureApplications = Get-MgApplication -All:$true
+$totalCount = $azureApplications.length
 $counter = 0
+
+Write-Host "Total apps: $totalCount"
 
 foreach ($app in $azureApplications) {
 
