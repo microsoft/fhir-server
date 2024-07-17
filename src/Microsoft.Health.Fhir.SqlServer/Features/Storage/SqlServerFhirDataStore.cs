@@ -68,10 +68,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ProcessingFlag _ignoreInputVersion;
         private static ProcessingFlag _rawResourceDeduping;
         private static readonly object _parameterLocker = new object();
-        private static string _warehouseServer;
-        private static string _warehouseDatabase;
-        private static string _warehouseAuthentication;
-        private static string _warehouseUser;
         private static string _warehouseConnectionString;
         private static bool _warehouseIsSet;
         private static string _adlsContainer;
@@ -141,11 +137,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (!_warehouseIsSet)
                     {
-                        _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
-                        _warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
-                        _warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
-                        _warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
-                        _warehouseConnectionString = $"server={_warehouseServer};database={_warehouseDatabase};authentication={_warehouseAuthentication};{(string.IsNullOrEmpty(_warehouseUser) ? string.Empty : $"user={_warehouseUser};")}";
+                        _warehouseConnectionString = GetStorageParameter("MergeResources.Warehouse.ConnectionString");
+                        if (string.IsNullOrEmpty(_warehouseConnectionString))
+                        {
+                            var warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
+                            var warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
+                            var warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
+                            var warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
+                            _warehouseConnectionString = $"server={warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
+                        }
+
                         _warehouseIsSet = true;
                     }
                 }
