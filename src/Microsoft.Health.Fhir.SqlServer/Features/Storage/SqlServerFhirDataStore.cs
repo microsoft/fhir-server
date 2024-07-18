@@ -901,6 +901,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ////    throw;
             ////}
 
+            retry:
+
             try
             {
                 using var conn = new SqlConnection(_warehouseConnectionString);
@@ -921,6 +923,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogError(ex, "Error merging resources into warehouse");
                 await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Error", $"{ex.Message} cs={_warehouseConnectionString}", st, cancellationToken);
+                if (ex.IsRetriable())
+                {
+                    await Task.Delay(5000, cancellationToken);
+                    goto retry;
+                }
+
                 throw;
             }
         }
