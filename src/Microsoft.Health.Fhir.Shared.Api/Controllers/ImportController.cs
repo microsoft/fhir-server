@@ -219,6 +219,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
             }
+
+            if (input.Any(i => i.Type == "SearchParameter"))
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, "SearchParameter"));
+            }
         }
     }
 }
