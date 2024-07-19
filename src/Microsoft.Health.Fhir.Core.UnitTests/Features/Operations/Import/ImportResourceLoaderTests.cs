@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenResourceLoader_WhenLoadResourcesWithSearchParameterResourceType_ThenResourcesWithSearchParameterTypeShouldBeSkipped()
         {
-            string errorMessage = "SearchParameter is not a supported resource type.";
+            string errorMessage = "SearchParameter resources cannot be processed by import.";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
             await writer.WriteLineAsync("test");
@@ -155,8 +155,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>())
                 .Returns(callInfo =>
                 {
-                    ImportResource importResource = new ImportResource(null);
-                    return importResource;
+                    long index = (long)callInfo[0];
+                    string content = (string)callInfo[3];
+                    ResourceWrapper resourceWrapper = new ResourceWrapper(
+                            content,
+                            "0",
+                            "SearchParameter",
+                            new RawResource(content, Core.Models.FhirResourceFormat.Json, true),
+                            new ResourceRequest("POST"),
+                            DateTimeOffset.UtcNow,
+                            false,
+                            null,
+                            null,
+                            null,
+                            "SearchParam");
+                    return new ImportResource(index, 0, 0, false, false, false, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
