@@ -11,9 +11,15 @@ steps:
     useGlobalJson: true
     
 - powershell: |
-    dotnet tool update --global GitVersion.Tool
+    dotnet tool install --global GitVersion.Tool
 
-    $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
+    $gitVersionJson = & 'dotnet-gitversion'
+    write-host "GitVersion: $gitVersionJson"
+    # Replace Infinity values with null in the JSON part
+    $gitVersionJson = $gitVersionJson -replace 'Infinity', 'null'
+    write-host "GitVersion after replacing null: $gitVersionJson"
+
+    $gitVersionJson = $gitVersionJson  | ConvertFrom-Json
 
     Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
     Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$($gitVersionJson.informationalVersion)"
