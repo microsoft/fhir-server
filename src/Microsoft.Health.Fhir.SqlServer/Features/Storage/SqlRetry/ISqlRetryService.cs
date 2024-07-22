@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
 
-        Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, CancellationToken cancellationToken, bool isReadOnly = false);
+        Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false);
 
         Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false);
 
