@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
-            ResourceType[] parsedResourceTypes = new[] { ResourceType.DomainResource };
+            string[] resourceTypesString = new[] { nameof(ResourceType.DomainResource) };
 
             var searchExpressions = new List<Expression>();
             if (string.IsNullOrWhiteSpace(resourceType))
@@ -300,36 +300,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
                     .Where(type => ModelInfoProvider.IsKnownResource(type))
-                    .Select(x =>
-                    {
-                        if (!Enum.TryParse(x, out ResourceType parsedType))
-                        {
-                            // Should never get here
-                            throw new ResourceNotSupportedException(x);
-                        }
-
-                        return parsedType;
-                    })
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
                 {
-                    parsedResourceTypes = resourceTypes.ToArray();
+                    resourceTypesString = resourceTypes.ToArray();
                 }
             }
             else
             {
-                if (!Enum.TryParse(resourceType, out parsedResourceTypes[0]))
+                if (!ModelInfoProvider.IsKnownResource(resourceType))
                 {
                     throw new ResourceNotSupportedException(resourceType);
                 }
 
+                resourceTypesString = new[] { resourceType };
                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
             CheckFineGrainedAccessControl(searchExpressions);
-
-            var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
             q =>
