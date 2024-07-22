@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, "SearchParameter", ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
