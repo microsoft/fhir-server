@@ -13,7 +13,9 @@ steps:
 - powershell: |
     dotnet tool install --global GitVersion.Tool
 
-    $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
+    $gitVersionJson = & 'dotnet-gitversion'
+    Write-Host "GitVersion Output: $gitVersionJson"
+    $gitVersionJson = $gitVersionJson | ConvertFrom-Json
 
     Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
     Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$($gitVersionJson.informationalVersion)"
