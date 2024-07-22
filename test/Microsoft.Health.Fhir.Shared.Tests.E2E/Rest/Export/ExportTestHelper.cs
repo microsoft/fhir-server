@@ -149,52 +149,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
         }
 
-        internal static (StorageSharedKeyCredential credential, string connectionString) GetStorageCredentialOrConnectionString(Uri storageServiceUri)
-        {
-            if (storageServiceUri == null)
-            {
-                throw new Exception("StorageAccountName cannot be empty");
-            }
-
-            string storageAccountName = storageServiceUri.Host.Split('.')[0];
-
-            // If we are running locally, then we need to connect to the Azure Storage Emulator.
-            // Else we need to connect to a proper Azure Storage Account.
-            if (storageAccountName.Equals("127", StringComparison.OrdinalIgnoreCase))
-            {
-                string emulatorConnectionString = "UseDevelopmentStorage=true";
-                return (null, emulatorConnectionString);
-            }
-
-            StorageSharedKeyCredential storageCredential = null;
-            string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-            string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
-
-            if (!string.IsNullOrWhiteSpace(storageSecret))
-            {
-                storageCredential = new StorageSharedKeyCredential(storageAccountName, storageSecret);
-            }
-            else if (!string.IsNullOrWhiteSpace(allAccounts))
-            {
-                var splitAccounts = allAccounts.Split('|').ToList();
-                var nameIndex = splitAccounts.IndexOf(storageAccountName + "_secret");
-
-                if (nameIndex < 0)
-                {
-                    throw new Exception("Unable to create a cloud storage account, key not provided.");
-                }
-
-                storageCredential = new StorageSharedKeyCredential(storageAccountName, splitAccounts[nameIndex + 1].Trim());
-            }
-
-            if (storageCredential == null)
-            {
-                throw new Exception("Unable to create a shared key credential");
-            }
-
-            return (storageCredential, null);
-        }
-
         internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> DownloadBlobAndParse(
             IList<Uri> blobUri,
             FhirJsonParser fhirJsonParser,
@@ -207,15 +161,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Extract storage account name from blob uri in order to get corresponding access token.
             Uri sampleUri = blobUri[0];
-            Uri storageServiceUri = new UriBuilder(sampleUri.Scheme, sampleUri.Host).Uri;
 
-            (StorageSharedKeyCredential credential, string connectionString) = GetStorageCredentialOrConnectionString(storageServiceUri);
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
-            var localRun = credential == null;
 
             foreach (Uri uri in blobUri)
             {
-                BlockBlobClient blob = AzureStorageBlobHelper.CreateBlockBlobClient(uri, credential, connectionString);
+                var blob = AzureStorageBlobHelper.GetBlobClient(uri);
                 var response = await blob.DownloadContentAsync();
                 var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");
