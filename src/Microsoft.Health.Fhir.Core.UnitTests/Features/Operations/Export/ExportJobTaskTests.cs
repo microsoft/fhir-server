@@ -2208,7 +2208,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,
                 _resourceDeserializer,
                 anonymizerFactory,
-                Substitute.For<IMediator>(),
+                () => Substitute.For<IMediator>().CreateMockScope(),
                 _contextAccessor,
                 logger ?? NullLogger<ExportJobTask>.Instance);
         }

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
-        private readonly IMediator _mediator;
+        private readonly IScoped<IMediator> _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
 
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IExportDestinationClient exportDestinationClient,
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
-            IMediator mediator,
+            Func<IScoped<IMediator>> mediatorFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ExportJobTask> logger)
         {
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(mediatorFactory, nameof(mediatorFactory));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _resourceDeserializer = resourceDeserializer;
             _exportDestinationClient = exportDestinationClient;
             _anonymizerFactory = anonymizerFactory;
-            _mediator = mediator;
+            _mediator = mediatorFactory.Invoke();
             _contextAccessor = contextAccessor;
             _logger = logger;
 
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 dataSize,
                 isAnonymizedExport);
 
-            await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
+            await _mediator.Value.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
