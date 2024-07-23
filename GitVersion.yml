@@ -9,7 +9,6 @@ ignore:
 branches:
   main:
     is-release-branch: true
-    tag: ''
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     tag: pr
