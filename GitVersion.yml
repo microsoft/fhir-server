@@ -9,9 +9,14 @@ ignore:
 branches:
   main:
     is-release-branch: true
+    tag: ''
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
+    tag: pr
+    tag-number-pattern: '[/-](?<number>\d+)[-/]'
   hotfix:
     regex: ^hotfix(es)?[/-]
+    tag: useBranchName
   feature:
     regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]
+    tag: useBranchName
