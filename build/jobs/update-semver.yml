@@ -4,16 +4,18 @@ steps:
   displayName: 'Use .NET Core sdk (for GitVersion)'
   inputs:
     packageType: sdk
-    version: 3.1.x
+    version: 8.x
   
 - task: UseDotNet@2
   inputs:
     useGlobalJson: true
     
 - powershell: |
-    dotnet tool install --global GitVersion.Tool --version 5.12.0
+    dotnet tool install --global GitVersion.Tool
 
-    $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
+    $gitVersion = dotnet-gitversion -output json -config $(System.DefaultWorkingDirectory)/GitVersion.yml
+    Write-Host $gitVersion
+    $gitVersionJson = $gitVersion | ConvertFrom-Json
 
     Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
     Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$($gitVersionJson.informationalVersion)"
