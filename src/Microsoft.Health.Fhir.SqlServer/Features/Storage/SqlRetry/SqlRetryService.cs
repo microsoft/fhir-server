@@ -439,6 +439,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
+                var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
                 if (!isReadOnly)
                 {
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
@@ -449,6 +450,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {
+                        isReadOnlyConnection = string.Empty;
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                     }
                     else if (replicaTrafficRatio > 0.99)
@@ -458,6 +460,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     else
                     {
                         var useWriteConnection = unchecked(Interlocked.Increment(ref _usageCounter)) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
+                        if (useWriteConnection)
+                        {
+                            isReadOnlyConnection = string.Empty;
+                        }
+
                         conn = useWriteConnection
                                 ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
                                 : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
@@ -468,7 +475,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                 await conn.OpenAsync(cancel);
-                logger.LogInformation("Opened connection to the database in {ConnectionOpenSeconds} seconds.", sw.Elapsed.TotalSeconds);
+                logger.LogInformation($"Opened {isReadOnlyConnection} connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
 
                 return conn;
             }
