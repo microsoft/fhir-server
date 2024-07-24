@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateCapabilityPreProcessor<>));
             });
 
+            services.AddFactory<IScoped<IMediator>>();
+
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
             {
