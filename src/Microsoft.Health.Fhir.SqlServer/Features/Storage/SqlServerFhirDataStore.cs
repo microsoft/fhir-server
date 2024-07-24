@@ -9,6 +9,7 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -37,6 +38,7 @@ using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Identity.Client;
 using Microsoft.IO;
 using Microsoft.SqlServer.Management.XEvent;
 using Task = System.Threading.Tasks.Task;
@@ -69,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ProcessingFlag _rawResourceDeduping;
         private static readonly object _parameterLocker = new object();
         private static string _warehouseConnectionString;
+        private static string _warehouseServer;
         private static bool _warehouseIsSet;
         private static string _adlsContainer;
         private static string _adlsConnectionString;
@@ -138,18 +141,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!_warehouseIsSet)
                     {
                         _warehouseConnectionString = GetStorageParameter("MergeResources.Warehouse.ConnectionString");
+                        _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
                         if (string.IsNullOrEmpty(_warehouseConnectionString))
                         {
-                            var warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
                             var warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
                             var warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
                             var warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
-                            _warehouseConnectionString = $"server={warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
+                            _warehouseConnectionString = $"server={_warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
                         }
 
                         _warehouseIsSet = true;
                     }
                 }
+            }
+
+            try
+            {
+                using var client = new TcpClient();
+                client.Connect(_warehouseServer, 1433);
+                _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
             }
 
             if (!_adlsIsSet)
