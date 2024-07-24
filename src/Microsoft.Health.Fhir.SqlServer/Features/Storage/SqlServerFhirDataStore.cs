@@ -14,6 +14,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
@@ -78,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static string _adlsAccountName;
         private static string _adlsAccountKey;
         private static Uri _adlsAccountUri;
+        private static string _adlsAccountManagedIdentityClientId;
         private static BlobContainerClient _adlsClient;
         private static bool _adlsIsSet;
 
@@ -186,6 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (uriStr != null)
                         {
                             _adlsAccountUri = new Uri(uriStr);
+                            _adlsAccountManagedIdentityClientId = GetStorageParameter("MergeResources.AdlsAccountManagedIdentityClientId");
                         }
 
                         _adlsClient = GetAdlsContainer();
@@ -282,7 +285,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                var blobServiceClient = _adlsAccountUri != null ? new BlobServiceClient(_adlsAccountUri) : new BlobServiceClient(_adlsConnectionString);
+                var blobServiceClient = _adlsAccountUri != null
+                                      ? new BlobServiceClient(_adlsAccountUri, new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
+                                      : new BlobServiceClient(_adlsConnectionString);
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
 
                 if (!blobContainerClient.Exists())
