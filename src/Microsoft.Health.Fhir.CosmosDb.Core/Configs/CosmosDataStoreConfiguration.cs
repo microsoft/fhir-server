@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
     {
         public string Host { get; set; }
 
+        public string Key { get; set; }
+
         public string DatabaseId { get; set; }
 
         public int? InitialDatabaseThroughput { get; set; }
