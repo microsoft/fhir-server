@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static string _adlsConnectionString;
         private static string _adlsAccountName;
         private static string _adlsAccountKey;
+        private static Uri _adlsAccountUri;
         private static BlobContainerClient _adlsClient;
         private static bool _adlsIsSet;
 
@@ -179,8 +180,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _adlsConnectionString = $"DefaultEndpointsProtocol=https;AccountName={_adlsAccountName};AccountKey={_adlsAccountKey};EndpointSuffix=core.windows.net";
                             var db = _sqlRetryService.Database.Length < 50 ? _sqlRetryService.Database : _sqlRetryService.Database.Substring(0, 50);
                             _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
-                            _adlsClient = GetAdlsContainer();
                         }
+
+                        var uriStr = GetStorageParameter("MergeResources.AdlsAccountUri");
+                        if (uriStr != null)
+                        {
+                            _adlsAccountUri = new Uri(uriStr);
+                        }
+
+                        _adlsClient = GetAdlsContainer();
 
                         _adlsIsSet = true;
                     }
@@ -274,7 +282,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
+                var blobServiceClient = _adlsAccountUri != null ? new BlobServiceClient(_adlsAccountUri) : new BlobServiceClient(_adlsConnectionString);
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
 
                 if (!blobContainerClient.Exists())
