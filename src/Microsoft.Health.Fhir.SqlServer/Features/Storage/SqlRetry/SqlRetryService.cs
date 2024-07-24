@@ -475,7 +475,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                 await conn.OpenAsync(cancel);
-                logger.LogInformation($"Opened {isReadOnlyConnection} connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                logger.LogInformation($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
 
                 return conn;
             }
