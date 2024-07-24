@@ -106,14 +106,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private CosmosClient CreateCosmosClientInternal(CosmosDataStoreConfiguration configuration)
         {
             var host = configuration.Host;
-            var key = configuration.Key;
 
-            if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(key))
+            if (string.IsNullOrWhiteSpace(host))
             {
                 _logger.LogWarning("No connection string provided, attempting to connect to local emulator.");
 
                 host = CosmosDbLocalEmulator.Host;
-                key = CosmosDbLocalEmulator.Key;
             }
 
             _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}, Host: {Host}", configuration.DatabaseId, host);

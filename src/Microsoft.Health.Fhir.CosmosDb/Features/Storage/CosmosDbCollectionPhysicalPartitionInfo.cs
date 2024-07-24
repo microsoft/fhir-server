@@ -153,17 +153,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
-        {
-            string payLoad = $"{verb.ToLowerInvariant()}\n{resourceType.ToLowerInvariant()}\n{resourceId}\n{date.ToLowerInvariant()}\n\n";
-
-            using var hmacSha256 = new HMACSHA256 { Key = Convert.FromBase64String(key) };
-            byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));
-            string signature = Convert.ToBase64String(hashPayLoad);
-
-            return $"type=master&ver=1.0&sig={signature}";
-        }
-
         private async Task<string> GenerateAccessToken(string host, CancellationToken cancellationToken)
         {
             string accessToken = string.Empty;
