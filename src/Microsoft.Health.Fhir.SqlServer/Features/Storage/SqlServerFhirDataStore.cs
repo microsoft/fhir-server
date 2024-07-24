@@ -155,16 +155,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            ////try
-            ////{
-            ////    using var client = new TcpClient();
-            ////    client.Connect(_warehouseServer, 1433);
-            ////    _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
-            ////}
-            ////catch (Exception e)
-            ////{
-            ////    _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
-            ////}
+            try
+            {
+                using var client = new TcpClient();
+                client.Connect(_warehouseServer, 1433);
+                _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
+            }
 
             if (!_adlsIsSet)
             {
@@ -270,20 +270,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                           : $"tran-{transactionId}-{suffix}.{ext}";
         }
 
-        private static BlobContainerClient GetAdlsContainer() // creates if does not exist
+        private BlobContainerClient GetAdlsContainer() // creates if does not exist
         {
-            var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
-            var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
-
-            if (!blobContainerClient.Exists())
+            try
             {
-                lock (_parameterLocker)
-                {
-                    blobContainerClient.CreateIfNotExists();
-                }
-            }
+                var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
+                var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
 
-            return blobContainerClient;
+                if (!blobContainerClient.Exists())
+                {
+                    lock (_parameterLocker)
+                    {
+                        blobContainerClient.CreateIfNotExists();
+                    }
+                }
+
+                return blobContainerClient;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error on {nameof(GetAdlsContainer)}"); //// TODO: Revise
+                return null;
+            }
         }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
