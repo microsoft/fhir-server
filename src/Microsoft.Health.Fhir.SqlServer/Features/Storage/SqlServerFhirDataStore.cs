@@ -155,16 +155,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            try
-            {
-                using var client = new TcpClient();
-                client.Connect(_warehouseServer, 1433);
-                _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
-            }
+            ////try
+            ////{
+            ////    using var client = new TcpClient();
+            ////    client.Connect(_warehouseServer, 1433);
+            ////    _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
+            ////}
+            ////catch (Exception e)
+            ////{
+            ////    _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
+            ////}
 
             if (!_adlsIsSet)
             {
