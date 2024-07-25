@@ -289,6 +289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
+                                               .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
                                                .AcceptVisitor(_partitionEliminationRewriter)
                                                .AcceptVisitor(_sortRewriter, clonedSearchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
@@ -541,6 +542,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
                 },
+                _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
             return searchResult;

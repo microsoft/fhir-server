@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -96,13 +97,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
@@ -393,6 +394,8 @@ END
                     Assert.Equal(i + 1, result[i]);
                 }
 
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
+
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -434,6 +437,8 @@ END
                     _output.WriteLine($"{DateTime.Now:O}: ExecuteSqlDataReader throws.");
                     Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
                 }
+
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
 
                 Assert.Equal(3, logger.LogRecords.Count);
 
@@ -488,6 +493,8 @@ END
                         CancellationToken.None);
                 }
 
+                Assert.Contains("Opened", logger.LogRecords[0].Message); // Check that logging of connection open was logged.
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -532,6 +539,7 @@ END
                 }
 
                 Assert.Equal(sqlErrorNumber, ex.Number);
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
                 Assert.Equal(3, logger.LogRecords.Count);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -715,7 +723,7 @@ END
                 Exception exception,
                 Func<TState, Exception, string> formatter)
             {
-                LogRecords.Add(new LogRecord() { LogLevel = logLevel, Exception = exception });
+                LogRecords.Add(new LogRecord() { LogLevel = logLevel, Exception = exception, Message = formatter(state, exception) });
             }
 
             public bool IsEnabled(LogLevel logLevel)
@@ -728,6 +736,8 @@ END
                 internal LogLevel LogLevel { get; init; }
 
                 internal Exception Exception { get; init; }
+
+                internal string Message { get; init; }
             }
         }
     }

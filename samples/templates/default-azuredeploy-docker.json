@@ -146,13 +146,6 @@
                 "description": "Determines whether or not a new SqlServer should be provisioned."
             }
         },
-        "sqlAdminPassword": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The password for the sql admin user if using SQL server."
-            }
-        },
         "sqlLocation": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
@@ -286,6 +279,7 @@
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
+        "managedIdentityName": "[concat(if(empty(parameters('sqlServerName')), variables('serviceName'), parameters('sqlServerName')), '-uami')]",
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
@@ -320,6 +314,13 @@
             }
         },
         {
+            "condition": "[or(equals(parameters('solutionType'), 'FhirServerCosmosDB'), and(equals(parameters('solutionType'), 'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'new')))]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[variables('managedIdentityName')]",
+            "location": "[resourceGroup().location]"
+        },
+        {
             "apiVersion": "2018-11-01",
             "type": "Microsoft.Web/sites",
             "name": "[variables('serviceName')]",
@@ -328,7 +329,10 @@
             },
             "location": "[resourceGroup().location]",
             "identity": {
-                "type": "SystemAssigned"
+                "type": "SystemAssigned, UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
+                }
             },
             "properties": {
                 "name": "[parameters('serviceName')]",
@@ -359,7 +363,8 @@
                 "httpsOnly": true
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
             ],
             "resources": [
                 {
@@ -460,16 +465,26 @@
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
-            "apiVersion": "2015-05-01-preview",
+            "apiVersion": "2020-11-01-preview",
             "location": "[parameters('sqlLocation')]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
             "properties": {
-                "administratorLogin": "fhirAdmin",
-                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
-                "version": "12.0"
+                "version": "12.0",
+                "primaryUserAssignedIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
+                "administrators": {
+                    "administratorType": "ActiveDirectory",
+                    "azureADOnlyAuthentication": true,
+                    "principalType": "User",
+                    "login": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').principalId]",
+                    "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').principalId]",
+                    "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').tenantId]"
+                }
             },
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
+            ],
             "resources": [
                 {
                     "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
@@ -492,22 +507,69 @@
                         "tier": "[variables('sqlSkuTier')]"
                     },
                     "type": "databases"
-                },
-                {
-                    "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
-                    "apiVersion": "2014-04-01",
-                    "dependsOn": [
-                        "[variables('sqlServerDerivedName')]"
-                    ],
-                    "location": "[resourceGroup().location]",
-                    "name": "AllowAllWindowsAzureIps",
-                    "properties": {
-                        "endIpAddress": "0.0.0.0",
-                        "startIpAddress": "0.0.0.0"
-                    },
-                    "type": "firewallrules"
                 }
             ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "webAppIPsSQLFirewall",
+            "properties": {
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                    "webAppOutboundIpAddresses": {
+                        "value": "[split(reference(concat('Microsoft.Web/sites/',variables('serviceName'))).possibleOutboundIpAddresses,',')]"
+                    },
+                    "sqlServerName": {
+                        "value": "[variables('sqlServerDerivedName')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                   
+                    "parameters": {
+                        "webAppOutboundIpAddresses": {
+                            "type": "array",
+                            "metadata": {
+                                "description": "Array of possible Outbound IP addresses for the Web Application"
+                            }
+                        },
+                        "sqlServerName": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Name of the logical SQL Server"
+                            }
+                        }
+                    },
+                    "resources": [
+                        {
+                            "comments": "Add the Outbound IP Addresses from the Web App",
+                            "type": "Microsoft.Sql/servers/firewallRules",
+                            "apiVersion": "2015-05-01-preview",
+                            "name": "[concat(parameters('sqlServerName'), '/Allow WebApp Outbound IP ',copyIndex('webAppOutboundIPAddressesCopy'))]",
+                            "properties": {
+                                "startIpAddress": "[parameters('webAppOutboundIpAddresses')[copyIndex('webAppOutboundIPAddressesCopy')]]",
+                                "endIpAddress": "[parameters('webAppOutboundIpAddresses')[copyIndex('webAppOutboundIPAddressesCopy')]]"
+                            },
+                            "copy": {
+                                "name": "webAppOutboundIPAddressesCopy",
+                                "count": "[length(parameters('webAppOutboundIpAddresses'))]"
+                            }
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('serviceName'))]"
+            ],
+            "metadata": {
+                "description": "FireWall Rule setup"
+            }
         },
         {
             "type": "Microsoft.KeyVault/vaults",
@@ -555,7 +617,7 @@
                 "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]"
             }
         },
-                {
+        {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
@@ -602,7 +664,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;User ID=', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin, ''),';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').clientId, ';')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
@@ -615,8 +677,10 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": true
-            },
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": false
+           },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
             "sku": {

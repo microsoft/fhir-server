@@ -43,6 +43,12 @@ COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
 COPY ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj \
      ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj
 
+COPY ./src/Microsoft.Health.Fhir.CosmosDb.Core/Microsoft.Health.Fhir.CosmosDb.Core.csproj \
+     ./src/Microsoft.Health.Fhir.CosmosDb.Core/Microsoft.Health.Fhir.CosmosDb.Core.csproj
+
+COPY ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.CosmosDb.Initialization.csproj \
+     ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.CosmosDb.Initialization.csproj
+
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj
 
@@ -73,7 +79,7 @@ COPY . .
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net8.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.6-cbl-mariner2.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.7-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 

@@ -1,0 +1,18 @@
+parameters:
+- name: azureSubscription
+  type: string
+- name: resourceGroupName
+  type: string
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Add Resource Group Role Assignments'
+  inputs:
+    azureSubscription: ${{ parameters.azureSubscription }}
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $clientId = (Get-AzContext).Account.Id
+      $servicePrincipalId = (Get-AzADServicePrincipal -Filter "appId eq '$clientId'").Id
+      $resourceGroupResourceId = (Get-AzResourceGroup -Name ${{ parameters.resourceGroupName }}).ResourceId
+      New-AzRoleAssignment -ObjectId $servicePrincipalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
