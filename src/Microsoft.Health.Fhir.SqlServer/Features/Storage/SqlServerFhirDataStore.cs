@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
+                    _logger.LogInformation($"Unable to connect to server={_warehouseServer} error={e}");
                 }
 
                 try
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, $"Unable to execute SELECT on cs={_warehouseConnectionString}");
+                    _logger.LogInformation($"Unable to execute SELECT on cs={_warehouseConnectionString} error={e}");
                 }
 
                 string logConnStr = null;
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, $"Unable to execute SELECT on cs={logConnStr}");
+                    _logger.LogInformation($"Unable to execute SELECT on cs={logConnStr} error={e}");
                 }
             }
 
