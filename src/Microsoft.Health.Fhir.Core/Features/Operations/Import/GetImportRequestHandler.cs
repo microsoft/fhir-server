@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
-                var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed);
+                var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed && !x.CancelRequested);
 
                 if (cancelledJobsExist && !failedJobsExist)
                 {
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 else if (failedJobsExist)
                 {
-                    var failed = jobs.First(x => x.Status == JobStatus.Failed);
+                    var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
                     var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
                     if (errorResult.HttpStatusCode == 0)
                     {
