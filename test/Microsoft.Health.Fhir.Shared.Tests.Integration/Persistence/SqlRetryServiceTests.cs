@@ -493,7 +493,7 @@ END
                         CancellationToken.None);
                 }
 
-                Assert.Contains("Opened", logger.LogRecords[0].Message);
+                Assert.Contains("Opened", logger.LogRecords[0].Message); // Check that logging of connection open was logged.
                 logger.LogRecords.RemoveAll(_ => _.Exception == null);
                 Assert.Single(logger.LogRecords);
 
