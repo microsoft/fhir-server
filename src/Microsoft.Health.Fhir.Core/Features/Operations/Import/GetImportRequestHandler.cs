@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var results = GetProcessingResultAsync(jobs);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
-                var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
+                var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
                 var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed && !x.CancelRequested);
 
                 if (cancelledJobsExist && !failedJobsExist)
