@@ -542,6 +542,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
                 },
+                _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
             return searchResult;
