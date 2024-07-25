@@ -161,11 +161,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     using var client = new TcpClient();
                     client.Connect(_warehouseServer, 1433);
-                    _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
+                    _logger.LogWarning($"TcpClient.Connected={client.Connected} to server={_warehouseServer}");
                 }
                 catch (Exception e)
                 {
-                    _logger.LogInformation($"Unable to connect to server={_warehouseServer} error={e}");
+                    _logger.LogWarning($"Unable to establish TCP connection to server={_warehouseServer} error={e}");
+                }
+
+                try
+                {
+                    using var client = new UdpClient();
+                    client.Connect(_warehouseServer, 1434);
+                    _logger.LogWarning($"UdpClient to server={_warehouseServer}");
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning($"Unable to establish UDP connection to server={_warehouseServer} error={e}");
                 }
 
                 try
@@ -174,11 +185,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     using var cmd = new SqlCommand("SELECT 1", conn);
                     conn.Open();
                     cmd.ExecuteNonQuery();
-                    _logger.LogInformation($"Executed SELECT on cs={_warehouseConnectionString}");
+                    _logger.LogWarning($"Executed SELECT on cs={_warehouseConnectionString}");
                 }
                 catch (Exception e)
                 {
-                    _logger.LogInformation($"Unable to execute SELECT on cs={_warehouseConnectionString} error={e}");
+                    _logger.LogWarning($"Unable to execute SELECT on cs={_warehouseConnectionString} error={e}");
                 }
 
                 string logConnStr = null;
@@ -191,12 +202,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         using var cmd = new SqlCommand("SELECT 1", conn);
                         conn.Open();
                         cmd.ExecuteNonQuery();
-                        _logger.LogInformation($"Executed SELECT on cs={logConnStr}");
+                        _logger.LogWarning($"Executed SELECT on cs={logConnStr}");
                     }
                 }
                 catch (Exception e)
                 {
-                    _logger.LogInformation($"Unable to execute SELECT on cs={logConnStr} error={e}");
+                    _logger.LogWarning($"Unable to execute SELECT on cs={logConnStr} error={e}");
                 }
             }
 
