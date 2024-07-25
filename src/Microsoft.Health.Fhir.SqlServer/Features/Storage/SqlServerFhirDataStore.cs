@@ -156,17 +156,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _warehouseIsSet = true;
                     }
                 }
-            }
 
-            try
-            {
-                using var client = new TcpClient();
-                client.Connect(_warehouseServer, 1433);
-                _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
+                try
+                {
+                    using var client = new TcpClient();
+                    client.Connect(_warehouseServer, 1433);
+                    _logger.LogInformation($"Connected={client.Connected} to server={_warehouseServer}");
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, $"Unable to connect to server={_warehouseServer}");
+                }
+
+                try
+                {
+                    using var conn = new SqlConnection(_warehouseConnectionString);
+                    using var cmd = new SqlCommand("SELECT 1", conn);
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                    _logger.LogInformation($"Executed SELECT on cs={_warehouseConnectionString}");
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, $"Unable to execute SELECT on cs={_warehouseConnectionString}");
+                }
+
+                string logConnStr = null;
+                try
+                {
+                    logConnStr = GetStorageParameter("MergeResources.Log.ConnectionString");
+                    if (!string.IsNullOrEmpty(logConnStr))
+                    {
+                        using var conn = new SqlConnection(logConnStr);
+                        using var cmd = new SqlCommand("SELECT 1", conn);
+                        conn.Open();
+                        cmd.ExecuteNonQuery();
+                        _logger.LogInformation($"Executed SELECT on cs={logConnStr}");
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, $"Unable to execute SELECT on cs={logConnStr}");
+                }
             }
 
             if (!_adlsIsSet)
@@ -924,20 +955,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task MergeResourcesIntoWarehouse(long transactionId, CancellationToken cancellationToken)
         {
             var st = DateTime.UtcNow;
-            ////try
-            ////{
-            ////    await System.Net.Dns.GetHostEntryAsync(_warehouseServer, cancellationToken);
-            ////    await StoreClient.TryLogEvent("Dns.GetHostEntryAsync", "Warn", _warehouseServer, st, cancellationToken);
-            ////}
-            ////catch (Exception ex)
-            ////{
-            ////    _logger.LogError(ex, "Dns error resolving warehouse");
-            ////    await StoreClient.TryLogEvent("Dns.GetHostEntryAsync", "Error", $"{ex.Message} s={_warehouseServer}", st, cancellationToken);
-            ////    throw;
-            ////}
-
             retry:
-
             try
             {
                 using var conn = new SqlConnection(_warehouseConnectionString);
