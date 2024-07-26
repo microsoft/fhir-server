@@ -836,7 +836,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
-        /// [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
         private void LogSqlCommand(SqlCommand sqlCommand)
         {
             // TODO: when SqlCommandWrapper is fully deprecated everywhere, modify LogSqlCommand to accept sqlCommand.
