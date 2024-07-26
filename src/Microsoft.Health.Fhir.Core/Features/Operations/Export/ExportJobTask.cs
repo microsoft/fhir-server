@@ -293,8 +293,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
-                await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
+                // Do nothing - JobHosting will cancel the job if needed. Job will be rescheduled if cancellation due to HostingBackgroudService shutdown.
+                _logger.LogInformation("[JobId:{JobId}] The job is being abandoned by ExportJobTask due to cancellation.", _exportJobRecord.Id);
             }
             catch (Exception ex)
             {

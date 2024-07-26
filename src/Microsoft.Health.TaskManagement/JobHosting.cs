@@ -127,10 +127,11 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        private async Task ExecuteJobAsync(JobInfo jobInfo)
+        private async Task ExecuteJobAsync(JobInfo jobInfo, CancellationToken jobQueueCancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
+            using var combinedCancellationTokens = CancellationTokenSource.CreateLinkedTokenSource(jobQueueCancellationToken, jobCancellationToken.Token);
 
             using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
@@ -161,7 +162,7 @@ namespace Microsoft.Health.JobManagement
                                     jobInfo.Version,
                                     cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
-                                    jobCancellationToken);
+                                    combinedCancellationTokens);
 
                 jobInfo.Result = await runningJob;
             }
@@ -184,7 +185,14 @@ namespace Microsoft.Health.JobManagement
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                // If cancellation not due to job cancellation, exit. Another worker will pickup/restart the job.
+                if (!jobInfo.CancelRequested)
+                {
+                    return;
+                }
+
+                // If cancellation due to job cancellation, update the status to cancelled.
+                _logger.LogJobInformation(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to cancellation.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
                 try
@@ -193,7 +201,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
