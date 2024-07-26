@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     using var client = new UdpClient();
                     client.Connect(_warehouseServer, 1434);
-                    _logger.LogWarning($"UdpClient to server={_warehouseServer}");
+                    _logger.LogWarning($"UdpClient.Connect to server={_warehouseServer}");
                 }
                 catch (Exception e)
                 {
