@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EnsureThat;
+using Hl7.Fhir.ElementModel.Types;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
@@ -16,12 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
         private readonly BinaryOperator _expressionBinaryOperator;
         private readonly IComparable _second;
 
-        private readonly List<Func<bool>> _comparisonValues = new List<Func<bool>>();
+        private readonly List<Func<bool>> _comparisonValues = [];
 
         public ComparisonValueVisitor(BinaryOperator expressionBinaryOperator, IComparable second)
         {
             _expressionBinaryOperator = expressionBinaryOperator;
-            _second = second;
+            _second = EnsureArg.IsNotNull(second, nameof(second));
         }
 
         public void Visit(CompositeSearchValue composite)
@@ -37,41 +39,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         public void Visit(DateTimeSearchValue dateTime)
         {
+            EnsureArg.IsNotNull(dateTime, nameof(dateTime));
             AddComparison(_expressionBinaryOperator, dateTime.Start);
         }
 
         public void Visit(NumberSearchValue number)
         {
+            EnsureArg.IsNotNull(number, nameof(number));
             AddComparison(_expressionBinaryOperator, number.High);
         }
 
         public void Visit(QuantitySearchValue quantity)
         {
+            EnsureArg.IsNotNull(quantity, nameof(quantity));
             AddComparison(_expressionBinaryOperator, quantity.High);
         }
 
         public void Visit(ReferenceSearchValue reference)
         {
+            EnsureArg.IsNotNull(reference, nameof(reference));
             AddComparison(_expressionBinaryOperator, reference.ResourceId);
         }
 
         public void Visit(StringSearchValue s)
         {
+            EnsureArg.IsNotNull(s, nameof(s));
             AddComparison(_expressionBinaryOperator, s.String);
         }
 
         public void Visit(TokenSearchValue token)
         {
+            EnsureArg.IsNotNull(token, nameof(token));
             AddComparison(_expressionBinaryOperator, token.Text, token.System, token.Code);
         }
 
         public void Visit(UriSearchValue uri)
         {
+            EnsureArg.IsNotNull(uri, nameof(uri));
             AddComparison(_expressionBinaryOperator, uri.Uri);
         }
 
         private void AddComparison(BinaryOperator binaryOperator, params IComparable[] first)
         {
+            EnsureArg.IsNotNull(first, nameof(first));
             switch (binaryOperator)
             {
                 case BinaryOperator.Equal:
