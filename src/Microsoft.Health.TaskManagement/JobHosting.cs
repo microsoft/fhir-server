@@ -111,7 +111,8 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                 // If any worker crashes or complete cancellation due to shutwdown, cancel all workers and wait for completion.
+                 // If any worker crashes or complete after cancellation due to shutdown,
+                 // cancel all workers and wait for completion so they don't crash unnecessarily.
                 await Task.WhenAny(workers.ToArray());
 #if NET6_0
                 cancellationTokenSource.Cancel();
