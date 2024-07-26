@@ -94,6 +94,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         }
 
         [Fact]
+        public void GivenASearchQueryInterpreter_WhenSearchingByDobOnPatientWithRange_ThenCorrectResultsAreReturned()
+        {
+            var expression = _expressionParser.Parse(new[] { "Patient" }, "birthdate", "1974");
+
+            var evaluator = expression.AcceptVisitor(_searchQueryInterperater, default);
+
+            var results = evaluator
+                .Invoke(_memoryIndex.Index.Values.SelectMany(x => x))
+                .ToArray();
+
+            Assert.Single(results);
+        }
+
+        [Fact]
         public void GivenASearchQueryInterpreter_WhenSearchingByValueOnObservation_ThenCorrectResultsAreReturned()
         {
             var expression = _expressionParser.Parse(new[] { "Observation" }, "value-quantity", "lt70");
