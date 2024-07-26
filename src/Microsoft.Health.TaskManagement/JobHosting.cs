@@ -111,6 +111,7 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
+                 // If any worker crashes or complete cancellation due to shutwdown, cancel all workers and wait for completion.
                 await Task.WhenAny(workers.ToArray());
 #if NET6_0
                 cancellationTokenSource.Cancel();
@@ -169,7 +170,15 @@ namespace Microsoft.Health.JobManagement
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                 jobInfo.Status = JobStatus.Failed;
 
-                await CompleteJobAsyncWithLogging(jobInfo, true);
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
                 return;
             }
             catch (OperationCanceledException ex)
@@ -177,7 +186,15 @@ namespace Microsoft.Health.JobManagement
                 _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
-                await CompleteJobAsyncWithLogging(jobInfo, true);
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
                 return;
             }
             catch (Exception ex)
@@ -188,23 +205,23 @@ namespace Microsoft.Health.JobManagement
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
 
-                await CompleteJobAsyncWithLogging(jobInfo, true);
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
                 return;
             }
 
-            await CompleteJobAsyncWithLogging(jobInfo, false);
-        }
-
-        private async Task CompleteJobAsyncWithLogging(JobInfo jobInfo, bool logError)
-        {
             try
             {
-                jobInfo.Status = logError ? JobStatus.Failed : JobStatus.Completed;
+                jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                if (!logError)
-                {
-                    _logger.LogJobInformation(jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-                }
+                _logger.LogJobInformation(jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
             catch (Exception completeEx)
             {
