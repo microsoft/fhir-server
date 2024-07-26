@@ -7,46 +7,48 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-using SearchPredicate = System.Func<
-    System.Collections.Generic.IEnumerable<(Microsoft.Health.Fhir.Core.Features.Persistence.ResourceKey Location, System.Collections.Generic.IReadOnlyCollection<Microsoft.Health.Fhir.Core.Features.Search.SearchIndexEntry> Index)>,
-            System.Collections.Generic.IEnumerable<(Microsoft.Health.Fhir.Core.Features.Persistence.ResourceKey Location, System.Collections.Generic.IReadOnlyCollection<Microsoft.Health.Fhir.Core.Features.Search.SearchIndexEntry> Index)>>;
-
 namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 {
+    public delegate IEnumerable<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)> SearchPredicate(IEnumerable<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)> input);
+
     internal class SearchQueryInterpreter : IExpressionVisitorWithInitialContext<SearchQueryInterpreter.Context, SearchPredicate>
     {
         Context IExpressionVisitorWithInitialContext<Context, SearchPredicate>.InitialContext => default;
 
         public SearchPredicate VisitSearchParameter(SearchParameterExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             return VisitInnerWithContext(expression.Parameter.Name, expression.Expression, context);
         }
 
         public SearchPredicate VisitBinary(BinaryExpression expression, Context context)
         {
-            return VisitBinary(
-                context.ParameterName,
-                expression.BinaryOperator,
-                expression.Value);
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
+            return VisitBinary(context.ParameterName, expression.BinaryOperator, expression.Value);
         }
 
         private static SearchPredicate VisitBinary(string fieldName, BinaryOperator op, object value)
         {
-            SearchPredicate filter = input =>
-            {
-                return input.Where(x => x.Index.Any(y => y.SearchParameter.Name == fieldName &&
-                                                         GetMappedValue(op, y.Value, (IComparable)value)));
-            };
+            EnsureArg.IsNotNull(fieldName, nameof(fieldName));
+            EnsureArg.IsNotNull(value, nameof(value));
 
-            return filter;
+            return input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == fieldName && GetMappedValue(op, y.Value, (IComparable)value)));
         }
 
         private static bool GetMappedValue(BinaryOperator expressionBinaryOperator, ISearchValue first, IComparable second)
         {
+            EnsureArg.IsNotNull(first, nameof(first));
+            EnsureArg.IsNotNull(second, nameof(second));
+
             if (first == null || second == null)
             {
                 return false;
@@ -60,24 +62,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         public SearchPredicate VisitChained(ChainedExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new SearchOperationNotSupportedException("ChainedExpression is not supported.");
         }
 
         public SearchPredicate VisitMissingField(MissingFieldExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitMissingSearchParameter(MissingSearchParameterExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitMultiary(MultiaryExpression expression, Context context)
         {
-            SearchPredicate filter = input =>
-            {
-                var results = expression.Expressions.Select(x => x.AcceptVisitor(this, context))
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull(expression.Expressions, nameof(expression.Expressions));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
+            return expression.Expressions.Select(x => x.AcceptVisitor(this, context))
                     .Aggregate((x, y) =>
                     {
                         switch (expression.MultiaryOperation)
@@ -90,38 +103,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
                                 throw new NotImplementedException();
                         }
                     });
-
-                return results(input);
-            };
-
-            return filter;
         }
 
         public SearchPredicate VisitString(StringExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             StringComparison comparison = expression.IgnoreCase
                 ? StringComparison.OrdinalIgnoreCase
                 : StringComparison.Ordinal;
 
-            SearchPredicate filter;
-
             if (context.ParameterName == "_type")
             {
-                filter = input => input.Where(x => x.Location.ResourceType.Equals(expression.Value, comparison));
+                return input => input.Where(x => x.Location.ResourceType.Equals(expression.Value, comparison));
             }
             else
             {
                 switch (expression.StringOperator)
                 {
                     case StringOperator.StartsWith:
-                        filter = input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == context.ParameterName &&
-                                                                            CompareStringParameter(y, (a, b, c) => a.StartsWith(b, c))));
-                        break;
+                        return input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == context.ParameterName &&
+                                                                          CompareStringParameter(y, (a, b, c) => a.StartsWith(b, c))));
                     case StringOperator.Equals:
-                        filter = input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == context.ParameterName &&
-                                                                            CompareStringParameter(y, string.Equals)));
+                        return input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == context.ParameterName &&
+                                                                          CompareStringParameter(y, string.Equals)));
 
-                        break;
                     default:
                         throw new NotImplementedException();
                 }
@@ -129,6 +136,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
             bool CompareStringParameter(SearchIndexEntry y, Func<string, string, StringComparison, bool> compareFunc)
             {
+                EnsureArg.IsNotNull(y, nameof(y));
+
                 switch (y.SearchParameter.Type)
                 {
                     case ValueSets.SearchParamType.String:
@@ -141,23 +150,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
                         throw new NotImplementedException();
                 }
             }
-
-            return filter;
         }
 
         public SearchPredicate VisitCompartment(CompartmentSearchExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new SearchOperationNotSupportedException("Compartment search is not supported.");
         }
 
         public SearchPredicate VisitInclude(IncludeExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         private SearchPredicate VisitInnerWithContext(string parameterName, Expression expression, Context context, bool negate = false)
         {
             EnsureArg.IsNotNull(parameterName, nameof(parameterName));
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
 
             var newContext = context.WithParameterName(parameterName);
 
@@ -185,27 +200,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         public SearchPredicate VisitNotExpression(NotExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitUnion(UnionExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitSmartCompartment(SmartCompartmentSearchExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitSortParameter(SortExpression expression, Context context)
         {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
             throw new NotImplementedException();
         }
 
         public SearchPredicate VisitIn<T>(InExpression<T> expression, Context context)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
+            return input => input.Where(x => x.Index.Any(y => y.SearchParameter.Name == context.ParameterName &&
+                                                              expression.Values.Contains((T)y.Value)));
         }
 
         /// <summary>
