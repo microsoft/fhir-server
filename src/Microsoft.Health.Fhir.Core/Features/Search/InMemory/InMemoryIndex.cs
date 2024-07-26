@@ -5,6 +5,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -17,8 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         public InMemoryIndex(ISearchIndexer searchIndexer)
         {
+            _searchIndexer = EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             Index = new ConcurrentDictionary<string, List<(ResourceKey, IReadOnlyCollection<SearchIndexEntry>)>>();
-            _searchIndexer = searchIndexer;
         }
 
         internal ConcurrentDictionary<string, List<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)>> Index
@@ -28,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         public void IndexResources(params ResourceElement[] resources)
         {
+            EnsureArg.IsNotNull(resources, nameof(resources));
+
             foreach (var resource in resources)
             {
                 var indexEntries = _searchIndexer.Extract(resource);
@@ -45,6 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
 
         private static ResourceKey ToResourceKey(ResourceElement resource)
         {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
             return new ResourceKey(resource.InstanceType, resource.Id, resource.VersionId);
         }
     }
