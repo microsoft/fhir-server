@@ -183,7 +183,7 @@ namespace Microsoft.Health.JobManagement
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
                 try
