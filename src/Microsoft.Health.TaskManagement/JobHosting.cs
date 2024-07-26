@@ -112,7 +112,11 @@ namespace Microsoft.Health.JobManagement
             try
             {
                 await Task.WhenAny(workers.ToArray());
+#if NET6_0
+                cancellationTokenSource.Cancel();
+#else
                 await cancellationTokenSource.CancelAsync();
+#endif
                 await Task.WhenAll(workers.ToArray());
             }
             catch (Exception ex)
