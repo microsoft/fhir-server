@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text;
-using MimeKit;
 using System.Collections.Concurrent;
+using System.Text;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.WebHookChannel.NotificationManager;
@@ -13,6 +12,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.WebHookChannel.NotificationManager
 /// <summary>Manager for notifications.</summary>
 public class NotificationManager
 {
+    /*
     /// <summary>The HTTP client for REST notifications.</summary>
     private HttpClient _httpClient = new();
 
@@ -424,4 +424,5 @@ public class NotificationManager
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+    */
 }

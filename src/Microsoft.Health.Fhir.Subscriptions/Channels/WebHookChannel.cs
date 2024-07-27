@@ -13,11 +13,14 @@ using Microsoft.Health.Fhir.Subscriptions.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
-    [ChannelType(SubscriptionChannelType.WebHook)]
+    [ChannelType(SubscriptionChannelType.RestHook)]
     public class WebHookChannel : ISubscriptionChannel
     {
-
         public WebHookChannel()
+        {
+        }
+
+        public Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
         }
     }
