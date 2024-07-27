@@ -1229,7 +1229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                return false;
+                return true;
             }
         }
 
