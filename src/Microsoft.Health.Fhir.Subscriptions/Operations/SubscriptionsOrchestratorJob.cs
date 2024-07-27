@@ -94,7 +94,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                     var searchInterpreter = new SearchQueryInterpreter();
                     var memoryIndex = new InMemoryIndex(_searchIndexer);
                     memoryIndex.IndexResources(resources.Select(x => _resourceDeserializer.Deserialize(x)).ToArray());
-                    var evaluator = searchOptions.Expression.AcceptVisitor(searchInterpreter, default);
+                    var expression = searchOptions.Expression;
+                    var evaluator = expression.AcceptVisitor(searchInterpreter, default);
                     if (memoryIndex.Index.TryGetValue(criteriaSegments[0], out List<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)> value))
                     {
                         var results = evaluator.Invoke(value).ToArray();
