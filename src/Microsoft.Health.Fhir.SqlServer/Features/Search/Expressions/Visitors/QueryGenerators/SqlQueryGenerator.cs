@@ -514,7 +514,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
             }
 
-            if (CheckAppendWithJoin()
+            if (UseAppendWithJoin()
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
@@ -524,7 +524,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !UseAppendWithJoin())
                 {
                     // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -723,7 +723,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
-            else if (CheckAppendWithJoin())
+            else if (UseAppendWithJoin())
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
             }
@@ -746,7 +746,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin())
+                if (searchParamTableExpression.ChainLevel == 1 && !UseAppendWithJoin())
                 {
                     // if > 1, the intersection is handled by the JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
@@ -1054,7 +1054,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" AS SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin())
+                if (UseAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1081,7 +1081,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin())
+                    if (!UseAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1103,7 +1103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" AS SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin())
+                if (UseAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1130,7 +1130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin())
+                    if (!UseAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1216,12 +1216,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             sb.Append(")");
         }
 
-        private bool CheckAppendWithJoin()
+        private bool UseAppendWithJoin()
         {
             // if either:
             // 1. the number of table expressions is greater than the limit indicating a complex query
             // 2. the previous query generator failed to generate a query
-            // then we will use the EXISTS clause instead of the inner join
+            // then we will NOT use the EXISTS clause instead of the inner join
             if (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
                 previousSqlQueryGeneratorFailure)
             {
@@ -1229,6 +1229,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
+                // Firstly, we were still using JOINs for filtering conditions for queries with include clauses.
+                // This does not make sense because filtering SQL should not be dependent on exiestence of include.
+                // It also appeared that SQL Server compiles plans for JOINs 5x faster than for EXISTSs.
+                // Though EXISTS plans should be more "precise" I am disabling them in favor of fast compilation times.
                 return true;
             }
         }
