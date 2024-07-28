@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
+        private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -116,6 +117,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
+
+            if (_reuseQueryPlans == null)
+            {
+                lock (_locker)
+                {
+                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>("Search.ResuseQueryPlans.IsEnabled", false, _logger);
+                }
+            }
         }
 
         internal ISqlServerFhirModel Model => _model;
@@ -335,6 +344,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
+                                _reuseQueryPlans.IsEnabled(_sqlRetryService),
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
