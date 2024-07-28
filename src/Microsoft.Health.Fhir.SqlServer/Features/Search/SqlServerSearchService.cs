@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 lock (_locker)
                 {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>("Search.ResuseQueryPlans.IsEnabled", false, _logger);
+                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>("Search.ReuseQueryPlans.IsEnabled", false, _logger);
                 }
             }
         }
