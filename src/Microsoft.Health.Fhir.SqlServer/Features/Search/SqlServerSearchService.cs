@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
             int resultCount = searchResult.Results.Count();
 
             if (!sqlSearchOptions.IsSortWithFilter &&
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
+                        searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
             Expression searchExpression = sqlSearchOptions.Expression;
 
@@ -335,7 +335,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
-                                currentSearchParameterHash,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);

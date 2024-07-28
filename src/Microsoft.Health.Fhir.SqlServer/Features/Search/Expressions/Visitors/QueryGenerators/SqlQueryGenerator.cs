@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private List<string> _includeFromCteIds;
 
         private int _curFromCteIndex = -1;
-        private readonly string _searchParameterHash;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
@@ -60,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             HashingSqlQueryParameterManager parameters,
             ISqlServerFhirModel model,
             SchemaInformation schemaInfo,
-            string searchParameterHash,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -72,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Parameters = parameters;
             Model = model;
             _schemaInfo = schemaInfo;
-            _searchParameterHash = searchParameterHash;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
