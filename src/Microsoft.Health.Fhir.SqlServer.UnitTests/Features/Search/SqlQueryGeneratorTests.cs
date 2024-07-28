@@ -50,7 +50,8 @@ public class SqlQueryGeneratorTests
             _strBuilder,
             parameters,
             _fhirModel,
-            _schemaInformation);
+            _schemaInformation,
+            false);
     }
 
     [Fact]
