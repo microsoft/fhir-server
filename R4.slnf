@@ -10,7 +10,6 @@
       "src\\Microsoft.Health.Fhir.Azure\\Microsoft.Health.Fhir.Azure.csproj",
       "src\\Microsoft.Health.Fhir.Core.UnitTests\\Microsoft.Health.Fhir.Core.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.Core\\Microsoft.Health.Fhir.Core.csproj",
-      "src\\Microsoft.Health.Fhir.Subscriptions\\Microsoft.Health.Fhir.Subscriptions.csproj",
       "src\\Microsoft.Health.Fhir.CosmosDb.Core\\Microsoft.Health.Fhir.CosmosDb.Core.csproj",
       "src\\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests\\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.CosmosDb.Initialization\\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj",
