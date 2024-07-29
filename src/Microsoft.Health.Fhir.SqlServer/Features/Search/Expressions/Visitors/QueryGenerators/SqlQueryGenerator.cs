@@ -1229,11 +1229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                // Firstly, we were still using JOINs for filtering conditions for queries with include clauses.
-                // This does not make sense because filtering SQL should not be dependent on existence of include.
-                // It also appeared that SQL Server compiles plans for JOINs 5x faster than for EXISTSs.
-                // Though EXISTS plans should be more "precise" I am disabling them in favor of fast compilation times.
-                return true;
+                return false;
             }
         }
 
