@@ -83,8 +83,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0.7-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
-# tdnf clean all - cleans all the repos used to obtain packages and reduces the size of our image.
 RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
+
+# Install sqlcmd
+RUN ACCEPT_EULA=Y MSSQL_PID=Developer tdnf install -y mssql-tools unixODBC-devel --nogpgcheck --setopt=tsflags=nodocs && \
+    tdnf clean all
 
 # See https://github.com/dotnet/SqlClient/issues/220
 RUN tdnf install icu -y && \
