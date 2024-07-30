@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 
-namespace Microsoft.Health.Fhir.Subscriptions.Channels.WebHookChannel;
+namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
 [ChannelType(SubscriptionChannelType.RestHook)]
 public class WebHookChannel : ISubscriptionChannel
