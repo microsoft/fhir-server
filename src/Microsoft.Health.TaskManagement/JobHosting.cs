@@ -63,7 +63,7 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Dequeuing next job.");
+                                _logger.LogInformation("Dequeuing next job on {QueueType}.", queueType);
 
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {

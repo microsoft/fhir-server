@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
-        private bool _disposed = false;
         private double _periodSec;
         private double _leasePeriodSec;
 
@@ -52,8 +51,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"{Name}.StartAsync: starting...");
             await InitParamsAsync(periodSec, leasePeriodSec);
-            await StartAsync(_periodSec, cancellationToken);
-            await _watchdogLease.StartAsync(allowRebalance, _leasePeriodSec, cancellationToken);
+
+            await Task.WhenAll(
+                StartAsync(_periodSec, cancellationToken),
+                _watchdogLease.StartAsync(allowRebalance, _leasePeriodSec, cancellationToken));
+
             _logger.LogInformation($"{Name}.StartAsync: completed.");
         }
 
@@ -137,28 +139,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             }
 
             return (long)value;
-        }
-
-        public new void Dispose()
-        {
-            Dispose(true);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _watchdogLease?.Dispose();
-            }
-
-            base.Dispose(disposing);
-
-            _disposed = true;
         }
     }
 }

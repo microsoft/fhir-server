@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     internal class WatchdogLease<T> : FhirTimer<T>
     {
         private const double TimeoutFactor = 0.25;
-        private readonly object _locker = new object();
+        private readonly object _locker = new();
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             cmd.Parameters.AddWithValue("@Watchdog", _watchdogName);
             cmd.Parameters.AddWithValue("@Worker", _worker);
             cmd.Parameters.AddWithValue("@AllowRebalance", _allowRebalance);
-            cmd.Parameters.AddWithValue("@WorkerIsRunning", IsRunning);
+            cmd.Parameters.AddWithValue("@WorkerIsRunning", true);
             cmd.Parameters.AddWithValue("@ForceAcquire", false); // TODO: Provide ability to set. usefull for tests
             cmd.Parameters.AddWithValue("@LeasePeriodSec", PeriodSec + _leaseTimeoutSec);
             var leaseEndTimePar = cmd.Parameters.AddWithValue("@LeaseEndTime", DateTime.UtcNow);

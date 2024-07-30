@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
@@ -22,17 +24,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
+        private readonly SubscriptionProcessorWatchdog _subscriptionsProcessorWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
-            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
+            SubscriptionProcessorWatchdog eventProcessorWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
+            _subscriptionsProcessorWatchdog = EnsureArg.IsNotNull(eventProcessorWatchdog, nameof(eventProcessorWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -43,16 +48,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
 
-            await _defragWatchdog.StartAsync(stoppingToken);
-            await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
-            await _transactionWatchdog.Value.StartAsync(stoppingToken);
-            await _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken);
+            using var continuationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
 
-            while (true)
+            var tasks = new List<Task>
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                _defragWatchdog.StartAsync(continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.StartAsync(continuationTokenSource.Token),
+                _transactionWatchdog.Value.StartAsync(continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.StartAsync(continuationTokenSource.Token),
+                _subscriptionsProcessorWatchdog.StartAsync(continuationTokenSource.Token),
+            };
+
+            await Task.WhenAny(tasks);
+
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                // If any of the watchdogs fail, cancel all the other watchdogs
+                await continuationTokenSource.CancelAsync();
             }
+
+            await Task.WhenAll(tasks);
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -63,10 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public override void Dispose()
         {
-            _defragWatchdog.Dispose();
-            _cleanupEventLogWatchdog.Dispose();
             _transactionWatchdog.Dispose();
-            _invisibleHistoryCleanupWatchdog.Dispose();
             base.Dispose();
         }
     }

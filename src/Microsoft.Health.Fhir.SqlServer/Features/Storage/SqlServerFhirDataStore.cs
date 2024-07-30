@@ -596,7 +596,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
                                 || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(input.Resource); // version and last updated are not aligned
+                            conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {

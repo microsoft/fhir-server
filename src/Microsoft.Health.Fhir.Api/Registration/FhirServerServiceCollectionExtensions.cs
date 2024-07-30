@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.Health.Api.Modules;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Subscriptions.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -20,6 +21,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
             services.RegisterAssemblyModules(typeof(InitializationModule).Assembly, fhirServerConfiguration);
+            services.RegisterAssemblyModules(typeof(SubscriptionsModule).Assembly, fhirServerConfiguration);
 
             return services;
         }
