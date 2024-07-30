@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
+        internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -122,12 +123,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 lock (_locker)
                 {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>("Search.ReuseQueryPlans.IsEnabled", false, _logger);
+                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, _logger);
                 }
             }
         }
 
         internal ISqlServerFhirModel Model => _model;
+
+        internal static void ResetReuseQueryPlans()
+        {
+            _reuseQueryPlans.Reset();
+        }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {

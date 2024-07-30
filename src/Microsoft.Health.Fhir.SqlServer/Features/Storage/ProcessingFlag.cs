@@ -30,6 +30,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
+        public string ParameterId => _parameterId;
+
+        public void Reset()
+        {
+            _lastUpdated = null;
+        }
+
         public bool IsEnabled(ISqlRetryService sqlRetryService)
         {
             if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)

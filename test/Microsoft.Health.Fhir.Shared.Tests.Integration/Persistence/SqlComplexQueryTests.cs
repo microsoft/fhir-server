@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
+using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
@@ -32,19 +34,112 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlCustomQueryTests : IClassFixture<FhirStorageTestsFixture>
+    public class SqlComplexQueryTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
 
-        public SqlCustomQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
+        public SqlComplexQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _output = output;
         }
 
+        [Fact]
+        public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
+        {
+            SqlServerSearchService.ResetReuseQueryPlans();
+            await DisableResuseQueryPlans();
+            await EnableResuseQueryPlans();
+            await ResetQueryStore();
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+            //// values are different but plans are reused
+            await CheckQueryStore(2, 1);
+
+            SqlServerSearchService.ResetReuseQueryPlans();
+            await DisableResuseQueryPlans();
+            await ResetQueryStore();
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+            //// values are different and plans are NOT reused
+            await CheckQueryStore(2, 2);
+
+            SqlServerSearchService.ResetReuseQueryPlans();
+            await DisableResuseQueryPlans();
+            await ResetQueryStore();
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            //// values are same and plans are reused
+            await CheckQueryStore(2, 1);
+        }
+
+        private async Task CheckQueryStore(int expected_executions, int expected_compiles)
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var cmd = new SqlCommand(
+                @"
+DECLARE @count_executions int
+       ,@count_compiles int
+       ,@msg varchar(1000)
+BEGIN TRY
+  SELECT @count_executions = sum(count_executions), @count_compiles = sum(q.count_compiles)
+    FROM sys.query_store_runtime_stats s
+         JOIN sys.query_store_plan p on p.plan_id = s.plan_id 
+         JOIN sys.query_store_query q on q.query_id = p.query_id
+         JOIN sys.query_store_query_text qt on qt.query_text_id = q.query_text_id
+    WHERE query_sql_text LIKE '%StringSearchParam%' AND query_sql_text NOT LIKE '%sys.query_store_query%'
+  IF @expected_executions <> @count_executions
+  BEGIN
+    SET @msg = '@expected_executions='+convert(varchar,@expected_executions)+' <> @count_executions='+convert(varchar,@count_executions)
+    RAISERROR(@msg,18,127)
+  END
+  IF @expected_compiles <> @count_compiles
+  BEGIN
+    SET @msg = '@expected_compiles='+convert(varchar,@expected_compiles)+' <> @count_compiles='+convert(varchar,@count_compiles)
+    RAISERROR(@msg,18,127)
+  END
+END TRY
+BEGIN CATCH
+  THROW
+END CATCH
+                ",
+                conn);
+            cmd.Parameters.AddWithValue("@expected_executions", expected_executions);
+            cmd.Parameters.AddWithValue("@expected_compiles", expected_compiles);
+            conn.Open();
+            cmd.ExecuteNonQuery();
+        }
+
+        private async Task DisableResuseQueryPlans()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var cmd = new SqlCommand("DELETE FROM dbo.Parameters WHERE Id = @Id", conn);
+            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
+            conn.Open();
+            cmd.ExecuteNonQuery();
+        }
+
+        private async Task EnableResuseQueryPlans()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id,Number) SELECT @Id, 1", conn);
+            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
+            conn.Open();
+            cmd.ExecuteNonQuery();
+        }
+
+        private async Task ResetQueryStore()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            conn.Open();
+            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE CLEAR')", conn);
+            cmd.ExecuteNonQuery();
+            using var cmd2 = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
+            cmd2.ExecuteNonQuery();
+        }
+
         [SkippableFact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
