@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Microsoft.Azure.Cosmos" />
     <PackageReference Include="System.Private.ServiceModel" /><!-- Microsoft.Azure.Cosmos.Direct is referencing an insecure version of System.Private.ServiceModel (4.5.0) -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
