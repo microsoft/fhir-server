@@ -85,9 +85,17 @@ ARG FHIR_VERSION
 
 RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
 
-# Install sqlcmd
-RUN ACCEPT_EULA=Y MSSQL_PID=Developer tdnf install -y mssql-tools unixODBC-devel --nogpgcheck --setopt=tsflags=nodocs && \
+# Install necessary packages including tar
+RUN tdnf install -y openssh-server procps curl bzip2 tar --nogpgcheck --setopt=tsflags=nodocs && \
     tdnf clean all
+
+# Download and extract the Go version of sqlcmd
+RUN curl -L https://github.com/microsoft/go-sqlcmd/releases/download/v1.7.0/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2 && \
+    tar -xvjf sqlcmd.tar.bz2 -C /usr/local/bin && \
+    rm sqlcmd.tar.bz2
+
+# Verify installation
+RUN sqlcmd -? || echo "sqlcmd installation failed"
 
 # See https://github.com/dotnet/SqlClient/issues/220
 RUN tdnf install icu -y && \
@@ -95,9 +103,6 @@ RUN tdnf install icu -y && \
 
 COPY --from=build /etc/group /etc/group
 COPY --from=build /etc/passwd /etc/passwd
-
-RUN tdnf install -y openssh-server procps --nogpgcheck --setopt=tsflags=nodocs && \
-    tdnf clean all
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080
