@@ -16,6 +16,8 @@ COPY .editorconfig \
      global.json \
      nuget.config \
      stylecop.json \
+     sshd_config \
+     entrypoint.sh \
      THIRDPARTYNOTICES.md \
      ./
 
@@ -96,14 +98,31 @@ RUN tdnf install icu -y && \
 COPY --from=build /etc/group /etc/group
 COPY --from=build /etc/passwd /etc/passwd
 
+RUN tdnf install -y openssh-server --nogpgcheck --setopt=tsflags=nodocs && \
+    tdnf clean all
+
+RUN echo "root:Docker!" | chpasswd
+RUN ssh-keygen -A
+
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080
 
 WORKDIR /app
 COPY --from=build /build .
 
+COPY sshd_config \
+     entrypoint.sh \
+     ./
+
+RUN chmod u+x ./entrypoint.sh
+
+RUN cp ./sshd_config /etc/ssh/sshd_config
+
 RUN ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "Microsoft.Health.Fhir.Web.dll"
 
-USER nonroot
-EXPOSE 8080
-ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]
+#USER nonroot
+EXPOSE 8080 2222
+
+ENTRYPOINT [ "./entrypoint.sh" ] 
+
+#ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]
