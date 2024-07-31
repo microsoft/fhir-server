@@ -133,7 +133,7 @@ END CATCH
             cmd.ExecuteNonQuery();
         }
 
-        private async Task SetupGranularQueryStore()
+        private async Task SetGranularQueryStore()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             conn.Open();
