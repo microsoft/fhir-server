@@ -86,7 +86,7 @@ ARG FHIR_VERSION
 RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
 
 # Install necessary packages including tar
-RUN tdnf install -y openssh-server procps curl bzip2 tar --nogpgcheck --setopt=tsflags=nodocs && \
+RUN tdnf install -y openssh-server procps curl bzip2 tar vim --nogpgcheck --setopt=tsflags=nodocs && \
     tdnf clean all
 
 # Download and extract the Go version of sqlcmd
