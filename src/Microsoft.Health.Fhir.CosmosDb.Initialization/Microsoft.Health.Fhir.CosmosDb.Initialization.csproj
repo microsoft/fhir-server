@@ -2,7 +2,6 @@
 
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection"></PackageReference>
   </ItemGroup>
   
