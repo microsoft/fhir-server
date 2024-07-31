@@ -33,13 +33,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     public sealed class FormatParametersValidator : IFormatParametersValidator
     {
         private readonly IConformanceProvider _conformanceProvider;
-        private readonly IReadOnlyCollection<TextOutputFormatter> _outputFormatters;
+        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
         private readonly ConcurrentDictionary<ResourceFormat, bool> _supportedFormats = new ConcurrentDictionary<ResourceFormat, bool>();
         private readonly ConcurrentDictionary<string, bool> _supportedPatchFormats = new ConcurrentDictionary<string, bool>();
 
         public FormatParametersValidator(
             IConformanceProvider conformanceProvider,
-            IReadOnlyCollection<TextOutputFormatter> outputFormatters)
+            IEnumerable<TextOutputFormatter> outputFormatters)
         {
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
             EnsureArg.IsNotNull(outputFormatters, nameof(outputFormatters));
