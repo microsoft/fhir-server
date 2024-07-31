@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -48,6 +50,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var client = _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
             Assert.Null(client.ClientOptions.ApplicationPreferredRegions);
+        }
+
+        [Fact]
+        public void CreateClient_WhenTwoTheSameKeyIsProvidedTwice_ThenCosmosDbClientsCreatedAreTheSame()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+            var client3 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+
+            Assert.True(client1 == client2);
+            Assert.True(client2 == client3);
+            Assert.True(client1 == client3);
+        }
+
+        [Fact]
+        public void CreateClient_WhenTwoDifferentKeysAreProvided_ThenCosmosDbClientCreatedIsDifferent()
+        {
+            var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA"});
+            var client2 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "BBBB" });
+            var client3 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
+
+            Assert.True(client1 != client2);
+            Assert.True(client2 != client3);
+            Assert.True(client1 != client3);
         }
 
         [Fact]

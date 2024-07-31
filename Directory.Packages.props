@@ -36,7 +36,7 @@
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.20.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
-    <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.1.1" />
+    <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.4" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.9.2" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -66,17 +66,17 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="8.0.6" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="8.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.7" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.6" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.7" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.22.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.7.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
@@ -121,7 +121,7 @@
     <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
     <PackageVersion Include="xunit" Version="2.8.1" />
     <PackageVersion Include="xunit.assert" Version="2.8.1" />
-    <PackageVersion Include="System.Drawing.Common" Version="8.0.6" />
+    <PackageVersion Include="System.Drawing.Common" Version="8.0.7" />
     <PackageVersion Include="Moq" Version="4.20.69" />
   </ItemGroup>
 </Project>

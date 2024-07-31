@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");

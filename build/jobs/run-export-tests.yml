@@ -40,16 +40,6 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
-        $allStorageAccounts = ""
-        foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
-
-            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
-            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
-            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
-        }
-        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
@@ -143,16 +133,6 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
-        $allStorageAccounts = ""
-        foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
-
-            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
-            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
-            $allStorageAccounts += "|$($storageSecretName)|$($accKey.Value)"
-        }
-        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         

@@ -9,13 +9,6 @@
                 "description": "Name of Sql Server (existing or new). If empty, a name will be generated."
             }
         },
-        "sqlAdminPassword": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The password for the sql admin user if using SQL server."
-            }
-        },
         "sqlLocation": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
@@ -23,47 +16,60 @@
                 "description": "An override location for the sql server database."
             }
         },
-        "sqlSchemaAutomaticUpdatesEnabled": {
+        "sqlAdministratorLogin": {
             "type": "string",
-            "allowedValues": [ "auto", "tool" ],
-            "defaultValue": "auto",
+            "defaultValue": "",
             "metadata": {
-                "description": "Determine whether the sql schema should be automatically upgraded on server startup. If set to 'tool', sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If set to 'auto', sql schema will be upgraded to the maximum supported version."
+                "description": "The login name of the administrator for the sql server."
+            }
+        },
+        "sqlAdministratorSid": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The SID of the administrator for the sql server."
+            }
+        },
+        "sqlAdministratorTenantId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The tenant id of the administrator for the sql server."
+            }
+        },
+        "sqlServerPrincipalType": {
+            "type": "string",
+            "defaultValue": "User",
+            "allowedValues": [
+                "User",
+                "Group",
+                "Application"
+            ],
+            "metadata": {
+                "description": "The principal type of the administrator for the sql server."
             }
         }
-    },
-    "variables": {
-        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', parameters('sqlServerName'))]"
     },
     "resources": [
         {
             "name": "[parameters('sqlServerName')]",
             "type": "Microsoft.Sql/servers",
-            "apiVersion": "2015-05-01-preview",
+            "apiVersion": "2020-11-01-preview",
             "location": "[parameters('sqlLocation')]",
             "tags": {
                 "FhirServerSolution": "FhirServerSqlServer"
             },
             "properties": {
-                "administratorLogin": "fhirAdmin",
-                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
-                "version": "12.0"
-            },
-            "resources": [
-                {
-                    "apiVersion": "2014-04-01",
-                    "dependsOn": [
-                        "[parameters('sqlServerName')]"
-                    ],
-                    "location": "[resourceGroup().location]",
-                    "name": "AllowAllWindowsAzureIps",
-                    "properties": {
-                        "endIpAddress": "0.0.0.0",
-                        "startIpAddress": "0.0.0.0"
-                    },
-                    "type": "firewallrules"
+                "version": "12.0",
+                "administrators": {
+                    "administratorType": "ActiveDirectory",
+                    "azureADOnlyAuthentication": true,
+                    "principalType": "[parameters('sqlServerPrincipalType')]",
+                    "login": "[parameters('sqlAdministratorLogin')]",
+                    "sid": "[parameters('sqlAdministratorSid')]",
+                    "tenantId": "[parameters('sqlAdministratorTenantId')]"
                 }
-            ]
+            }
         }
     ]
 }
