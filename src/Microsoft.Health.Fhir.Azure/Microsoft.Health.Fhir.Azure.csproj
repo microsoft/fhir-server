@@ -4,6 +4,7 @@
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Ensure.That" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Polly" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>

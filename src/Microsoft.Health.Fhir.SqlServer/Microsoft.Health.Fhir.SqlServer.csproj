@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.SqlServer" />
     <PackageReference Include="Microsoft.Health.SqlServer.Api" />

@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
