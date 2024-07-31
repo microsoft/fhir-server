@@ -48,30 +48,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
-            await ResetQueryStore();
-            await EnableResuseQueryPlans();
-            SqlServerSearchService.ResetReuseQueryPlans();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
-            //// values are different but plans are reused
-            await CheckQueryStore(3, 1);
+            await SetGranularQueryStore();
 
-            await DisableResuseQueryPlans();
             await ResetQueryStore();
-            SqlServerSearchService.ResetReuseQueryPlans();
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await Task.Delay(1000);
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
             //// values are different and plans are NOT reused
             await CheckQueryStore(2, 2);
 
-            await DisableResuseQueryPlans();
+            await ResetQueryStore();
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
+            //// values are same and plans are reused
+            await CheckQueryStore(2, 1);
+
+            await EnableResuseQueryPlans(); //// new behavior
             await ResetQueryStore();
             SqlServerSearchService.ResetReuseQueryPlans();
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            //// values are same and plans are reused
-            await CheckQueryStore(2, 1);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City4")], CancellationToken.None);
+            //// values are different but plans are reused
+            await CheckQueryStore(4, 1);
         }
 
         private async Task CheckQueryStore(int expected_executions, int expected_compiles)
@@ -129,12 +133,18 @@ END CATCH
             cmd.ExecuteNonQuery();
         }
 
+        private async Task SetupGranularQueryStore()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            conn.Open();
+            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
+            cmd.ExecuteNonQuery();
+        }
+
         private async Task ResetQueryStore()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             conn.Open();
-            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE CLEAR')", conn);
-            cmd.ExecuteNonQuery();
             using var cmd2 = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
             cmd2.ExecuteNonQuery();
         }
