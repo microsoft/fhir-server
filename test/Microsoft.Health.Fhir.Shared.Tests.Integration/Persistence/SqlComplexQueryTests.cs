@@ -48,14 +48,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
-            await DisableResuseQueryPlans();
-            await EnableResuseQueryPlans();
             await ResetQueryStore();
+            await EnableResuseQueryPlans();
             SqlServerSearchService.ResetReuseQueryPlans();
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
             //// values are different but plans are reused
-            await CheckQueryStore(2, 1);
+            await CheckQueryStore(3, 1);
 
             await DisableResuseQueryPlans();
             await ResetQueryStore();
