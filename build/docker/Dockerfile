@@ -98,7 +98,7 @@ RUN tdnf install icu -y && \
 COPY --from=build /etc/group /etc/group
 COPY --from=build /etc/passwd /etc/passwd
 
-RUN tdnf install -y openssh-server --nogpgcheck --setopt=tsflags=nodocs && \
+RUN tdnf install -y openssh-server procps --nogpgcheck --setopt=tsflags=nodocs && \
     tdnf clean all
 
 RUN echo "root:Docker!" | chpasswd
