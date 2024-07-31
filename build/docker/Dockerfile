@@ -124,5 +124,5 @@ RUN ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "Microsoft.Health.Fhir
 EXPOSE 8080 2222
 
 ENTRYPOINT [ "./entrypoint.sh" ] 
-
+CMD ["azure-fhir-api"]
 #ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]
