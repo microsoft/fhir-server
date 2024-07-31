@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         private readonly Dictionary<(string fhirElementType, Type searchValueType), ITypedElementToSearchValueConverter> _converterDictionary;
 
-        public FhirTypedElementToSearchValueConverterManager(IReadOnlyCollection<ITypedElementToSearchValueConverter> converters)
+        public FhirTypedElementToSearchValueConverterManager(IEnumerable<ITypedElementToSearchValueConverter> converters)
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
