@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
+    <PackageVersion Include="Duende.IdentityServer" Version="7.0.6" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.2.1" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.1" />
     <!--CVE-2023-29331-->
