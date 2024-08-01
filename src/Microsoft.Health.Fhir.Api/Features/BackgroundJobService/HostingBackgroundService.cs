@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
                 foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
-                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
                     jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
                 }
 
