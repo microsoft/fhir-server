@@ -37,6 +37,7 @@
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidEntries.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Subscription.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidType.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidDefinitions.json" />
@@ -300,6 +301,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="TestFiles\Normative\Subscription.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />

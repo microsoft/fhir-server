@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Subscriptions.Models.RestHookTypes;
-
-public enum RestHookTypes
+namespace Microsoft.Health.Fhir.Subscriptions.Models
 {
-    Handshake,
-    Heartbeat,
-    EventNotification,
+    public enum RestHookTypes
+    {
+        Handshake,
+        Heartbeat,
+        EventNotification,
+    }
 }
