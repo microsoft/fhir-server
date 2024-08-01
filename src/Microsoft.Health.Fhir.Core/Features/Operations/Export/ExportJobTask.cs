@@ -553,7 +553,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    false,
+                    true,
                     cancellationToken);
             }
 
@@ -699,40 +699,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
-            foreach (SearchResultEntry result in searchResults)
+            if (searchResults is not List<SearchResultEntry>)
             {
-                ResourceWrapper resourceWrapper = result.Resource;
-                ResourceElement overrideDataElement = null;
-                var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
-
-                if (anonymizer != null)
+                foreach (var result in searchResults)
                 {
-                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
-                    try
-                    {
-                        overrideDataElement = anonymizer.Anonymize(overrideDataElement);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new FailedToAnonymizeResourceException(ex.Message, ex);
-                    }
+                    ProcessSearchResult(result, anonymizer);
                 }
-                else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
-                {
-                    // For older records in Cosmos the metadata isn't included in the raw resource
-                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
-                }
-
-                var outputData = result.Resource.RawResource.Data;
-
-                // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
-                if (overrideDataElement is not null)
-                {
-                    outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
-                }
-
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
             }
+            else
+            {
+                var searchResultsList = searchResults as List<SearchResultEntry>;
+                while (searchResultsList.Any())
+                {
+                    var result = searchResultsList.First();
+                    ProcessSearchResult(result, anonymizer);
+                    searchResultsList.Remove(result);
+                }
+            }
+        }
+
+        private void ProcessSearchResult(SearchResultEntry result, IAnonymizer anonymizer)
+        {
+            ResourceWrapper resourceWrapper = result.Resource;
+            ResourceElement overrideDataElement = null;
+            var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
+
+            if (anonymizer != null)
+            {
+                overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
+                try
+                {
+                    overrideDataElement = anonymizer.Anonymize(overrideDataElement);
+                }
+                catch (Exception ex)
+                {
+                    throw new FailedToAnonymizeResourceException(ex.Message, ex);
+                }
+            }
+            else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
+            {
+                // For older records in Cosmos the metadata isn't included in the raw resource
+                overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
+            }
+
+            var outputData = result.Resource.RawResource.Data;
+
+            // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
+            if (overrideDataElement is not null)
+            {
+                outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
+            }
+
+            _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
         }
 
         private async Task ProcessProgressChange(

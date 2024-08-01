@@ -431,20 +431,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     continue;
                                 }
 
-                                string rawResource = string.Empty;
+                                Lazy<string> rawResource = new Lazy<string>(() => string.Empty);
 
                                 if (!clonedSearchOptions.OnlyIds)
                                 {
-                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                                }
+                                    rawResource = new Lazy<string>(() =>
+                                    {
+                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+                                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
-                                if (string.IsNullOrEmpty(rawResource) && !clonedSearchOptions.OnlyIds)
-                                {
-                                    rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        if (string.IsNullOrEmpty(decompressedResource))
+                                        {
+                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        }
+
+                                        return decompressedResource;
+                                    });
                                 }
 
                                 // See if this resource is a continuation token candidate and increase the count
