@@ -36,18 +36,16 @@ namespace Microsoft.Health.JobManagement
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
 
-        public short MaxRunningJobCount { get; set; } = Constants.DefaultMaxRunningJobCount;
-
         public int JobHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultJobHeartbeatTimeoutThresholdInSeconds;
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
+        public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
 
             // parallel dequeue
-            for (var thread = 0; thread < MaxRunningJobCount; thread++)
+            for (var thread = 0; thread < runningJobCount; thread++)
             {
                 workers.Add(Task.Run(async () =>
                 {
