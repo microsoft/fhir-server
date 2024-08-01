@@ -10,81 +10,94 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class WatchdogLease<T> : FhirTimer<T>
+    internal class WatchdogLease<T>
+        where T : Watchdog<T>
     {
         private const double TimeoutFactor = 0.25;
-        private readonly object _locker = new object();
+        private readonly object _locker = new();
 
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly ILogger<T> _logger;
-        private DateTime _leaseEndTime;
+        private readonly ILogger _logger;
+        private DateTimeOffset _leaseEndTime;
         private double _leaseTimeoutSec;
         private readonly string _worker;
-        private CancellationToken _cancellationToken;
         private readonly string _watchdogName;
         private bool _allowRebalance;
+        private readonly FhirTimer _fhirTimer;
 
-        internal WatchdogLease(ISqlRetryService sqlRetryService, ILogger<T> logger)
-            : base(logger)
+        public WatchdogLease(ISqlRetryService sqlRetryService, ILogger logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _watchdogName = typeof(T).Name;
             _worker = $"{Environment.MachineName}.{Environment.ProcessId}";
             _logger.LogInformation($"WatchdogLease:Created lease object, worker=[{_worker}].");
+            _fhirTimer = new FhirTimer(logger);
         }
 
-        protected internal string Worker => _worker;
+        public string Worker => _worker;
 
-        protected internal bool IsLeaseHolder
+        public bool IsLeaseHolder
         {
             get
             {
                 lock (_locker)
                 {
-                    return (DateTime.UtcNow - _leaseEndTime).TotalSeconds < _leaseTimeoutSec;
+                    return (Clock.UtcNow - _leaseEndTime).TotalSeconds < _leaseTimeoutSec;
                 }
             }
         }
 
-        protected internal async Task StartAsync(bool allowRebalance, double periodSec, CancellationToken cancellationToken)
+        public bool IsRunning => _fhirTimer.IsRunning;
+
+        public double PeriodSec => _fhirTimer.PeriodSec;
+
+        public async Task ExecuteAsync(bool allowRebalance, double periodSec, CancellationToken cancellationToken)
         {
             _logger.LogInformation("WatchdogLease.StartAsync: starting...");
+
             _allowRebalance = allowRebalance;
-            _cancellationToken = cancellationToken;
-            _leaseEndTime = DateTime.MinValue;
+            _leaseEndTime = DateTimeOffset.MinValue;
             _leaseTimeoutSec = (int)Math.Ceiling(periodSec * TimeoutFactor); // if it is rounded to 0 it causes problems in AcquireResourceLease logic.
-            await StartAsync(periodSec, cancellationToken);
+
+            await _fhirTimer.ExecuteAsync(periodSec, OnNextTickAsync, cancellationToken);
+
             _logger.LogInformation("WatchdogLease.StartAsync: completed.");
         }
 
-        protected override async Task RunAsync()
+        protected async Task OnNextTickAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"WatchdogLease.RunAsync: Starting acquire: resource=[{_watchdogName}] worker=[{_worker}] period={PeriodSec} timeout={_leaseTimeoutSec}...");
+            _logger.LogInformation($"WatchdogLease.RunAsync: Starting acquire: resource=[{_watchdogName}] worker=[{_worker}] period={_fhirTimer.PeriodSec} timeout={_leaseTimeoutSec}...");
 
-            using var cmd = new SqlCommand("dbo.AcquireWatchdogLease") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.AcquireWatchdogLease") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", _watchdogName);
             cmd.Parameters.AddWithValue("@Worker", _worker);
             cmd.Parameters.AddWithValue("@AllowRebalance", _allowRebalance);
             cmd.Parameters.AddWithValue("@WorkerIsRunning", IsRunning);
             cmd.Parameters.AddWithValue("@ForceAcquire", false); // TODO: Provide ability to set. usefull for tests
             cmd.Parameters.AddWithValue("@LeasePeriodSec", PeriodSec + _leaseTimeoutSec);
-            var leaseEndTimePar = cmd.Parameters.AddWithValue("@LeaseEndTime", DateTime.UtcNow);
+
+            SqlParameter leaseEndTimePar = cmd.Parameters.AddWithValue("@LeaseEndTime", DateTime.UtcNow);
             leaseEndTimePar.Direction = ParameterDirection.Output;
-            var isAcquiredPar = cmd.Parameters.AddWithValue("@IsAcquired", false);
+
+            SqlParameter isAcquiredPar = cmd.Parameters.AddWithValue("@IsAcquired", false);
             isAcquiredPar.Direction = ParameterDirection.Output;
-            var currentHolderPar = cmd.Parameters.Add("@CurrentLeaseHolder", SqlDbType.VarChar, 100);
+
+            SqlParameter currentHolderPar = cmd.Parameters.Add("@CurrentLeaseHolder", SqlDbType.VarChar, 100);
             currentHolderPar.Direction = ParameterDirection.Output;
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, _cancellationToken);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             var leaseEndTime = (DateTime)leaseEndTimePar.Value;
             var isAcquired = (bool)isAcquiredPar.Value;
             var currentHolder = (string)currentHolderPar.Value;
+
             lock (_locker)
             {
                 _leaseEndTime = isAcquired ? leaseEndTime : _leaseEndTime;

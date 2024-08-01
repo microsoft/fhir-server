@@ -77,12 +77,12 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.StartAsync(cts.Token);
+            Task wsTask = wd.ExecuteAsync(cts.Token);
 
-            var startTime = DateTime.UtcNow;
+            DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -90,7 +90,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var completed = CheckQueue(current);
             while (!completed && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
                 completed = CheckQueue(current);
             }
 
@@ -100,7 +100,8 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var sizeAfter = GetSize();
             Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wsTask;
         }
 
         [Fact]
@@ -124,12 +125,12 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.StartAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -137,13 +138,14 @@ END
 
             while ((GetCount("EventLog") > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 1000, "Count is low");
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -191,12 +193,18 @@ END
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(true, 1, 2, cts.Token);
-            var startTime = DateTime.UtcNow;
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            {
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+            DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -210,7 +218,8 @@ END
 
             Assert.Equal(1, GetCount("NumberSearchParam")); // wd rolled forward transaction
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -221,12 +230,18 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(true, 1, 2, cts.Token);
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            {
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -247,7 +262,7 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
@@ -260,7 +275,7 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
@@ -273,13 +288,14 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(tran3.TransactionId, visibility);
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()

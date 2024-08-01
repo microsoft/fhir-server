@@ -16,13 +16,12 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>
+    internal sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
-        private CancellationToken _cancellationToken;
         private static readonly string[] Definitions = { "Defrag" };
 
         private readonly ISqlRetryService _sqlRetryService;
@@ -41,7 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         }
 
         internal DefragWatchdog()
-            : base()
         {
             // this is used to get param names for testing
         }
@@ -54,23 +52,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string IsEnabledId => $"{Name}.IsEnabled";
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-            await StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken);
-            await InitDefragParamsAsync();
-        }
+        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
 
-        protected override async Task ExecuteAsync()
+        public override bool AllowRebalance { get; internal set; } = false;
+
+        public override double PeriodSec { get; internal set; } = 24 * 3600;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            if (!await IsEnabledAsync(_cancellationToken))
+            if (!await IsEnabledAsync(cancellationToken))
             {
                 _logger.LogInformation("Watchdog is not enabled. Exiting...");
                 return;
             }
 
-            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
-            var job = await GetCoordinatorJobAsync(_cancellationToken);
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            (long groupId, long jobId, long version, int activeDefragItems) job = await GetCoordinatorJobAsync(cancellationToken);
 
             if (job.jobId == -1)
             {
@@ -122,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 TimeSpan.FromSeconds(_heartbeatPeriodSec),
                 cancellationTokenSource);
 
-            await CompleteJobAsync(job.jobId, job.version, false, _cancellationToken);
+            await CompleteJobAsync(job.jobId, job.version, false, cancellationToken);
         }
 
         private async Task ChangeDatabaseSettingsAsync(bool isOn, CancellationToken cancellationToken)
@@ -300,7 +297,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (int)value;
         }
 
-        private async Task InitDefragParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
+        protected override async Task InitAdditionalParamsAsync()
         {
             _logger.LogInformation("InitDefragParamsAsync starting...");
 

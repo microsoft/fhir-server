@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,15 +15,13 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class InvisibleHistoryCleanupWatchdog : Watchdog<InvisibleHistoryCleanupWatchdog>
+    internal sealed class InvisibleHistoryCleanupWatchdog : Watchdog<InvisibleHistoryCleanupWatchdog>
     {
-        private readonly SqlStoreClient<InvisibleHistoryCleanupWatchdog> _store;
+        private readonly SqlStoreClient _store;
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
-        private CancellationToken _cancellationToken;
-        private double _retentionPeriodDays = 7;
 
-        public InvisibleHistoryCleanupWatchdog(SqlStoreClient<InvisibleHistoryCleanupWatchdog> store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
+        public InvisibleHistoryCleanupWatchdog(SqlStoreClient store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
@@ -31,48 +30,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         }
 
         internal InvisibleHistoryCleanupWatchdog()
-            : base()
         {
             // this is used to get param names for testing
         }
 
-        internal string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";
+        public string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";
 
-        internal async Task StartAsync(CancellationToken cancellationToken, double? periodSec = null, double? leasePeriodSec = null, double? retentionPeriodDays = null)
-        {
-            _cancellationToken = cancellationToken;
-            await InitLastCleanedUpTransactionId();
-            await StartAsync(true, periodSec ?? 3600, leasePeriodSec ?? 2 * 3600, cancellationToken);
-            if (retentionPeriodDays.HasValue)
-            {
-                _retentionPeriodDays = retentionPeriodDays.Value;
-            }
-        }
+        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
 
-        protected override async Task ExecuteAsync()
+        public override bool AllowRebalance { get; internal set; } = true;
+
+        public override double PeriodSec { get; internal set; } = 3600;
+
+        public double RetentionPeriodDays { get; internal set; } = 7;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"{Name}: starting...");
-            var lastTranId = await GetLastCleanedUpTransactionId();
-            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
+            var lastTranId = await GetLastCleanedUpTransactionIdAsync(cancellationToken);
+            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
             _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");
 
-            var transToClean = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * _retentionPeriodDays));
+            IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)> transToClean =
+                await _store.GetTransactionsAsync(lastTranId, visibility, cancellationToken, DateTime.UtcNow.AddDays(-1 * RetentionPeriodDays));
+
             _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
 
             if (transToClean.Count == 0)
             {
-                _logger.LogInformation($"{Name}: completed. transactions=0.");
+                _logger.LogDebug($"{Name}: completed. transactions=0.");
                 return;
             }
 
             var totalRows = 0;
-            foreach (var tran in transToClean.Where(_ => !_.InvisibleHistoryRemovedDate.HasValue).OrderBy(_ => _.TransactionId))
+            foreach ((long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate) tran in
+                     transToClean.Where(x => !x.InvisibleHistoryRemovedDate.HasValue).OrderBy(x => x.TransactionId))
             {
-                var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, _cancellationToken);
+                var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, cancellationToken);
                 _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");
                 totalRows += rows;
 
-                await _store.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, _cancellationToken);
+                await _store.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, cancellationToken);
             }
 
             await UpdateLastCleanedUpTransactionId(transToClean.Max(_ => _.TransactionId));
@@ -80,21 +78,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger.LogInformation($"{Name}: completed. transactions={transToClean.Count} removed rows={totalRows}");
         }
 
-        private async Task<long> GetLastCleanedUpTransactionId()
+        private async Task<long> GetLastCleanedUpTransactionIdAsync(CancellationToken cancellationToken)
         {
-            return await GetLongParameterByIdAsync(LastCleanedUpTransactionId, _cancellationToken);
+            return await GetLongParameterByIdAsync(LastCleanedUpTransactionId, cancellationToken);
         }
 
-        private async Task InitLastCleanedUpTransactionId()
+        protected override async Task InitAdditionalParamsAsync()
         {
-            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"); // surrogate id for the past. does not matter.
+            await using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"); // surrogate id for the past. does not matter.
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
 
         private async Task UpdateLastCleanedUpTransactionId(long lastTranId)
         {
-            using var cmd = new SqlCommand("UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id");
+            await using var cmd = new SqlCommand("UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
             cmd.Parameters.AddWithValue("@LastTranId", lastTranId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);

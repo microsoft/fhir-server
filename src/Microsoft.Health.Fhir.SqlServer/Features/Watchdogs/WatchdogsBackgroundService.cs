@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
@@ -43,16 +45,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
 
-            await _defragWatchdog.StartAsync(stoppingToken);
-            await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
-            await _transactionWatchdog.Value.StartAsync(stoppingToken);
-            await _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken);
+            using var continuationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
 
-            while (true)
+            var tasks = new List<Task>
             {
-                stoppingToken.ThrowIfCancellationRequested();
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+            };
+
+            await Task.WhenAny(tasks);
+
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                // If any of the watchdogs fail, cancel all the other watchdogs
+                await continuationTokenSource.CancelAsync();
             }
+
+            await Task.WhenAll(tasks);
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -63,10 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public override void Dispose()
         {
-            _defragWatchdog.Dispose();
-            _cleanupEventLogWatchdog.Dispose();
             _transactionWatchdog.Dispose();
-            _invisibleHistoryCleanupWatchdog.Dispose();
             base.Dispose();
         }
     }

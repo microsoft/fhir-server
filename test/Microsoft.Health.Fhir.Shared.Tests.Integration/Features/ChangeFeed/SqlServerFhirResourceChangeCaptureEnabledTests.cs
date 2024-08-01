@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.NotNull(resourceChanges);
             Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == deserialized.VersionId && x.ResourceId == deserialized.Id));
 
-            var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion.ToString() == deserialized.VersionId && x.ResourceId == deserialized.Id).FirstOrDefault();
+            var resourceChangeData = resourceChanges.FirstOrDefault(x => x.ResourceVersion.ToString() == deserialized.VersionId && x.ResourceId == deserialized.Id);
 
             Assert.NotNull(resourceChangeData);
             Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
@@ -140,24 +140,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
-            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
-            var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+                RetentionPeriodDays = 2.0 / 24 / 3600,
+            };
+
+            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var startTime = DateTime.UtcNow;
+
+            while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             // create 2 records (1 invisible)
-            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization(), cancellationToken: cts.Token);
             Assert.Equal("1", create.VersionId);
             var newValue = Samples.GetDefaultOrganization().UpdateId(create.Id);
-            newValue.ToPoco<Hl7.Fhir.Model.Organization>().Text = new Hl7.Fhir.Model.Narrative { Status = Hl7.Fhir.Model.Narrative.NarrativeStatus.Generated, Div = $"<div>Whatever</div>" };
-            var update = await _fixture.Mediator.UpsertResourceAsync(newValue);
+            newValue.ToPoco<Hl7.Fhir.Model.Organization>().Text = new Hl7.Fhir.Model.Narrative { Status = Hl7.Fhir.Model.Narrative.NarrativeStatus.Generated, Div = "<div>Whatever</div>" };
+            var update = await _fixture.Mediator.UpsertResourceAsync(newValue, cancellationToken: cts.Token);
             Assert.Equal("2", update.RawResourceElement.VersionId);
 
             // check 2 records exist
@@ -166,14 +173,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
 
             // check only 1 record remains
-            startTime = DateTime.UtcNow;
-            while (await GetCount() != 1 && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            while (await GetCount() != 1 && !cts.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.Equal(1, await GetCount());
             DisableInvisibleHistory();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -188,20 +196,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
-            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
-            var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+                RetentionPeriodDays = 2.0 / 24 / 3600,
+            };
+
+            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var startTime = DateTime.UtcNow;
+            while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             // create 1 resource and hard delete it
-            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization(), CancellationToken.None);
             Assert.Equal("1", create.VersionId);
 
             var resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
@@ -218,14 +232,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
 
             // check no records
-            startTime = DateTime.UtcNow;
-            while (await GetCount() > 0 && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            while (await GetCount() > 0 && !cts.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.Equal(0, await GetCount());
             DisableInvisibleHistory();
+
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -364,7 +380,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.NotNull(resourceChanges);
             Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == deletedResourceKey.ResourceKey.VersionId && x.ResourceId == deletedResourceKey.ResourceKey.Id));
 
-            var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion.ToString() == deletedResourceKey.ResourceKey.VersionId && x.ResourceId == deletedResourceKey.ResourceKey.Id).FirstOrDefault();
+            var resourceChangeData = resourceChanges.FirstOrDefault(x => x.ResourceVersion.ToString() == deletedResourceKey.ResourceKey.VersionId && x.ResourceId == deletedResourceKey.ResourceKey.Id);
 
             Assert.NotNull(resourceChangeData);
             Assert.Equal(ResourceChangeTypeDeleted, resourceChangeData.ResourceChangeTypeId);
