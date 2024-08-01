@@ -3,12 +3,11 @@
   <PropertyGroup>
     <UserSecretsId>29a71f18-2146-4ff0-a511-da3cf615d951</UserSecretsId>
     <RootNamespace>Microsoft.Health.Fhir.Web</RootNamespace>
-    <WarningsNotAsErrors>NU1902</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
-    <PackageReference Include="IdentityServer4" />
+    <PackageReference Include="IdentityServer4" NoWarn="NU1902" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
