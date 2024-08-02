@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                     continue;
                 }
 
-                var chunk = resourceKeys
+                var chunk = channelResources
                     .Chunk(sub.Channel.MaxCount);
 
                 foreach (var batch in chunk)

@@ -80,11 +80,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 var resourceWrappers = new List<ResourceWrapper>();
                 var allResources = new List<ResourceElement>
                 {
-                    Samples.GetDefaultPatient().UpdateId("1"),
-
-                    // Samples.GetJsonSample("PatientWithMinimalData").UpdateId("2"),
-                    // Samples.GetJsonSample("Observation-For-Patient-f001").UpdateId("3"),
-                    // Samples.GetJsonSample("ObservervationWithTemperature").UpdateId("4"),
+                    Samples.GetJsonSample("Patient").UpdateId("1"),
+                    Samples.GetJsonSample("PatientWithMinimalData").UpdateId("2"),
+                    Samples.GetJsonSample("Observation-For-Patient-f001").UpdateId("3"),
+                    Samples.GetJsonSample("Practitioner").UpdateId("4"),
                 };
 
                 foreach (var resource in allResources)
@@ -122,10 +121,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             return fhirTypedElementToSearchValueConverterManager;
         }
 
-        private bool ContainsResourcesWithIds(string[] resources, string[] expectedIds)
+        private bool ContainsResourcesWithIds(string[] definitions, string[] expectedIds)
         {
-            var deserializedResources = resources.Select(r => JsonConvert.DeserializeObject<SubscriptionJobDefinition>(r)).ToArray();
-            return resources.Length == expectedIds.Length && expectedIds.All(id => deserializedResources.Any(x => x.ResourceReferences[0].Id == id));
+            var deserializedDefinitions = definitions.Select(r => JsonConvert.DeserializeObject<SubscriptionJobDefinition>(r)).ToArray();
+            var resources = deserializedDefinitions.SelectMany(x => x.ResourceReferences).ToArray();
+            return resources.Length == expectedIds.Length && expectedIds.All(id => resources.Any(x => x.Id == id));
         }
 
         [Fact]
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
             await orchestrator.ExecuteAsync(jobInfo, default);
 
-            var expectedIds = new[] { "1" };
+            var expectedIds = new[] { "1", "2" };
             await _mockQueueClient.Received().EnqueueAsync(
                 (byte)QueueType.Subscriptions,
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
