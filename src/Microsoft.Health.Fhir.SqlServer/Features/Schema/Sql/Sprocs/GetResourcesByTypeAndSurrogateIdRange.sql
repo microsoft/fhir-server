@@ -42,14 +42,14 @@ BEGIN TRY
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
   END
 
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
+  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, TransactionId, OffsetInFile
     FROM dbo.Resource
     WHERE ResourceTypeId = @ResourceTypeId 
       AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
       AND (IsHistory = 0 OR @IncludeHistory = 1)
       AND (IsDeleted = 0 OR @IncludeDeleted = 1)
   UNION ALL
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
+  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, TransactionId, OffsetInFile 
     FROM @SurrogateIds
          JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
     WHERE IsHistory = 1

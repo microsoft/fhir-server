@@ -10,10 +10,12 @@ CREATE TYPE dbo.ResourceList AS TABLE
    ,IsDeleted            bit                 NOT NULL
    ,IsHistory            bit                 NOT NULL
    ,KeepHistory          bit                 NOT NULL
-   ,RawResource          varbinary(max)      NOT NULL
+   ,RawResource          varbinary(max)      NULL
    ,IsRawResourceMetaSet bit                 NOT NULL
    ,RequestMethod        varchar(10)         NULL
    ,SearchParamHash      varchar(64)         NULL
+   ,TransactionId        bigint              NULL
+   ,OffsetInFile         int                 NULL
 
     PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
    ,UNIQUE (ResourceTypeId, ResourceId, Version)
