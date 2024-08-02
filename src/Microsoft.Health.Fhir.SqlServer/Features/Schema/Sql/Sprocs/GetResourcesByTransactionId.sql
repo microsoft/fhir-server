@@ -34,6 +34,8 @@ BEGIN TRY
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,RequestMethod
+          ,TransactionId
+          ,OffsetInFile
       FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
            JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
       WHERE IsHistory = 0 OR @IncludeHistory = 1

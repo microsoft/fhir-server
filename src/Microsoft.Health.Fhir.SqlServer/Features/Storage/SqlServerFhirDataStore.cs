@@ -147,9 +147,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (string.IsNullOrEmpty(_warehouseConnectionString))
                         {
                             var warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
-                            var warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
-                            var warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
-                            _warehouseConnectionString = $"server={_warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
+                            if (!string.IsNullOrEmpty(warehouseDatabase))
+                            {
+                                var warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
+                                var warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
+                                _warehouseConnectionString = $"server={_warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
+                            }
                         }
 
                         _warehouseIsSet = true;
@@ -242,14 +245,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
 
+        internal static BlobContainerClient AdlsClient => _adlsClient;
+
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
 #pragma warning disable CA2016
-        private async Task PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        private async Task PutRawResourcesToAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
-            var blobName = GetBlobName(transactionId, null, "ndjson");
+            var blobName = GetBlobNameForCsv(transactionId, null, "ndjson");
         retry:
             try
             {
@@ -258,7 +263,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var offset = 0;
                 foreach (var resource in resources)
                 {
-                    //// TODO: Add later resource.OffsetInFile = offset;
+                    resource.OffsetInFile = offset;
                     var line = resource.ResourceWrapper.RawResource.Data;
                     offset += Encoding.UTF8.GetByteCount(line) + eol;
                     await writer.WriteLineAsync(line);
@@ -285,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var start = DateTime.UtcNow;
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
-            var blobName = GetBlobName(transactionId, suffix, "csv");
+            var blobName = GetBlobNameForCsv(transactionId, suffix, "csv");
             var count = 0;
         retry:
             try
@@ -315,11 +320,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await StoreClient.TryLogEvent("PutStringsToAdls", "Warn", $"blob={blobName} lines={count}", start, cancellationToken);
         }
 
-        private static string GetBlobName(long transactionId, string suffix, string ext)
+        private static string GetBlobNameForCsv(long transactionId, string suffix, string ext)
         {
             return suffix == null
                           ? $"tran-{transactionId}.{ext}"
                           : $"tran-{transactionId}-{suffix}.{ext}";
+        }
+
+        internal static string GetBlobNameForRaw(long transactionId)
+        {
+            return $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson";
+        }
+
+        private static string GetPermanentHashCode(long tr)
+        {
+            var hashCode = 0;
+            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
         }
 
         private BlobContainerClient GetAdlsContainer() // creates if does not exist
@@ -918,8 +939,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+            if (_adlsClient != null)
+            {
+                await PutRawResourcesToAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+            }
+
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
-            if (_adlsAccountName == null)
+            if (_warehouseConnectionString == null)
             {
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));

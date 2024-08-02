@@ -2763,7 +2763,9 @@ BEGIN TRY
                RawResource,
                IsRawResourceMetaSet,
                SearchParamHash,
-               RequestMethod
+               RequestMethod,
+               TransactionId,
+               OffsetInFile
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @Keys) AS A
                INNER JOIN
@@ -2979,7 +2981,9 @@ BEGIN TRY
            A.ResourceSurrogateId,
            CASE WHEN D.Version IS NOT NULL THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex ELSE isnull(M.Version, 0) - ResourceIndex END AS Version,
            isnull(D.Version, 0) AS MatchedVersion,
-           D.RawResource AS MatchedRawResource
+           D.RawResource AS MatchedRawResource,
+           D.TransactionId AS MatchedTransactionId,
+           D.OffsetInFile AS MatchedOffsetInFile
     FROM   (SELECT TOP (@DummyTop) *,
                                    CONVERT (INT, row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) AS ResourceIndex
             FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
