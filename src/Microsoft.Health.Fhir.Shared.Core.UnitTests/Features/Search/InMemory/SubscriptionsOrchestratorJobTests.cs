@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 var allResources = new List<ResourceElement>
                 {
                     Samples.GetJsonSample("Patient").UpdateId("1"),
-                    Samples.GetJsonSample("PatientWithMinimalData").UpdateId("2"),
+                    Samples.GetJsonSample("Patient-f001").UpdateId("2"),
                     Samples.GetJsonSample("Observation-For-Patient-f001").UpdateId("3"),
                     Samples.GetJsonSample("Practitioner").UpdateId("4"),
                 };
@@ -102,15 +102,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             _searchOptionsFactory = new SearchOptionsFactory(
                 _expressionParser, () => manager, options, fhirRequestContextAccessor, Substitute.For<ISortingValidator>(),  new ExpressionAccessControl(fhirRequestContextAccessor), NullLogger<SearchOptionsFactory>.Instance);
 
-            _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
-            {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatient"));
-                var subscriptionInfoList = new List<SubscriptionInfo>
-                {
-                    subscriptionInfo,
-                };
-                return subscriptionInfoList.AsReadOnly();
-            });
             var fhirJsonParser = new FhirJsonParser();
             _resourceDeserializer = Deserializers.ResourceDeserializer;
         }
@@ -131,12 +122,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         [Fact]
         public async Task GivenASubscriptionOrchestrator_WhenExecuting_ThenASubscriptionProcessingJobIsQueued()
         {
+            _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatient"));
+                var subscriptionInfoList = new List<SubscriptionInfo>
+                {
+                    subscriptionInfo,
+                };
+                return subscriptionInfoList.AsReadOnly();
+            });
+
             var orchestrator = new SubscriptionsOrchestratorJob(_mockQueueClient, _transactionDataStore, _searchOptionsFactory, _queryStringParser, _subscriptionManager, _resourceDeserializer, _searchIndexer);
             var definition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator) { TransactionId = 1, TypeId = 1 };
             var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
             await orchestrator.ExecuteAsync(jobInfo, default);
 
             var expectedIds = new[] { "1", "2" };
+            await _mockQueueClient.Received().EnqueueAsync(
+                (byte)QueueType.Subscriptions,
+                Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
+                1,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenASubscriptionOrchestrator_WhenExecuting1_ThenASubscriptionProcessingJobIsQueued()
+        {
+            _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatientName"));
+                var subscriptionInfoList = new List<SubscriptionInfo>
+                {
+                    subscriptionInfo,
+                };
+                return subscriptionInfoList.AsReadOnly();
+            });
+
+            var orchestrator = new SubscriptionsOrchestratorJob(_mockQueueClient, _transactionDataStore, _searchOptionsFactory, _queryStringParser, _subscriptionManager, _resourceDeserializer, _searchIndexer);
+            var definition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator) { TransactionId = 1, TypeId = 1 };
+            var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
+            await orchestrator.ExecuteAsync(jobInfo, default);
+
+            var expectedIds = new[] { "1"};
             await _mockQueueClient.Received().EnqueueAsync(
                 (byte)QueueType.Subscriptions,
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),

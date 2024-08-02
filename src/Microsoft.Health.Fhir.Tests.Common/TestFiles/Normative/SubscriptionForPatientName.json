@@ -12,7 +12,7 @@
       "extension": [
         {
           "url": "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria",
-          "valueString": "Patient?name=John"
+          "valueString": "Patient?name=Peter"
         }
       ]
     },
