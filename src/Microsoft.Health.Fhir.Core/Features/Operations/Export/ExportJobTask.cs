@@ -553,7 +553,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    true,
+                    false,
                     cancellationToken);
             }
 
