@@ -2,6 +2,8 @@ IF object_id('MergeResources') IS NOT NULL DROP PROCEDURE dbo.MergeResources
 GO
 IF object_id('UpdateResourceSearchParams') IS NOT NULL DROP PROCEDURE dbo.UpdateResourceSearchParams
 GO
+IF object_id('CaptureResourceIdsForChanges') IS NOT NULL DROP PROCEDURE dbo.CaptureResourceIdsForChanges
+GO
 IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList') DROP TYPE dbo.ResourceList
 GO
 CREATE TYPE dbo.ResourceList AS TABLE
@@ -29,6 +31,16 @@ IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource')
 GO
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'RawResource' AND is_nullable = 0)
   ALTER TABLE Resource ALTER COLUMN RawResource varbinary(max) NULL
+GO
+CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
+AS
+set nocount on
+-- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
+INSERT INTO dbo.ResourceChangeData 
+       ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
+  SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
+    FROM @Resources
+    WHERE IsHistory = 0
 GO
 CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
