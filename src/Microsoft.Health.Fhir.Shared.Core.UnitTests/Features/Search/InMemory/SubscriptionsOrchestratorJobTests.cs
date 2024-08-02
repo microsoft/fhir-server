@@ -78,10 +78,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             _transactionDataStore.GetResourcesByTransactionIdAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 var resourceWrappers = new List<ResourceWrapper>();
-                var resource = Samples.GetDefaultPatient().UpdateId("123");
-                var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
-                ResourceWrapper resourceWrapper = new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
-                resourceWrappers.Add(resourceWrapper);
+                var allResources = new List<ResourceElement>
+                {
+                    Samples.GetDefaultPatient().UpdateId("1"),
+
+                    // Samples.GetJsonSample("PatientWithMinimalData").UpdateId("2"),
+                    // Samples.GetJsonSample("Observation-For-Patient-f001").UpdateId("3"),
+                    // Samples.GetJsonSample("ObservervationWithTemperature").UpdateId("4"),
+                };
+
+                foreach (var resource in allResources)
+                {
+                    var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+                    var resourceWrapper = new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+                    resourceWrappers.Add(resourceWrapper);
+                }
+
                 return resourceWrappers.AsReadOnly();
             });
             _queryStringParser = new TestQueryStringParser();
@@ -93,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
 
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("Subscription"));
+                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatient"));
                 var subscriptionInfoList = new List<SubscriptionInfo>
                 {
                     subscriptionInfo,
@@ -110,15 +122,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             return fhirTypedElementToSearchValueConverterManager;
         }
 
+        private bool ContainsResourcesWithIds(string[] resources, string[] expectedIds)
+        {
+            var deserializedResources = resources.Select(r => JsonConvert.DeserializeObject<SubscriptionJobDefinition>(r)).ToArray();
+            return resources.Length == expectedIds.Length && expectedIds.All(id => deserializedResources.Any(x => x.ResourceReferences[0].Id == id));
+        }
+
         [Fact]
         public async Task GivenASubscriptionOrchestrator_WhenExecuting_ThenASubscriptionProcessingJobIsQueued()
         {
             var orchestrator = new SubscriptionsOrchestratorJob(_mockQueueClient, _transactionDataStore, _searchOptionsFactory, _queryStringParser, _subscriptionManager, _resourceDeserializer, _searchIndexer);
             var definition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator) { TransactionId = 1, TypeId = 1 };
             var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
-
             await orchestrator.ExecuteAsync(jobInfo, default);
-            await _mockQueueClient.Received().EnqueueAsync((byte)QueueType.Subscriptions, Arg.Is<string[]>(x => x.Length == 1), 1, Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+
+            var expectedIds = new[] { "1" };
+            await _mockQueueClient.Received().EnqueueAsync(
+                (byte)QueueType.Subscriptions,
+                Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
+                1,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }
