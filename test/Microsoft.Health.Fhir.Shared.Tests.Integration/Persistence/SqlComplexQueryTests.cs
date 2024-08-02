@@ -48,55 +48,60 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
-            SqlServerSearchService.ResetReuseQueryPlans();
-            await DisableResuseQueryPlans();
-            await EnableResuseQueryPlans();
-            await ResetQueryStore();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
-            //// values are different but plans are reused
-            await CheckQueryStore(2, 1);
+            await SetGranularQueryStore();
 
-            SqlServerSearchService.ResetReuseQueryPlans();
-            await DisableResuseQueryPlans();
             await ResetQueryStore();
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await Task.Delay(1000);
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
             //// values are different and plans are NOT reused
             await CheckQueryStore(2, 2);
 
-            SqlServerSearchService.ResetReuseQueryPlans();
-            await DisableResuseQueryPlans();
             await ResetQueryStore();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
             //// values are same and plans are reused
             await CheckQueryStore(2, 1);
+
+            await EnableResuseQueryPlans(); //// new behavior
+            await ResetQueryStore();
+            SqlServerSearchService.ResetReuseQueryPlans();
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
+            await Task.Delay(1000);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City4")], CancellationToken.None);
+            //// values are different but plans are reused
+            await CheckQueryStore(4, 1);
         }
 
         private async Task CheckQueryStore(int expected_executions, int expected_compiles)
         {
+            await Task.Delay(1000);
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             using var cmd = new SqlCommand(
                 @"
-DECLARE @count_executions int
-       ,@count_compiles int
+DECLARE @executions int
+       ,@compiles int
        ,@msg varchar(1000)
 BEGIN TRY
-  SELECT @count_executions = sum(count_executions), @count_compiles = sum(q.count_compiles)
+  SELECT @executions = sum(count_executions), @compiles = sum(q.count_compiles)
     FROM sys.query_store_runtime_stats s
          JOIN sys.query_store_plan p on p.plan_id = s.plan_id 
          JOIN sys.query_store_query q on q.query_id = p.query_id
          JOIN sys.query_store_query_text qt on qt.query_text_id = q.query_text_id
     WHERE query_sql_text LIKE '%StringSearchParam%' AND query_sql_text NOT LIKE '%sys.query_store_query%'
-  IF @expected_executions <> @count_executions
+  IF @expected_executions <> @executions
   BEGIN
-    SET @msg = '@expected_executions='+convert(varchar,@expected_executions)+' <> @count_executions='+convert(varchar,@count_executions)
+    SET @msg = '@expected_executions='+convert(varchar,@expected_executions)+' <> @executions='+convert(varchar,@executions)
     RAISERROR(@msg,18,127)
   END
-  IF @expected_compiles <> @count_compiles
+  IF @expected_compiles <> @compiles
   BEGIN
-    SET @msg = '@expected_compiles='+convert(varchar,@expected_compiles)+' <> @count_compiles='+convert(varchar,@count_compiles)
+    SET @msg = '@expected_compiles='+convert(varchar,@expected_compiles)+' <> @compiles='+convert(varchar,@compiles)
     RAISERROR(@msg,18,127)
   END
 END TRY
@@ -129,14 +134,21 @@ END CATCH
             cmd.ExecuteNonQuery();
         }
 
+        private async Task SetGranularQueryStore()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            conn.Open();
+            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
+            cmd.ExecuteNonQuery();
+        }
+
         private async Task ResetQueryStore()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             conn.Open();
             using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE CLEAR')", conn);
             cmd.ExecuteNonQuery();
-            using var cmd2 = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
-            cmd2.ExecuteNonQuery();
+            await Task.Delay(1000);
         }
 
         [SkippableFact]
