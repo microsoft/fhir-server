@@ -128,10 +128,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var resourceId = reader.Read(table.ResourceId, 1);
                     var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
                     var version = reader.Read(table.Version, 3);
-                    var matchedVersion = reader.Read(table.Version, 4).ToString();
-                    var matchedTransactionId = reader.Read(table.TransactionId, 6);
-                    var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
-                    var matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
+                    string matchedVersion = null;
+                    RawResource matchedRawResource = null;
+                    if (version == 0) // there is a match
+                    {
+                        var matchedTransactionId = reader.Read(table.TransactionId, 6);
+                        var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
+                        matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
+                    }
 
                     return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedRawResource));
                 },
@@ -142,7 +146,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static string ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index, long? transactionId, int? offsetInFile)
         {
-            var rawResourceBytes = reader.GetSqlBytes(index).Value;
+            var bytes = reader.GetSqlBytes(index);
+            var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             string rawResource;
             if (offsetInFile.HasValue) // raw in adls
             {
@@ -179,7 +184,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var transactionId = reader.Read(VLatest.Resource.TransactionId, readRequestMethod ? 10 : 9);
             var offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10);
-            var rawResource = ReadRawResource(reader, decompress, 6, transactionId, offsetInFile);
+            var rawResource = ReadRawResource(reader, decompress, 6, transactionId.Value, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
