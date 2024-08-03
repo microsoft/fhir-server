@@ -75,16 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(
-                                _sqlRetryService,
-                                (reader) =>
-                                    {
-                                        return ReadResourceWrapper(reader, false, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName);
-                                    },
-                                _logger,
-                                cancellationToken,
-                                isReadOnly: isReadOnly))
-                            .Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -132,6 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     RawResource matchedRawResource = null;
                     if (version == 0) // there is a match
                     {
+                        matchedVersion = reader.Read(table.Version, 4).ToString();
                         var matchedTransactionId = reader.Read(table.TransactionId, 6);
                         var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
                         matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
