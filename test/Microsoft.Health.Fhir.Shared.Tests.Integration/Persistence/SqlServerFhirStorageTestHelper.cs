@@ -67,7 +67,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
-            string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
+            var builder = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName };
+            var isLocal = builder.DataSource.Contains("local", StringComparison.OrdinalIgnoreCase);
+            var testConnectionString = builder.ToString();
 
             await _dbSetupRetryPolicy.ExecuteAsync(
                 async () =>
@@ -109,6 +111,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await sqlCommand.ExecuteScalarAsync(cancellationToken);
                     await connection.CloseAsync();
                 });
+
+            if (isLocal) // don't go to AD for local SQL
+            {
+                await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
+                await conn.OpenAsync(cancellationToken);
+                using var cmd = new SqlCommand("EXECUTE sp_changedbowner 'sa'", conn);
+                cmd.ExecuteNonQuery();
+            }
 
             schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
