@@ -14,6 +14,7 @@
     HistoryTransactionId        bigint                  NULL,     -- used by CRUD operation that moved resource version in invisible state 
     OffsetInFile                int                     NULL
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+   ,CONSTRAINT CH_Resource_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )

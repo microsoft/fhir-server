@@ -29,8 +29,14 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'OffsetInFile')
   ALTER TABLE Resource ADD OffsetInFile int NULL
 GO
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'RawResource' AND is_nullable = 0)
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'RawResource' AND is_nullable = 0)
   ALTER TABLE Resource ALTER COLUMN RawResource varbinary(max) NULL
+GO
+IF object_id('CH_Resource_RawResource_Length') IS NOT NULL
+  ALTER TABLE Resource DROP CONSTRAINT CH_Resource_RawResource_Length
+GO
+IF object_id('CH_Resource_RawResource_OffsetInFile') IS NULL
+  ALTER TABLE Resource ADD CONSTRAINT CH_Resource_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 GO
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
 AS

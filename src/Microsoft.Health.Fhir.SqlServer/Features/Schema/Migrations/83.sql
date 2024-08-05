@@ -598,7 +598,9 @@ CREATE TABLE dbo.Resource (
     SearchParamHash      VARCHAR (64)    NULL,
     TransactionId        BIGINT          NULL,
     HistoryTransactionId BIGINT          NULL,
-    OffsetInFile         INT             NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    OffsetInFile         INT             NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT CH_Resource_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL
+                                                           OR OffsetInFile IS NOT NULL)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
