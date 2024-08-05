@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
             Index = new ConcurrentDictionary<string, List<(ResourceKey, IReadOnlyCollection<SearchIndexEntry>)>>();
         }
 
-        public ConcurrentDictionary<string, List<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)>> Index
+        internal ConcurrentDictionary<string, List<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)>> Index
         {
             get;
         }
