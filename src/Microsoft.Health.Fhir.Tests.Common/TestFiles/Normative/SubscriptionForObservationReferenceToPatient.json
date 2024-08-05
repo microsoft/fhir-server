@@ -6,13 +6,13 @@
     },
     "status": "requested",
     "end": "2031-01-01T12:00:00",
-    "reason": "Test subscription based on transactions, filtered by Patient name",
+    "reason": "Test subscription based on transactions, filtered by Observation with reference to specific patient",
     "criteria" : "http://azurehealthcareapis.com/data-extentions/SubscriptionTopics/transactions",
     "_criteria": {
       "extension": [
         {
           "url": "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria",
-          "valueString": "Patient?name=Peter"
+          "valueString": "Observation?reference=Patient/f001"
         }
       ]
     },

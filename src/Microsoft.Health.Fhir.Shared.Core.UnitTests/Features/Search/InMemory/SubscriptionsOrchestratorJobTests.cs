@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -169,6 +170,61 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             await _mockQueueClient.Received().EnqueueAsync(
                 (byte)QueueType.Subscriptions,
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
+                1,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenASubscriptionOrchestrator_WhenExecuting2_ThenASubscriptionProcessingJobIsQueued()
+        {
+            _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForObservationReferenceToPatient"));
+                var subscriptionInfoList = new List<SubscriptionInfo>
+                {
+                    subscriptionInfo,
+                };
+                return subscriptionInfoList.AsReadOnly();
+            });
+
+            var orchestrator = new SubscriptionsOrchestratorJob(_mockQueueClient, _transactionDataStore, _searchOptionsFactory, _queryStringParser, _subscriptionManager, _resourceDeserializer, _searchIndexer);
+            var definition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator) { TransactionId = 1, TypeId = 1 };
+            var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
+            await orchestrator.ExecuteAsync(jobInfo, default);
+
+            var expectedIds = new[] { "3" };
+            await _mockQueueClient.Received().EnqueueAsync(
+                (byte)QueueType.Subscriptions,
+                Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
+                1,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenASubscriptionOrchestrator_WhenExecuting3_ThenASubscriptionProcessingJobIsQueued()
+        {
+            _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForEncounter"));
+                var subscriptionInfoList = new List<SubscriptionInfo>
+                {
+                    subscriptionInfo,
+                };
+                return subscriptionInfoList.AsReadOnly();
+            });
+
+            var orchestrator = new SubscriptionsOrchestratorJob(_mockQueueClient, _transactionDataStore, _searchOptionsFactory, _queryStringParser, _subscriptionManager, _resourceDeserializer, _searchIndexer);
+            var definition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator) { TransactionId = 1, TypeId = 1 };
+            var jobInfo = new JobInfo() { Status = JobStatus.Created, Definition = JsonConvert.SerializeObject(definition), GroupId = 1 };
+            await orchestrator.ExecuteAsync(jobInfo, default);
+
+            await _mockQueueClient.DidNotReceive().EnqueueAsync(
+                (byte)QueueType.Subscriptions,
+                Arg.Any<string[]>(),
                 1,
                 Arg.Any<bool>(),
                 Arg.Any<bool>(),
