@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlTypes;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
-        private const string _invisibleResource = " ";
+        internal const string InvisibleResource = " ";
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != InvisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -124,9 +125,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (version == 0) // there is a match
                     {
                         matchedVersion = reader.Read(table.Version, 4).ToString();
+                        var bytes = reader.GetSqlBytes(5);
                         var matchedTransactionId = reader.Read(table.TransactionId, 6);
                         var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
-                        matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
+                        matchedRawResource = new RawResource(ReadRawResource(bytes, decompress, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
                     }
 
                     return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedRawResource));
@@ -136,18 +138,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return resources;
         }
 
-        private static string ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index, long? transactionId, int? offsetInFile)
+        internal static string ReadRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress, long? transactionId, int? offsetInFile)
         {
-            var bytes = reader.GetSqlBytes(index);
             var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             string rawResource;
-            if (offsetInFile.HasValue) // raw in adls
+            if (rawResourceBytes == null) // raw in adls
             {
                 rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value);
             }
             else if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
-                rawResource = _invisibleResource;
+                rawResource = InvisibleResource;
             }
             else
             {
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             //// ignore invisible resources
-            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != InvisibleResource).ToList();
         }
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, BlobContainerClient adlsClient, Func<short, string> getResourceTypeName)
@@ -174,9 +175,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var version = reader.Read(VLatest.Resource.Version, 3);
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
+            var bytes = reader.GetSqlBytes(6);
             var transactionId = reader.Read(VLatest.Resource.TransactionId, readRequestMethod ? 10 : 9);
             var offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10);
-            var rawResource = ReadRawResource(reader, decompress, 6, transactionId.Value, offsetInFile);
+            var rawResource = ReadRawResource(bytes, decompress, transactionId.Value, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;

@@ -220,13 +220,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!_adlsIsSet)
                     {
                         _adlsAccountName = GetStorageParameter("MergeResources.AdlsAccountName");
+                        _adlsConnectionString = GetStorageParameter("MergeResources.AdlsConnectionString");
                         if (_adlsAccountName != null)
                         {
                             _adlsAccountKey = GetStorageParameter("MergeResources.AdlsAccountKey");
                             _adlsConnectionString = $"DefaultEndpointsProtocol=https;AccountName={_adlsAccountName};AccountKey={_adlsAccountKey};EndpointSuffix=core.windows.net";
-                            var db = _sqlRetryService.Database.Length < 50 ? _sqlRetryService.Database : _sqlRetryService.Database.Substring(0, 50);
-                            _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
                         }
+
+                        var db = _sqlRetryService.Database.Length < 50 ? _sqlRetryService.Database : _sqlRetryService.Database.Substring(0, 50);
+                        _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
 
                         var uriStr = GetStorageParameter("MergeResources.AdlsAccountUri");
                         if (uriStr != null)
@@ -250,11 +252,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
 #pragma warning disable CA2016
-        private async Task PutRawResourcesToAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
-            var blobName = GetBlobNameForCsv(transactionId, null, "ndjson");
+            var blobName = GetBlobNameForRaw(transactionId);
         retry:
             try
             {
@@ -273,7 +275,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (Exception e)
             {
-                await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Error", e.ToString(), start, cancellationToken);
+                await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", e.ToString(), start, cancellationToken);
                 if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                 {
                     await Task.Delay(1000, cancellationToken);
@@ -347,9 +349,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                var blobServiceClient = _adlsAccountUri != null
+                var blobServiceClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
                                       ? new BlobServiceClient(_adlsAccountUri, new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
-                                      : new BlobServiceClient(_adlsConnectionString);
+                                      : _adlsAccountUri != null ? new BlobServiceClient(_adlsAccountUri) : new BlobServiceClient(_adlsConnectionString);
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
 
                 if (!blobContainerClient.Exists())
@@ -941,7 +943,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             if (_adlsClient != null)
             {
-                await PutRawResourcesToAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+                await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));

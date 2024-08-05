@@ -124,7 +124,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
+            if (isLocal)
+            {
+                await EnableRawResourcesInAdls(databaseName);
+            }
+
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
+        }
+
+        public async Task EnableRawResourcesInAdls(string databaseName)
+        {
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
+                await connection.OpenAsync(CancellationToken.None);
+                await using SqlCommand sqlCommand = connection.CreateCommand();
+                sqlCommand.CommandText = @"
+INSERT INTO Parameters (Id,Char) SELECT 'MergeResources.AdlsConnectionString','UseDevelopmentStorage=true'
+                    ";
+                await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
+                await connection.CloseAsync();
+            });
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
