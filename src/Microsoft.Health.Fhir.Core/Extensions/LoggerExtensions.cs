@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
@@ -17,9 +18,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class LoggerExtensions
     {
-        public static void LogVerbose(this ILogger logger, string message, IParameterStore store, params object?[] args)
+#pragma warning disable CA1068 // CancellationToken parameters must come last. Cancellation token being last breaks up the readability of the command by seperating the message and its args.
+        public static void LogVerbose(this ILogger logger, IParameterStore store, CancellationToken cancellationToken, string message, params object?[] args)
+#pragma warning restore CA1068 // CancellationToken parameters must come last
         {
-            if (store.GetParameter("LogLevel").CharValue == "Verbose")
+            var logParameterTask = store.GetParameter("LogLevel", cancellationToken);
+            logParameterTask.RunSynchronously();
+
+#pragma warning disable CA1849 // Runs synchronously to allow for the logger to be used in a synchronous context.
+            if (logParameterTask.Result.CharValue == "Verbose")
+#pragma warning restore CA1068
             {
                 logger.LogInformation(message, args);
             }
