@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         }
 
         [Fact]
-        public async Task GivenASubscriptionOrchestrator_WhenExecuting_ThenASubscriptionProcessingJobIsQueued()
+        public async Task GivenASubscriptionOrchestrator_WhenPatientResourceRecieved_ThenCorrectResourcesQueued()
         {
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         }
 
         [Fact]
-        public async Task GivenASubscriptionOrchestrator_WhenExecuting1_ThenASubscriptionProcessingJobIsQueued()
+        public async Task GivenANameFilterSubscription_WhenResourcesPosted_ThenCorrectResourcesQueued()
         {
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         }
 
         [Fact]
-        public async Task GivenASubscriptionOrchestrator_WhenExecuting2_ThenASubscriptionProcessingJobIsQueued()
+        public async Task GivenAReferenceFilterSubscription_WhenResourcesPosted_ThenCorrectResourcesQueued()
         {
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         }
 
         [Fact]
-        public async Task GivenASubscriptionOrchestrator_WhenExecuting3_ThenASubscriptionProcessingJobIsQueued()
+        public async Task GivenEncounterFilterSubscription_WhenNonEncounterResourcesPosted_ThenNoResourcesQueued()
         {
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
