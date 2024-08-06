@@ -444,14 +444,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                if (_exportJobRecord.ExportType == ExportJobType.All)
-                {
-                    await SearchForSystemExport(exportJobConfiguration, progress, null, queryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
-                }
-                else
-                {
-                    await SearchForPatientAndGroupExport(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
-                }
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
             }
         }
 
@@ -470,20 +463,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            if (_exportJobRecord.ExportType == ExportJobType.All)
-            {
-                await SearchForSystemExport(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
-            }
-            else
-            {
-                await SearchForPatientAndGroupExport(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
-            }
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task SearchForPatientAndGroupExport(
+        private async Task SearchWithFilter(
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             string resourceType,
@@ -503,6 +489,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Search and process the results.
                 switch (_exportJobRecord.ExportType)
                 {
+                    case ExportJobType.All:
                     case ExportJobType.Patient:
                         using (IScoped<ISearchService> searchService = _searchServiceFactory())
                         {
@@ -524,30 +511,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         break;
                 }
 
-                uint resultIndex = 0;
-                foreach (SearchResultEntry result in searchResult.Results)
+                if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
-                    // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
-                    // This assumes the order of the search results is the same every time the same search is performed.
-                    if (progress.SubSearch != null && result.Resource.ResourceId != progress.SubSearch.TriggeringResourceId)
+                    uint resultIndex = 0;
+                    foreach (SearchResultEntry result in searchResult.Results)
                     {
+                        // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
+                        // This assumes the order of the search results is the same every time the same search is performed.
+                        if (progress.SubSearch != null && result.Resource.ResourceId != progress.SubSearch.TriggeringResourceId)
+                        {
+                            resultIndex++;
+                            continue;
+                        }
+
+                        if (progress.SubSearch == null)
+                        {
+                            progress.NewSubSearch(result.Resource.ResourceId);
+                        }
+
+                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
                         resultIndex++;
-                        continue;
+
+                        progress.ClearSubSearch();
                     }
-
-                    if (progress.SubSearch == null)
-                    {
-                        progress.NewSubSearch(result.Resource.ResourceId);
-                    }
-
-                    await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
-                    resultIndex++;
-
-                    progress.ClearSubSearch();
                 }
 
                 // Skips processing top level search results if the job only requested resources from the compartments of patients, but didn't want the patients.
-                if (string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
+                if (_exportJobRecord.ExportType == ExportJobType.All
+                    || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
                     ProcessSearchResults(searchResult.Results, anonymizer);
@@ -562,75 +553,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    false,
-                    cancellationToken);
-            }
-
-            // Commit one last time for any pending changes.
-            _fileManager.CommitFiles();
-        }
-
-        private async Task SearchForSystemExport(
-            ExportJobConfiguration exportJobConfiguration,
-            ExportJobProgress progress,
-            string resourceType,
-            List<Tuple<string, string>> queryParametersList,
-            ResourceVersionType resourceVersionTypes,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
-        {
-            string continuationToken = null;
-
-            var maxCount = _exportJobRecord.MaximumNumberOfResourcesPerQuery;
-            maxCount = maxCount / 10 > 100 ? (maxCount / 10) + 1 : 100;
-
-            // Process the export if:
-            // 1. There is continuation token, which means there is more resource to be exported.
-            // 2. There is no continuation token but the page is 0, which means it's the initial export.
-            while (progress.ContinuationToken != null || progress.Page == 0)
-            {
-                // This needs to be recreated each while loop because the ProcessProgressChange edits the queryParametersList by reference.
-                List<Tuple<string, string>> smallCountQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                smallCountQueryParametersList.RemoveAll(x => x.Item1 == KnownQueryParameterNames.Count);
-                smallCountQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, maxCount.ToString(CultureInfo.InvariantCulture)));
-
-                // This isn't working because the export time travel in SqlServerSearchService is preventing continuation tokens from being returned.
-                for (int i = 0; i < 10; i++)
-                {
-                    SearchResult searchResult = null;
-
-                    // Search and process the results.
-                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                    {
-                        searchResult = await searchService.Value.SearchAsync(
-                            resourceType: resourceType,
-                            smallCountQueryParametersList,
-                            cancellationToken,
-                            true,
-                            resourceVersionTypes);
-                    }
-
-                    ProcessSearchResults(searchResult.Results, anonymizer);
-
-                    continuationToken = searchResult.ContinuationToken;
-                    if (searchResult.ContinuationToken == null)
-                    {
-                        break;
-                    }
-
-                    smallCountQueryParametersList.RemoveAll(x => x.Item1 == KnownQueryParameterNames.ContinuationToken);
-                    smallCountQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
-                }
-
-                if (continuationToken == null)
-                {
-                    break;
-                }
-
-                await ProcessProgressChange(
-                    progress,
-                    queryParametersList,
-                    continuationToken,
                     false,
                     cancellationToken);
             }
