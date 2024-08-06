@@ -291,6 +291,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (OutOfMemoryException ex)
+            {
+                // The job has encountered an error it cannot recover from.
+                // Try to update the job to failed state.
+                _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
