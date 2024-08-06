@@ -619,7 +619,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
 
                     smallCountQueryParametersList.RemoveAll(x => x.Item1 == KnownQueryParameterNames.ContinuationToken);
-                    smallCountQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
+                    smallCountQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
                 }
 
                 if (continuationToken == null)

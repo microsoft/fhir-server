@@ -52,19 +52,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT * FROM dbo.Parameters WHERE Id = @name", conn);
                 cmd.Parameters.AddWithValue("@name", name);
 
+                Parameter parameter = new Parameter();
                 using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                await reader.ReadAsync(cancellationToken);
-                var parameter = new Parameter()
+                if (await reader.ReadAsync(cancellationToken))
                 {
-                    Name = reader.GetString(0),
-                    DateValue = await reader.IsDBNullAsync(1, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(4),
-                    NumberValue = await reader.IsDBNullAsync(2, cancellationToken) ? 0 : reader.GetDouble(2),
-                    LongValue = await reader.IsDBNullAsync(3, cancellationToken) ? 0 : reader.GetInt64(3),
-                    CharValue = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetString(1),
-                    BooleanValue = await reader.IsDBNullAsync(5, cancellationToken) ? false : reader.GetBoolean(5),
-                    UpdatedOn = await reader.IsDBNullAsync(6, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(6),
-                    UpdatedBy = await reader.IsDBNullAsync(7, cancellationToken) ? null : reader.GetString(7),
-                };
+                    parameter = new Parameter()
+                    {
+                        Name = reader.GetString(0),
+                        DateValue = await reader.IsDBNullAsync(1, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(1),
+                        NumberValue = await reader.IsDBNullAsync(2, cancellationToken) ? 0 : reader.GetDouble(2),
+                        LongValue = await reader.IsDBNullAsync(3, cancellationToken) ? 0 : reader.GetInt64(3),
+                        CharValue = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetString(4),
+                        BooleanValue = await reader.IsDBNullAsync(5, cancellationToken) ? false : reader.GetBoolean(5),
+                        UpdatedOn = await reader.IsDBNullAsync(6, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(6),
+                        UpdatedBy = await reader.IsDBNullAsync(7, cancellationToken) ? null : reader.GetString(7),
+                    };
+                }
 
                 _parameters[name] = new Tuple<DateTime, Parameter>(DateTime.UtcNow, parameter);
                 return parameter;

@@ -23,7 +23,22 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 #pragma warning restore CA1068 // CancellationToken parameters must come last
         {
             var logParameterTask = store.GetParameter("LogLevel", cancellationToken);
-            logParameterTask.RunSynchronously();
+
+            while (logParameterTask.Status != TaskStatus.RanToCompletion)
+            {
+                if (logParameterTask.Status == TaskStatus.Faulted)
+                {
+                    logger.LogWarning(logParameterTask.Exception, "Failed to retrieve LogLevel parameter. Logging at default level.");
+                    return;
+                }
+                else if (logParameterTask.Status == TaskStatus.Canceled)
+                {
+                    logger.LogWarning("Retrieving LogLevel parameter cancelled. Logging at default level.");
+                    return;
+                }
+
+                Thread.Sleep(5);
+            }
 
 #pragma warning disable CA1849 // Runs synchronously to allow for the logger to be used in a synchronous context.
             if (logParameterTask.Result.CharValue == "Verbose")
