@@ -14,18 +14,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         public Task<Parameter> GetParameter(string name, CancellationToken cancellationToken)
         {
-            var parameter = new Parameter()
-            {
-                Name = "test",
-                DateValue = DateTime.Now,
-                NumberValue = 0,
-                LongValue = 0,
-                CharValue = "test",
-                BooleanValue = false,
-                UpdatedOn = DateTime.Now,
-                UpdatedBy = "default",
-            };
-            return Task.FromResult<Parameter>(null);
+            return Task.FromResult(new Parameter());
         }
 
         public Task SetParameter(Parameter parameter, CancellationToken cancellationToken)

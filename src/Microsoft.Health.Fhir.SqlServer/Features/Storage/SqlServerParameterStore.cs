@@ -21,10 +21,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerParameterStore : IParameterStore
     {
-        private Dictionary<string, Tuple<DateTime, Parameter>> _parameters = new Dictionary<string, Tuple<DateTime, Parameter>>();
-        private int _cacheExpirationInSeconds = 600;
-        private ISqlConnectionBuilder _sqlConnectionBuilder;
-        private ILogger<SqlServerParameterStore> _logger;
+        private readonly Dictionary<string, Tuple<DateTime, Parameter>> _parameters = new Dictionary<string, Tuple<DateTime, Parameter>>();
+        private readonly int _cacheExpirationInSeconds = 600;
+        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
+        private readonly ILogger<SqlServerParameterStore> _logger;
 
         public SqlServerParameterStore(
             ISqlConnectionBuilder sqlConnectionBuilder,
