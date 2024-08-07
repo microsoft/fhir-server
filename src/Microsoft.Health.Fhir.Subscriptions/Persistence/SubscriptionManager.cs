@@ -28,25 +28,21 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         private List<SubscriptionInfo> _subscriptions = new List<SubscriptionInfo>();
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<SubscriptionManager> _logger;
+        private readonly ISubscriptionModelConverter _subscriptionModelConverter;
         private static readonly object _lock = new object();
-        private const string MetaString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-subscription";
-        private const string CriteriaString = "http://azurehealthcareapis.com/data-extentions/SubscriptionTopics/transactions";
-        private const string CriteriaExtensionString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria";
-        private const string ChannelTypeString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-channel-type";
-        ////private const string AzureChannelTypeString = "http://azurehealthcareapis.com/data-extentions/subscription-channel-type";
-        private const string PayloadTypeString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-payload-content";
-        private const string MaxCountString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-max-count";
 
         public SubscriptionManager(
             IScopeProvider<IFhirDataStore> dataStoreProvider,
             IScopeProvider<ISearchService> searchServiceProvider,
             IResourceDeserializer resourceDeserializer,
-            ILogger<SubscriptionManager> logger)
+            ILogger<SubscriptionManager> logger,
+            ISubscriptionModelConverter subscriptionModelConverter)
         {
             _dataStoreProvider = EnsureArg.IsNotNull(dataStoreProvider, nameof(dataStoreProvider));
             _searchServiceProvider = EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
             _resourceDeserializer = resourceDeserializer;
             _logger = logger;
+            _subscriptionModelConverter = subscriptionModelConverter;
         }
 
         public async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
@@ -69,7 +65,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             {
                 var resource = _resourceDeserializer.Deserialize(param.Resource);
 
-                SubscriptionInfo info = ConvertToInfo(resource);
+                SubscriptionInfo info = _subscriptionModelConverter.Convert(resource);
 
                 if (info == null)
                 {
@@ -84,50 +80,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             {
                 _subscriptions = updatedSubscriptions;
             }
-        }
-
-        internal static SubscriptionInfo ConvertToInfo(ResourceElement resource)
-        {
-            var profile = resource.Scalar<string>("Subscription.meta.profile");
-
-            if (profile != MetaString)
-            {
-                return null;
-            }
-
-            var criteria = resource.Scalar<string>($"Subscription.criteria");
-
-            if (criteria != CriteriaString)
-            {
-                return null;
-            }
-
-            var criteriaExt = resource.Scalar<string>($"Subscription.criteria.extension.where(url = '{CriteriaExtensionString}').value");
-            var channelTypeExt = resource.Scalar<string>($"Subscription.channel.type.extension.where(url = '{ChannelTypeString}').value.code");
-            var payloadType = resource.Scalar<string>($"Subscription.channel.payload.extension.where(url = '{PayloadTypeString}').value");
-            var maxCount = resource.Scalar<int?>($"Subscription.channel.extension.where(url = '{MaxCountString}').value");
-
-            var channelInfo = new ChannelInfo
-            {
-                Endpoint = resource.Scalar<string>($"Subscription.channel.endpoint"),
-                ChannelType = channelTypeExt switch
-                {
-                    "azure-storage" => SubscriptionChannelType.Storage,
-                    "azure-lake-storage" => SubscriptionChannelType.DatalakeContract,
-                    _ => SubscriptionChannelType.None,
-                },
-                ContentType = payloadType switch
-                {
-                    "full-resource" => SubscriptionContentType.FullResource,
-                    "id-only" => SubscriptionContentType.IdOnly,
-                    _ => SubscriptionContentType.Empty,
-                },
-                MaxCount = maxCount ?? 100,
-            };
-
-            var info = new SubscriptionInfo(criteriaExt, channelInfo);
-
-            return info;
         }
 
         public async Task<IReadOnlyCollection<SubscriptionInfo>> GetActiveSubscriptionsAsync(CancellationToken cancellationToken)
