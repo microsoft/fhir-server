@@ -125,18 +125,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return resources;
         }
 
-        private static string ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index)
+        private static Lazy<string> ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index)
         {
             var rawResourceBytes = reader.GetSqlBytes(index).Value;
-            string rawResource;
+            Lazy<string> rawResource;
             if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
-                rawResource = _invisibleResource;
+                rawResource = new Lazy<string>(_invisibleResource);
             }
             else
             {
-                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                rawResource = decompress(rawResourceStream);
+                rawResource = new Lazy<string>(() =>
+                {
+                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                    return decompress(rawResourceStream);
+                });
             }
 
             return rawResource;
