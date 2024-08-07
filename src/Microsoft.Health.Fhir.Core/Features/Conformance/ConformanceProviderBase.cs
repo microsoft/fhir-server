@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _evaluatedQueries.Clear();
         }
 
-        public async Task<bool> SatisfiesAsync(IEnumerable<CapabilityQuery> queries, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<bool> SatisfiesAsync(IReadOnlyCollection<CapabilityQuery> queries, CancellationToken cancellationToken = default(CancellationToken))
         {
             EnsureArg.IsNotNull(queries, nameof(queries));
 

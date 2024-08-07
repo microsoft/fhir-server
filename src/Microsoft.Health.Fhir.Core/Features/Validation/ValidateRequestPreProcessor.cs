@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ValidateRequestPreProcessor<TRequest> : IRequestPreProcessor<TRequest>
         where TRequest : class
     {
-        private readonly IEnumerable<IValidator<TRequest>> _validators;
+        private readonly IReadOnlyCollection<IValidator<TRequest>> _validators;
 
-        public ValidateRequestPreProcessor(IEnumerable<IValidator<TRequest>> validators)
+        public ValidateRequestPreProcessor(IReadOnlyCollection<IValidator<TRequest>> validators)
         {
             EnsureArg.IsNotNull(validators, nameof(validators));
 
