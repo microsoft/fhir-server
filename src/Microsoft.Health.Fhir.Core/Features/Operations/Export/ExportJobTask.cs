@@ -708,6 +708,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
+            // Testing to see if the returned enumerable is a list so we can remove items from it. This helps conserve memory by not keeping entries that have already been processed.
+            // Since the search service isn't guaranteed to return a list, we need to handle both cases.
             if (searchResults is not List<SearchResultEntry>)
             {
                 foreach (var result in searchResults)

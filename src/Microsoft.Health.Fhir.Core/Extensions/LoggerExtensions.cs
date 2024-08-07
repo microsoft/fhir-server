@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     return;
                 }
 
-                Thread.Sleep(5);
+                Thread.Sleep(1);
             }
 
 #pragma warning disable CA1849 // Runs synchronously to allow for the logger to be used in a synchronous context.
