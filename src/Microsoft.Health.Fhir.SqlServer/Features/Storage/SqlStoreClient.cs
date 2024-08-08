@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             string rawResource;
-            if (rawResourceBytes == null) // raw in adls
+            if (rawResourceBytes == null && offsetInFile.HasValue) // raw in adls
             {
                 rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value);
             }
