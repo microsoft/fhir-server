@@ -20,9 +20,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
         /// </summary>
         public bool UseManagedIdentity { get; set; }
 
-        /// <summary>
-        /// ManagedIdentity does not allow Database creation
-        /// </summary>
         public bool AllowDatabaseCreation { get; set; } = true;
 
         public string DatabaseId { get; set; }
