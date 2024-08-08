@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
 
             var validationFailures = new List<ValidationFailure>();
 
-            if (!Enum.IsDefined(enumType: typeof(SubscriptionChannelType), value: subscriptionInfo.Channel.ChannelType))
+            if (subscriptionInfo.Channel.ChannelType.Equals(SubscriptionChannelType.None))
             {
                 _logger.LogInformation("Subscription channel type is not valid.");
                 validationFailures.Add(
