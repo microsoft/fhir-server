@@ -120,9 +120,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             return resources.Length == expectedIds.Length && expectedIds.All(id => resources.Any(x => x.Id == id));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASubscriptionOrchestrator_WhenPatientResourceRecieved_ThenCorrectResourcesQueued()
         {
+            Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
                 var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatient"));
@@ -148,9 +149,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANameFilterSubscription_WhenResourcesPosted_ThenCorrectResourcesQueued()
         {
+            Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
                 var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatientName"));
@@ -176,9 +178,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAReferenceFilterSubscription_WhenResourcesPosted_ThenCorrectResourcesQueued()
         {
+            Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
                 var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForObservationReferenceToPatient"));
@@ -204,9 +207,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenEncounterFilterSubscription_WhenNonEncounterResourcesPosted_ThenNoResourcesQueued()
         {
+            Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
                 var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForEncounter"));

@@ -39,10 +39,10 @@
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidEntries.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidType.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SubscriptionForEncounter.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SubscriptionForObservationReferenceToPatient.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SubscriptionForPatientName.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SubscriptionForPatient.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForEncounter.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForObservationReferenceToPatient.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForPatientName.json" />
+    <EmbeddedResource Include="TestFiles\R4\SubscriptionForPatient.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidType.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidDefinitions.json" />
