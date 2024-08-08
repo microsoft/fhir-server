@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Models;
@@ -31,15 +32,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         public Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
-            // build up contents and send http request
+            var paramater = new Parameters();
             throw new NotImplementedException();
 
-            // IRestHookChannel with additional methods for handshake, heartbeat, etc
-            // private send http request method
+            // IRestHookChannel with additional methods for handshake, heartbeat, payload for subscription notification
         }
 
-        public async Task TryNotify(
-        ITransactionDataStore transactionDataStore,
+        public async Task SendPayload(
         ChannelInfo chanelInfo,
         string contents)
         {
@@ -55,21 +54,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     RequestUri = new Uri(chanelInfo.Endpoint),
                     Content = new StringContent(contents, Encoding.UTF8, chanelInfo.ContentType.ToString()),
                 };
-
-                // check for additional headers
-                if ((chanelInfo.Properties != null) && chanelInfo.Properties.Any())
-                {
-                    // add headers
-                    foreach ((string param, string values) in chanelInfo.Properties)
-                    {
-                        if (string.IsNullOrEmpty(param) || string.IsNullOrEmpty(values))
-                        {
-                            continue;
-                        }
-
-                        request.Headers.Add(param, values);
-                    }
-                }
 
                 // send our request
                 HttpResponseMessage response = await _httpClient.SendAsync(request);

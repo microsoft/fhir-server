@@ -15,6 +15,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
     public interface IRestHookChannel : ISubscriptionChannel
     {
-        Task TryNotify(ITransactionDataStore transactionDataStore, ChannelInfo chanelInfo, string contents);
+        Task SendPayload(ChannelInfo chanelInfo, string contents);
     }
 }
