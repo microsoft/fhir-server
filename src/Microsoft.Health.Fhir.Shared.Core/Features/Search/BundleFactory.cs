@@ -235,5 +235,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             return bundle.ToResourceElement();
         }
+
+        public ResourceElement CreateSubscriptionBundle(string bundleId, string profile, params ResourceWrapper[] resources)
+        {
+            // if id-only then only resource in resourceWrapper[] will be the parameter, if full resource then the first will be paramater followed by the resources
+            throw new NotImplementedException();
+        }
     }
 }
