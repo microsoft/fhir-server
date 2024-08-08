@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Xml;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -33,19 +35,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<CosmosDbCollectionPhysicalPartitionInfo> _logger;
         private readonly CancellationTokenSource _backgroundLoopCancellationTokenSource = new();
+        private readonly IAccessTokenProvider _aadTokenProvider;
         private Task _backgroundLoopTask;
 
         public CosmosDbCollectionPhysicalPartitionInfo(
+            IAccessTokenProvider aadTokenProvider,
             CosmosDataStoreConfiguration dataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             IHttpClientFactory httpClientFactory,
             ILogger<CosmosDbCollectionPhysicalPartitionInfo> logger)
         {
+            EnsureArg.IsNotNull(aadTokenProvider, nameof(aadTokenProvider));
             EnsureArg.IsNotNull(dataStoreConfiguration, nameof(dataStoreConfiguration));
             EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _aadTokenProvider = aadTokenProvider;
             _dataStoreConfiguration = dataStoreConfiguration;
             _collectionConfiguration = collectionConfiguration.Get(Constants.CollectionConfigurationName);
             _httpClientFactory = httpClientFactory;
@@ -92,38 +98,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using HttpClient client = _httpClientFactory.CreateClient();
 
             string host = _dataStoreConfiguration.Host;
-            string key = _dataStoreConfiguration.Key;
-
-            if (string.IsNullOrWhiteSpace(host))
-            {
-                if (string.IsNullOrWhiteSpace(key))
-                {
-                    host = CosmosDbLocalEmulator.Host;
-                    key = CosmosDbLocalEmulator.Key;
-                }
-                else
-                {
-                    Ensure.That(host, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Host)}").IsNotNullOrEmpty();
-                }
-            }
-            else if (string.IsNullOrWhiteSpace(key))
-            {
-                Ensure.That(key, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Key)}").IsNotNullOrEmpty();
-            }
+            Ensure.That(host, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Host)}").IsNotNullOrEmpty();
 
             string date = DateTime.UtcNow.ToString("R");
-
-            bool isResourceToken = IsResourceToken(key);
-
-            string authToken = HttpUtility.UrlEncode(
-                isResourceToken
-                    ? key
-                    : GenerateAuthToken(
-                        "get",
-                        "pkranges",
-                        $"dbs/{_dataStoreConfiguration.DatabaseId}/colls/{_collectionConfiguration.CollectionId}",
-                        date,
-                        key));
+            string accessToken = await GenerateAccessToken(host, cancellationToken);
 
             using var httpRequestMessage = new HttpRequestMessage(
                 HttpMethod.Get,
@@ -131,7 +109,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 Headers =
                 {
-                    { "authorization", authToken },
+                    { "authorization", accessToken },
                     { "x-ms-version", "2018-12-31" },
                     { "x-ms-date", date },
                 },
@@ -175,15 +153,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
+        private async Task<string> GenerateAccessToken(string host, CancellationToken cancellationToken)
         {
-            string payLoad = $"{verb.ToLowerInvariant()}\n{resourceType.ToLowerInvariant()}\n{resourceId}\n{date.ToLowerInvariant()}\n\n";
+            string accessToken = string.Empty;
+            var resourceURI = new Uri(host);
+            try
+            {
+                accessToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(resourceURI, cancellationToken);
+                accessToken = HttpUtility.UrlEncode($"type=aad&ver=1.0&sig={accessToken}");
+            }
+            catch (AccessTokenProviderException ex)
+            {
+                _logger.LogError(ex, "Failed to get access token from managed identity.");
+            }
 
-            using var hmacSha256 = new HMACSHA256 { Key = Convert.FromBase64String(key) };
-            byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));
-            string signature = Convert.ToBase64String(hashPayLoad);
-
-            return $"type=master&ver=1.0&sig={signature}";
+            return accessToken;
         }
 
         private record PartitionKeyRange;

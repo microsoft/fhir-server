@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             ConnectionMode = ConnectionMode.Direct,
             DatabaseId = "testdatabaseid",
             Host = "https://fakehost",
-            Key = "ZmFrZWtleQ==",   // "fakekey"
             PreferredLocations = null,
         };
 

@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -113,10 +114,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         }
 
                         var host = ValueOrFallback("CosmosDb:Host", CosmosDbLocalEmulator.Host);
-                        var key = ValueOrFallback("CosmosDb:Key", CosmosDbLocalEmulator.Key);
                         var databaseId = ValueOrFallback("CosmosDb:DatabaseId", null) ?? throw new InvalidOperationException("expected CosmosDb:DatabaseId to be set in configuration");
 
-                        using var client = new CosmosClient(host, key);
+                        using var client = new CosmosClient(host, new DefaultAzureCredential());
                         Container container = client.GetContainer(databaseId, collectionId);
                         await container.DeleteContainerAsync();
                     };

@@ -80,7 +80,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
                 Host = Environment.GetEnvironmentVariable("CosmosDb:Host") ?? CosmosDbLocalEmulator.Host,
-                Key = Environment.GetEnvironmentVariable("CosmosDb:Key") ?? CosmosDbLocalEmulator.Key,
                 DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
                 AllowDatabaseCreation = true,
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
