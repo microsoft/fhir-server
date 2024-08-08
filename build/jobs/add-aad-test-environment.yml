@@ -40,8 +40,6 @@ steps:
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
 
-      Write-Host "Installed module and set variables"
-
       $vaultName = "${environmentName}-ts"
       if (Get-AzKeyVault -VaultName $vaultName -Location "westus" -InRemovedState)
       {
@@ -52,22 +50,32 @@ steps:
           }
           catch
           {
-              # With purge protection enabled, it's impossible to delete a Key Vault before its expiration.
-              Write-Error $_.ErrorDetails
+              if ($_.ErrorDetails -eq "Operation 'DeletedVaultPurge' is not allowed.")
+              {
+                  # With purge protection enabled, it's impossible to delete a Key Vault before its expiration.
+
+                  Write-Error "Unable to delete vault ${vaultName}."
+                  Write-Error $_.ErrorDetails
+              }
+              else
+              { 
+                  throw $_
+              }
           }
       }
-
       Write-Host "Cleaned up keyvaults"
+
       try 
       {
+          Write-Host "Getting access token"
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
       }
       catch 
       {
           Write-Error $_.ErrorDetails
       }
-
       Write-Host "Got access token"
+
       Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
 
       Write-Host "Connected to Azure AD"
