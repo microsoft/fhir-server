@@ -83,8 +83,19 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0.7-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
-# tdnf clean all - cleans all the repos used to obtain packages and reduces the size of our image.
 RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
+
+# Install necessary packages including tar
+RUN tdnf install -y openssh-server procps curl bzip2 tar vim --nogpgcheck --setopt=tsflags=nodocs && \
+    tdnf clean all
+
+# Download and extract the Go version of sqlcmd
+RUN curl -L https://github.com/microsoft/go-sqlcmd/releases/download/v1.7.0/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2 && \
+    tar -xvjf sqlcmd.tar.bz2 -C /usr/local/bin && \
+    rm sqlcmd.tar.bz2
+
+# Verify installation
+RUN sqlcmd -? || echo "sqlcmd installation failed"
 
 # See https://github.com/dotnet/SqlClient/issues/220
 RUN tdnf install icu -y && \
@@ -99,8 +110,20 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
 WORKDIR /app
 COPY --from=build /build .
 
+COPY sshd_config \
+     entrypoint.sh \
+     ./
+
+RUN cp ./sshd_config /etc/ssh/sshd_config \
+    && echo "root:Docker!" | chpasswd \
+    && chmod +x ./entrypoint.sh \
+    && cd /etc/ssh/ \
+    && ssh-keygen -A
+
 RUN ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "Microsoft.Health.Fhir.Web.dll"
 
-USER nonroot
-EXPOSE 8080
-ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]
+#USER nonroot
+EXPOSE 8080 2222
+
+ENTRYPOINT [ "./entrypoint.sh" ]
+#ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]

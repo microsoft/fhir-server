@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public interface ISqlRetryService
     {
+        string Database { get; }
+
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
 
         Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false);

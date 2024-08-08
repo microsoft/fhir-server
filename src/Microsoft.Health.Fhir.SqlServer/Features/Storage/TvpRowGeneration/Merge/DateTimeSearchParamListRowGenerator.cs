@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -45,6 +46,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         protected override void Initialize()
         {
             _lastUpdatedSearchParamId = Model.GetSearchParamId(SearchParameterNames.LastUpdatedUri);
+        }
+
+        internal IEnumerable<string> GenerateCSVs(IReadOnlyList<MergeResourceWrapper> resources)
+        {
+            foreach (var row in GenerateRows(resources))
+            {
+                yield return $"{row.ResourceTypeId},{row.ResourceSurrogateId},{row.SearchParamId},{row.StartDateTime},{row.EndDateTime},{row.IsLongerThanADay},{row.IsMin},{row.IsMax}";
+            }
         }
     }
 }

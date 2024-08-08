@@ -13,6 +13,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly string _storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
+        private static readonly string _storageUri = ConfigurationManager.AppSettings["StorageUri"];
+        private static readonly string _storageUAMI = ConfigurationManager.AppSettings["StorageUAMI"];
         private static readonly string _storageContainerName = ConfigurationManager.AppSettings["StorageContainerName"];
         private static readonly string _storageBlobName = ConfigurationManager.AppSettings["StorageBlobName"];
         private static readonly int _reportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
@@ -40,6 +43,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly string _endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
         private static readonly HttpClient _httpClient = new HttpClient();
         private static readonly string _ndjsonStorageConnectionString = ConfigurationManager.AppSettings["NDJsonStorageConnectionString"];
+        private static readonly string _ndjsonStorageUri = ConfigurationManager.AppSettings["NDJsonStorageUri"];
+        private static readonly string _ndjsonStorageUAMI = ConfigurationManager.AppSettings["NDJsonStorageUAMI"];
         private static readonly string _ndjsonStorageContainerName = ConfigurationManager.AppSettings["NDJsonStorageContainerName"];
         private static readonly int _takeBlobs = int.Parse(ConfigurationManager.AppSettings["TakeBlobs"]);
         private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
@@ -181,7 +186,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static void ExecuteParallelHttpPuts()
         {
             var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
-            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageContainerName);
+            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
@@ -341,7 +346,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                         throw new NotImplementedException();
                     }
 
-                    Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
+                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                    Interlocked.Add(ref sumLatency, mcsec);
+                    _store.TryLogEvent($"Threads={_threads}.{_callType}.{_nameFilter}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
 
                     if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                     {
@@ -566,14 +573,14 @@ END
 
         private static BlobContainerClient GetContainer()
         {
-            return GetContainer(_storageConnectionString, _storageContainerName);
+            return GetContainer(_storageConnectionString, _storageUri, _storageUAMI, _storageContainerName);
         }
 
-        private static BlobContainerClient GetContainer(string storageConnectionString, string storageContainerName)
+        private static BlobContainerClient GetContainer(string storageConnectionString, string storageUri, string storageUAMI, string storageContainerName)
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(storageConnectionString);
+                var blobServiceClient = string.IsNullOrEmpty(storageUri) ? new BlobServiceClient(storageConnectionString) : new BlobServiceClient(new Uri(storageUri), new ManagedIdentityCredential(storageUAMI));
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(storageContainerName);
 
                 if (!blobContainerClient.Exists())

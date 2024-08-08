@@ -67,7 +67,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
-            string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
+            var builder = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName };
+            var isLocal = builder.DataSource.Contains("local", StringComparison.OrdinalIgnoreCase);
+            var testConnectionString = builder.ToString();
 
             await _dbSetupRetryPolicy.ExecuteAsync(
                 async () =>
@@ -110,11 +112,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await connection.CloseAsync();
                 });
 
+            if (isLocal) // don't go to AD for local SQL
+            {
+                await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
+                await conn.OpenAsync(cancellationToken);
+                using var cmd = new SqlCommand("EXECUTE sp_changedbowner 'sa'", conn);
+                cmd.ExecuteNonQuery();
+            }
+
             schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
+            if (isLocal)
+            {
+                await EnableRawResourcesInAdls(databaseName);
+            }
+
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
+        }
+
+        public async Task EnableRawResourcesInAdls(string databaseName)
+        {
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
+                await connection.OpenAsync(CancellationToken.None);
+                await using SqlCommand sqlCommand = connection.CreateCommand();
+                sqlCommand.CommandText = @"
+INSERT INTO Parameters (Id,Char) SELECT 'MergeResources.AdlsConnectionString','UseDevelopmentStorage=true'
+                    ";
+                await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
+                await connection.CloseAsync();
+            });
         }
 
         public async Task EnableDatabaseLogging(string databaseName)

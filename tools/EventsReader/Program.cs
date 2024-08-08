@@ -5,6 +5,10 @@
 
 using System.Configuration;
 using System.Diagnostics;
+using Azure.Core;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -15,6 +19,7 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
     public static class Program
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
+        private static readonly string Pwd = ConfigurationManager.AppSettings["Pwd"];
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient<SqlServerFhirDataStore> _store;
         private static string _parameterId = "Events.LastProcessedTransactionId";
@@ -25,7 +30,85 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
-            ExecuteAsync().Wait();
+            PingStorage("https://sergeyperfstandard.blob.core.windows.net/test", "ABC.txt");
+            PingSelect();
+            PingInsert();
+            PingCopyInto("https://sergeyperfstandard.blob.core.windows.net/test/ABC.txt");
+
+            ////ExecuteAsync().Wait();
+        }
+
+#pragma warning disable CA1303 // Do not pass literals as localized parameters
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
+        private static void PingStorage(string container, string file)
+        {
+            var containerClient = new BlobContainerClient(new Uri(container), new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd));
+            containerClient.CreateIfNotExists();
+            var blobClient = containerClient.GetBlockBlobClient("ABC.txt");
+
+            using var readStream = blobClient.OpenRead();
+            using var reader = new StreamReader(readStream);
+            var line = string.Empty;
+            while (!reader.EndOfStream)
+            {
+                line = reader.ReadLine();
+            }
+
+            Console.WriteLine($"Reads from storage completed. {line}");
+
+            using var writeStream = blobClient.OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            line = line == "ABC" ? "XYZ" : line == "XYZ" ? "ABC" : line;
+            writer.WriteLine(line);
+            Console.WriteLine($"Writes to storage completed. {line}");
+
+            using var readStream2 = blobClient.OpenRead();
+            using var reader2 = new StreamReader(readStream2);
+            while (!reader2.EndOfStream)
+            {
+                line = reader2.ReadLine();
+            }
+
+            Console.WriteLine($"Reads from storage after writes completed. {line}");
+        }
+
+#pragma warning disable CA1861 // Avoid constant arrays as arguments
+#pragma warning disable IDE0300 // Simplify collection initialization
+        private static void PingSelect()
+        {
+            var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
+            var token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("SELECT count(*) FROM Test", conn);
+            conn.AccessToken = token.Token;
+            conn.Open();
+            var result = (int)cmd.ExecuteScalar();
+            Console.WriteLine($"PingSelect completed: rows={result}");
+        }
+
+        private static void PingInsert()
+        {
+            var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
+            var token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand("INSERT INTO Test SELECT 'XYZ'", conn);
+            conn.AccessToken = token.Token;
+            conn.Open();
+            cmd.ExecuteNonQuery();
+            Console.WriteLine($"PingInsert completed.");
+        }
+
+        private static void PingCopyInto(string file)
+        {
+            var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
+            var token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
+            Console.WriteLine(token.Token);
+            using var conn = new SqlConnection(_connectionString);
+            using var cmd = new SqlCommand($"COPY INTO Test FROM '{file}' WITH (FILE_TYPE = 'CSV')", conn);
+            conn.AccessToken = token.Token;
+            conn.Open();
+            cmd.ExecuteNonQuery();
+            Console.WriteLine($"PingCopyInto completed.");
         }
 
         private static async Task ExecuteAsync()

@@ -53,5 +53,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 }
             }
         }
+
+        internal IEnumerable<string> GenerateCSVs(IReadOnlyList<MergeResourceWrapper> resources)
+        {
+            foreach (var row in GenerateRows(resources))
+            {
+                yield return $"{row.ResourceSurrogateId},{row.ClaimTypeId},{row.ClaimValue}";
+            }
+        }
     }
 }

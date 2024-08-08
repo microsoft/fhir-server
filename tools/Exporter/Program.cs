@@ -10,21 +10,22 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-using Microsoft.Health.Fhir.SqlServer.Features;
-using Microsoft.Health.Fhir.Store.Export;
+using Azure.Storage.Files.DataLake;
 using Microsoft.Health.Fhir.Store.Utils;
-using Microsoft.Health.Internal.Fhir.Sql;
+using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Internal.Fhir.Exporter
+namespace Microsoft.Health.Fhir.Store.Export
 {
     public static class Program
     {
-        private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
-        private static readonly SqlService Store = new SqlService(_connectionString);
+        private static readonly string SourceConnectionString = ConfigurationManager.ConnectionStrings["SourceDatabase"].ConnectionString;
+        private static readonly string QueueConnectionString = ConfigurationManager.ConnectionStrings["QueueDatabase"].ConnectionString;
         private static readonly string BlobConnectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
         private static readonly string BlobContainerName = ConfigurationManager.AppSettings["BlobContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
@@ -38,6 +39,8 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
         private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
         private static readonly DateTime StartDate = DateTime.Parse(ConfigurationManager.AppSettings["StartDate"]);
         private static readonly DateTime EndDate = DateTime.Parse(ConfigurationManager.AppSettings["EndDate"]);
+        private static readonly SqlService Source = new SqlService(SourceConnectionString);
+        private static readonly SqlService Queue = new SqlService(QueueConnectionString);
         private static bool stop = false;
         private static long _resourcesTotal = 0L;
         private static Stopwatch _swReport = Stopwatch.StartNew();
@@ -49,28 +52,220 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
 
         public static void Main(string[] args)
         {
-            Console.WriteLine($"Source=[{_connectionString}]");
-            if (args.Length > 0 && args[0] == "noqueue")
+            if (args.Length == 1 && args[0] == "random")
             {
-                ExportNoQueue();
+                var count = args.Length > 1 ? int.Parse(args[1]) : 100;
+                RandomReads(count);
+            }
+            else if (args.Length == 0 || args[0] == "storage")
+            {
+                var count = args.Length > 1 ? int.Parse(args[1]) : 100;
+                var bufferKB = args.Length > 2 ? int.Parse(args[2]) : 20;
+                var parall = args.Length > 3 ? int.Parse(args[3]) : 1;
+                WriteAndReadAdls(count, bufferKB);
+                WriteAndReadBlob(count, bufferKB, parall);
             }
             else
             {
-                if (RebuildWorkQueue)
+                Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
+                if (args.Length > 0 && args[0] == "noqueue")
                 {
-                    PopulateJobQueue(ResourceType, UnitSize);
+                    ExportNoQueue();
                 }
+                else
+                {
+                    Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
+                    if (RebuildWorkQueue)
+                    {
+                        PopulateJobQueue(ResourceType, UnitSize);
+                    }
 
-                Export();
+                    Export();
+                }
             }
+        }
+
+        public static void RandomReads(int count)
+        {
+            var ranges = Source.GetSurrogateIdRanges(96, 0, 5104998046807519719, 10000, 1000);
+            var refs = new List<(long TransactionId, int OffsetInFile)>();
+            foreach (var range in ranges)
+            {
+                refs.AddRange(Source.GetRefs(96, range.StartId, range.EndId));
+            }
+
+            var blobDurations = new List<double>();
+            var fileDurations = new List<double>();
+            for (var l = 0; l < 10; l++)
+            {
+                var subSetRefs = refs.OrderBy(_ => RandomNumberGenerator.GetInt32(10000000)).Take(count).ToList();
+                var sw = Stopwatch.StartNew();
+                var resources = GetRawResourceFromAdls(subSetRefs, true);
+                blobDurations.Add(sw.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"BLOB.RandomRead.{resources.Count}.buffer={20}.parall=16: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+                sw = Stopwatch.StartNew();
+                resources = GetRawResourceFromAdls(subSetRefs, false);
+                fileDurations.Add(sw.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"ADLS.RandomRead.{resources.Count}.buffer={20}.parall=16: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+            }
+
+            Console.WriteLine($"BLOB.RandomRead.buffer={20}.parall=16: total={blobDurations.Sum() / 10} msec");
+            Console.WriteLine($"ADLS.RandomRead.buffer={20}.parall=16: total={fileDurations.Sum() / 10} msec");
+        }
+
+        public static IReadOnlyList<string> GetRawResourceFromAdls(IReadOnlyList<(long TransactionId, int OffsetInFile)> resourceRefs, bool isBlob)
+        {
+            var start = DateTime.UtcNow;
+            var results = new List<string>();
+            if (resourceRefs == null || resourceRefs.Count == 0)
+            {
+                return results;
+            }
+
+            if (isBlob)
+            {
+                var container = GetContainer(BlobConnectionString, BlobContainerName);
+                Parallel.ForEach(resourceRefs, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resourceRef) =>
+                {
+                    var blobName = GetBlobName(resourceRef.TransactionId);
+                    var blobClient = container.GetBlobClient(blobName);
+                    using var reader = new StreamReader(blobClient.OpenRead(resourceRef.OffsetInFile));
+                    var line = reader.ReadLine();
+                    lock (results)
+                    {
+                        results.Add(line.Split('\t')[4]);
+                    }
+                });
+            }
+            else
+            {
+                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.TransactionId);
+                Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (group) =>
+                {
+                    var transactionId = group.Key;
+                    var blobName = GetBlobName(transactionId);
+                    var fileClient = new DataLakeFileClient(BlobConnectionString, BlobContainerName, blobName);
+                    using var stream = fileClient.OpenRead(bufferSize: 1024 * 20);
+                    using var reader = new StreamReader(stream);
+                    foreach (var resourceRef in group.Select(_ => _))
+                    {
+                        reader.DiscardBufferedData();
+                        stream.Position = resourceRef.OffsetInFile;
+                        var line = reader.ReadLine();
+                        lock (results)
+                        {
+                            results.Add(line.Split('\t')[4]);
+                        }
+                    }
+                });
+            }
+
+            Source.LogEvent("GetRawResourceFromAdls", "Warn", null, rows: (int)(DateTime.UtcNow - start).TotalMilliseconds, text: $"Resources={results.Count}", startTime: start);
+
+            return results;
+        }
+
+        private static string GetBlobName(long transactionId)
+        {
+            return $"transaction-{transactionId}.tjson";
+        }
+
+        public static void WriteAndReadAdls(int count, int bufferKB)
+        {
+            GetContainer(BlobConnectionString, "fhir-hs-new-one-file");
+
+            var fileName = "transaction-353229202.tjson";
+
+            var swGlobal = Stopwatch.StartNew();
+
+            var fileClient = new DataLakeFileClient(BlobConnectionString, "fhir-hs-new-one-file", fileName);
+
+            var offests = new List<int>();
+            var offset = 0;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+
+            var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
+
+            using var writeStream = fileClient.OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            for (var i = 0; i < count; i++)
+            {
+                offests.Add(offset);
+                var line = $"{offset}\t{baseLine}";
+                offset += Encoding.UTF8.GetByteCount(line) + eol;
+                writer.WriteLine(line);
+            }
+
+            writer.Flush();
+            Console.WriteLine($"ADLS.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+
+            swGlobal = Stopwatch.StartNew();
+            fileClient = new DataLakeFileClient(BlobConnectionString, "testadls", fileName);
+            using var stream = fileClient.OpenRead(bufferSize: 1024 * bufferKB);
+            using var reader = new StreamReader(stream);
+            foreach (var pos in offests)
+            {
+                var sw = Stopwatch.StartNew();
+                reader.DiscardBufferedData();
+                stream.Position = pos;
+                var line = reader.ReadLine();
+                var readOffset = line.Split('\t')[0];
+                Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
+            }
+
+            Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+        }
+
+        public static void WriteAndReadBlob(int count, int bufferKB, int parall)
+        {
+            var fileName = "test/test/test.txt";
+
+            var swGlobal = Stopwatch.StartNew();
+
+            var container = GetContainer(BlobConnectionString, "testblob");
+
+            var offests = new List<int>();
+            var offset = 0;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+
+            var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
+
+            using var writeStream = container.GetBlockBlobClient(fileName).OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            for (var i = 0; i < count; i++)
+            {
+                offests.Add(offset);
+                var line = $"{offset}\t{baseLine}";
+                offset += Encoding.UTF8.GetByteCount(line) + eol;
+                writer.WriteLine(line);
+            }
+
+            writer.Flush();
+
+            Console.WriteLine($"BLOB.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+
+            swGlobal = Stopwatch.StartNew();
+            container = GetContainer(BlobConnectionString, "testblob");
+            var blobClient = container.GetBlobClient(fileName);
+            Parallel.ForEach(offests, new ParallelOptions { MaxDegreeOfParallelism = parall }, (pos) =>
+            {
+                var sw = Stopwatch.StartNew();
+                using var readStream = blobClient.OpenRead(pos, bufferSize: 1024 * bufferKB);
+                using var reader = new StreamReader(readStream);
+                var line = reader.ReadLine();
+                var readOffset = line.Split('\t')[0];
+                Console.WriteLine($"BLOB.Read.{count}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
+            });
+
+            Console.WriteLine($"BLOB.Read.{count}.buffer={bufferKB}.parall={parall}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
         }
 
         public static void ExportNoQueue()
         {
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
-            var resourceTypeId = Store.GetResourceTypeId(ResourceType);
-            var ranges = Store.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
+            var resourceTypeId = Source.GetResourceTypeId(ResourceType);
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize, (int)(2e9 / UnitSize)).ToList();
             Console.WriteLine($"ExportNoQueue.{ResourceType}: ranges={ranges.Count}.");
             var container = GetContainer(BlobConnectionString, BlobContainerName);
             foreach (var range in ranges)
@@ -120,15 +315,15 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
                 var version = 0L;
                 var retries = 0;
                 var maxRetries = MaxRetries;
-            retry:
+retry:
                 try
                 {
-                    Store.DequeueJob(out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
+                    Queue.DequeueJob(out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
                     if (resourceTypeId.HasValue)
                     {
                         var container = GetContainer(BlobConnectionString, BlobContainerName);
                         var resources = Export(resourceTypeId.Value, container, long.Parse(minId), long.Parse(maxId));
-                        Store.CompleteJob(unitId, false, version, resources);
+                        Queue.CompleteJob(unitId, false, version, resources);
                     }
 
                     if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
@@ -146,9 +341,9 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
                 catch (Exception e)
                 {
                     Console.WriteLine($"Export.{ResourceType}.{thread}.{minId}.{maxId}: error={e}");
-                    Store.SqlRetryService.TryLogEvent($"Export:{ResourceType}.{thread}.{minId}.{maxId}", "Error", e.ToString(), null, CancellationToken.None).Wait();
+                    Queue.LogEvent($"Export", "Error", $"{ResourceType}.{thread}.{minId}.{maxId}", text: e.ToString());
                     retries++;
-                    var isRetryable = e.IsRetriable();
+                    var isRetryable = e.IsRetryable();
                     if (isRetryable)
                     {
                         maxRetries++;
@@ -163,7 +358,7 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
                     stop = true;
                     if (resourceTypeId.HasValue)
                     {
-                        Store.CompleteJob(unitId, true, version);
+                        Queue.CompleteJob(unitId, true, version);
                     }
 
                     throw;
@@ -181,7 +376,7 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             }
 
             _database.Start();
-            var resources = Store.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            var resources = Source.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
             _database.Stop();
 
             var strings = new List<string>();
@@ -211,7 +406,7 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
 
         private static void WriteBatchOfLines(BlobContainerClient container, IEnumerable<string> batch, string blobName)
         {
-        retry:
+retry:
             try
             {
                 using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
@@ -268,11 +463,12 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
         {
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
-            var resourceTypeId = Store.GetResourceTypeId(resourceType);
-            var ranges = Store.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize);
-            var strings = ranges.Select(_ => $"{_.UnitId};{resourceTypeId};{_.StartId};{_.EndId};{_.ResourceCount}").ToList();
+            var resourceTypeId = Source.GetResourceTypeId(resourceType);
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize, (int)(2e9 / unitSize));
 
-            var queueConn = new SqlConnection(Store.ConnectionString);
+            var strings = ranges.Select(_ => $"{0};{resourceTypeId};{_.StartId};{_.EndId};{0}").ToList();
+
+            var queueConn = new SqlConnection(Queue.ConnectionString);
             queueConn.Open();
             using var drop = new SqlCommand("IF object_id('##StoreCopyWorkQueue') IS NOT NULL DROP TABLE ##StoreCopyWorkQueue", queueConn) { CommandTimeout = 60 };
             drop.ExecuteNonQuery();

@@ -28,6 +28,8 @@ BEGIN TRY
             ,RawResource
             ,IsRawResourceMetaSet
             ,SearchParamHash
+            ,TransactionId
+            ,OffsetInFile
         FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
              JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
@@ -42,6 +44,8 @@ BEGIN TRY
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
+                    ,TransactionId
+                    ,OffsetInFile
                 FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NOT NULL) A
                      JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
               UNION ALL
@@ -54,6 +58,8 @@ BEGIN TRY
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
+                    ,TransactionId
+                    ,OffsetInFile
                 FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NULL) A
                      JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
                 WHERE IsHistory = 0
@@ -69,6 +75,8 @@ BEGIN TRY
           ,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
+          ,TransactionId
+          ,OffsetInFile
       FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
            JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
       WHERE IsHistory = 0

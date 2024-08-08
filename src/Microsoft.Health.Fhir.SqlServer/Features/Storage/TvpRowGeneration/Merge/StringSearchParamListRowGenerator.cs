@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -40,6 +41,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             // Same logic is used in other similar cases.
             row = new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
             return results == null || results.Add(new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix?.ToLowerInvariant(), overflow?.ToLowerInvariant(), IsMin: searchValue.IsMin, IsMax: searchValue.IsMax));
+        }
+
+        internal IEnumerable<string> GenerateCSVs(IReadOnlyList<MergeResourceWrapper> resources)
+        {
+            foreach (var row in GenerateRows(resources))
+            {
+                yield return $"{row.ResourceTypeId},{row.ResourceSurrogateId},{row.SearchParamId},{row.Text.Replace(",", " ", System.StringComparison.InvariantCultureIgnoreCase)},{(row.IsMin ? 1 : 0)},{(row.IsMax ? 1 : 0)}";
+            }
         }
     }
 }

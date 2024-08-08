@@ -7,14 +7,14 @@
     ResourceSurrogateId         bigint                  NOT NULL,
     IsDeleted                   bit                     NOT NULL,
     RequestMethod               varchar(10)             NULL,
-    RawResource                 varbinary(max)          NOT NULL,
+    RawResource                 varbinary(max)          NULL,
     IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0,
     SearchParamHash             varchar(64)             NULL,
     TransactionId               bigint                  NULL,     -- used for main CRUD operation 
-    HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
-
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
-    CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
+    HistoryTransactionId        bigint                  NULL,     -- used by CRUD operation that moved resource version in invisible state 
+    OffsetInFile                int                     NULL
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+   ,CONSTRAINT CH_Resource_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )

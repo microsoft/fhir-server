@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -26,6 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             row = new TokenTextListRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.Text);
             return results == null || results.Add(new TokenTextListRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.Text.ToLowerInvariant()));
+        }
+
+        internal IEnumerable<string> GenerateCSVs(IReadOnlyList<MergeResourceWrapper> resources)
+        {
+            foreach (var row in GenerateRows(resources))
+            {
+                yield return $"{row.ResourceTypeId},{row.ResourceSurrogateId},{row.SearchParamId},{row.Text}";
+            }
         }
     }
 }
