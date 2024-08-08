@@ -39,9 +39,22 @@ steps:
       # If a deleted keyvault exists, remove it first
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
-      if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
+
+      Write-Host "Installed module and set variables"
+
+      $vaultName = "${environmentName}-ts"
+      if (Get-AzKeyVault -VaultName $vaultName -Location "westus" -InRemovedState)
       {
-          Remove-AzKeyVault -VaultName "${environmentName}-ts" -InRemovedState -Location "westus" -Force
+          Write-Host "Attempting to delete vault ${vaultName}"
+          try
+          {
+              Remove-AzKeyVault -VaultName $vaultName -InRemovedState -Location "westus" -Force
+          }
+          catch
+          {
+              # With purge protection enabled, it's impossible to delete a Key Vault before its expiration.
+              Write-Error $_.ErrorDetails
+          }
       }
 
       Write-Host "Cleaned up keyvaults"
