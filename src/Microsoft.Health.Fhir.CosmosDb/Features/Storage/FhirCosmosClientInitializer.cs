@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
@@ -123,7 +124,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
-            var builder = new CosmosClientBuilder(host, key)
+            CosmosClientBuilder builder;
+
+            if (configuration.UseManagedIdentity)
+            {
+                builder = new CosmosClientBuilder(host, new ManagedIdentityCredential());
+            }
+            else
+            {
+                builder = new CosmosClientBuilder(host, key);
+            }
+
+            builder
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
@@ -145,6 +157,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private bool IsNewConnectionKey(CosmosDataStoreConfiguration configuration)
         {
             // Configuration key is not empty and hashcode is empty - first process access.
+            if (configuration.UseManagedIdentity)
+            {
+                return false;
+            }
+
             if (!string.IsNullOrWhiteSpace(configuration.Key) && _cosmosKeyHashCode == 0)
             {
                 return true;

@@ -465,6 +465,20 @@
             }
         },
         {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2020-04-01-preview",
+            "name": "[guid(resourceGroup().id, 'webApp', 'CosmosDBContributor')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2020-06-01', 'Full').identity.principalId]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            }
+        },
+        {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
             "apiVersion": "2022-11-15",
