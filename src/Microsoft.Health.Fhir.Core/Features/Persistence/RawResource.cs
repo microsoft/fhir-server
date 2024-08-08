@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -12,11 +13,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class RawResource
     {
+        private Lazy<string> _data;
+
         public RawResource(string data, FhirResourceFormat format, bool isMetaSet)
         {
             EnsureArg.IsNotNull(data, nameof(data));
 
             Data = data;
+            Format = format;
+            IsMetaSet = isMetaSet;
+        }
+
+        public RawResource(Lazy<string> data, FhirResourceFormat format, bool isMetaSet)
+        {
+            EnsureArg.IsNotNull(data, nameof(data));
+
+            _data = data;
             Format = format;
             IsMetaSet = isMetaSet;
         }
@@ -27,7 +39,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         [JsonProperty("data")]
-        public string Data { get; protected set; }
+        public string Data
+        {
+            get
+            {
+                return _data.Value;
+            }
+
+            protected set
+            {
+                _data = new Lazy<string>(() => value);
+            }
+        }
 
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]
