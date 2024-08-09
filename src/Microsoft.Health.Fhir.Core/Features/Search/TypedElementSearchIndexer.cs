@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // This allow to resolve %resource FhirPath to provided value.
             context.Resource = resource.Instance;
 
-            IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
+            var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType).ToList();
 
             foreach (SearchParameterInfo searchParameter in searchParameters)
             {
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                IEnumerable<ISearchValue> searchValues = converter.ConvertTo(extractedValue);
+                var searchValues = converter.ConvertTo(extractedValue).ToList();
 
                 if (searchValues != null)
                 {

@@ -309,7 +309,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                     else if (_callType.StartsWith("SearchByIds"))
                     {
-                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId));
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId)?.ToList());
                         if (status != "OK")
                         {
                             Interlocked.Increment(ref errors);
@@ -793,7 +793,7 @@ END
             return status;
         }
 
-        private static string GetResources(string resourceType, IEnumerable<string> resourceIds)
+        private static string GetResources(string resourceType, System.Collections.Generic.IReadOnlyCollection<string> resourceIds)
         {
             var maxRetries = 3;
             var retries = 0;

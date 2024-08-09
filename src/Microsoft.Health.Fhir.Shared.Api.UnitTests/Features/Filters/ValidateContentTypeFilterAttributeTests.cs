@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(applicationXml, context.HttpContext.Response.ContentType);
         }
 
-        private ValidateFormatParametersAttribute CreateFilter(IEnumerable<TextOutputFormatter> formatters = null)
+        private ValidateFormatParametersAttribute CreateFilter(IReadOnlyCollection<TextOutputFormatter> formatters = null)
         {
             if (formatters == null)
             {

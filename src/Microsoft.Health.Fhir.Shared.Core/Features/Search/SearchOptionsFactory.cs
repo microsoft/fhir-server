@@ -529,7 +529,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
                 }
 
-                var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
+                var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope?.ToList());
 
                 // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                 if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&

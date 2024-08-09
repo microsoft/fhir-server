@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
             _collectionDataUpdater = collectionDataUpdater;
             _configuration = configuration;
             _collectionConfiguration = GetCosmosCollectionConfiguration(namedCosmosCollectionConfigurationAccessor, Constants.CollectionConfigurationName);
