@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -255,6 +256,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
             var blobName = GetBlobNameForRaw(transactionId);
         retry:
@@ -285,7 +287,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw;
             }
 
-            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"Resources={resources.Count}", start, cancellationToken);
+            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} Resources={resources.Count}", start, cancellationToken);
         }
 
         private async Task PutStringsToAdls(IEnumerable<string> lines, long transactionId, string suffix, CancellationToken cancellationToken)
