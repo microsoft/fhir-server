@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         ResourceElement CreateHistoryBundle(SearchResult result);
 
-        ResourceElement CreateSubscriptionBundle(string bundleId, string profile, params ResourceWrapper[] resources);
+        System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources);
 
         Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences);
     }

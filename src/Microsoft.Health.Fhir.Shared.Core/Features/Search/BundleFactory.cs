@@ -7,8 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using DotLiquid.Util;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -16,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
@@ -27,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ILogger<BundleFactory> _logger;
+        private readonly FhirJsonParser _fhirJsonParser = new Hl7.Fhir.Serialization.FhirJsonParser();
 
         public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<BundleFactory> logger)
         {
@@ -236,10 +241,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return bundle.ToResourceElement();
         }
 
-        public ResourceElement CreateSubscriptionBundle(string bundleId, string profile, params ResourceWrapper[] resources)
+        public async System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources)
         {
             // if id-only then only resource in resourceWrapper[] will be the parameter, if full resource then the first will be paramater followed by the resources
-            throw new NotImplementedException();
+            EnsureArg.HasItems(resources, nameof(resources));
+
+            ResourceWrapper parameterResourceWrapper = resources[0];
+            ResourceWrapper[] lOResources = resources.Skip(1).ToArray();
+
+            Bundle bundle = new()
+            {
+                Type = Bundle.BundleType.Transaction,
+                Entry = new(),
+            };
+
+            var rawParameterResource = parameterResourceWrapper.RawResource.Data;
+            var parameter = await _fhirJsonParser.ParseAsync<Resource>(rawParameterResource);
+
+            Bundle.EntryComponent parameterEntry = new Bundle.EntryComponent
+            {
+                Resource = parameter,
+                Request = new Bundle.RequestComponent
+                {
+                    Method = Bundle.HTTPVerb.POST,
+                    Url = parameter.TypeName,
+                },
+            };
+
+            bundle.Entry.Add(parameterEntry);
+
+            foreach (ResourceWrapper rw in lOResources)
+            {
+                var rawResource = rw.RawResource.Data;
+                var resource = await _fhirJsonParser.ParseAsync<Resource>(rawResource);
+
+                var resourcesEntry = new Bundle.EntryComponent
+                {
+                    Resource = resource,
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = Bundle.HTTPVerb.POST,
+                        Url = resource.TypeName,
+                    },
+                };
+
+                bundle.Entry.Add(resourcesEntry);
+            }
+
+            return await bundle.ToJsonAsync();
         }
     }
 }
