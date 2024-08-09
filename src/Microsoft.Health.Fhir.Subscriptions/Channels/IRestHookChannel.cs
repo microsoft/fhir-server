@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 
@@ -15,6 +17,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
     public interface IRestHookChannel : ISubscriptionChannel
     {
+        Task PublishHandShakeAsync(ChannelInfo channelInfo);
+
+        Task PublishHeartBeatAsync(ChannelInfo channelInfo);
+
         Task SendPayload(ChannelInfo chanelInfo, string contents);
     }
 }

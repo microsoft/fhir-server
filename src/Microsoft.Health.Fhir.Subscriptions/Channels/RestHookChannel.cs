@@ -42,9 +42,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
         public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
-            var paramater = new Parameters();
-            paramater.Add("subscription", new FhirString(channelInfo.Endpoint));
-            paramater.Add("type", new Code("event-notification"));
+            var paramater = new Parameters
+            {
+                { "type", new Code("event-notification") },
+            };
 
             var notificationEvent = new Parameters.ParameterComponent
             {
@@ -68,8 +69,24 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
             await SendPayload(channelInfo, bundle);
+        }
 
-            // IRestHookChannel with additional methods for handshake, heartbeat, payload for subscription notification
+        public async Task PublishHandShakeAsync(ChannelInfo channelInfo)
+        {
+            List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
+            var paramater = new Parameters
+            {
+                { "type", new Code("handshake") },
+            };
+
+            string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
+
+            await SendPayload(channelInfo, bundle);
+        }
+
+        public Task PublishHeartBeatAsync(ChannelInfo channelInfo)
+        {
+            throw new NotImplementedException();
         }
 
         public async Task SendPayload(
