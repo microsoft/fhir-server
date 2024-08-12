@@ -78,8 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
 
-                ValidationResult baseValidation = base.Validate(context);
-                failures.AddRange(baseValidation.Errors);
+                base.Validate(context);
             }
 
             failures.ForEach(x => context.AddFailure(x));
