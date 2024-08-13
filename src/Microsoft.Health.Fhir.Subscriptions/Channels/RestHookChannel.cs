@@ -103,6 +103,9 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
             {
+                { "subscription", new ResourceReference(subscriptionInfo.ResourceId) },
+                { "topic", new FhirUri(subscriptionInfo.Topic) },
+                { "status", new Code(subscriptionInfo.Status.ToString()) },
                 { "type", new Code("handshake") },
             };
 
