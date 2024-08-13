@@ -36,34 +36,21 @@ steps:
           resource   = $resource
       }
 
-      # If a deleted keyvault exists, remove it first
+      # If a deleted keyvault with purge protection exists, try to restore it.
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
 
       $vaultName = "${environmentName}-ts"
-      if (Get-AzKeyVault -VaultName $vaultName -Location "westus" -InRemovedState)
+      $vaultLocation = "westus"
+      $vaultResourceGroupName = $ResourceGroupName
+      if (Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState)
       {
-          Write-Host "Attempting to delete vault ${vaultName}"
-          try
-          {
-              Remove-AzKeyVault -VaultName $vaultName -InRemovedState -Location "westus" -Force
-          }
-          catch
-          {
-              if ($_.ErrorDetails -eq "Operation 'DeletedVaultPurge' is not allowed.")
-              {
-                  # With purge protection enabled, it's impossible to delete a Key Vault before its expiration.
+          Write-Host "Attempting to restore vault ${vaultName}"
 
-                  Write-Error "Unable to delete vault ${vaultName}."
-                  Write-Error $_.ErrorDetails
-              }
-              else
-              { 
-                  throw $_
-              }
-          }
+          Undo-AzKeyVaultRemoval -VaultName $vaultName -ResourceGroupName $vaultResourceGroupName -Location $vaultLocation -Confirm
+          Write-Host "KeyVault $vaultName is restored"
       }
-      Write-Host "Cleaned up keyvaults"
+      Write-Host "Restored keyvaults"
 
       try 
       {
