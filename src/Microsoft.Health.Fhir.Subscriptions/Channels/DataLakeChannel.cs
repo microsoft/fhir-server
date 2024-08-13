@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _resourceDeserializer = resourceDeserializer;
         }
 
-        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
+        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
             try
             {
-                await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Endpoint);
+                await _exportDestinationClient.ConnectAsync(cancellationToken, subscriptionInfo.Channel.Endpoint);
 
                 IReadOnlyList<IGrouping<string, ResourceWrapper>> resourceGroupedByResourceType = resources.GroupBy(x => x.ResourceTypeName.ToLower(CultureInfo.InvariantCulture)).ToList();
 

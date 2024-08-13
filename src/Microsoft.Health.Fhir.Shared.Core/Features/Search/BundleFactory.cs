@@ -243,11 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public async System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources)
         {
-            // if id-only then only resource in resourceWrapper[] will be the parameter, if full resource then the first will be paramater followed by the resources
             EnsureArg.HasItems(resources, nameof(resources));
-
-            ResourceWrapper parameterResourceWrapper = resources[0];
-            ResourceWrapper[] lOResources = resources.Skip(1).ToArray();
 
             Bundle bundle = new()
             {
@@ -255,33 +251,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 Entry = new(),
             };
 
-            var rawParameterResource = parameterResourceWrapper.RawResource.Data;
-            var parameter = await _fhirJsonParser.ParseAsync<Resource>(rawParameterResource);
-
-            Bundle.EntryComponent parameterEntry = new Bundle.EntryComponent
-            {
-                Resource = parameter,
-                Request = new Bundle.RequestComponent
-                {
-                    Method = Bundle.HTTPVerb.POST,
-                    Url = parameter.TypeName,
-                },
-            };
-
-            bundle.Entry.Add(parameterEntry);
-
-            foreach (ResourceWrapper rw in lOResources)
+            foreach (ResourceWrapper rw in resources)
             {
                 var rawResource = rw.RawResource.Data;
                 var resource = await _fhirJsonParser.ParseAsync<Resource>(rawResource);
+                Enum.TryParse(rw.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
                 var resourcesEntry = new Bundle.EntryComponent
                 {
                     Resource = resource,
+                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(rw)),
                     Request = new Bundle.RequestComponent
                     {
-                        Method = Bundle.HTTPVerb.POST,
-                        Url = resource.TypeName,
+                        Method = httpVerb,
+                        Url = $"{rw.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : rw.ResourceId)}",
                     },
                 };
 

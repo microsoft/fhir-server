@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
     public class SubscriptionManagerTests
     {
         private IModelInfoProvider _modelInfo;
+        private ISubscriptionModelConverter _subscriptionModelConverter;
 
         public SubscriptionManagerTests()
         {
@@ -30,6 +31,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
                 .Create(FhirSpecification.R4)
                 .AddKnownTypes(KnownResourceTypes.Subscription)
                 .Build();
+
+            _subscriptionModelConverter = new SubscriptionModelConverterR4();
         }
 
         [Fact]
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
         {
             var subscription = CommonSamples.GetJsonSample("Subscription-Backport", FhirSpecification.R4, s => s.ToTypedElement(ModelInfo.ModelInspector));
 
-            var info = SubscriptionManager.ConvertToInfo(subscription);
+            var info = _subscriptionModelConverter.Convert(subscription);
 
             Assert.Equal("Patient", info.FilterCriteria);
             Assert.Equal("sync-all", info.Channel.Endpoint);

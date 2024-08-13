@@ -5,15 +5,18 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Subscriptions.Models;
 
-namespace Microsoft.Health.Fhir.Subscriptions.Channels
+namespace Microsoft.Health.Fhir.Subscriptions.Models
 {
-    public interface ISubscriptionChannel
+    public enum SubscriptionStatus
     {
-        Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken);
+        Requested,
+        Active,
+        Error,
+        Off,
+        None,
     }
 }

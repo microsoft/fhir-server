@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                     var cloneDefinition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
                     cloneDefinition.TypeId = (int)JobType.SubscriptionsProcessing;
                     cloneDefinition.ResourceReferences = batch.ToList();
-                    cloneDefinition.Channel = sub.Channel;
+                    cloneDefinition.SubscriptionInfo = sub;
 
                     processingDefinition.Add(cloneDefinition);
                 }

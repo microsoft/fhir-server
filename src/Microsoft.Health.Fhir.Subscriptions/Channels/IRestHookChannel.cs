@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
     public interface IRestHookChannel : ISubscriptionChannel
     {
-        Task PublishHandShakeAsync(ChannelInfo channelInfo);
+        Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo);
 
         Task PublishHeartBeatAsync(ChannelInfo channelInfo);
 
