@@ -92,18 +92,18 @@ jobs:
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 
+        $deploymentName = $webAppName
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+
         Write-Host "Check for keyvaults in removed state..."
         if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
         {
-            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $parameters.resourceGroup -Location $(ResourceGroupRegion) -Confirm
+            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion)
             Write-Host "KeyVault $webAppName is restored"
         }
 
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
-
-        $deploymentName = $webAppName
-        $resourceGroupName = "${{ parameters.resourceGroup }}"
 
         # Check if a deployment with the specified name already exists
         $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue

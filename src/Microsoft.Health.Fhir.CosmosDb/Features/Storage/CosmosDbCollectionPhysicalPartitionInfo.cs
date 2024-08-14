@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     Ensure.That(host, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Host)}").IsNotNullOrEmpty();
                 }
             }
-            else if (string.IsNullOrWhiteSpace(key))
+            else if (!_dataStoreConfiguration.UseManagedIdentity && string.IsNullOrWhiteSpace(key))
             {
                 Ensure.That(key, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Key)}").IsNotNullOrEmpty();
             }
@@ -128,7 +128,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 if (_dataStoreConfiguration.UseManagedIdentity)
                 {
-                    resourceKey = await GenerateAccessToken(host, cancellationToken);
+                    resourceKey = await GenerateAuthTokenAad(
+                        host,
+                        cancellationToken);
                 }
                 else
                 {
@@ -202,21 +204,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return Task.FromResult($"type=master&ver=1.0&sig={signature}");
         }
 
-        private async Task<string> GenerateAccessToken(string host, CancellationToken cancellationToken)
+        private async Task<string> GenerateAuthTokenAad(string host, CancellationToken cancellationToken)
         {
-            string accessToken = string.Empty;
             var resourceUri = new Uri(host);
-            try
-            {
-                accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resourceUri, cancellationToken);
-                accessToken = HttpUtility.UrlEncode($"type=aad&ver=1.0&sig={accessToken}");
-            }
-            catch (AccessTokenProviderException ex)
-            {
-                _logger.LogError(ex, "Failed to get access token from managed identity.");
-            }
+            var accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resourceUri, cancellationToken);
 
-            return accessToken;
+            return $"type=aad&ver=1.0&sig={accessToken}";
         }
 
         private record PartitionKeyRange;

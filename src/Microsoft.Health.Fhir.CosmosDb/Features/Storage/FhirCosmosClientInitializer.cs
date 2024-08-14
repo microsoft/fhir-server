@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (configuration.UseManagedIdentity)
             {
-                builder = new CosmosClientBuilder(host, new ManagedIdentityCredential());
+                builder = new CosmosClientBuilder(host, new DefaultAzureCredential());
             }
             else
             {

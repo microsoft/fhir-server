@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
-            var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
+            CollectionVersion thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
             // Detect if registry has been initialized
             var partitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey);
