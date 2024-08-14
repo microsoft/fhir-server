@@ -47,7 +47,7 @@ steps:
       {
           Write-Host "Attempting to restore vault ${vaultName}"
 
-          Undo-AzKeyVaultRemoval -VaultName $vaultName -ResourceGroupName $vaultResourceGroupName -Location $vaultLocation -Confirm
+          Undo-AzKeyVaultRemoval -VaultName $vaultName -Location $vaultLocation -Confirm
           Write-Host "KeyVault $vaultName is restored"
       }
       Write-Host "Restored keyvaults"
