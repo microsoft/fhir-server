@@ -191,6 +191,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var calls = 0L;
+            var errors = 0L;
             var resources = 0;
             long sumLatency = 0;
             var singleId = Guid.NewGuid().ToString();
@@ -221,6 +222,10 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
                 Interlocked.Add(ref sumLatency, mcsec);
                 _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                if (_callType != "BundleUpdate" && status != "OK" && status != "Created")
+                {
+                    Interlocked.Increment(ref errors);
+                }
 
                 if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                 {
@@ -228,14 +233,14 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     {
                         if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                         {
-                            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
                             swReport.Restart();
                         }
                     }
                 }
             });
 
-            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
         private static void ExecuteParallelCalls(ReadOnlyList<long> tranIds)
