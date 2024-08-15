@@ -4,22 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -95,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
-                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
+                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId)));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
@@ -126,14 +122,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             CosmosClientBuilder builder;
 
-            if (configuration.UseManagedIdentity)
-            {
-                builder = new CosmosClientBuilder(host, new DefaultAzureCredential());
-            }
-            else
-            {
-                builder = new CosmosClientBuilder(host, key);
-            }
+            builder = configuration.UseManagedIdentity ?
+                new CosmosClientBuilder(host, new DefaultAzureCredential()) :
+                new CosmosClientBuilder(host, key);
 
             builder
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)

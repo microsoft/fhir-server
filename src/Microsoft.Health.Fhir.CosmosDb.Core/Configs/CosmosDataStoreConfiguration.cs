@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
 
         public bool AllowDatabaseCreation { get; set; } = true;
 
+        public bool AllowCollectionSetup { get; set; } = true;
+
         public string DatabaseId { get; set; }
 
         public int? InitialDatabaseThroughput { get; set; }

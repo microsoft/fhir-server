@@ -13,8 +13,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
@@ -24,8 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly CosmosDataStoreConfiguration _configuration;
-        private readonly UpdateUnsupportedSearchParameters _updateSP = new UpdateUnsupportedSearchParameters();
-        private const int CollectionSettingsVersion = 3;
+        private readonly UpdateUnsupportedSearchParameters _updateSP = new();
 
         public CosmosDbSearchParameterStatusInitializer(
             FilebasedSearchParameterStatusDataStore.Resolver filebasedSearchParameterStatusDataStoreResolver,
@@ -43,8 +40,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
-
-            CollectionVersion thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
             // Detect if registry has been initialized
             var partitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey);
@@ -80,23 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             else
             {
                 await _updateSP.Execute(container.Scripts, cancellationToken);
-                thisVersion.Version = CollectionSettingsVersion;
-                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
-        }
-
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken)
-        {
-            FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
-                new QueryDefinition("SELECT * FROM root r"),
-                requestOptions: new QueryRequestOptions
-                {
-                    PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition),
-                });
-
-            FeedResponse<CollectionVersion> result = await query.ReadNextAsync(cancellationToken);
-
-            return result.FirstOrDefault() ?? new CollectionVersion();
         }
     }
 }

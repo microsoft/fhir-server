@@ -20,13 +20,18 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Polly;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
-public class ArmSdkCollectionSetup : ICollectionSetup
+/// <summary>
+/// Sets up the Cosmos FHIR Database using the ResourceManager SDK and ManagedIdentity.
+/// Requires the MI connection to have 'Cosmos DB Operator' permissions.
+/// </summary>
+public class ResourceManagerCollectionSetup : ICollectionSetup
 {
-    private readonly ILogger<ArmSdkCollectionSetup> _logger;
+    private readonly ILogger<ResourceManagerCollectionSetup> _logger;
     private readonly ArmClient _armClient;
     private readonly IOptionsMonitor<CosmosCollectionConfiguration> _cosmosCollectionConfiguration;
     private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
@@ -36,12 +41,12 @@ public class ArmSdkCollectionSetup : ICollectionSetup
     private AzureLocation? _location;
     private readonly CosmosDBAccountResource _account;
 
-    public ArmSdkCollectionSetup(
+    public ResourceManagerCollectionSetup(
         IOptionsMonitor<CosmosCollectionConfiguration> cosmosCollectionConfiguration,
         CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
         IConfiguration genericConfiguration,
         IEnumerable<IStoredProcedureMetadata> storedProcedures,
-        ILogger<ArmSdkCollectionSetup> logger)
+        ILogger<ResourceManagerCollectionSetup> logger)
     {
         EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
 
@@ -121,9 +126,10 @@ public class ArmSdkCollectionSetup : ICollectionSetup
     {
         _logger.LogInformation("Checking if '{CollectionId}' exists.", CollectionId);
 
-        NullableResponse<CosmosDBSqlContainerResource> containers = await Database.GetCosmosDBSqlContainers().GetIfExistsAsync(CollectionId, cancellationToken);
+        NullableResponse<CosmosDBSqlContainerResource> containerResponse = await Database.GetCosmosDBSqlContainers().GetIfExistsAsync(CollectionId, cancellationToken);
+        CosmosDBSqlContainerResource container = containerResponse.HasValue ? containerResponse.Value : null;
 
-        if (!containers.HasValue)
+        if (container == null)
         {
             _logger.LogInformation("Collection '{CollectionId}' was not found, creating.", CollectionId);
             CosmosDBSqlContainerResourceInfo containerResourceInfo = GetContainerResourceInfo();
@@ -133,9 +139,8 @@ public class ArmSdkCollectionSetup : ICollectionSetup
                 containerResourceInfo);
 
             CosmosDBSqlContainerCollection containerCollection = Database.GetCosmosDBSqlContainers();
-            await containerCollection.CreateOrUpdateAsync(WaitUntil.Completed, CollectionId, content, cancellationToken);
-
-            containers = await Database.GetCosmosDBSqlContainerAsync(CollectionId, cancellationToken);
+            ArmOperation<CosmosDBSqlContainerResource> newContainerResponse = await containerCollection.CreateOrUpdateAsync(WaitUntil.Completed, CollectionId, content, cancellationToken);
+            container = newContainerResponse.Value;
 
             var throughput =
                 _cosmosCollectionConfiguration.Get(Core.Constants.CollectionConfigurationName)
@@ -144,10 +149,10 @@ public class ArmSdkCollectionSetup : ICollectionSetup
             if (throughput.HasValue)
             {
                 _logger.LogInformation("Updating container throughput to '{Throughput}' RUs.", throughput);
-                await containers.Value
+                await container
                     .GetCosmosDBSqlContainerThroughputSetting()
                     .CreateOrUpdateAsync(
-                        WaitUntil.Completed,
+                        WaitUntil.Started, // Throughput provisioning can be async
                         new ThroughputSettingsUpdateData(
                             Location,
                             new ThroughputSettingsResourceInfo
@@ -161,30 +166,36 @@ public class ArmSdkCollectionSetup : ICollectionSetup
         {
             _logger.LogInformation("Collection '{CollectionId}' found.", CollectionId);
         }
+    }
 
-        var meta = _storeProceduresMetadata.ToList();
+    public async Task InstallStoredProcs(CancellationToken cancellationToken)
+    {
+        CosmosDBSqlContainerResource containerResponse = await Database.GetCosmosDBSqlContainers().GetAsync(CollectionId, cancellationToken);
+        CosmosDBSqlStoredProcedureCollection cosmosDbSqlStoredProcedures = containerResponse.GetCosmosDBSqlStoredProcedures();
 
-        CosmosDBSqlStoredProcedureCollection cosmosDbSqlStoredProcedures = containers.Value.GetCosmosDBSqlStoredProcedures();
-        var existing = cosmosDbSqlStoredProcedures.Select(x => x.Data.Resource.StoredProcedureName).ToList();
+        var existing = cosmosDbSqlStoredProcedures
+            .Select(x => x.Data.Resource.StoredProcedureName)
+            .ToList();
 
-        foreach (IStoredProcedureMetadata storedProc in meta)
+        var storedProcsNeedingInstall = _storeProceduresMetadata
+            .Where(storedProc => !existing.Contains(storedProc.FullName))
+            .ToList();
+
+        foreach (IStoredProcedureMetadata storedProc in storedProcsNeedingInstall)
         {
-            if (!existing.Contains(storedProc.FullName))
+            _logger.LogInformation("Installing StoredProc '{StoredProcFullName}'.", storedProc.FullName);
+
+            var cosmosDbSqlStoredProcedureResource = new CosmosDBSqlStoredProcedureResourceInfo(storedProc.FullName)
             {
-                _logger.LogInformation("Installing StoredProc '{StoredProcFullName}'.", storedProc.FullName);
+                Body = storedProc.ToStoredProcedureProperties().Body,
+            };
 
-                var cosmosDbSqlStoredProcedureResource = new CosmosDBSqlStoredProcedureResourceInfo(storedProc.FullName)
-                {
-                    Body = storedProc.ToStoredProcedureProperties().Body,
-                };
-
-                var storedProcedureCreateOrUpdateContent = new CosmosDBSqlStoredProcedureCreateOrUpdateContent(Location, cosmosDbSqlStoredProcedureResource);
-                await cosmosDbSqlStoredProcedures.CreateOrUpdateAsync(WaitUntil.Completed, storedProc.FullName, storedProcedureCreateOrUpdateContent, cancellationToken);
-            }
+            var storedProcedureCreateOrUpdateContent = new CosmosDBSqlStoredProcedureCreateOrUpdateContent(Location, cosmosDbSqlStoredProcedureResource);
+            await cosmosDbSqlStoredProcedures.CreateOrUpdateAsync(WaitUntil.Completed, storedProc.FullName, storedProcedureCreateOrUpdateContent, cancellationToken);
         }
     }
 
-    public async Task UpdateFhirCollectionSettingsAsync(CancellationToken cancellationToken)
+    public async Task UpdateFhirCollectionSettingsAsync(CollectionVersion version, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Updating collection settings.");
 

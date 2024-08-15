@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         private readonly DataPlaneCollectionSetup _setup;
         private readonly ContainerResponse _containerResponse;
         private readonly ILogger<DataPlaneCollectionSetup> _logger = Substitute.For<ILogger<DataPlaneCollectionSetup>>();
+        private readonly CollectionVersion _version;
 
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
         {
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         {
             _container = Substitute.For<Container>();
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();
+            _version = new CollectionVersion();
 
             var containerProperties = new ContainerProperties();
             containerProperties.IndexingPolicy = new IndexingPolicy
@@ -89,23 +91,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         [Fact]
         public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionIndexIsUpdated()
         {
-            await _setup.UpdateFhirCollectionSettingsAsync(CancellationToken.None);
+            await _setup.UpdateFhirCollectionSettingsAsync(_version, CancellationToken.None);
             await _container.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionVersionWrapperIsSaved()
-        {
-            await _setup.UpdateFhirCollectionSettingsAsync(CancellationToken.None);
-
-            await _container.Received(1)
-                .UpsertItemAsync(Arg.Is<CollectionVersion>(x => x.Version == 3), Arg.Any<PartitionKey?>(), null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionTTLIsSetToNeg1()
         {
-            await _setup.UpdateFhirCollectionSettingsAsync(CancellationToken.None);
+            await _setup.UpdateFhirCollectionSettingsAsync(_version, CancellationToken.None);
             Assert.Equal(-1, _containerResponse.Resource.DefaultTimeToLive);
         }
     }

@@ -181,7 +181,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionDataUpdater>();
 
-            services.Add<ArmSdkCollectionSetup>()
+            services.Add<ResourceManagerCollectionSetup>()
                 .Singleton()
                 .AsSelf();
 
@@ -193,7 +193,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     CosmosDataStoreConfiguration config = c.GetRequiredService<CosmosDataStoreConfiguration>();
                     return config.UseManagedIdentity
-                        ? (ICollectionSetup)c.GetRequiredService<ArmSdkCollectionSetup>()
+                        ? (ICollectionSetup)c.GetRequiredService<ResourceManagerCollectionSetup>()
                         : c.GetRequiredService<DataPlaneCollectionSetup>();
                 })
                 .Singleton()
