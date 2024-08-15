@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -15,6 +16,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -22,6 +24,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Management.Smo.Agent;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -48,13 +51,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _queueClient = queueClient;
             _logger = logger;
 
-            _jsonSerializerSettings = new JsonSerializerSettings
+            _jsonSerializerSettings = new()
             {
-                Converters = new List<JsonConverter>
-                {
-                    new EnumLiteralJsonConverter(),
-                },
+                Converters = [new EnumLiteralJsonConverter()],
             };
+        }
+
+        public override async Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            var orchResult = await GetOrchestratedJobResultsByIdAsync(QueueType.Import, id, cancellationToken);
+
+            var def = orchResult.Job.Definition;
+            var result = orchResult.Job.Result;
+            var record = orchResult.Job.DeserializeDefinition<ImportOrchestratorJobDefinition>();
+
+            if (orchResult.Status == JobStatus.Created || orchResult.Status == JobStatus.Running)
+            {
+                return (orchResult.Status, orchResult.Job, orchResult.GroupJobs);
+            }
+            else if (orchResult.Status == JobStatus.Cancelled)
+            {
+                throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
+            }
+            else if (orchResult.Status == JobStatus.Failed)
+            {
+                var failed = orchResult.Job.Status == JobStatus.Failed ? orchResult.Job : orchResult.GroupJobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                if (errorResult.HttpStatusCode == 0)
+                {
+                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                }
+
+                // hide error message for InternalServerError
+                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+            }
+            else // no failures here
+            {
+               return (orchResult.Status, orchResult.Job, orchResult.GroupJobs);
+            }
         }
 
         public override async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)

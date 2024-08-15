@@ -31,12 +31,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
     public class GetImportRequestHandlerTests
     {
         private readonly IMediator _mediator;
-        private IQueueClient _queueClient = Substitute.For<IQueueClient>();
+        private IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
 
         public GetImportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
@@ -157,13 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo coord, List<JobInfo> workers)
         {
-            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(coord);
-
-            var allJobs = new List<JobInfo>(workers);
-            allJobs.Add(coord);
-            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(allJobs);
-
-            return await _mediator.GetImportStatusAsync(coord.Id, CancellationToken.None);
+            return await _mediator.GetImportStatusAsync(1, CancellationToken.None);
         }
     }
 }

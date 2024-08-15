@@ -10,14 +10,17 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -53,7 +56,15 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return CreateExportJobOutcome(jobInfo, clone);
     }
 
-    public async Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetOrchestratedJobResultsByIdAsync(QueueType queueType, string orchestratorJobId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Retrieves the results of an $import or $export "orchestrated job" by the orchestrator id. This idis what is returned to the API caller.
+    /// </summary>
+    /// <param name="queueType">The type of the queue where the job is located.</param>
+    /// <param name="orchestratorJobId">The ID of the orchestrator job.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A tuple containing the status of the job, the orchestrator job information, and a list of group jobs.</returns>
+    /// <exception cref="JobNotFoundException">Thrown when the job is not found or is archived.</exception>
+    internal async Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetOrchestratedJobResultsByIdAsync(QueueType queueType, string orchestratorJobId, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNullOrWhiteSpace(orchestratorJobId, nameof(orchestratorJobId));
 
@@ -172,6 +183,12 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return CreateExportJobOutcome(orchResult.Job.Id, result ?? def, orchResult.Job.Version, (byte)orchResult.Status, orchResult.Job.CreateDate);
     }
 
+    public virtual Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        // Import is only enabled on SQL datastore.
+        throw new NotImplementedException();
+    }
+
     public virtual async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
@@ -194,6 +211,27 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         return new ExportJobOutcome(jobRecord, eTag);
+    }
+
+    public async Task CancelOrchestratedJob(QueueType queueType, string jobId, CancellationToken cancellationToken)
+    {
+        var jobsInfo = await GetOrchestratedJobResultsByIdAsync(queueType, jobId, cancellationToken);
+
+        // If the job is already completed for any reason, return conflict status.
+        if (jobsInfo.Status == JobStatus.Completed || jobsInfo.Status == JobStatus.Cancelled || jobsInfo.Status == JobStatus.Failed)
+        {
+            throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
+        }
+
+        try
+        {
+            var jobWithGroupId = await _queueClient.GetJobByIdAsync(queueType, long.Parse(jobId), false, cancellationToken);
+            await _queueClient.CancelJobByGroupIdAsync(queueType, jobWithGroupId.GroupId, cancellationToken);
+        }
+        catch (JobNotExistException ex)
+        {
+            throw new JobNotFoundException(ex.Message);
+        }
     }
 
     public virtual async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
