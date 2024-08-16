@@ -28,14 +28,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
     {
         private readonly ILogger _logger;
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
-        private readonly IRestHookChannel _restHookChannel;
+        private readonly ISubscriptionChannel _subscriptionChannel;
         private readonly ISubscriptionUpdator _subscriptionUpdator;
 
-        public SubscriptionValidator(ILogger logger, ISubscriptionModelConverter subscriptionModelConverter, IRestHookChannel restHookChannel, ISubscriptionUpdator subscriptionUpdator)
+        public SubscriptionValidator(ILogger logger, ISubscriptionModelConverter subscriptionModelConverter, ISubscriptionChannel subscriptionChannel, ISubscriptionUpdator subscriptionUpdator)
         {
             _logger = logger;
             _subscriptionModelConverter = subscriptionModelConverter;
-            _restHookChannel = restHookChannel;
+            _subscriptionChannel = subscriptionChannel;
             _subscriptionUpdator = subscriptionUpdator;
         }
 
@@ -52,19 +52,19 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
                     new ValidationFailure(nameof(subscriptionInfo.Channel.ChannelType), "Subscription channel type is not valid."));
             }
 
-            if (!subscriptionInfo.Status.Equals(SubscriptionStatus.Off) && subscriptionInfo.Channel.ChannelType.Equals(SubscriptionChannelType.RestHook))
+            if (!subscriptionInfo.Status.Equals(SubscriptionStatus.Off))
             {
-                var handshake = await _restHookChannel.PublishHandShakeAsync(subscriptionInfo);
-                if (!handshake)
+                try
+                {
+                    await _subscriptionChannel.PublishHandShakeAsync(subscriptionInfo);
+                    subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Active.ToString());
+                }
+                catch (Exception)
                 {
                     _logger.LogInformation("Subscription endpoint is not valid.");
                     validationFailures.Add(
                         new ValidationFailure(nameof(subscriptionInfo.Channel.Endpoint), "Subscription endpoint is not valid."));
                     subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Error.ToString());
-                }
-                else
-                {
-                    subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Active.ToString());
                 }
             }
 

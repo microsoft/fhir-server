@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
     [ChannelType(SubscriptionChannelType.RestHook)]
 
     #pragma warning disable CA1001 // Types that own disposable fields should be disposable
-    public class RestHookChannel : IRestHookChannel
+    public class RestHookChannel : ISubscriptionChannel
     #pragma warning restore CA1001 // Types that own disposable fields should be disposable
     {
         private readonly ILogger _logger;
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             await SendPayload(subscriptionInfo.Channel, bundle);
         }
 
-        public async Task<bool> PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        public async Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
         {
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
@@ -115,21 +115,34 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
-            return await SendPayload(subscriptionInfo.Channel, bundle);
+            await SendPayload(subscriptionInfo.Channel, bundle);
         }
 
-        public Task<bool> PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        public async Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
         {
-            throw new NotImplementedException();
+            List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
+            var parameter = new Parameters
+            {
+                { "subscription", new ResourceReference(subscriptionInfo.ResourceId) },
+                { "topic", new FhirUri(subscriptionInfo.Topic) },
+                { "status", new Code(subscriptionInfo.Status.ToString()) },
+                { "type", new Code("heartbeat") },
+            };
+
+            var parameterResourceElement = _modelInfoProvider.ToResourceElement(parameter);
+            var parameterResourceWrapper = new ResourceWrapper(parameterResourceElement, _rawResourceFactory.Create(parameterResourceElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            resourceWrappers.Add(parameterResourceWrapper);
+
+            string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
+
+            await SendPayload(subscriptionInfo.Channel, bundle);
         }
 
-        public async Task<bool> SendPayload(
+        private async Task SendPayload(
         ChannelInfo chanelInfo,
         string contents)
         {
             HttpRequestMessage request = null!;
-
-            var isSuccess = false;
 
             // send the request to the endpoint
             try
@@ -155,12 +168,12 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 else
                 {
                     _logger.LogError($"REST POST to {chanelInfo.Endpoint} succeeded: {response.StatusCode}");
-                    isSuccess = true;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"REST POST {chanelInfo.ChannelType} to {chanelInfo.Endpoint} failed: {ex.Message}");
+                throw new HttpRequestException();
             }
             finally
             {
@@ -169,8 +182,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     request.Dispose();
                 }
             }
-
-            return isSuccess;
         }
     }
 }

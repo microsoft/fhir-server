@@ -9,12 +9,14 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentValidation.Results;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
+using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 
 namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
@@ -35,7 +37,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));
-            var nextHeartBeat = new HashSet<string>();
+            var nextHeartBeat = new Dictionary<string, DateTime>();
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -57,11 +59,30 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                     var activeSubscriptions = await subscriptionManager.Value.GetActiveSubscriptionsAsync(stoppingToken);
                     var subscriptionsWithHeartbeat = activeSubscriptions.Where(subscription => !subscription.Channel.HeartBeatPeriod.Equals(null));
 
-                    // go through subscriptions with heartbeat, if not in hashset then send heartbeat and add to hashset, if not check the corresponding value in the hashset and get time
+                    foreach (var subscription in subscriptionsWithHeartbeat)
+                    {
+                        if (!nextHeartBeat.ContainsKey(subscription.ResourceId))
+                        {
+                            nextHeartBeat[subscription.ResourceId] = DateTime.Now;
+                        }
 
-                    // if time has expired then send heartbeat and set new heartbeat time, else skip
+                        // checks if datetime is after current time
+                        if (nextHeartBeat.GetValueOrDefault(subscription.ResourceId).CompareTo(DateTime.Now) > 0)
+                        {
+                            var channel = _storageChannelFactory.Create(subscription.Channel.ChannelType);
+                            try
+                            {
+                                await channel.PublishHeartBeatAsync(subscription);
+                                nextHeartBeat[subscription.ResourceId] = nextHeartBeat.GetValueOrDefault(subscription.ResourceId).Add(subscription.Channel.HeartBeatPeriod);
+                            }
+                            catch (Exception)
+                            {
+                                await subscriptionManager.Value.MarkAsError(subscription, stoppingToken);
+                            }
+                        }
+                    }
 
-                    // if send heartbeat fails then mark as error and send back
+                    subscriptionManager.Dispose();
                 }
                 catch (Exception e)
                 {

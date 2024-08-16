@@ -39,5 +39,15 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 _exportDestinationClient.CommitFile(fileName);
             }
         }
+
+        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

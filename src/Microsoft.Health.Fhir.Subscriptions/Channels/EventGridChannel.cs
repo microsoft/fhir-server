@@ -29,6 +29,16 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             throw new NotImplementedException();
         }
 
+        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        {
+            throw new NotImplementedException();
+        }
+
         /*
         public EventGridEvent CreateEventGridEvent(ResourceWrapper rcd)
         {

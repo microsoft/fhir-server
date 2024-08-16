@@ -15,5 +15,9 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
     public interface ISubscriptionChannel
     {
         Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken);
+
+        Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo);
+
+        Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo);
     }
 }

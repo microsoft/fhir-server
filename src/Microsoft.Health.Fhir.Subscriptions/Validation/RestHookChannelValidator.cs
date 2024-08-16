@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
 {
     public class RestHookChannelValidator : ISubscriptionChannelValidator
     {
-        public Task Validate(ChannelInfo channelInfo)
+        public Task Validate(SubscriptionInfo subscriptionInfo)
         {
             throw new NotImplementedException();
         }

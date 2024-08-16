@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
@@ -30,19 +32,22 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         private readonly ILogger<SubscriptionManager> _logger;
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
         private static readonly object _lock = new object();
+        private readonly ISubscriptionUpdator _subscriptionUpdator;
 
         public SubscriptionManager(
             IScopeProvider<IFhirDataStore> dataStoreProvider,
             IScopeProvider<ISearchService> searchServiceProvider,
             IResourceDeserializer resourceDeserializer,
             ILogger<SubscriptionManager> logger,
-            ISubscriptionModelConverter subscriptionModelConverter)
+            ISubscriptionModelConverter subscriptionModelConverter,
+            ISubscriptionUpdator subscriptionUpdator)
         {
             _dataStoreProvider = EnsureArg.IsNotNull(dataStoreProvider, nameof(dataStoreProvider));
             _searchServiceProvider = EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
             _resourceDeserializer = resourceDeserializer;
             _logger = logger;
             _subscriptionModelConverter = subscriptionModelConverter;
+            _subscriptionUpdator = subscriptionUpdator;
         }
 
         public async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
@@ -98,11 +103,23 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             await SyncSubscriptionsAsync(cancellationToken);
         }
 
-        /*
-        public async Task MarkAsError(SubscriptionInfo subscription)
+        public async Task MarkAsError(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
+            using var search = _searchServiceProvider.Invoke();
+            using var datastore = _dataStoreProvider.Invoke();
 
+            var getSubscriptionsWithId = await search.Value.SearchAsync(
+                KnownResourceTypes.Subscription,
+                [
+                    Tuple.Create("id", subscriptionInfo.ResourceId),
+                ],
+                cancellationToken);
+
+            var resourceElement = _resourceDeserializer.Deserialize(getSubscriptionsWithId.Results.ToList()[0].Resource);
+            var updatedStatusResource = _subscriptionUpdator.UpdateStatus(resourceElement, SubscriptionStatus.Error.ToString());
+
+            // update and save resource
+            search.Dispose();
         }
-        */
     }
 }

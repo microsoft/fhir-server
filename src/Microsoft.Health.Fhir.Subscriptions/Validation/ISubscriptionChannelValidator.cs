@@ -15,6 +15,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
 {
     public interface ISubscriptionChannelValidator
     {
-        Task Validate(ChannelInfo channelInfo);
+        Task Validate(SubscriptionInfo subscriptionInfo);
     }
 }
