@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -15,8 +16,10 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Validation
@@ -25,14 +28,18 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
     {
         private readonly ILogger _logger;
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
+        private readonly IRestHookChannel _restHookChannel;
+        private readonly ISubscriptionUpdator _subscriptionUpdator;
 
-        public SubscriptionValidator(ILogger logger, ISubscriptionModelConverter subscriptionModelConverter)
+        public SubscriptionValidator(ILogger logger, ISubscriptionModelConverter subscriptionModelConverter, IRestHookChannel restHookChannel, ISubscriptionUpdator subscriptionUpdator)
         {
             _logger = logger;
             _subscriptionModelConverter = subscriptionModelConverter;
+            _restHookChannel = restHookChannel;
+            _subscriptionUpdator = subscriptionUpdator;
         }
 
-        public SubscriptionInfo ValidateSubscriptionInput(ResourceElement subscription, CancellationToken cancellationToken)
+        public async Task<ResourceElement> ValidateSubscriptionInput(ResourceElement subscription, CancellationToken cancellationToken)
         {
             SubscriptionInfo subscriptionInfo = _subscriptionModelConverter.Convert(subscription);
 
@@ -45,12 +52,28 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
                     new ValidationFailure(nameof(subscriptionInfo.Channel.ChannelType), "Subscription channel type is not valid."));
             }
 
+            if (!subscriptionInfo.Status.Equals(SubscriptionStatus.Off) && subscriptionInfo.Channel.ChannelType.Equals(SubscriptionChannelType.RestHook))
+            {
+                var handshake = await _restHookChannel.PublishHandShakeAsync(subscriptionInfo);
+                if (!handshake)
+                {
+                    _logger.LogInformation("Subscription endpoint is not valid.");
+                    validationFailures.Add(
+                        new ValidationFailure(nameof(subscriptionInfo.Channel.Endpoint), "Subscription endpoint is not valid."));
+                    subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Error.ToString());
+                }
+                else
+                {
+                    subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Active.ToString());
+                }
+            }
+
             if (validationFailures.Any())
             {
                 throw new ResourceNotValidException(validationFailures);
             }
 
-            return subscriptionInfo;
+            return subscription;
         }
     }
 }

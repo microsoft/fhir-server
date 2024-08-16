@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             await SendPayload(subscriptionInfo.Channel, bundle);
         }
 
-        public async Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        public async Task<bool> PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
         {
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
@@ -115,19 +115,21 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
-            await SendPayload(subscriptionInfo.Channel, bundle);
+            return await SendPayload(subscriptionInfo.Channel, bundle);
         }
 
-        public Task PublishHeartBeatAsync(ChannelInfo channelInfo)
+        public Task<bool> PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
         {
             throw new NotImplementedException();
         }
 
-        public async Task SendPayload(
+        public async Task<bool> SendPayload(
         ChannelInfo chanelInfo,
         string contents)
         {
             HttpRequestMessage request = null!;
+
+            var isSuccess = false;
 
             // send the request to the endpoint
             try
@@ -153,6 +155,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 else
                 {
                     _logger.LogError($"REST POST to {chanelInfo.Endpoint} succeeded: {response.StatusCode}");
+                    isSuccess = true;
                 }
             }
             catch (Exception ex)
@@ -166,6 +169,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     request.Dispose();
                 }
             }
+
+            return isSuccess;
         }
     }
 }

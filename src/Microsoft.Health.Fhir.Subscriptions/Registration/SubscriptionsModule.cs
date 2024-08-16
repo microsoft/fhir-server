@@ -11,12 +11,17 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
+using Microsoft.Health.Fhir.Subscriptions.HeartBeats;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.JobManagement;
@@ -67,6 +72,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
             .Singleton()
             .AsSelf()
             .AsImplementedInterfaces();
+
+            // services.Add<HeartBeatBackgroundService>()
+            //    .Transient()
+            //    .AsSelf()
+            //    .AsService<IHostedService>();
+
+            // services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<CreateResourceRequest, UpsertResourceResponse>));
+            // services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<UpsertResourceRequest, UpsertResourceResponse>));
         }
     }
 }

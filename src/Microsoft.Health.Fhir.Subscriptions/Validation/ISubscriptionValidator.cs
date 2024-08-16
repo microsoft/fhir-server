@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 
@@ -11,6 +12,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
 {
     public interface ISubscriptionValidator
     {
-        SubscriptionInfo ValidateSubscriptionInput(ResourceElement subscription, CancellationToken cancellationToken);
+        Task<ResourceElement> ValidateSubscriptionInput(ResourceElement subscription, CancellationToken cancellationToken);
     }
 }

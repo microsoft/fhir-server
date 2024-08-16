@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             var activeSubscriptions = await search.Value.SearchAsync(
                 KnownResourceTypes.Subscription,
                 [
-                    Tuple.Create("status", "active,requested"),
+                    Tuple.Create("status", "active"),
                 ],
                 cancellationToken);
 
@@ -97,5 +97,12 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             // Preload subscriptions when storage becomes available
             await SyncSubscriptionsAsync(cancellationToken);
         }
+
+        /*
+        public async Task MarkAsError(SubscriptionInfo subscription)
+        {
+
+        }
+        */
     }
 }

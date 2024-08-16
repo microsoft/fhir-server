@@ -17,10 +17,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
     public interface IRestHookChannel : ISubscriptionChannel
     {
-        Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo);
+        Task<bool> PublishHandShakeAsync(SubscriptionInfo subscriptionInfo);
 
-        Task PublishHeartBeatAsync(ChannelInfo channelInfo);
+        Task<bool> PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo);
 
-        Task SendPayload(ChannelInfo chanelInfo, string contents);
+        Task<bool> SendPayload(ChannelInfo chanelInfo, string contents);
     }
 }

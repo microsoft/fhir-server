@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.Subscription, StringComparison.Ordinal))
             {
-               var subscriptionInfo = _subscriptionValidator.ValidateSubscriptionInput(request.Resource, cancellationToken);
+               request.Resource = await _subscriptionValidator.ValidateSubscriptionInput(request.Resource, cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
             // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.Subscription, StringComparison.Ordinal))
             {
-                var subscriptionInfo = _subscriptionValidator.ValidateSubscriptionInput(request.Resource, cancellationToken);
+                request.Resource = await _subscriptionValidator.ValidateSubscriptionInput(request.Resource, cancellationToken);
             }
 
             // Now allow the resource to updated per the normal behavior

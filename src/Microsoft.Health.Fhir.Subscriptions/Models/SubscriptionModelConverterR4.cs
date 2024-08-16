@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
         // private const string AzureChannelTypeString = "http://azurehealthcareapis.com/data-extentions/subscription-channel-type";
         private const string PayloadTypeString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-payload-content";
         private const string MaxCountString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-max-count";
+        private const string HeartBeatString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-heartbeat-period";
 
         public SubscriptionInfo Convert(ResourceElement resource)
         {
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
             var channelTypeExt = resource.Scalar<string>($"Subscription.channel.type.extension.where(url = '{ChannelTypeString}').value.code");
             var payloadType = resource.Scalar<string>($"Subscription.channel.payload.extension.where(url = '{PayloadTypeString}').value");
             var maxCount = resource.Scalar<int?>($"Subscription.channel.extension.where(url = '{MaxCountString}').value");
+            var heartBeatSpan = resource.Scalar<int?>($"Subscription.channel.extension.where(url = '{HeartBeatString}').value");
             var resourceId = resource.Scalar<string>("Subscription.id");
             var status = resource.Scalar<string>("Subscription.status") switch
             {
@@ -72,6 +74,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
                 },
                 MaxCount = maxCount ?? 100,
             };
+
+            if (heartBeatSpan.HasValue)
+            {
+                channelInfo.HeartBeatPeriod = TimeSpan.FromSeconds(heartBeatSpan.Value);
+            }
 
             var info = new SubscriptionInfo(criteriaExt, channelInfo, topic, resourceId, status);
 
