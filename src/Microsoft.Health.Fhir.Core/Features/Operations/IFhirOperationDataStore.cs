@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>An instance of the existing import job.</returns>
         /// <exception cref="JobNotFoundException"> thrown when the specific <paramref name="id"/> is not found. </exception>
-        Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken);
+        Task<(JobStatus? Status, JobInfo OrchetratorJob, List<JobInfo> ProcessingJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken);
 
         /// <summary>
         /// Cancels a job by id.

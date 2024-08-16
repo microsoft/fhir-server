@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private void InitializeFromEnvironmentVariables()
         {
-            StorageUri = new Uri(Environment.GetEnvironmentVariable(TestImportStoreUriEnvironmentVariableName));
+            string storageUriEnv = Environment.GetEnvironmentVariable(TestImportStoreUriEnvironmentVariableName);
+            StorageUri = new Uri(storageUriEnv ?? "http://127.0.0.1:10000");
             BlobServiceClient = AzureStorageBlobHelper.GetBlobServiceClient(StorageUri);
         }
     }

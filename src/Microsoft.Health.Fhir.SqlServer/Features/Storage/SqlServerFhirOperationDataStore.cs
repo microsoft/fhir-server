@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -57,38 +58,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             };
         }
 
-        public override async Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
+        public override async Task<(JobStatus? Status, JobInfo OrchetratorJob, List<JobInfo> ProcessingJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            var orchResult = await GetOrchestratedJobResultsByIdAsync(QueueType.Import, id, cancellationToken);
+            try
+            {
+                var jobs = await GetOrchestratedJobResultsByIdAsync(QueueType.Import, id, cancellationToken);
 
-            var def = orchResult.Job.Definition;
-            var result = orchResult.Job.Result;
-            var record = orchResult.Job.DeserializeDefinition<ImportOrchestratorJobDefinition>();
-
-            if (orchResult.Status == JobStatus.Created || orchResult.Status == JobStatus.Running)
-            {
-                return (orchResult.Status, orchResult.Job, orchResult.GroupJobs);
-            }
-            else if (orchResult.Status == JobStatus.Cancelled)
-            {
-                throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
-            }
-            else if (orchResult.Status == JobStatus.Failed)
-            {
-                var failed = orchResult.Job.Status == JobStatus.Failed ? orchResult.Job : orchResult.GroupJobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
-                if (errorResult.HttpStatusCode == 0)
+                if (jobs.Status == JobStatus.Cancelled)
                 {
-                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                    throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
+                else if (jobs.Status == JobStatus.Failed)
+                {
+                    var failed = jobs.OrchetratorJob.Status == JobStatus.Failed ? jobs.OrchetratorJob : jobs.ProcessingJobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
+                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    if (errorResult.HttpStatusCode == 0)
+                    {
+                        errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                    }
 
-                // hide error message for InternalServerError
-                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+                    // hide error message for InternalServerError
+                    var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+                }
+                else // no failures here
+                {
+                    return jobs;
+                }
             }
-            else // no failures here
+            catch (Exception ex) when (ex is JobNotFoundException || ex is JobNotExistException)
             {
-               return (orchResult.Status, orchResult.Job, orchResult.GroupJobs);
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, id));
             }
         }
 

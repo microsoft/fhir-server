@@ -64,7 +64,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A tuple containing the status of the job, the orchestrator job information, and a list of group jobs.</returns>
     /// <exception cref="JobNotFoundException">Thrown when the job is not found or is archived.</exception>
-    internal async Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetOrchestratedJobResultsByIdAsync(QueueType queueType, string orchestratorJobId, CancellationToken cancellationToken)
+    internal async Task<(JobStatus? Status, JobInfo OrchetratorJob, List<JobInfo> ProcessingJobs)> GetOrchestratedJobResultsByIdAsync(QueueType queueType, string orchestratorJobId, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNullOrWhiteSpace(orchestratorJobId, nameof(orchestratorJobId));
 
@@ -75,13 +75,13 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         JobInfo orchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJobIdParsed, true, cancellationToken);
 
-        if (orchestratorJob == null || orchestratorJob.Status == JobStatus.Archived)
+        if (orchestratorJob == null || orchestratorJob.Status == JobStatus.Archived || orchestratorJob.GroupId != orchestratorJobIdParsed)
         {
             throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, orchestratorJobId));
         }
         else if (orchestratorJob.Status != JobStatus.Completed)
         {
-            return (orchestratorJob.Status.Value, orchestratorJob, []);
+            return (orchestratorJob.Status, orchestratorJob, []);
         }
 
         // Process orchestrator completed (child processing jobs may still be running).
@@ -109,15 +109,13 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     public virtual async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
     {
-        var orchResult = await GetOrchestratedJobResultsByIdAsync(QueueType.Export, id, cancellationToken);
+        var jobs = await GetOrchestratedJobResultsByIdAsync(QueueType.Export, id, cancellationToken);
+        var record = jobs.OrchetratorJob.DeserializeDefinition<ExportJobRecord>();
+        var result = jobs.OrchetratorJob.Result;
 
-        var def = orchResult.Job.Definition;
-        var result = orchResult.Job.Result;
-        var record = orchResult.Job.DeserializeDefinition<ExportJobRecord>();
-
-        if (orchResult.Status == JobStatus.Failed)
+        if (jobs.Status == JobStatus.Failed)
         {
-            foreach (var job in orchResult.GroupJobs.Where(x => x.Status == JobStatus.Failed))
+            foreach (var job in jobs.ProcessingJobs.Where(x => x.Status == JobStatus.Failed))
             {
                 if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                 {
@@ -150,14 +148,14 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             record.Status = OperationStatus.Failed;
             result = JsonConvert.SerializeObject(record);
         }
-        else if (orchResult.Status == JobStatus.Cancelled)
+        else if (jobs.Status == JobStatus.Cancelled)
         {
             record.Status = OperationStatus.Canceled;
             result = JsonConvert.SerializeObject(record);
         }
-        else if (orchResult.Status == JobStatus.Completed)
+        else if (jobs.Status == JobStatus.Completed)
         {
-            foreach (var job in orchResult.GroupJobs)
+            foreach (var job in jobs.ProcessingJobs)
             {
                 if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                 {
@@ -180,10 +178,10 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             result = JsonConvert.SerializeObject(record);
         }
 
-        return CreateExportJobOutcome(orchResult.Job.Id, result ?? def, orchResult.Job.Version, (byte)orchResult.Status, orchResult.Job.CreateDate);
+        return CreateExportJobOutcome(jobs.OrchetratorJob.Id, result ?? jobs.OrchetratorJob.Definition, jobs.OrchetratorJob.Version, (byte)jobs.Status, jobs.OrchetratorJob.CreateDate);
     }
 
-    public virtual Task<(JobStatus? Status, JobInfo Job, List<JobInfo> GroupJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
+    public virtual Task<(JobStatus? Status, JobInfo OrchetratorJob, List<JobInfo> ProcessingJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken)
     {
         // Import is only enabled on SQL datastore.
         throw new NotImplementedException();
@@ -218,20 +216,20 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var jobsInfo = await GetOrchestratedJobResultsByIdAsync(queueType, jobId, cancellationToken);
 
         // If the job is already completed for any reason, return conflict status.
-        if (jobsInfo.Status == JobStatus.Completed || jobsInfo.Status == JobStatus.Cancelled || jobsInfo.Status == JobStatus.Failed)
+        if (jobsInfo.Status == JobStatus.Completed || jobsInfo.Status == JobStatus.Failed)
         {
             throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
         }
 
-        try
+        // If the job is already cancelled, return bad request status.
+        // #TODO - make sure no jobs are in created or running. If so try to cancel.
+        if (jobsInfo.Status == JobStatus.Cancelled)
         {
-            var jobWithGroupId = await _queueClient.GetJobByIdAsync(queueType, long.Parse(jobId), false, cancellationToken);
-            await _queueClient.CancelJobByGroupIdAsync(queueType, jobWithGroupId.GroupId, cancellationToken);
+            throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.BadRequest);
         }
-        catch (JobNotExistException ex)
-        {
-            throw new JobNotFoundException(ex.Message);
-        }
+
+        // #TODO - ensure group id matches jobs ID.
+        await _queueClient.CancelJobByGroupIdAsync(queueType, jobsInfo.OrchetratorJob.Id, cancellationToken);
     }
 
     public virtual async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)

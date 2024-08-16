@@ -48,26 +48,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var outcome = await _fhirOperationDataStore.GetImportJobByIdAsync(request.JobId.ToString(), cancellationToken);
 
+            // If orchestrator is still waiting to be processed or queuing child jobs, return accepted with no body.
+            if (outcome.OrchetratorJob.Status == JobStatus.Created || outcome.OrchetratorJob.Status == JobStatus.Running)
+            {
+                return new GetImportResponse(HttpStatusCode.Accepted);
+            }
+
             if (outcome.Status == JobStatus.Cancelled)
             {
                 throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
             }
 
-            // If orchestrator is still waiting to be processed or queuing child jobs, return accepted with no body.
-            if (outcome.Job.Status == JobStatus.Created || outcome.Job.Status == JobStatus.Running)
-            {
-                return new GetImportResponse(HttpStatusCode.Accepted);
-            }
-
-            if (outcome.Status != JobStatus.Completed)
+            if (outcome.OrchetratorJob.Status != JobStatus.Completed)
             {
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
             }
 
-            var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(outcome.Job.Result);
-            var results = GetProcessingResultAsync(outcome.GroupJobs);
+            var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(outcome.OrchetratorJob.Result);
+            var results = GetProcessingResultAsync(outcome.ProcessingJobs);
 
-            var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = outcome.Job.CreateDate, Output = results.Completed, Error = results.Failed };
+            var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = outcome.OrchetratorJob.CreateDate, Output = results.Completed, Error = results.Failed };
             return new GetImportResponse(outcome.Status == JobStatus.Completed ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
 
             static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed) GetProcessingResultAsync(IList<JobInfo> jobs)

@@ -59,7 +59,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            await _fhirOperationDataStore.CancelOrchestratedJob(QueueType.Import, request.JobId.ToString(), cancellationToken);
+            try
+            {
+                await _fhirOperationDataStore.CancelOrchestratedJob(QueueType.Import, request.JobId.ToString(), cancellationToken);
+            }
+            catch (Exception ex) when (ex is JobNotFoundException || ex is JobNotExistException)
+            {
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
+            }
 
             return new CancelImportResponse(HttpStatusCode.Accepted);
         }
