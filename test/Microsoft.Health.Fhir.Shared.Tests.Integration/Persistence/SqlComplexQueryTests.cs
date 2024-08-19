@@ -48,19 +48,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
+            // warm up stats
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "None")], CancellationToken.None);
+            await Task.Delay(5000);
+            await SetGranularQueryStore();
+
             var retries = 0;
             while (retries < 3)
             {
                 try
                 {
                     await DisableResuseQueryPlans();
-
-                    // warm up stats
-                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "None")], CancellationToken.None);
-                    await Task.Delay(5000);
-
-                    await SetGranularQueryStore();
-
                     await ResetQueryStore();
                     SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
