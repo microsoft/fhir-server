@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 try
                 {
+                    await DisableResuseQueryPlans();
+
                     // warm up stats
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "None")], CancellationToken.None);
                     await Task.Delay(5000);
@@ -60,6 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await SetGranularQueryStore();
 
                     await ResetQueryStore();
+                    SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     //// values are different and plans are NOT reused
