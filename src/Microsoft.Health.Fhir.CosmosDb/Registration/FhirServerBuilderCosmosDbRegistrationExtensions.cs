@@ -192,9 +192,16 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add(c =>
                 {
                     CosmosDataStoreConfiguration config = c.GetRequiredService<CosmosDataStoreConfiguration>();
-                    return config.UseManagedIdentity
-                        ? (ICollectionSetup)c.GetRequiredService<ResourceManagerCollectionSetup>()
-                        : c.GetRequiredService<DataPlaneCollectionSetup>();
+
+                    if (config.AllowDatabaseCreation || config.AllowCollectionSetup)
+                    {
+                        return config.UseManagedIdentity
+                            ? (ICollectionSetup)c.GetRequiredService<ResourceManagerCollectionSetup>()
+                            : c.GetRequiredService<DataPlaneCollectionSetup>();
+                    }
+
+                    // If collection setup is not required then return the noop implementation.
+                    return new DefaultCollectionSetup();
                 })
                 .Singleton()
                 .AsService<ICollectionSetup>();

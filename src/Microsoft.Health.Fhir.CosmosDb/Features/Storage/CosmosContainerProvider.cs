@@ -133,18 +133,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         await collectionSetup.CreateCollectionAsync(collectionInitializers, retryPolicyFactory.RetryPolicy, cancellationTokenSource.Token);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error while checking if Cosmos setup is required.");
-                }
 
                 // When the collection exists we can start a distributed lock to ensure only one instance of the service does the rest of the setup
                 ICosmosDbDistributedLock setupLock = _distributedLockFactory.Create(_container.Value, nameof(InitializeDataStoreAsync));
 
+                await setupLock.AcquireLock(cancellationTokenSource.Token);
                 try
                 {
-                    await setupLock.AcquireLock(cancellationTokenSource.Token);
-
                     if (cosmosDataStoreConfiguration.AllowCollectionSetup)
                     {
                         await collectionSetup.InstallStoredProcs(cancellationTokenSource.Token);

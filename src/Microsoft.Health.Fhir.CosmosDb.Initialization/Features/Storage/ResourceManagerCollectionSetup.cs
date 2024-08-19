@@ -40,6 +40,7 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
     private CosmosDBSqlDatabaseResource _database;
     private AzureLocation? _location;
     private readonly CosmosDBAccountResource _account;
+    private const string FhirServerResourceManagerDataStoreResourceId = "FhirServer:ResourceManager:DataStoreResourceId";
 
     public ResourceManagerCollectionSetup(
         IOptionsMonitor<CosmosCollectionConfiguration> cosmosCollectionConfiguration,
@@ -55,8 +56,12 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         _storeProceduresMetadata = EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
+        var dataStoreResourceId = EnsureArg.IsNotNullOrWhiteSpace(
+                genericConfiguration.GetValue(FhirServerResourceManagerDataStoreResourceId, string.Empty),
+                nameof(genericConfiguration),
+                fn => fn.WithMessage($"{FhirServerResourceManagerDataStoreResourceId} must be set."));
+
         _armClient = new ArmClient(new DefaultAzureCredential());
-        var dataStoreResourceId = genericConfiguration.GetValue("FhirServer:ResourceManager:DataStoreResourceId", string.Empty);
         _resourceIdentifier = ResourceIdentifier.Parse(dataStoreResourceId);
         _account = _armClient.GetCosmosDBAccountResource(_resourceIdentifier);
     }
@@ -75,6 +80,9 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         }
     }
 
+    /// <summary>
+    /// Reads the location from an existing CosmosDB account.
+    /// </summary>
     private AzureLocation Location
     {
         get
