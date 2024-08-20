@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
                     await _subscriptionChannel.PublishHandShakeAsync(subscriptionInfo);
                     subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Active.ToString());
                 }
-                catch (Exception)
+                catch (SubscriptionException)
                 {
                     _logger.LogInformation("Subscription endpoint is not valid.");
                     validationFailures.Add(

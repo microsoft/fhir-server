@@ -26,17 +26,17 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         public Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         /*

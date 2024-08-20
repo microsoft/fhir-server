@@ -67,12 +67,12 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
     }
 }

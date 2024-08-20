@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
+using Microsoft.Health.Fhir.Subscriptions.Validation;
 
 namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
 {
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                                 await channel.PublishHeartBeatAsync(subscription);
                                 nextHeartBeat[subscription.ResourceId] = nextHeartBeat.GetValueOrDefault(subscription.ResourceId).Add(subscription.Channel.HeartBeatPeriod);
                             }
-                            catch (Exception)
+                            catch (SubscriptionException)
                             {
                                 await subscriptionManager.Value.MarkAsError(subscription, stoppingToken);
                             }

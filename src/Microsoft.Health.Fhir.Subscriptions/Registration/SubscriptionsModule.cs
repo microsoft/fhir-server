@@ -73,6 +73,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
             .AsSelf()
             .AsImplementedInterfaces();
 
+            services.Add<SubscriptionUpdator>()
+                .Singleton()
+                .AsImplementedInterfaces();
+
             // services.Add<HeartBeatBackgroundService>()
             //    .Transient()
             //    .AsSelf()

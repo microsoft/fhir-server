@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
         private static readonly object _lock = new object();
         private readonly ISubscriptionUpdator _subscriptionUpdator;
+        private readonly IRawResourceFactory _rawResourceFactory;
 
         public SubscriptionManager(
             IScopeProvider<IFhirDataStore> dataStoreProvider,
@@ -40,7 +42,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             IResourceDeserializer resourceDeserializer,
             ILogger<SubscriptionManager> logger,
             ISubscriptionModelConverter subscriptionModelConverter,
-            ISubscriptionUpdator subscriptionUpdator)
+            ISubscriptionUpdator subscriptionUpdator,
+            IRawResourceFactory rawResourceFactory)
         {
             _dataStoreProvider = EnsureArg.IsNotNull(dataStoreProvider, nameof(dataStoreProvider));
             _searchServiceProvider = EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             _logger = logger;
             _subscriptionModelConverter = subscriptionModelConverter;
             _subscriptionUpdator = subscriptionUpdator;
+            _rawResourceFactory = rawResourceFactory;
         }
 
         public async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
@@ -62,7 +66,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             var activeSubscriptions = await search.Value.SearchAsync(
                 KnownResourceTypes.Subscription,
                 [
-                    Tuple.Create("status", "active"),
+                    Tuple.Create("status", "active,requested"),
                 ],
                 cancellationToken);
 
@@ -108,18 +112,18 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             using var search = _searchServiceProvider.Invoke();
             using var datastore = _dataStoreProvider.Invoke();
 
-            var getSubscriptionsWithId = await search.Value.SearchAsync(
-                KnownResourceTypes.Subscription,
-                [
-                    Tuple.Create("id", subscriptionInfo.ResourceId),
-                ],
+            var getSubscriptionsWithId = await datastore.Value.GetAsync(
+                new List<ResourceKey>()
+                {
+                    new ResourceKey("Subscription", subscriptionInfo.ResourceId),
+                },
                 cancellationToken);
 
-            var resourceElement = _resourceDeserializer.Deserialize(getSubscriptionsWithId.Results.ToList()[0].Resource);
+            var resourceElement = _resourceDeserializer.Deserialize(getSubscriptionsWithId.ToList()[0]);
             var updatedStatusResource = _subscriptionUpdator.UpdateStatus(resourceElement, SubscriptionStatus.Error.ToString());
+            var resourceWrapper = new ResourceWrapper(updatedStatusResource, _rawResourceFactory.Create(updatedStatusResource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
 
-            // update and save resource
-            search.Dispose();
+            await datastore.Value.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, false, true, null, false, true, null), cancellationToken);
         }
     }
 }

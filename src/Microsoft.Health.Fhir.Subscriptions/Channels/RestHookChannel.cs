@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
+using Microsoft.Health.Fhir.Subscriptions.Validation;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
@@ -28,14 +29,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
     public class RestHookChannel : ISubscriptionChannel
     #pragma warning restore CA1001 // Types that own disposable fields should be disposable
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<RestHookChannel> _logger;
         private readonly IBundleFactory _bundleFactory;
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly HttpClient _httpClient;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IUrlResolver _urlResolver;
 
-        public RestHookChannel(ILogger logger, HttpClient httpClient, IBundleFactory bundleFactory, IRawResourceFactory rawResourceFactory, IModelInfoProvider modelInfoProvider, IUrlResolver urlResolver)
+        public RestHookChannel(ILogger<RestHookChannel> logger, HttpClient httpClient, IBundleFactory bundleFactory, IRawResourceFactory rawResourceFactory, IModelInfoProvider modelInfoProvider, IUrlResolver urlResolver)
         {
             _logger = logger;
 #pragma warning disable CA2000 // Dispose objects before losing scope
@@ -164,6 +165,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 {
                     // failure
                    _logger.LogError($"REST POST to {chanelInfo.Endpoint} failed: {response.StatusCode}");
+                   throw new SubscriptionException("Subscription message invalid.");
                 }
                 else
                 {
@@ -173,7 +175,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             catch (Exception ex)
             {
                 _logger.LogError($"REST POST {chanelInfo.ChannelType} to {chanelInfo.Endpoint} failed: {ex.Message}");
-                throw new HttpRequestException();
             }
             finally
             {

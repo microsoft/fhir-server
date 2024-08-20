@@ -8,21 +8,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Subscriptions.Models;
+using Microsoft.Health.Abstractions.Exceptions;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Validation
 {
-    public static class ChannelInfoValidatorFactory
+    public class SubscriptionException : MicrosoftHealthException
     {
-        public static ISubscriptionChannelValidator Create(SubscriptionChannelType channelType)
+        public SubscriptionException(string message)
+            : base(message)
         {
-            switch (channelType)
-            {
-                case SubscriptionChannelType.RestHook:
-                    return new RestHookChannelValidator();
-                default:
-                    return null;
-            }
+        }
+
+        public SubscriptionException(string message, Exception innerException)
+            : base(message, innerException)
+        {
         }
     }
 }
