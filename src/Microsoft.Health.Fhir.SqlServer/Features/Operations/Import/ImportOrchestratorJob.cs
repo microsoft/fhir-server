@@ -149,6 +149,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity cannot access storage account.", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
+            catch (AuthenticationFailedException ex)
+            {
+                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.-AuthenticationFailedException");
+                errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity Credential authentication failed", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
+                await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
