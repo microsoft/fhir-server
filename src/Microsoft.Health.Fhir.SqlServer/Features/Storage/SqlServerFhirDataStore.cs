@@ -970,6 +970,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
+                await PutStringsToAdls(new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateCSVs(mergeWrappers, transactionId), transactionId, "Resource", cancellationToken);
                 await PutStringsToAdls(new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "ResourceWriteClaim", cancellationToken);
                 await PutStringsToAdls(new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "ReferenceSearchParam", cancellationToken);
                 await PutStringsToAdls(new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateCSVs(mergeWrappers), transactionId, "TokenSearchParam", cancellationToken);

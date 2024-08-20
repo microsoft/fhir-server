@@ -10,12 +10,14 @@ DECLARE @st datetime = getUTCdate()
 SET @AffectedRows = 0
 
 BEGIN TRY
-  --INSERT INTO dbo.Resource 
-  --       ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
-  --  SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
-  --    FROM @Resources
-
   BEGIN TRANSACTION
+
+  EXECUTE('
+    COPY INTO dbo.Resource
+      FROM ''https://'+@AdlsAccountName+'.blob.core.windows.net/'+@AdlsContainer+'/tran-'+@TransactionId+'-Resource.csv''
+      WITH (FILE_TYPE = ''CSV'', CREDENTIAL = (IDENTITY = ''Storage Account Key'', SECRET = '''+@AdlsAccountKey+'''))
+    ')
+  SET @AffectedRows += @@rowcount
 
   EXECUTE('
     COPY INTO dbo.ResourceWriteClaim
