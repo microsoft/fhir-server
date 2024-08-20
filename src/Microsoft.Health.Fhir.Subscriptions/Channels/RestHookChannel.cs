@@ -5,20 +5,23 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
-using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Validation;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
@@ -35,8 +38,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
         private readonly HttpClient _httpClient;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IUrlResolver _urlResolver;
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IActionContextAccessor _actionContextAccessor;
 
-        public RestHookChannel(ILogger<RestHookChannel> logger, HttpClient httpClient, IBundleFactory bundleFactory, IRawResourceFactory rawResourceFactory, IModelInfoProvider modelInfoProvider, IUrlResolver urlResolver)
+        public RestHookChannel(ILogger<RestHookChannel> logger, HttpClient httpClient, IBundleFactory bundleFactory, IRawResourceFactory rawResourceFactory, IModelInfoProvider modelInfoProvider, IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> contextAccessor, IHttpContextAccessor httpContextAccessor, IActionContextAccessor actionContextAccessor)
         {
             _logger = logger;
 #pragma warning disable CA2000 // Dispose objects before losing scope
@@ -46,6 +52,31 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _rawResourceFactory = rawResourceFactory;
             _modelInfoProvider = modelInfoProvider;
             _urlResolver = urlResolver;
+
+            var fhirRequestContext = new FhirRequestContext(
+                method: OperationsConstants.Reindex,
+                uriString: "$reindex",
+                baseUriString: "$reindex",
+                correlationId: "parameters",
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+                AuditEventType = OperationsConstants.Reindex,
+            };
+
+            _contextAccessor = contextAccessor;
+            _contextAccessor.RequestContext = fhirRequestContext;
+            _httpContextAccessor = httpContextAccessor;
+            _actionContextAccessor = actionContextAccessor;
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Scheme = "https";
+            httpContext.Request.Host = new HostString("fhir.com", 433);
+            _httpContextAccessor.HttpContext = httpContext;
+
+            _actionContextAccessor.ActionContext = new AspNetCore.Mvc.ActionContext();
+            _actionContextAccessor.ActionContext.HttpContext = httpContext;
         }
 
         public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
@@ -85,8 +116,9 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 }
             }
 
+            parameter.Id = Guid.NewGuid().ToString();
             var parameterResourceElement = _modelInfoProvider.ToResourceElement(parameter);
-            var parameterResourceWrapper = new ResourceWrapper(parameterResourceElement, _rawResourceFactory.Create(parameterResourceElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            var parameterResourceWrapper = new ResourceWrapper(parameterResourceElement, _rawResourceFactory.Create(parameterResourceElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, new List<SearchIndexEntry>().AsReadOnly(), new CompartmentIndices(), new List<KeyValuePair<string, string>>().AsReadOnly());
             resourceWrappers.Add(parameterResourceWrapper);
 
             if (subscriptionInfo.Channel.ContentType.Equals(SubscriptionContentType.FullResource))
@@ -153,7 +185,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 {
                     Method = HttpMethod.Post,
                     RequestUri = new Uri(chanelInfo.Endpoint),
-                    Content = new StringContent(contents, Encoding.UTF8, chanelInfo.ContentType.ToString()),
+                    Content = new StringContent(contents),
                 };
 
                 // send our request
