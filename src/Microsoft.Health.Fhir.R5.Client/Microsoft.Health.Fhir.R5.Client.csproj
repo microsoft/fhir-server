@@ -6,6 +6,7 @@
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="Hl7.Fhir.R5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Health.Client" />
   </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems" Label="Shared" />
