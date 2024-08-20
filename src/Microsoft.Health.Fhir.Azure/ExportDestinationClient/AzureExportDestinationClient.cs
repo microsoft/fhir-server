@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private readonly Dictionary<string, List<string>> _dataBuffers = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, BlobStreamWriter> _blobStreams = new Dictionary<string, BlobStreamWriter>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -102,21 +102,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
-            List<string> dataBuffer;
-            if (!_dataBuffers.TryGetValue(fileName, out dataBuffer))
+            BlobStreamWriter blobStream;
+            if (!_blobStreams.TryGetValue(fileName, out blobStream))
             {
-                dataBuffer = new List<string>();
-                _dataBuffers.Add(fileName, dataBuffer);
+                blobStream = new BlobStreamWriter(_blobContainer.GetBlockBlobClient(fileName));
+                _blobStreams.Add(fileName, blobStream);
             }
 
-            dataBuffer.Add(data);
+            blobStream.StreamWriter.WriteLine(data);
         }
 
         public IDictionary<string, Uri> Commit()
         {
             Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
 
-            foreach (string fileName in _dataBuffers.Keys)
+            foreach (string fileName in _blobStreams.Keys)
             {
                 var blobUri = CommitFile(fileName);
                 blobUris.Add(fileName, blobUri);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         public Uri CommitFile(string fileName)
         {
             Uri uri;
-            if (_dataBuffers.ContainsKey(fileName))
+            if (_blobStreams.ContainsKey(fileName))
             {
                 try
                 {
@@ -152,24 +152,19 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ArgumentException($"Cannot commit non-existant file {fileName}");
             }
 
-            _dataBuffers.Remove(fileName);
+            _blobStreams[fileName].Dispose();
+            _blobStreams.Remove(fileName);
             return uri;
         }
 
         private Uri CommitFileRetry(string fileName)
         {
-            BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
+            var blobWriter = _blobStreams[fileName];
 
-            using var stream = blockBlob.OpenWrite(true);
-            using var writer = new StreamWriter(stream);
+            blobWriter.StreamWriter.Flush();
+            blobWriter.StreamWriter.Close();
 
-            var dataLines = _dataBuffers[fileName];
-            foreach (var line in dataLines)
-            {
-                writer.WriteLine(line);
-            }
-
-            return blockBlob.Uri;
+            return blobWriter.BlobUri;
         }
 
         private void CheckIfClientIsConnected()
@@ -177,6 +172,28 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             if (_blobClient == null || _blobContainer == null)
             {
                 throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        private class BlobStreamWriter : IDisposable
+        {
+            public BlobStreamWriter(BlockBlobClient blockBlob)
+            {
+                BlobUri = blockBlob.Uri;
+                Stream = blockBlob.OpenWrite(true);
+                StreamWriter = new StreamWriter(Stream);
+            }
+
+            public Stream Stream { get; private set;  }
+
+            public StreamWriter StreamWriter { get; private set; }
+
+            public Uri BlobUri { get; private set; }
+
+            public void Dispose()
+            {
+                StreamWriter?.Dispose();
+                Stream?.Dispose();
             }
         }
     }

@@ -36,18 +36,16 @@ namespace Microsoft.Health.JobManagement
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
 
-        public short MaxRunningJobCount { get; set; } = Constants.DefaultMaxRunningJobCount;
-
         public int JobHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultJobHeartbeatTimeoutThresholdInSeconds;
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
+        public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
 
             // parallel dequeue
-            for (var thread = 0; thread < MaxRunningJobCount; thread++)
+            for (var thread = 0; thread < runningJobCount; thread++)
             {
                 workers.Add(Task.Run(async () =>
                 {
@@ -111,7 +109,15 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                await Task.WhenAny(workers.ToArray()); // If any worker crashes exit.
+                 // If any worker crashes or complete after cancellation due to shutdown,
+                 // cancel all workers and wait for completion so they don't crash unnecessarily.
+                await Task.WhenAny(workers.ToArray());
+#if NET6_0
+                cancellationTokenSource.Cancel();
+#else
+                await cancellationTokenSource.CancelAsync();
+#endif
+                await Task.WhenAll(workers.ToArray());
             }
             catch (Exception ex)
             {
@@ -176,7 +182,7 @@ namespace Microsoft.Health.JobManagement
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
                 try
