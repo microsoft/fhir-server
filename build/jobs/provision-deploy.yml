@@ -95,8 +95,8 @@ jobs:
         Write-Host "Check for keyvaults in removed state..."
         if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
         {
-            Remove-AzKeyVault -VaultName $webAppName -InRemovedState -Location $(ResourceGroupRegion) -Force
-            Write-Host "Deleted KeyVault in RemovedState."
+            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $parameters.resourceGroup -Location $(ResourceGroupRegion) -Confirm
+            Write-Host "KeyVault $webAppName is restored"
         }
 
         Write-Host "Provisioning Resource Group"
