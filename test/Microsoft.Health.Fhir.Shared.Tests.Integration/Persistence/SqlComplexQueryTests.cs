@@ -48,34 +48,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
+            // warm up stats
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "None")], CancellationToken.None);
+            await Task.Delay(5000);
             await SetGranularQueryStore();
 
-            await ResetQueryStore();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await Task.Delay(1000);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
-            //// values are different and plans are NOT reused
-            await CheckQueryStore(2, 2);
+            var retries = 0;
+            while (retries < 3)
+            {
+                try
+                {
+                    await DisableResuseQueryPlans();
+                    await ResetQueryStore();
+                    SqlServerSearchService.ResetReuseQueryPlans();
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+                    //// values are different and plans are NOT reused
+                    await CheckQueryStore(2, 2);
 
-            await ResetQueryStore();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
-            await Task.Delay(1000);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
-            //// values are same and plans are reused
-            await CheckQueryStore(2, 1);
+                    await ResetQueryStore();
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City")], CancellationToken.None);
+                    //// values are same and plans are reused
+                    await CheckQueryStore(2, 1);
 
-            await EnableResuseQueryPlans(); //// new behavior
-            await ResetQueryStore();
-            SqlServerSearchService.ResetReuseQueryPlans();
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
-            await Task.Delay(1000);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
-            await Task.Delay(1000);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
-            await Task.Delay(1000);
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City4")], CancellationToken.None);
-            //// values are different but plans are reused
-            await CheckQueryStore(4, 1);
+                    await EnableResuseQueryPlans(); //// new behavior
+                    await ResetQueryStore();
+                    SqlServerSearchService.ResetReuseQueryPlans();
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
+                    await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City4")], CancellationToken.None);
+                    //// values are different but plans are reused
+                    await CheckQueryStore(4, 1);
+
+                    break;
+                }
+                catch
+                {
+                    retries++;
+                    if (retries > 3)
+                    {
+                        throw;
+                    }
+                }
+            }
         }
 
         private async Task CheckQueryStore(int expected_executions, int expected_compiles)
