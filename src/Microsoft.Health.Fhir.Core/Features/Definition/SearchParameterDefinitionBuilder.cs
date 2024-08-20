@@ -156,7 +156,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         searchParameterInfo.Type = SearchParamType.Uri;
                     }
 
-                    uriDictionary.Add(searchParameter.Url, searchParameterInfo);
+                    if (uriDictionary.ContainsKey(searchParameter.Url))
+                    {
+                        uriDictionary[searchParameter.Url] = searchParameterInfo;
+                    }
+                    else
+                    {
+                        uriDictionary.Add(searchParameter.Url, searchParameterInfo);
+                    }
                 }
                 catch (FormatException)
                 {
