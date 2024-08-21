@@ -206,8 +206,6 @@
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R4\MedicinalProduct.json" />
-    <EmbeddedResource Include="TestFiles\R4\SubscriptionForEncounter.json" />
-    <EmbeddedResource Include="TestFiles\R4\SubscriptionForObservationReferenceToPatient.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
