@@ -100,8 +100,15 @@ namespace Microsoft.Health.JobManagement
                         }
                         else
                         {
-                            _logger.LogInformation("Empty queue. Delaying until next iteration.");
-                            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                            try
+                            {
+                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                            }
                         }
                     }
                 }));
