@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using Antlr4.Runtime.Misc;
+using Hl7.Fhir.Utility;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
@@ -62,11 +64,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
         {
             return (str.Contains("app domain", StringComparison.OrdinalIgnoreCase) && str.Contains("was unloaded due to memory pressure", StringComparison.OrdinalIgnoreCase))
                    || (str.Contains("remote procedure call", StringComparison.OrdinalIgnoreCase) && str.Contains("protocol stream is incorrect", StringComparison.OrdinalIgnoreCase))
-                   || (str.Contains("service has encountered an error processing your request", StringComparison.OrdinalIgnoreCase) && str.Contains("try again", StringComparison.OrdinalIgnoreCase));
+                   || (str.Contains("service has encountered an error processing your request", StringComparison.OrdinalIgnoreCase) && str.Contains("try again", StringComparison.OrdinalIgnoreCase))
+                   || str.Contains("Internal connection fatal error.", StringComparison.OrdinalIgnoreCase);
 
             ////The app domain with specified version id (59) was unloaded due to memory pressure and could not be found
             ////The incoming tabular data stream(TDS) remote procedure call(RPC) protocol stream is incorrect.Parameter 3("?"): Data type 0x00 is unknown.
             ////The service has encountered an error processing your request. Please try again. Error code 823.
+            ////Internal connection fatal error. --fabric warehouse
         }
 
         private static bool HasDatabaseAvailabilityPattern(string str)
