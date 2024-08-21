@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
         private readonly ISubscriptionManager _subscriptionManager;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchIndexer _searchIndexer;
-        private readonly ISearchService _searchService;
         private const string OperationCompleted = "Completed";
 
         public SubscriptionsOrchestratorJob(
@@ -43,8 +42,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
             IQueryStringParser queryStringParser,
             ISubscriptionManager subscriptionManager,
             IResourceDeserializer resourceDeserializer,
-            ISearchIndexer searchIndexer,
-            ISearchService searchService)
+            ISearchIndexer searchIndexer)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(transactionDataStore, nameof(transactionDataStore));
@@ -57,7 +55,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
             _subscriptionManager = subscriptionManager;
             _resourceDeserializer = resourceDeserializer;
             _searchIndexer = searchIndexer;
-            _searchService = searchService;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
