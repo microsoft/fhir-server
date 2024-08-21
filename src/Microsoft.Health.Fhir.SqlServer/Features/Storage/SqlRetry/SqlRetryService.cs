@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             List<TResult> results = null;
-            await ExecuteSql<TLogger>(
+            await ExecuteSql(
                 sqlCommand,
                 async (sqlCommand, cancellationToken) =>
                 {
@@ -343,8 +343,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// into the <typeparamref name="TResult"/> data type and returns them. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
         /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <typeparam name="TResult">Defines data type for the returned SQL rows.</typeparam>
+        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
         /// <param name="logger">Logger used on first try error or retry error.</param>
