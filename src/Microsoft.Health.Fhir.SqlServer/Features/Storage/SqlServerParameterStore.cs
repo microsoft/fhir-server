@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerParameterStore : IParameterStore
     {
-        private readonly Dictionary<string, Tuple<DateTime, Parameter>> _parameters = new Dictionary<string, Tuple<DateTime, Parameter>>();
+        private readonly ConcurrentDictionary<string, Tuple<DateTime, Parameter>> _parameters = new ConcurrentDictionary<string, Tuple<DateTime, Parameter>>();
         private readonly int _cacheExpirationInSeconds = 600;
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly ILogger<SqlServerParameterStore> _logger;
@@ -58,14 +59,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     parameter = new Parameter()
                     {
-                        Name = reader.GetString(0),
-                        DateValue = await reader.IsDBNullAsync(1, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(1),
-                        NumberValue = await reader.IsDBNullAsync(2, cancellationToken) ? 0 : reader.GetDouble(2),
-                        LongValue = await reader.IsDBNullAsync(3, cancellationToken) ? 0 : reader.GetInt64(3),
+                        Id = reader.GetString(0),
+                        DateValue = await reader.IsDBNullAsync(1, cancellationToken) ? null : reader.GetDateTime(1),
+                        NumberValue = await reader.IsDBNullAsync(2, cancellationToken) ? null : reader.GetDouble(2),
+                        LongValue = await reader.IsDBNullAsync(3, cancellationToken) ? null : reader.GetInt64(3),
                         CharValue = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetString(4),
-                        BooleanValue = await reader.IsDBNullAsync(5, cancellationToken) ? false : reader.GetBoolean(5),
-                        UpdatedOn = await reader.IsDBNullAsync(6, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(6),
-                        UpdatedBy = await reader.IsDBNullAsync(7, cancellationToken) ? null : reader.GetString(7),
+                        BinaryValue = await reader.IsDBNullAsync(5, cancellationToken) ? null : reader.GetSqlBinary(5).Value,
                     };
                 }
 

@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
-            int resultCount = searchResult.Results.Count();
+            int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
@@ -659,14 +659,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                        if (string.IsNullOrEmpty(rawResource))
+                        var rawResource = new Lazy<string>(() =>
                         {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
+                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                            var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                            if (string.IsNullOrEmpty(decompressedResource))
+                            {
+                                decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                            }
+
+                            return decompressedResource;
+                        });
 
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
