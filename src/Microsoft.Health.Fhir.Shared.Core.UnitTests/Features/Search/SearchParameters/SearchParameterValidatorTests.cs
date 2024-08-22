@@ -110,6 +110,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
+        [Theory]
+        [MemberData(nameof(DuplicateUrlData))]
+        public async Task GivenValidSearchParamWithDuplicateUrl_WhenValidatingSearchParamByStatus_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method, SearchParameterStatus searchParameterStatus)
+        {
+            _searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = new SearchParameterInfo("USCoreRace", "race")
+                    {
+                        SearchParameterStatus = searchParameterStatus,
+                    };
+
+                    return true;
+                });
+
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, NullLogger<SearchParameterValidator>.Instance);
+            if (searchParameterStatus == SearchParameterStatus.PendingDelete)
+            {
+                // Expecting no exception being thrown.
+                await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
+            }
+        }
+
         public static IEnumerable<object[]> InvalidSearchParamData()
         {
             var missingUrl = new SearchParameter();
@@ -154,6 +181,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { duplicateUrl, "DELETE" });
             data.Add(new object[] { uniqueCode, "POST" });
 
+            return data;
+        }
+
+        public static IEnumerable<object[]> DuplicateUrlData()
+        {
+            var searchParam = new SearchParameter { Url = "http://unique3" };
+
+            var data = new List<object[]>();
+            data.Add(new object[] { searchParam, "POST", SearchParameterStatus.Supported });
+            data.Add(new object[] { searchParam, "POST", SearchParameterStatus.PendingDelete });
             return data;
         }
     }
