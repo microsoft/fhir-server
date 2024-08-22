@@ -218,7 +218,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-
                     using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;

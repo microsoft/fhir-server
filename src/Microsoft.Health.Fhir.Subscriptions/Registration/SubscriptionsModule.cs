@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.HeartBeats;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
+using Microsoft.Health.Fhir.Subscriptions.Validation;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Registration
@@ -75,15 +76,22 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
 
             services.Add<SubscriptionUpdator>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
-            // services.Add<HeartBeatBackgroundService>()
-            //    .Transient()
-            //    .AsSelf()
-            //    .AsService<IHostedService>();
+            services.Add<SubscriptionValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
-            // services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<CreateResourceRequest, UpsertResourceResponse>));
-            // services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<UpsertResourceRequest, UpsertResourceResponse>));
+            services.RemoveServiceTypeExact<HeartBeatBackgroundService, INotificationHandler<StorageInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+               .Add<HeartBeatBackgroundService>()
+               .Singleton()
+               .AsSelf()
+               .AsImplementedInterfaces();
+
+            services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<CreateResourceRequest, UpsertResourceResponse>));
+            services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<UpsertResourceRequest, UpsertResourceResponse>));
         }
     }
 }

@@ -142,6 +142,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 { "type", new Code("handshake") },
             };
 
+            parameter.Id = Guid.NewGuid().ToString();
             var parameterResourceElement = _modelInfoProvider.ToResourceElement(parameter);
             var parameterResourceWrapper = new ResourceWrapper(parameterResourceElement, _rawResourceFactory.Create(parameterResourceElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             resourceWrappers.Add(parameterResourceWrapper);
@@ -162,6 +163,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 { "type", new Code("heartbeat") },
             };
 
+            parameter.Id = Guid.NewGuid().ToString();
             var parameterResourceElement = _modelInfoProvider.ToResourceElement(parameter);
             var parameterResourceWrapper = new ResourceWrapper(parameterResourceElement, _rawResourceFactory.Create(parameterResourceElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             resourceWrappers.Add(parameterResourceWrapper);

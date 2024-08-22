@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Hosting;
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
                 cancellationToken);
 
             var resourceElement = _resourceDeserializer.Deserialize(getSubscriptionsWithId.ToList()[0]);
-            var updatedStatusResource = _subscriptionUpdator.UpdateStatus(resourceElement, SubscriptionStatus.Error.ToString());
+            var updatedStatusResource = _subscriptionUpdator.UpdateStatus(resourceElement, SubscriptionStatus.Error.GetLiteral());
             var resourceWrapper = new ResourceWrapper(updatedStatusResource, _rawResourceFactory.Create(updatedStatusResource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
 
             await datastore.Value.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, false, true, null, false, true, null), cancellationToken);

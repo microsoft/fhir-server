@@ -10,11 +10,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation.Results;
+using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
@@ -22,8 +24,9 @@ using Microsoft.Health.Fhir.Subscriptions.Validation;
 
 namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
 {
-    public class HeartBeatBackgroundService : BackgroundService
+    public class HeartBeatBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
     {
+        private bool _storageReady = false;
         private readonly ILogger<HeartBeatBackgroundService> _logger;
         private readonly IScopeProvider<SubscriptionManager> _subscriptionManager;
         private readonly StorageChannelFactory _storageChannelFactory;
@@ -35,8 +38,20 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
             _storageChannelFactory = storageChannelFactory;
         }
 
+        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _storageReady = true;
+            return Task.CompletedTask;
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            while (!_storageReady)
+            {
+                stoppingToken.ThrowIfCancellationRequested();
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }
+
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));
             var nextHeartBeat = new Dictionary<string, DateTime>();
 
@@ -68,7 +83,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                         }
 
                         // checks if datetime is after current time
-                        if (nextHeartBeat.GetValueOrDefault(subscription.ResourceId).CompareTo(DateTime.Now) > 0)
+                        if (nextHeartBeat.GetValueOrDefault(subscription.ResourceId) <= DateTime.Now)
                         {
                             var channel = _storageChannelFactory.Create(subscription.Channel.ChannelType);
                             try
@@ -82,8 +97,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                             }
                         }
                     }
-
-                    subscriptionManager.Dispose();
                 }
                 catch (Exception e)
                 {
