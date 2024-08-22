@@ -134,8 +134,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
                 _logger.LogTrace("Deleting the search parameter '{Url}'", searchParameterUrl);
-                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
                 await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
+
+                // Update the status of the search parameter in the definition manager once the status is updated in the store.
+                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
             }
             catch (FhirException fex)
             {
