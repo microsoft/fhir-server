@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             }
 
             SearchParameterStateResponse response;
-            Parameters parameters = new Parameters();
+            Hl7.Fhir.Model.Parameters parameters = new Hl7.Fhir.Model.Parameters();
             IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             foreach (SearchParameterInfo searchParam in searchParameterResult)
             {
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                         Value = new FhirString(hasParamStatus ? states.Where(s => s.Uri.Equals(searchParam.Url)).First().Status.ToString() : SearchParameterStatus.Disabled.ToString()),
                     },
                 };
-                    parameters.Parameter.Add(new Parameters.ParameterComponent()
+                    parameters.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent()
                     {
                         Name = SearchParameterStateProperties.Name,
                         Part = parts,

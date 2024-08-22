@@ -440,6 +440,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The FHIR Server ran out of memory while processing an export job. Please use the _maxCount parameter when requesting an export job to reduce the number of resources exported at one time. The count used in this job was {0}.
+        /// </summary>
+        internal static string ExportOutOfMemoryException {
+            get {
+                return ResourceManager.GetString("ExportOutOfMemoryException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to anonymize resource. The job will be marked as failed. {0}.
         /// </summary>
         internal static string FailedToAnonymizeResource {

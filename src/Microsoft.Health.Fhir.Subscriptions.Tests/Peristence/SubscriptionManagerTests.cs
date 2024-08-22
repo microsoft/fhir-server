@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
         public void GivenAnR4BackportSubscription_WhenConvertingToInfo_ThenTheInformationIsCorrect()
         {
             var subscription = CommonSamples.GetJsonSample("Subscription-Backport", FhirSpecification.R4, s => s.ToTypedElement(ModelInfo.ModelInspector));
-
             var info = _subscriptionModelConverter.Convert(subscription);
 
             Assert.Equal("Patient", info.FilterCriteria);

@@ -64,7 +64,7 @@ function Add-AadTestAuthEnvironment {
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
-        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -EnableRbacAuthorization | Out-Null
+        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
     }
 
     $retryCount = 0

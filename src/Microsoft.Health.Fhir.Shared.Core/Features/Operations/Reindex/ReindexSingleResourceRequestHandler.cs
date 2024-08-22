@@ -88,16 +88,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // Create a new parameter resource and include the new search indices and the corresponding values.
-            var parametersResource = new Parameters
+            var parametersResource = new Hl7.Fhir.Model.Parameters
             {
                 Id = Guid.NewGuid().ToString(),
                 VersionId = "1",
-                Parameter = new List<Parameters.ParameterComponent>(),
+                Parameter = new List<Hl7.Fhir.Model.Parameters.ParameterComponent>(),
             };
 
             foreach (SearchIndexEntry searchIndex in newIndices)
             {
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Code.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
+                parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Code.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
             }
 
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());

@@ -34,7 +34,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 await _exportDestinationClient.ConnectAsync(cancellationToken, subscriptionInfo.Channel.Endpoint);
 
                 IReadOnlyList<IGrouping<string, ResourceWrapper>> resourceGroupedByResourceType = resources.GroupBy(x => x.ResourceTypeName.ToLower(CultureInfo.InvariantCulture)).ToList();
-
                 DateTimeOffset transactionTimeInUtc = transactionTime.ToUniversalTime();
 
                 foreach (IGrouping<string, ResourceWrapper> groupOfResources in resourceGroupedByResourceType)

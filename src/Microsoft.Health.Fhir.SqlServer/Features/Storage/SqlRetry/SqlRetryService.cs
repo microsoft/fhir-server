@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -199,12 +200,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Executes delegate <paramref name="action"/> and retries it's execution if retriable error is encountered error.
         /// In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
+        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="action">Delegate to be executed.</param>
+        /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -215,7 +218,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
+
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
@@ -230,6 +234,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlException = sqlEx;
                     }
+
+                    logger.LogInformation(ex, $"Attempt {retry}: {ex.Message}");
                 }
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
@@ -243,7 +249,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// </summary>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="action">Delegate to be executed by passing <paramref name="sqlCommand"/> as input parameter.</param>
-        /// <param name="logger">Logger used on first try error or retry error.</param>
+        /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="logMessage">Message to be logged on error.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
@@ -267,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
                     //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
                     sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
@@ -430,9 +436,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
             }
 
-            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger logger, CancellationToken cancel)
             {
                 SqlConnection conn;
+                var sw = Stopwatch.StartNew();
+                var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
                 if (!isReadOnly)
                 {
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
@@ -443,6 +451,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {
+                        isReadOnlyConnection = string.Empty;
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                     }
                     else if (replicaTrafficRatio > 0.99)
@@ -452,6 +461,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     else
                     {
                         var useWriteConnection = unchecked(Interlocked.Increment(ref _usageCounter)) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
+                        if (useWriteConnection)
+                        {
+                            isReadOnlyConnection = string.Empty;
+                        }
+
                         conn = useWriteConnection
                                 ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
                                 : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
@@ -461,7 +475,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+
+                logger.LogInformation($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+
+                sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
+                logger.LogInformation($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
 
                 return conn;
             }

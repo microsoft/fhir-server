@@ -76,13 +76,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             error);
                         failures.Add(validationFailure);
                     }
+
+                    failures.ForEach(x => context.AddFailure(x));
                 }
 
                 ValidationResult baseValidation = base.Validate(context);
                 failures.AddRange(baseValidation.Errors);
             }
 
-            failures.ForEach(x => context.AddFailure(x));
             return new ValidationResult(failures);
         }
     }

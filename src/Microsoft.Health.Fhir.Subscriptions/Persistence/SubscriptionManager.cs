@@ -73,7 +73,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             foreach (var param in activeSubscriptions.Results)
             {
                 var resource = _resourceDeserializer.Deserialize(param.Resource);
-
                 SubscriptionInfo info = _subscriptionModelConverter.Convert(resource);
 
                 if (info == null)
