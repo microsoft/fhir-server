@@ -130,11 +130,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
                 var searchParameterUrl = searchParam.GetStringScalar("url");
 
-                // First we delete the status metadata from the data store as this fuction depends on the
+                // First we delete the status metadata from the data store as this function depends on
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
                 _logger.LogTrace("Deleting the search parameter '{Url}'", searchParameterUrl);
                 await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
+
+                // Update the status of the search parameter in the definition manager once the status is updated in the store.
+                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
             }
             catch (FhirException fex)
             {
