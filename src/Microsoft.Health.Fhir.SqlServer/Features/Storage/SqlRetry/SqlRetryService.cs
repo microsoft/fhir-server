@@ -233,6 +233,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlException = sqlEx;
                     }
+
+                    logger.LogInformation(ex, $"Attempt {retry}: {ex.Message}");
                 }
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
@@ -433,7 +435,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
             }
 
-            public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger logger, CancellationToken cancel)
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
@@ -472,6 +474,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+
+                logger.LogInformation($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+
+                sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
                 logger.LogInformation($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
 
