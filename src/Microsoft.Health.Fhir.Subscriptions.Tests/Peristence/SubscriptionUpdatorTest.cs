@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
     public class SubscriptionUpdatorTest
     {
         [Fact]
-        public void Test()
+        public void GivenAnR4BackportSubscription_WhenUpdatingStatusToActive_ThenTheInformationIsCorrect()
         {
             var subscription = CommonSamples.GetJsonSample("Subscription-Backport", FhirSpecification.R4, s => s.ToTypedElement(ModelInfo.ModelInspector));
             var updator = new SubscriptionUpdator();
