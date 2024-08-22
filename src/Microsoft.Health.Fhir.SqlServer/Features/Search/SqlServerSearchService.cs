@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
-            int resultCount = searchResult.Results.Count();
+            int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
