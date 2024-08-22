@@ -157,6 +157,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
+                //
+                // When order is descending, what would make DidWeSearchForSortValue false?
+                // Right now if no results are found that have the sort value and the order is descending this won't run.
+                // What is the point of DidweSearchForSortValue at all???
                 if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
                     (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier))
                 {

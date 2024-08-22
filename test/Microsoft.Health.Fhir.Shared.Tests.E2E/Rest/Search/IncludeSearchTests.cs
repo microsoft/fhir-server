@@ -10,6 +10,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
+using DotLiquid.Tags;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
@@ -1259,6 +1260,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchWithSortAndResourcesWithAndWithoutTheIncludeParameter_WhenSearched_ThenCorrectResultsAreReturned()
+        {
+            string query = $"_include=MedicationDispense:prescription&_sort=-whenprepared&_count=3&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            Assert.Equal("self", bundle.Link[0].Relation);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispenseWithoutRequest,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest);
         }
 
         // This will not work for circular reference
