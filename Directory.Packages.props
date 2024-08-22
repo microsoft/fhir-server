@@ -116,7 +116,7 @@
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
     <PackageVersion Include="System.Private.ServiceModel" Version="4.10.3" />
-    <PackageVersion Include="xunit.extensibility.core" Version="2.8.1" />
+    <PackageVersion Include="xunit.extensibility.core" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.1" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
     <PackageVersion Include="xunit" Version="2.8.1" />
