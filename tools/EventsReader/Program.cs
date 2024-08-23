@@ -35,7 +35,7 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             ////PingStorage("https://sergeyperfstandard.blob.core.windows.net/test", "ABC.txt");
             ////PingSelect();
             PingInsert();
-            ////PingCopyInto("https://sergeyperfstandard.blob.core.windows.net/test/ABC.txt");
+            PingCopyInto("https://sergeyperfstandard.blob.core.windows.net/test/ABC.txt");
 
             ////ExecuteAsync().Wait();
         }
@@ -90,15 +90,14 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
 
         private static void PingInsert()
         {
-            ////var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
-            ////var token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
-            var tenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47";
-            var clientId = "44b8fda8-39cf-4b87-b257-7f21205dbb71";
-            var secretClient = new SecretClient(new Uri("https://mshapis-test-ev2-kv.vault.azure.net/"), new DefaultAzureCredential());
-            var secret = secretClient.GetSecretAsync("fhir-paas-ci-deployment").Result;
-            var secretBytes = Convert.FromBase64String(secret.Value.Value);
-            using var cert = new X509Certificate2(secretBytes, (string)null, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
-            var cred = new ClientCertificateCredential(tenantId, clientId, cert, new ClientCertificateCredentialOptions { SendCertificateChain = true });
+            ////var tenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47";
+            ////var clientId = "44b8fda8-39cf-4b87-b257-7f21205dbb71";
+            ////var secretClient = new SecretClient(new Uri("https://mshapis-test-ev2-kv.vault.azure.net/"), new DefaultAzureCredential());
+            ////var secret = secretClient.GetSecretAsync("fhir-paas-ci-deployment").Result;
+            ////var secretBytes = Convert.FromBase64String(secret.Value.Value);
+            ////using var cert = new X509Certificate2(secretBytes, (string)null, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
+            ////var cred = new ClientCertificateCredential(tenantId, clientId, cert, new ClientCertificateCredentialOptions { SendCertificateChain = true });
+            var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
             var token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
             using var conn = new SqlConnection(_connectionString);
             using var cmd = new SqlCommand("INSERT INTO Test SELECT 'XYZ'", conn);
@@ -111,18 +110,14 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
         private static void PingCopyInto(string file)
         {
             var cred = new ClientSecretCredential("72f988bf-86f1-41af-91ab-2d7cd011db47", "44b8fda8-39cf-4b87-b257-7f21205dbb71", Pwd);
-
             var token = cred.GetToken(new TokenRequestContext(new[] { "https://api.fabric.microsoft.com/.default" }));
-            Console.WriteLine(token.Token);
             using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("Authorization", token.ToString());
-            ////var response = httpClient.GetAsync(new Uri("https://msit.powerbi.com/groups/c8e559d1-9d5f-4042-a1d2-3054b825c134/datawarehouses/b22a3aea-3983-4e55-b013-696417fd6fdb")).Result;
-            var response = httpClient.GetAsync(new Uri("https://daily.powerbi.com/groups/cfd2a3dd-166c-411a-abc3-771842922ec5/datawarehouses/4b4371b0-6955-425e-9797-6b9fe3b76e53")).Result;
+            httpClient.DefaultRequestHeaders.Add("Authorization", "Bearer " + token.Token);
+            var response = httpClient.GetAsync(new Uri("https://api.fabric.microsoft.com/v1/workspaces")).Result;
             var json = response.Content.ReadAsStringAsync().Result;
-            Console.WriteLine($"GetWarehouse completed with status={response.StatusCode} json={json}");
+            Console.WriteLine($"API call completed with status={response.StatusCode} json={json}");
 
             token = cred.GetToken(new TokenRequestContext(new[] { "https://database.windows.net/.default" }));
-            Console.WriteLine(token.Token);
             using var conn = new SqlConnection(_connectionString);
             using var cmd = new SqlCommand($"COPY INTO Test FROM '{file}' WITH (FILE_TYPE = 'CSV')", conn);
             conn.AccessToken = token.Token;
