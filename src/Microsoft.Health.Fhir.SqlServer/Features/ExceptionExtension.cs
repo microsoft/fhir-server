@@ -65,12 +65,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             return (str.Contains("app domain", StringComparison.OrdinalIgnoreCase) && str.Contains("was unloaded due to memory pressure", StringComparison.OrdinalIgnoreCase))
                    || (str.Contains("remote procedure call", StringComparison.OrdinalIgnoreCase) && str.Contains("protocol stream is incorrect", StringComparison.OrdinalIgnoreCase))
                    || (str.Contains("service has encountered an error processing your request", StringComparison.OrdinalIgnoreCase) && str.Contains("try again", StringComparison.OrdinalIgnoreCase))
-                   || str.Contains("Internal connection fatal error.", StringComparison.OrdinalIgnoreCase);
+                   || str.Contains("Internal connection fatal error.", StringComparison.OrdinalIgnoreCase)
+                   || str.Contains("CREATE FILE encountered operating system error 0x8", StringComparison.OrdinalIgnoreCase);
 
             ////The app domain with specified version id (59) was unloaded due to memory pressure and could not be found
             ////The incoming tabular data stream(TDS) remote procedure call(RPC) protocol stream is incorrect.Parameter 3("?"): Data type 0x00 is unknown.
             ////The service has encountered an error processing your request. Please try again. Error code 823.
             ////Internal connection fatal error. --fabric warehouse
+            ////CREATE FILE encountered operating system error 0x8(MWC service error: HttpReceive failed: 12002) while attempting to open or create the physical file 'https://onelake.blob.fabric.microsoft.com/c8e559d1-9d5f-4042-a1d2-3054b825c134/b22a3aea-3983-4e55-b013-696417fd6fdb/WarehouseSystem/Internal/MF/F8A16ACF-9B0E-47E5-9121-8C69FD32FD74/CAE70B47-C367-469C-8993-1CF07D88F60B'.\nStatement ID: {E601B0AD-0177-4305-B94C-8309718658A1} --fabric warehouse
         }
 
         private static bool HasDatabaseAvailabilityPattern(string str)
@@ -88,7 +90,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("Login failed for user", StringComparison.OrdinalIgnoreCase)
-                    || str.Contains("The timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase);
+                    || str.Contains("The timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("SHUTDOWN is in progress.", StringComparison.OrdinalIgnoreCase); ////fabric warehouse
 
             ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.
             ////A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.)
