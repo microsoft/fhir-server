@@ -215,9 +215,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
+        /// <param name="warehouseConnectionString">"Warehouse connection string."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false, string warehouseConnectionString = null)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, warehouseConnectionString, cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, null, cancellationToken);
                     //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
                     sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
@@ -447,10 +448,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
             }
 
-            public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, string warehouseConnectionString, CancellationToken cancel)
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
+                if (warehouseConnectionString != null)
+                {
+                    return new SqlConnection(warehouseConnectionString);
+                }
+
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
                 if (!isReadOnly)
                 {

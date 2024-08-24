@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != InvisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != InvisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public static string GetRawResourceFromAdls(long transactionId, int offsetInFile)
         {
             var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(transactionId);
-            using var reader = new StreamReader(SqlServerFhirDataStore.AdlsClient.GetBlobClient(blobName).OpenRead(offsetInFile));
+            using var reader = new StreamReader(SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient.GetBlobClient(blobName).OpenRead(offsetInFile));
             var line = reader.ReadLine();
             return line;
         }
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             //// ignore invisible resources
-            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, SqlServerFhirDataStore.AdlsClient, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != InvisibleResource).ToList();
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != InvisibleResource).ToList();
         }
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, BlobContainerClient adlsClient, Func<short, string> getResourceTypeName)

@@ -127,6 +127,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, _logger);
                 }
             }
+
+            _ = new SqlSecondaryStore<SqlServerSearchService>(_sqlRetryService, _logger);
         }
 
         internal ISqlServerFhirModel Model => _model;
@@ -559,7 +561,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 },
                 _logger,
                 cancellationToken,
-                true); // this enables reads from replicas
+                true, // this enables reads from replicas
+                SqlSecondaryStore<SqlServerSearchService>.WarehouseConnectionString); // this enables reads from warehouse
             return searchResult;
         }
 

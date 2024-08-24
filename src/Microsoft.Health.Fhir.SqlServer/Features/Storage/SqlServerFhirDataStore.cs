@@ -71,17 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
         private static readonly object _parameterLocker = new object();
-        private static string _warehouseConnectionString;
-        private static string _warehouseServer;
-        private static bool _warehouseIsSet;
-        private static string _adlsContainer;
-        private static string _adlsConnectionString;
-        private static string _adlsAccountName;
-        private static string _adlsAccountKey;
-        private static Uri _adlsAccountUri;
-        private static string _adlsAccountManagedIdentityClientId;
-        private static BlobContainerClient _adlsClient;
-        private static bool _adlsIsSet;
 
         public SqlServerFhirDataStore(
             SqlServerFhirModel model,
@@ -137,118 +126,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            if (!_warehouseIsSet)
-            {
-                lock (_parameterLocker)
-                {
-                    if (!_warehouseIsSet)
-                    {
-                        _warehouseConnectionString = GetStorageParameter("MergeResources.Warehouse.ConnectionString");
-                        _warehouseServer = GetStorageParameter("MergeResources.Warehouse.Server");
-                        if (string.IsNullOrEmpty(_warehouseConnectionString))
-                        {
-                            var warehouseDatabase = GetStorageParameter("MergeResources.Warehouse.Database");
-                            if (!string.IsNullOrEmpty(warehouseDatabase))
-                            {
-                                var warehouseAuthentication = GetStorageParameter("MergeResources.Warehouse.Authentication"); // Azure VM: Active Directory Managed Identity, local: Active Directory Interactive
-                                var warehouseUser = GetStorageParameter("MergeResources.Warehouse.User"); // ClientID for UAMI
-                                _warehouseConnectionString = $"server={_warehouseServer};database={warehouseDatabase};authentication={warehouseAuthentication};{(string.IsNullOrEmpty(warehouseUser) ? string.Empty : $"user={warehouseUser};")}Max Pool Size=300;";
-                            }
-                        }
-
-                        _warehouseIsSet = true;
-                    }
-                }
-
-                try
-                {
-                    using var client = new TcpClient();
-                    client.Connect(_warehouseServer, 1433);
-                    _logger.LogWarning($"TcpClient.Connected={client.Connected} to server={_warehouseServer}");
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning($"Unable to establish TCP connection to server={_warehouseServer} error={e}");
-                }
-
-                try
-                {
-                    using var client = new UdpClient();
-                    client.Connect(_warehouseServer, 1434);
-                    _logger.LogWarning($"UdpClient.Connect to server={_warehouseServer}");
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning($"Unable to establish UDP connection to server={_warehouseServer} error={e}");
-                }
-
-                try
-                {
-                    using var conn = new SqlConnection(_warehouseConnectionString);
-                    using var cmd = new SqlCommand("SELECT 1", conn);
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    _logger.LogWarning($"Executed SELECT on cs={_warehouseConnectionString}");
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning($"Unable to execute SELECT on cs={_warehouseConnectionString} error={e}");
-                }
-
-                string logConnStr = null;
-                try
-                {
-                    logConnStr = GetStorageParameter("MergeResources.Log.ConnectionString");
-                    if (!string.IsNullOrEmpty(logConnStr))
-                    {
-                        using var conn = new SqlConnection(logConnStr);
-                        using var cmd = new SqlCommand("SELECT 1", conn);
-                        conn.Open();
-                        cmd.ExecuteNonQuery();
-                        _logger.LogWarning($"Executed SELECT on cs={logConnStr}");
-                    }
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning($"Unable to execute SELECT on cs={logConnStr} error={e}");
-                }
-            }
-
-            if (!_adlsIsSet)
-            {
-                lock (_parameterLocker)
-                {
-                    if (!_adlsIsSet)
-                    {
-                        _adlsAccountName = GetStorageParameter("MergeResources.AdlsAccountName");
-                        _adlsConnectionString = GetStorageParameter("MergeResources.AdlsConnectionString");
-                        if (_adlsAccountName != null)
-                        {
-                            _adlsAccountKey = GetStorageParameter("MergeResources.AdlsAccountKey");
-                            _adlsConnectionString = $"DefaultEndpointsProtocol=https;AccountName={_adlsAccountName};AccountKey={_adlsAccountKey};EndpointSuffix=core.windows.net";
-                        }
-
-                        var db = _sqlRetryService.Database.Length < 50 ? _sqlRetryService.Database : _sqlRetryService.Database.Substring(0, 50);
-                        _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
-
-                        var uriStr = GetStorageParameter("MergeResources.AdlsAccountUri");
-                        if (uriStr != null)
-                        {
-                            _adlsAccountUri = new Uri(uriStr);
-                            _adlsAccountManagedIdentityClientId = GetStorageParameter("MergeResources.AdlsAccountManagedIdentityClientId");
-                        }
-
-                        _adlsClient = GetAdlsContainer();
-
-                        _adlsIsSet = true;
-                    }
-                }
-            }
+            _ = new SqlSecondaryStore<SqlServerFhirDataStore>(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
-
-        internal static BlobContainerClient AdlsClient => _adlsClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
@@ -262,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         retry:
             try
             {
-                using var stream = await _adlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var stream = await SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
                 using var writer = new StreamWriter(stream);
                 var offset = 0;
                 foreach (var resource in resources)
@@ -300,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         retry:
             try
             {
-                using var stream = await _adlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var stream = await SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
                 using var writer = new StreamWriter(stream);
                 foreach (var line in lines)
                 {
@@ -346,32 +227,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
-        }
-
-        private BlobContainerClient GetAdlsContainer() // creates if does not exist
-        {
-            try
-            {
-                var blobServiceClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
-                                      ? new BlobServiceClient(_adlsAccountUri, new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
-                                      : _adlsAccountUri != null ? new BlobServiceClient(_adlsAccountUri) : new BlobServiceClient(_adlsConnectionString);
-                var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
-
-                if (!blobContainerClient.Exists())
-                {
-                    lock (_parameterLocker)
-                    {
-                        blobContainerClient.CreateIfNotExists();
-                    }
-                }
-
-                return blobContainerClient;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, $"Error on {nameof(GetAdlsContainer)}"); //// TODO: Revise
-                return null;
-            }
         }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
@@ -944,13 +799,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_adlsClient != null)
+            if (SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient != null)
             {
                 await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
-            if (_warehouseConnectionString == null)
+            if (SqlSecondaryStore<SqlServerFhirDataStore>.WarehouseConnectionString == null)
             {
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1000,14 +855,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             retry:
             try
             {
-                using var conn = new SqlConnection(_warehouseConnectionString);
+                using var conn = new SqlConnection(SqlSecondaryStore<SqlServerFhirDataStore>.WarehouseConnectionString);
                 using var cmd = new SqlCommand("dbo.MergeResources", conn);
                 cmd.CommandTimeout = 600;
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-                cmd.Parameters.AddWithValue("@AdlsContainer", _adlsContainer);
-                cmd.Parameters.AddWithValue("@AdlsAccountName", _adlsAccountName);
-                cmd.Parameters.AddWithValue("@AdlsAccountKey", _adlsAccountKey);
+                cmd.Parameters.AddWithValue("@AdlsContainer", SqlSecondaryStore<SqlServerFhirDataStore>.AdlsContainer);
+                cmd.Parameters.AddWithValue("@AdlsAccountName", SqlSecondaryStore<SqlServerFhirDataStore>.AdlsAccountName);
+                cmd.Parameters.AddWithValue("@AdlsAccountKey", SqlSecondaryStore<SqlServerFhirDataStore>.AdlsAccountKey);
                 var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(affectedRowsParam);
                 await conn.OpenAsync(cancellationToken);
@@ -1017,7 +872,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error merging resources into warehouse");
-                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Error", $"{ex.Message} cs={_warehouseConnectionString}", st, cancellationToken);
+                await StoreClient.TryLogEvent("MergeResourcesIntoWarehouse", "Error", $"{ex.Message} cs={SqlSecondaryStore<SqlServerFhirDataStore>.WarehouseConnectionString}", st, cancellationToken);
                 if (ex.IsRetriable())
                 {
                     await Task.Delay(5000, cancellationToken);
@@ -1274,25 +1129,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
-        }
-
-        private string GetStorageParameter(string parameterId)
-        {
-            lock (_parameterLocker)
-            {
-                try
-                {
-                    using var cmd = new SqlCommand();
-                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = @Id";
-                    cmd.Parameters.AddWithValue("@Id", parameterId);
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
-                    return value == null ? null : (string)value;
-                }
-                catch (Exception)
-                {
-                    return null;
-                }
-            }
         }
 
         private class ProcessingFlag
