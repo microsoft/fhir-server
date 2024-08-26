@@ -452,13 +452,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
+                var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
                 if (warehouseConnectionString != null)
                 {
-                    return new SqlConnection(warehouseConnectionString);
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                    conn = new SqlConnection(warehouseConnectionString);
+#pragma warning restore CA2000 // Dispose objects before losing scope
                 }
-
-                var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
-                if (!isReadOnly)
+                else if (!isReadOnly)
                 {
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
