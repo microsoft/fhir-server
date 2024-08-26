@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.ComponentModel;
 using System.Threading;
 using Azure.Identity;
 using Azure.Storage.Blobs;
@@ -122,10 +123,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static BlobContainerClient GetAdlsContainer() // creates if does not exist
         {
-            var blobServiceClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
-                                    ? new BlobServiceClient(_adlsAccountUri, new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
-                                    : _adlsAccountUri != null ? new BlobServiceClient(_adlsAccountUri) : new BlobServiceClient(_adlsConnectionString);
-            var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+            var blobContainerClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
+                                    ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
+                                    : _adlsAccountUri != null
+                                        ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new DefaultAzureCredential(true))
+                                        : new BlobServiceClient(_adlsConnectionString).GetBlobContainerClient(_adlsContainer);
 
             if (!blobContainerClient.Exists())
             {
