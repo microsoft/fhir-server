@@ -199,12 +199,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
-                StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+                // TODO: Remove Not supported by FWH
+                ////StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
-                if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
-                }
+                ////if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+                ////{
+                ////    StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
+                ////}
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
                 StringBuilder.Append(", ").Append(VLatest.Resource.TransactionId, resourceTableAlias);
@@ -230,8 +231,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     // If this is a simple search over a resource type (like GET /Observation)
                     // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
-                    // Not supported by FWH
+                    // TODO: Remove Not supported by FWH
                     // StringBuilder.Append(" WITH (INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
+                    StringBuilder.AppendLine();
                 }
                 else
                 {
