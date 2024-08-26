@@ -497,7 +497,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
-                logger.LogInformation($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                var builder = new SqlConnectionStringBuilder(conn.ConnectionString);
+                logger.LogInformation($"Opened {isReadOnlyConnection}connection to the {builder.DataSource}.{builder.InitialCatalog} database in {sw.Elapsed.TotalSeconds} seconds.");
 
                 return conn;
             }
