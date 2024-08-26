@@ -420,6 +420,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 ReadWrapper(
                                     reader,
+                                    SqlSecondaryStore<SqlServerSearchService>.WarehouseConnectionString,
                                     out short resourceTypeId,
                                     out string resourceId,
                                     out int version,
@@ -628,6 +629,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         ReadWrapper(
                             reader,
+                            null,
                             out short _,
                             out string resourceId,
                             out int version,
@@ -814,6 +816,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void ReadWrapper(
             SqlDataReader reader,
+            string warehouseConnectionString,
             out short resourceTypeId,
             out string resourceId,
             out int version,
@@ -836,11 +839,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
             isMatch = reader.Read(_isMatch, 6);
             isPartialEntry = reader.Read(_isPartial, 7);
-            isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
-            searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
-            rawResourceSqlBytes = reader.GetSqlBytes(10);
-            transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
-            offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
+            if (warehouseConnectionString != null)
+            {
+                isRawResourceMetaSet = true;
+                searchParameterHash = null;
+                rawResourceSqlBytes = reader.GetSqlBytes(8);
+                transactionId = reader.Read(VLatest.Resource.TransactionId, 9);
+                offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 10);
+            }
+            else
+            {
+                isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
+                searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
+                rawResourceSqlBytes = reader.GetSqlBytes(10);
+                transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
+                offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
+            }
         }
 
         [Conditional("DEBUG")]

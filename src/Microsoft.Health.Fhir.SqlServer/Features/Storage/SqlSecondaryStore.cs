@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var blobContainerClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
                                     ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
                                     : _adlsAccountUri != null
-                                        ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new DefaultAzureCredential(true))
+                                        ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new InteractiveBrowserCredential())
                                         : new BlobServiceClient(_adlsConnectionString).GetBlobContainerClient(_adlsContainer);
 
             if (!blobContainerClient.Exists())
