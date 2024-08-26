@@ -105,7 +105,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
-                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                // TODO: Remove Not supported by FWH
+                // StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
                 var isSortValueNeeded = IsSortValueNeeded(context);
                 if (isSortValueNeeded)
                 {
@@ -319,7 +320,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
             if (AddOptimizeForUnknownClause())
             {
-                StringBuilder.AppendLine("OPTION (OPTIMIZE FOR UNKNOWN)");
+                // TODO: Remove Not supported by FWH
+                // StringBuilder.AppendLine("OPTION (OPTIMIZE FOR UNKNOWN)");
             }
         }
 
