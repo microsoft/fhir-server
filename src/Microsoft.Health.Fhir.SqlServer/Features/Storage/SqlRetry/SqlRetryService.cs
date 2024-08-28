@@ -246,7 +246,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// and retries entire process on SQL error or failed SQL connection error. In the case if non-retriable exception or if the last retry failed
         /// tha same exception is thrown.
         /// </summary>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="action">Delegate to be executed by passing <paramref name="sqlCommand"/> as input parameter.</param>
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
@@ -256,7 +255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="disableRetries">"Flag indicating whether retries are disabled."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false)
+        public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
@@ -308,7 +307,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<IReadOnlyList<TResult>> ExecuteSqlDataReaderAsync<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, bool isReadOnly, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<TResult>> ExecuteSqlDataReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, bool allRows, bool isReadOnly, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
@@ -344,7 +343,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
         /// <typeparam name="TResult">Defines data type for the returned SQL rows.</typeparam>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
         /// <param name="logger">Logger used on first try error or retry error.</param>
@@ -354,7 +352,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>A task representing the asynchronous operation that returns all the rows that result from <paramref name="sqlCommand"/> execution. The rows are translated by <paramref name="readerToResult"/> delegate
         /// into <typeparamref name="TResult"/> data type.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
         {
             return await ExecuteSqlDataReaderAsync(sqlCommand, readerToResult, logger, logMessage, true, isReadOnly, cancellationToken);
         }
@@ -437,7 +435,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
             }
 
-            public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger logger, CancellationToken cancel)
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
@@ -476,6 +474,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+
                 logger.LogInformation($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
 
                 sw = Stopwatch.StartNew();

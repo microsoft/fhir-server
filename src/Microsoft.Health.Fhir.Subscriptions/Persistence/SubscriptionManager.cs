@@ -5,9 +5,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Hosting;
@@ -15,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
@@ -28,25 +32,27 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         private List<SubscriptionInfo> _subscriptions = new List<SubscriptionInfo>();
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<SubscriptionManager> _logger;
+        private readonly ISubscriptionModelConverter _subscriptionModelConverter;
         private static readonly object _lock = new object();
-        private const string MetaString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-subscription";
-        private const string CriteriaString = "http://azurehealthcareapis.com/data-extentions/SubscriptionTopics/transactions";
-        private const string CriteriaExtensionString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria";
-        private const string ChannelTypeString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-channel-type";
-        ////private const string AzureChannelTypeString = "http://azurehealthcareapis.com/data-extentions/subscription-channel-type";
-        private const string PayloadTypeString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-payload-content";
-        private const string MaxCountString = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-max-count";
+        private readonly ISubscriptionUpdator _subscriptionUpdator;
+        private readonly IRawResourceFactory _rawResourceFactory;
 
         public SubscriptionManager(
             IScopeProvider<IFhirDataStore> dataStoreProvider,
             IScopeProvider<ISearchService> searchServiceProvider,
             IResourceDeserializer resourceDeserializer,
-            ILogger<SubscriptionManager> logger)
+            ILogger<SubscriptionManager> logger,
+            ISubscriptionModelConverter subscriptionModelConverter,
+            ISubscriptionUpdator subscriptionUpdator,
+            IRawResourceFactory rawResourceFactory)
         {
             _dataStoreProvider = EnsureArg.IsNotNull(dataStoreProvider, nameof(dataStoreProvider));
             _searchServiceProvider = EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
             _resourceDeserializer = resourceDeserializer;
             _logger = logger;
+            _subscriptionModelConverter = subscriptionModelConverter;
+            _subscriptionUpdator = subscriptionUpdator;
+            _rawResourceFactory = rawResourceFactory;
         }
 
         public async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
@@ -68,8 +74,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             foreach (var param in activeSubscriptions.Results)
             {
                 var resource = _resourceDeserializer.Deserialize(param.Resource);
-
-                SubscriptionInfo info = ConvertToInfo(resource);
+                SubscriptionInfo info = _subscriptionModelConverter.Convert(resource);
 
                 if (info == null)
                 {
@@ -86,50 +91,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
             }
         }
 
-        internal static SubscriptionInfo ConvertToInfo(ResourceElement resource)
-        {
-            var profile = resource.Scalar<string>("Subscription.meta.profile");
-
-            if (profile != MetaString)
-            {
-                return null;
-            }
-
-            var criteria = resource.Scalar<string>($"Subscription.criteria");
-
-            if (criteria != CriteriaString)
-            {
-                return null;
-            }
-
-            var criteriaExt = resource.Scalar<string>($"Subscription.criteria.extension.where(url = '{CriteriaExtensionString}').value");
-            var channelTypeExt = resource.Scalar<string>($"Subscription.channel.type.extension.where(url = '{ChannelTypeString}').value.code");
-            var payloadType = resource.Scalar<string>($"Subscription.channel.payload.extension.where(url = '{PayloadTypeString}').value");
-            var maxCount = resource.Scalar<int?>($"Subscription.channel.extension.where(url = '{MaxCountString}').value");
-
-            var channelInfo = new ChannelInfo
-            {
-                Endpoint = resource.Scalar<string>($"Subscription.channel.endpoint"),
-                ChannelType = channelTypeExt switch
-                {
-                    "azure-storage" => SubscriptionChannelType.Storage,
-                    "azure-lake-storage" => SubscriptionChannelType.DatalakeContract,
-                    _ => SubscriptionChannelType.None,
-                },
-                ContentType = payloadType switch
-                {
-                    "full-resource" => SubscriptionContentType.FullResource,
-                    "id-only" => SubscriptionContentType.IdOnly,
-                    _ => SubscriptionContentType.Empty,
-                },
-                MaxCount = maxCount ?? 100,
-            };
-
-            var info = new SubscriptionInfo(criteriaExt, channelInfo);
-
-            return info;
-        }
-
         public async Task<IReadOnlyCollection<SubscriptionInfo>> GetActiveSubscriptionsAsync(CancellationToken cancellationToken)
         {
             if (_subscriptions.Count == 0)
@@ -144,6 +105,25 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         {
             // Preload subscriptions when storage becomes available
             await SyncSubscriptionsAsync(cancellationToken);
+        }
+
+        public async Task MarkAsError(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
+        {
+            using var search = _searchServiceProvider.Invoke();
+            using var datastore = _dataStoreProvider.Invoke();
+
+            var getSubscriptionsWithId = await datastore.Value.GetAsync(
+                new List<ResourceKey>()
+                {
+                    new ResourceKey("Subscription", subscriptionInfo.ResourceId),
+                },
+                cancellationToken);
+
+            var resourceElement = _resourceDeserializer.Deserialize(getSubscriptionsWithId.ToList()[0]);
+            var updatedStatusResource = _subscriptionUpdator.UpdateStatus(resourceElement, SubscriptionStatus.Error.GetLiteral());
+            var resourceWrapper = new ResourceWrapper(updatedStatusResource, _rawResourceFactory.Create(updatedStatusResource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            await datastore.Value.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, false, true, null, false, true, null), cancellationToken);
         }
     }
 }

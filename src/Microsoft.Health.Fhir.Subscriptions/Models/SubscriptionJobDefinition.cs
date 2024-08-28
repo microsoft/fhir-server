@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
         [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "JSON Poco")]
         public IList<ResourceKey> ResourceReferences { get; set; }
 
-        [JsonProperty("channel")]
-        public ChannelInfo Channel { get; set; }
+        [JsonProperty("subscriptionInfo")]
+        public SubscriptionInfo SubscriptionInfo { get; set; }
     }
 }

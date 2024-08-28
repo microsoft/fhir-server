@@ -14,6 +14,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -102,6 +103,13 @@ namespace Microsoft.Health.Fhir.Core
 
                 throw new ResourceNotValidException(new List<OperationOutcomeIssue>() { issue });
             }
+        }
+
+        public ResourceElement ToResourceElement(Resource resource)
+        {
+            EnsureArg.IsNotNull(resource);
+
+            return resource.ToResourceElement();
         }
     }
 }

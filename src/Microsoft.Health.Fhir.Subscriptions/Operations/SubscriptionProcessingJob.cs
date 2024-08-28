@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
         {
             SubscriptionJobDefinition definition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
 
-            if (definition.Channel == null)
+            if (definition.SubscriptionInfo == null)
             {
                 return HttpStatusCode.BadRequest.ToString();
             }
@@ -40,8 +40,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                 definition.ResourceReferences
                 .Select(async x => await _dataStore.GetAsync(x, cancellationToken)));
 
-            var channel = _storageChannelFactory.Create(definition.Channel.ChannelType);
-            await channel.PublishAsync(allResources, definition.Channel, definition.VisibleDate, cancellationToken);
+            var channel = _storageChannelFactory.Create(definition.SubscriptionInfo.Channel.ChannelType);
+            await channel.PublishAsync(allResources, definition.SubscriptionInfo, definition.VisibleDate, cancellationToken);
 
             return HttpStatusCode.OK.ToString();
         }

@@ -27,14 +27,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _resourceDeserializer = resourceDeserializer;
         }
 
-        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
+        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
             try
             {
-                await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Endpoint);
+                await _exportDestinationClient.ConnectAsync(cancellationToken, subscriptionInfo.Channel.Endpoint);
 
                 IReadOnlyList<IGrouping<string, ResourceWrapper>> resourceGroupedByResourceType = resources.GroupBy(x => x.ResourceTypeName.ToLower(CultureInfo.InvariantCulture)).ToList();
-
                 DateTimeOffset transactionTimeInUtc = transactionTime.ToUniversalTime();
 
                 foreach (IGrouping<string, ResourceWrapper> groupOfResources in resourceGroupedByResourceType)
@@ -63,6 +62,16 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             {
                 throw new InvalidOperationException("Failure in DatalakeChannel", ex);
             }
+        }
+
+        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        {
+            return Task.CompletedTask;
         }
     }
 }

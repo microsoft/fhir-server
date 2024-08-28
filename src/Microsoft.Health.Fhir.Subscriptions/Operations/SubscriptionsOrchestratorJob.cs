@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.InMemory;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
@@ -27,17 +28,21 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
     {
         private readonly IQueueClient _queueClient;
         private readonly ITransactionDataStore _transactionDataStore;
-        private readonly ISearchService _searchService;
+        private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IQueryStringParser _queryStringParser;
         private readonly ISubscriptionManager _subscriptionManager;
+        private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly ISearchIndexer _searchIndexer;
         private const string OperationCompleted = "Completed";
 
         public SubscriptionsOrchestratorJob(
             IQueueClient queueClient,
             ITransactionDataStore transactionDataStore,
-            ISearchService searchService,
+            ISearchOptionsFactory searchOptionsFactory,
             IQueryStringParser queryStringParser,
-            ISubscriptionManager subscriptionManager)
+            ISubscriptionManager subscriptionManager,
+            IResourceDeserializer resourceDeserializer,
+            ISearchIndexer searchIndexer)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(transactionDataStore, nameof(transactionDataStore));
@@ -45,9 +50,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
 
             _queueClient = queueClient;
             _transactionDataStore = transactionDataStore;
-            _searchService = searchService;
+            _searchOptionsFactory = searchOptionsFactory;
             _queryStringParser = queryStringParser;
             _subscriptionManager = subscriptionManager;
+            _resourceDeserializer = resourceDeserializer;
+            _searchIndexer = searchIndexer;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -83,23 +90,17 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                             .ToList();
                     }
 
-                    var limitIds = string.Join(",", resourceKeys.Select(x => x.Id));
-                    var idParam = query.Where(x => x.Item1 == KnownQueryParameterNames.Id).FirstOrDefault();
-                    if (idParam != null)
+                    var searchOptions = _searchOptionsFactory.Create(criteriaSegments[0], query);
+                    var searchInterpreter = new SearchQueryInterpreter();
+                    var memoryIndex = new InMemoryIndex(_searchIndexer);
+                    memoryIndex.IndexResources(resources.Select(x => _resourceDeserializer.Deserialize(x)).ToArray());
+                    var expression = searchOptions.Expression;
+                    var evaluator = expression.AcceptVisitor(searchInterpreter, default);
+                    if (memoryIndex.Index.TryGetValue(criteriaSegments[0], out List<(ResourceKey Location, IReadOnlyCollection<SearchIndexEntry> Index)> value))
                     {
-                        query.Remove(idParam);
-                        limitIds += "," + idParam.Item2;
+                        var results = evaluator.Invoke(value).ToArray();
+                        channelResources.AddRange(results.Select(x => x.Location));
                     }
-
-                    query.Add(new Tuple<string, string>(KnownQueryParameterNames.Id, limitIds));
-
-                    var results = await _searchService.SearchAsync(criteriaSegments[0], new ReadOnlyCollection<Tuple<string, string>>(query), cancellationToken, true, ResourceVersionType.Latest, onlyIds: true);
-
-                    channelResources.AddRange(
-                        results.Results
-                            .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match
-                                || x.SearchEntryMode == ValueSets.SearchEntryMode.Include)
-                            .Select(x => x.Resource.ToResourceKey()));
                 }
                 else
                 {
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                     continue;
                 }
 
-                var chunk = resourceKeys
+                var chunk = channelResources
                     .Chunk(sub.Channel.MaxCount);
 
                 foreach (var batch in chunk)
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
                     var cloneDefinition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
                     cloneDefinition.TypeId = (int)JobType.SubscriptionsProcessing;
                     cloneDefinition.ResourceReferences = batch.ToList();
-                    cloneDefinition.Channel = sub.Channel;
+                    cloneDefinition.SubscriptionInfo = sub;
 
                     processingDefinition.Add(cloneDefinition);
                 }

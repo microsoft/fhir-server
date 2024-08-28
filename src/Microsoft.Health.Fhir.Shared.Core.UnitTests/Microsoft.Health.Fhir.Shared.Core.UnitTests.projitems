@@ -47,6 +47,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InMemory\SearchQueryInterperaterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InMemory\SubscriptionsOrchestratorJobTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InMemory\SearchQueryInterperaterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
