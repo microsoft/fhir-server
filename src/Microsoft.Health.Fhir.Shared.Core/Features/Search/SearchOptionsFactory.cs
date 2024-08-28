@@ -523,10 +523,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     includeResourceTypeList = new[] { includeResourceType };
                 }
 
-                IEnumerable<string> allowedResourceTypesByScope = null;
+                IReadOnlyCollection<string> allowedResourceTypesByScope = null;
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                 {
-                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource).ToList();
                 }
 
                 var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
