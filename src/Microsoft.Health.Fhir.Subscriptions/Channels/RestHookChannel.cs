@@ -54,10 +54,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _urlResolver = urlResolver;
 
             var fhirRequestContext = new FhirRequestContext(
-                method: OperationsConstants.Reindex,
-                uriString: "$reindex",
-                baseUriString: "$reindex",
-                correlationId: "parameters",
+                method: null,
+                uriString: string.Empty,
+                baseUriString: string.Empty,
+                correlationId: string.Empty,
                 requestHeaders: new Dictionary<string, StringValues>(),
                 responseHeaders: new Dictionary<string, StringValues>())
             {

@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
             while (!_storageReady)
             {
                 stoppingToken.ThrowIfCancellationRequested();
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             }
 
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));

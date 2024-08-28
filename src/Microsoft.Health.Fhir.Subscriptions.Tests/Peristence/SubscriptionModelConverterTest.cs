@@ -20,12 +20,12 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
 {
-    public class SubscriptionManagerTests
+    public class SubscriptionModelConverterTest
     {
         private IModelInfoProvider _modelInfo;
         private ISubscriptionModelConverter _subscriptionModelConverter;
 
-        public SubscriptionManagerTests()
+        public SubscriptionModelConverterTest()
         {
             _modelInfo = MockModelInfoProviderBuilder
                 .Create(FhirSpecification.R4)
