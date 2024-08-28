@@ -423,4 +423,7 @@
   <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
     <value>Not able to create final result. Retry the operation.</value>
   </data>
+  <data name="MissingInputParams" xml:space="preserve">
+    <value>inputParams not found, request body must be a valid Parameters resource.</value>
+  </data>
 </root>
