@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -14,6 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         ResourceElement CreateSearchBundle(SearchResult result);
 
         ResourceElement CreateHistoryBundle(SearchResult result);
+
+        System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources);
 
         Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences);
     }

@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
         private ISubscriptionManager _subscriptionManager = Substitute.For<ISubscriptionManager>();
         private IResourceDeserializer _resourceDeserializer;
         private IExpressionParser _expressionParser;
+        private ISubscriptionModelConverter _subscriptionModelConverter;
 
         public Task DisposeAsync()
         {
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceParser, ModelInfoProvider.Instance);
             var modelInfoProvider = ModelInfoProvider.Instance;
             var logger = Substitute.For<ILogger<TypedElementSearchIndexer>>();
-
+            _subscriptionModelConverter = new SubscriptionModelConverterR4();
             _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
 
             _transactionDataStore.GetResourcesByTransactionIdAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(x =>
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatient"));
+                var subscriptionInfo = _subscriptionModelConverter.Convert(Samples.GetJsonSample("SubscriptionForPatient"));
                 var subscriptionInfoList = new List<SubscriptionInfo>
                 {
                     subscriptionInfo,
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForPatientName"));
+                var subscriptionInfo = _subscriptionModelConverter.Convert(Samples.GetJsonSample("SubscriptionForPatientName"));
                 var subscriptionInfoList = new List<SubscriptionInfo>
                 {
                     subscriptionInfo,
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForObservationReferenceToPatient"));
+                var subscriptionInfo = _subscriptionModelConverter.Convert(Samples.GetJsonSample("SubscriptionForObservationReferenceToPatient"));
                 var subscriptionInfoList = new List<SubscriptionInfo>
                 {
                     subscriptionInfo,
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             Skip.If(ModelInfoProvider.Version != FhirSpecification.R4);
             _subscriptionManager.GetActiveSubscriptionsAsync(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var subscriptionInfo = SubscriptionManager.ConvertToInfo(Samples.GetJsonSample("SubscriptionForEncounter"));
+                var subscriptionInfo = _subscriptionModelConverter.Convert(Samples.GetJsonSample("SubscriptionForEncounter"));
                 var subscriptionInfoList = new List<SubscriptionInfo>
                 {
                     subscriptionInfo,

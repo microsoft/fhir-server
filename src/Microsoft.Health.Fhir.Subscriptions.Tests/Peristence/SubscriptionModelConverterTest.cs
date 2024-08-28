@@ -20,24 +20,26 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Tests.Peristence
 {
-    public class SubscriptionManagerTests
+    public class SubscriptionModelConverterTest
     {
         private IModelInfoProvider _modelInfo;
+        private ISubscriptionModelConverter _subscriptionModelConverter;
 
-        public SubscriptionManagerTests()
+        public SubscriptionModelConverterTest()
         {
             _modelInfo = MockModelInfoProviderBuilder
                 .Create(FhirSpecification.R4)
                 .AddKnownTypes(KnownResourceTypes.Subscription)
                 .Build();
+
+            _subscriptionModelConverter = new SubscriptionModelConverterR4();
         }
 
         [Fact]
         public void GivenAnR4BackportSubscription_WhenConvertingToInfo_ThenTheInformationIsCorrect()
         {
             var subscription = CommonSamples.GetJsonSample("Subscription-Backport", FhirSpecification.R4, s => s.ToTypedElement(ModelInfo.ModelInspector));
-
-            var info = SubscriptionManager.ConvertToInfo(subscription);
+            var info = _subscriptionModelConverter.Convert(subscription);
 
             Assert.Equal("Patient", info.FilterCriteria);
             Assert.Equal("sync-all", info.Channel.Endpoint);

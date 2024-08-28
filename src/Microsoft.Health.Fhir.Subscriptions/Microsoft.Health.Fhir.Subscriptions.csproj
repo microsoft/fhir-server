@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.EventGrid" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" />
   </ItemGroup>
 
   <ItemGroup>

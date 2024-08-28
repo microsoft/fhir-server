@@ -15,5 +15,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         Task<IReadOnlyCollection<SubscriptionInfo>> GetActiveSubscriptionsAsync(CancellationToken cancellationToken);
 
         Task SyncSubscriptionsAsync(CancellationToken cancellationToken);
+
+        Task MarkAsError(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken);
     }
 }

@@ -24,9 +24,9 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _exportDestinationClient = exportDestinationClient;
         }
 
-        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
+        public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
-            await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Endpoint);
+            await _exportDestinationClient.ConnectAsync(cancellationToken, subscriptionInfo.Channel.Endpoint);
 
             foreach (var resource in resources)
             {
@@ -38,6 +38,16 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
                 _exportDestinationClient.CommitFile(fileName);
             }
+        }
+
+        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        {
+            return Task.CompletedTask;
         }
     }
 }
