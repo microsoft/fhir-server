@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
+
                 // TODO: Remove Not supported by FWH
                 // StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
                 var isSortValueNeeded = IsSortValueNeeded(context);
@@ -120,7 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                StringBuilder.AppendLine(")");
+                // TODO: Remove Not supported by FWH
+                // StringBuilder.AppendLine(")");
                 StringBuilder.AppendLine(";WITH");
                 var visitedInclude = false;
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
