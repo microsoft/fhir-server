@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Request = new Bundle.RequestComponent
                     {
                         Method = httpVerb,
-                        Url = $"{rw.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : rw.ResourceId)}",
+                        Url = $"{rw.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? rw.ResourceId : null)}",
                     },
                 };
 

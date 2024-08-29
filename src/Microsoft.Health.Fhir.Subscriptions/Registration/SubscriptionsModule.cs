@@ -8,11 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Subscriptions;
@@ -31,8 +33,20 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
 {
     public class SubscriptionsModule : IStartupModule
     {
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+
+        public SubscriptionsModule(CoreFeatureConfiguration coreFeatureConfiguration)
+        {
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
+        }
+
         public void Load(IServiceCollection services)
         {
+            if (!_coreFeatureConfiguration.SupportsSubscriptions)
+            {
+                return;
+            }
+
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<SubscriptionsModule>()
                 .AssignableTo<IJob>()
                 .Transient()
