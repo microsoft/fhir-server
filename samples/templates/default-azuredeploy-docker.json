@@ -720,7 +720,7 @@
                 "tier": "Basic"
             },
             "properties": {
-                "adminUserEnabled": "true"
+                "adminUserEnabled": "false"
             }
         },
         {
