@@ -21,7 +21,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
             services.RegisterAssemblyModules(typeof(InitializationModule).Assembly, fhirServerConfiguration);
-            services.RegisterAssemblyModules(typeof(SubscriptionsModule).Assembly, fhirServerConfiguration);
+            services.RegisterAssemblyModules(typeof(SubscriptionsModule).Assembly, fhirServerConfiguration.CoreFeatures);
 
             return services;
         }

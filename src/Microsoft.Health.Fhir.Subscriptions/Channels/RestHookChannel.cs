@@ -53,34 +53,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             _modelInfoProvider = modelInfoProvider;
             _urlResolver = urlResolver;
 
-            var fhirRequestContext = new FhirRequestContext(
-                method: null,
-                uriString: string.Empty,
-                baseUriString: string.Empty,
-                correlationId: string.Empty,
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>())
-            {
-                IsBackgroundTask = true,
-                AuditEventType = OperationsConstants.Reindex,
-            };
-
             _contextAccessor = contextAccessor;
-            _contextAccessor.RequestContext = fhirRequestContext;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
-
-            var httpContext = new DefaultHttpContext();
-            httpContext.Request.Scheme = "https";
-            httpContext.Request.Host = new HostString("fhir.com", 433);
-            _httpContextAccessor.HttpContext = httpContext;
-
-            _actionContextAccessor.ActionContext = new AspNetCore.Mvc.ActionContext();
-            _actionContextAccessor.ActionContext.HttpContext = httpContext;
         }
 
         public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
+            SetContext();
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
             {
@@ -154,6 +134,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         public async Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
         {
+            SetContext();
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
             {
@@ -171,6 +152,33 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
             await SendPayload(subscriptionInfo.Channel, bundle);
+        }
+
+        private void SetContext()
+        {
+            if (_httpContextAccessor.HttpContext == null)
+            {
+                var fhirRequestContext = new FhirRequestContext(
+                    method: "subscription",
+                    uriString: "subscription",
+                    baseUriString: "subscription",
+                    correlationId: "subscription",
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                    AuditEventType = OperationsConstants.Reindex,
+                };
+                _contextAccessor.RequestContext = fhirRequestContext;
+
+                var httpContext = new DefaultHttpContext();
+                httpContext.Request.Scheme = "https";
+                httpContext.Request.Host = new HostString("fhir.com", 433);
+                _httpContextAccessor.HttpContext = httpContext;
+
+                _actionContextAccessor.ActionContext = new AspNetCore.Mvc.ActionContext();
+                _actionContextAccessor.ActionContext.HttpContext = httpContext;
+            }
         }
 
         private async Task SendPayload(
