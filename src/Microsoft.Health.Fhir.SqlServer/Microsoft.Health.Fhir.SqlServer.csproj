@@ -45,6 +45,7 @@
   <!-- If this sql needs to be in a transaction, tag it TSqlScript otherwise use SqlScript -->
   <ItemGroup>
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
+    <SqlScript Include="Features\Schema\Sql\Views\*.sql" />
   </ItemGroup>
 
   <ItemGroup>

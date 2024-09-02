@@ -4,9 +4,10 @@
     ResourceSurrogateId                 bigint                  NOT NULL,
     SearchParamId                       smallint                NOT NULL,
     BaseUri                             varchar(128)            COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId             smallint                NULL,
-    ReferenceResourceId                 varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ReferenceResourceVersion            int                     NULL
+    ReferenceResourceTypeId             smallint                NOT NULL,
+    ReferenceResourceIdInt              bigint                  NOT NULL,
+    ReferenceResourceVersion            int                     NULL,
+    ReferenceResourceId                 varchar(64)             COLLATE Latin1_General_100_CS_AS NULL -- just to build
 )
 
 ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
@@ -19,11 +20,11 @@ ON dbo.ReferenceSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
+CREATE UNIQUE INDEX IXU_ReferenceResourceIdInt_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
   ( 
-    ReferenceResourceId
+    ReferenceResourceIdInt
    ,ReferenceResourceTypeId
    ,SearchParamId
    ,BaseUri

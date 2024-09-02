@@ -533,9 +533,10 @@ CREATE TABLE dbo.ReferenceSearchParam (
     ResourceSurrogateId      BIGINT        NOT NULL,
     SearchParamId            SMALLINT      NOT NULL,
     BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId  SMALLINT      NULL,
-    ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ReferenceResourceVersion INT           NULL
+    ReferenceResourceTypeId  SMALLINT      NOT NULL,
+    ReferenceResourceIdInt   BIGINT        NOT NULL,
+    ReferenceResourceVersion INT           NULL,
+    ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.ReferenceSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -544,8 +545,8 @@ CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
     ON dbo.ReferenceSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId
-    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE)
+CREATE UNIQUE INDEX IXU_ReferenceResourceIdInt_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId
+    ON dbo.ReferenceSearchParam(ReferenceResourceIdInt, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
@@ -587,7 +588,7 @@ CREATE TABLE dbo.ReindexJob (
 
 CREATE TABLE dbo.Resource (
     ResourceTypeId       SMALLINT        NOT NULL,
-    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceIdInt        BIGINT          NOT NULL,
     Version              INT             NOT NULL,
     IsHistory            BIT             NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
@@ -598,7 +599,8 @@ CREATE TABLE dbo.Resource (
     SearchParamHash      VARCHAR (64)    NULL,
     TransactionId        BIGINT          NULL,
     HistoryTransactionId BIGINT          NULL,
-    OffsetInFile         INT             NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    OffsetInFile         INT             NULL,
+    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_Resource_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL
                                                            OR OffsetInFile IS NOT NULL)
 );
@@ -620,11 +622,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId
     ON dbo.Resource(ResourceTypeId, ResourceId)
     INCLUDE(Version, IsDeleted) WHERE IsHistory = 0
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
-    ON dbo.Resource(ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0
-                                                               AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ResourceChangeData (
@@ -675,6 +672,13 @@ VALUES                        (1, N'Update');
 
 INSERT  dbo.ResourceChangeType (ResourceChangeTypeId, Name)
 VALUES                        (2, N'Deletion');
+
+CREATE TABLE dbo.ResourceIdIntMap (
+    ResourceTypeId SMALLINT     NOT NULL,
+    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceIdInt  BIGINT       IDENTITY (1, 1) CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+);
 
 CREATE TABLE dbo.ResourceType (
     ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
@@ -5157,5 +5161,8 @@ FROM   dbo.SearchParam AS searchParam
        ON searchParam.Uri = upsertedSearchParam.Uri
 WHERE  upsertedSearchParam.Action = 'INSERT';
 COMMIT TRANSACTION;
+
+GO
+EXECUTE sp_rename 'Resource', 'ResourceTbl';
 
 GO
