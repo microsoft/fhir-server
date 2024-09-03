@@ -608,20 +608,20 @@ CREATE TABLE dbo.Resource (
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
 
 CREATE INDEX IX_ResourceTypeId_TransactionId
-    ON dbo.Resource(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
+    ON dbo.Resource(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE INDEX IX_ResourceTypeId_HistoryTransactionId
-    ON dbo.Resource(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
+    ON dbo.Resource(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
-    ON dbo.Resource(ResourceTypeId, ResourceId, Version)
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceIdInt_Version
+    ON dbo.Resource(ResourceTypeId, ResourceIdInt, Version) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId
-    ON dbo.Resource(ResourceTypeId, ResourceId)
-    INCLUDE(Version, IsDeleted) WHERE IsHistory = 0
+CREATE UNIQUE INDEX IXU_Resource_ResourceTypeId_ResourceIdInt
+    ON dbo.Resource(ResourceTypeId, ResourceIdInt)
+    INCLUDE(Version, IsDeleted) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ResourceChangeData (
@@ -677,7 +677,7 @@ CREATE TABLE dbo.ResourceIdIntMap (
     ResourceTypeId SMALLINT     NOT NULL,
     ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ResourceIdInt  BIGINT       IDENTITY (1, 1) CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (IGNORE_DUP_KEY = ON, DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 CREATE TABLE dbo.ResourceType (
@@ -5163,6 +5163,173 @@ WHERE  upsertedSearchParam.Action = 'INSERT';
 COMMIT TRANSACTION;
 
 GO
+EXECUTE sp_rename 'ReferenceSearchParam', 'ReferenceSearchParamTbl';
+
+
+GO
+CREATE OR ALTER VIEW dbo.ReferenceSearchParam
+AS
+SELECT A.ResourceTypeId,
+       ResourceSurrogateId,
+       SearchParamId,
+       BaseUri,
+       ReferenceResourceTypeId,
+       B.ResourceId AS ReferenceResourceId,
+       ReferenceResourceVersion
+FROM   dbo.ReferenceSearchParamTbl AS A
+       LEFT OUTER JOIN
+       dbo.ResourceIdIntMap AS B
+       ON B.ResourceTypeId = A.ReferenceResourceTypeId
+          AND B.ResourceIdInt = A.ReferenceResourceIdInt;
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ReferenceSearchParamIns
+    ON dbo.ReferenceSearchParam
+    INSTEAD OF INSERT
+    AS BEGIN
+           INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId)
+           SELECT ReferenceResourceTypeId,
+                  ReferenceResourceId
+           FROM   Inserted
+           WHERE  ReferenceResourceTypeId IS NOT NULL;
+           INSERT INTO dbo.ReferenceSearchParamTbl (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion)
+           SELECT A.ResourceTypeId,
+                  ResourceSurrogateId,
+                  SearchParamId,
+                  BaseUri,
+                  ReferenceResourceTypeId,
+                  B.ResourceIdInt,
+                  ReferenceResourceVersion
+           FROM   Inserted AS A
+                  INNER JOIN
+                  dbo.ResourceIdIntMap AS B
+                  ON B.ResourceTypeId = A.ReferenceResourceTypeId
+                     AND B.ResourceId = A.ReferenceResourceId;
+       END
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ReferenceSearchParamUpd
+    ON dbo.ReferenceSearchParam
+    INSTEAD OF UPDATE
+    AS BEGIN
+           RAISERROR ('Generic updates are not supported via ReferenceSearchParam view', 18, 127);
+       END
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ReferenceSearchParamDel
+    ON dbo.ReferenceSearchParam
+    INSTEAD OF DELETE
+    AS BEGIN
+           DELETE A
+           FROM   dbo.ReferenceSearchParamTbl AS A
+           WHERE  EXISTS (SELECT *
+                          FROM   Deleted AS B
+                          WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+       END
+
+GO
 EXECUTE sp_rename 'Resource', 'ResourceTbl';
+
+
+GO
+CREATE OR ALTER VIEW dbo.Resource
+AS
+SELECT A.ResourceTypeId,
+       ResourceSurrogateId,
+       B.ResourceId,
+       Version,
+       IsHistory,
+       IsDeleted,
+       RequestMethod,
+       RawResource,
+       IsRawResourceMetaSet,
+       SearchParamHash,
+       TransactionId,
+       OffsetInFile,
+       HistoryTransactionId
+FROM   dbo.ResourceTbl AS A
+       LEFT OUTER JOIN
+       dbo.ResourceIdIntMap AS B
+       ON B.ResourceTypeId = A.ResourceTypeId
+          AND B.ResourceIdInt = A.ResourceIdInt;
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ResourceIns
+    ON dbo.Resource
+    INSTEAD OF INSERT
+    AS BEGIN
+           INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId)
+           SELECT ResourceTypeId,
+                  ResourceId
+           FROM   Inserted;
+           INSERT INTO dbo.ResourceTbl (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsHistory, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile)
+           SELECT A.ResourceTypeId,
+                  ResourceSurrogateId,
+                  ResourceIdInt,
+                  Version,
+                  IsHistory,
+                  IsDeleted,
+                  RequestMethod,
+                  RawResource,
+                  IsRawResourceMetaSet,
+                  SearchParamHash,
+                  TransactionId,
+                  HistoryTransactionId,
+                  OffsetInFile
+           FROM   Inserted AS A
+                  INNER JOIN
+                  dbo.ResourceIdIntMap AS B
+                  ON B.ResourceTypeId = A.ResourceTypeId
+                     AND B.ResourceId = A.ResourceId;
+       END
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ResourceUpd
+    ON dbo.Resource
+    INSTEAD OF UPDATE
+    AS BEGIN
+           IF UPDATE (SearchParamHash)
+              AND NOT UPDATE (IsHistory)
+               BEGIN
+                   UPDATE B
+                   SET    SearchParamHash = A.SearchParamHash
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.ResourceTbl AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                   WHERE  A.IsHistory = 0;
+                   RETURN;
+               END
+           IF NOT UPDATE (IsHistory)
+               RAISERROR ('Generic updates are not supported via Resource view', 18, 127);
+           UPDATE B
+           SET    IsHistory = A.IsHistory
+           FROM   Inserted AS A
+                  INNER JOIN
+                  dbo.ResourceTbl AS B
+                  ON B.ResourceTypeId = A.ResourceTypeId
+                     AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+       END
+
+
+GO
+CREATE OR ALTER TRIGGER dbo.ResourceDel
+    ON dbo.Resource
+    INSTEAD OF DELETE
+    AS BEGIN
+           DELETE A
+           FROM   dbo.ResourceTbl AS A
+           WHERE  EXISTS (SELECT *
+                          FROM   Deleted AS B
+                          WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+       END
 
 GO

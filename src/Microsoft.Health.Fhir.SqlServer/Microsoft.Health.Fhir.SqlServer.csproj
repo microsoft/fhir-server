@@ -78,6 +78,7 @@
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Features\Schema\Sql\Views\ReferenceSearchParam.sql" />
     <None Remove="Features\Storage\Warehouse\Sprocs\LogEvent.wsql" />
     <None Remove="Features\Storage\Warehouse\Sprocs\MergeResources.wsql" />
   </ItemGroup>
