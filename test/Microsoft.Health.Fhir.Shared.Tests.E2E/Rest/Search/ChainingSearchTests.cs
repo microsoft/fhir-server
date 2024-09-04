@@ -348,6 +348,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
+        [Fact]
+        public async Task GivenCountOnlyReverseChainSearchWithDeletedResource_WhenSearched_ThenCorrectCountIsReturned()
+        {
+            string query = $"_has:CareTeam:patient:_tag={Fixture.Tag}&_summary=count";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+            Assert.Equal(1, bundle.Total);
+        }
+
         public class ClassFixture : HttpIntegrationTestFixture
         {
             public ClassFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
@@ -386,6 +395,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             public Device DeviceLoincSubject { get; private set; }
 
             public Device DeviceSnomedSubject { get; private set; }
+
+            public CareTeam CareTeamWithDeletedPatient { get; private set; }
 
             protected override async Task OnInitializedAsync()
             {
@@ -430,6 +441,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanSnomedObservation, snomedCode);
                 SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, smithLoincObservation, loincCode);
                 TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanLoincObservation, loincCode);
+
+                var deletedPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { "Delete" }, Family = "Delete" } } })).Resource;
+                CareTeamWithDeletedPatient = await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Participant = new List<CareTeam.ParticipantComponent> { new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{AdamsPatient.Id}") }, new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{deletedPatient.Id}") } } });
+
+                await TestFhirClient.DeleteAsync(deletedPatient);
 
                 var group = new Group
                 {
