@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public Uri CommitFile(string fileName)
         {
-            Uri uri;
+            Uri uri = null;
             if (_blobStreams.ContainsKey(fileName))
             {
                 try
@@ -144,6 +144,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                     catch (ObjectDisposedException odEx)
                     {
                         _logger.LogError(odEx, "Failed to write export file due to ObjectDisposedException");
+                        throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
                     }
                     catch (RequestFailedException ex2)
                     {
