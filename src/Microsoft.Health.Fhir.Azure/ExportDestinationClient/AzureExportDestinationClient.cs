@@ -134,16 +134,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 {
                     uri = CommitFileRetry(fileName);
                 }
-                catch (RequestFailedException)
+                catch (RequestFailedException ex)
                 {
+                    _logger.LogError(ex, "Failed to write export file");
                     try
                     {
                         uri = CommitFileRetry(fileName);
                     }
-                    catch (RequestFailedException ex)
+                    catch (ObjectDisposedException odEx)
                     {
-                        _logger.LogError(ex, "Failed to write export file");
-                        throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
+                        _logger.LogError(odEx, "Failed to write export file due to ObjectDisposedException");
+                    }
+                    catch (RequestFailedException ex2)
+                    {
+                        _logger.LogError(ex2, "Failed to write export file on retry");
+                        throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
                     }
                 }
             }
