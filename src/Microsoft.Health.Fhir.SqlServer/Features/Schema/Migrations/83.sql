@@ -680,6 +680,8 @@ CREATE TABLE dbo.ResourceIdIntMap (
     CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (IGNORE_DUP_KEY = ON, DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
+ALTER TABLE dbo.ResourceIdIntMap SET (LOCK_ESCALATION = AUTO);
+
 CREATE TABLE dbo.ResourceType (
     ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
     Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL,
