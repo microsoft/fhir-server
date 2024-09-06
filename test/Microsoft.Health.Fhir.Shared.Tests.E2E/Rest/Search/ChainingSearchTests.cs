@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -396,8 +397,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public Device DeviceSnomedSubject { get; private set; }
 
-            public CareTeam CareTeamWithDeletedPatient { get; private set; }
-
             protected override async Task OnInitializedAsync()
             {
                 Tag = Guid.NewGuid().ToString();
@@ -443,7 +442,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanLoincObservation, loincCode);
 
                 var deletedPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { "Delete" }, Family = "Delete" } } })).Resource;
-                CareTeamWithDeletedPatient = await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Participant = new List<CareTeam.ParticipantComponent> { new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{AdamsPatient.Id}") }, new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{deletedPatient.Id}") } } });
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{AdamsPatient.Id}") });
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{deletedPatient.Id}") });
 
                 await TestFhirClient.DeleteAsync(deletedPatient);
 

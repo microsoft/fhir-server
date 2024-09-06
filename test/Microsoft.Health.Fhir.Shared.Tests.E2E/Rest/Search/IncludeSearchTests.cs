@@ -1263,6 +1263,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)] // Cosmos doesn't support the sort parameter
         public async Task GivenAnIncludeSearchWithSortAndResourcesWithAndWithoutTheIncludeParameter_WhenSearched_ThenCorrectResultsAreReturned()
         {
             string query = $"_include=MedicationDispense:prescription&_sort=-whenprepared&_count=3&_tag={Fixture.Tag}";
