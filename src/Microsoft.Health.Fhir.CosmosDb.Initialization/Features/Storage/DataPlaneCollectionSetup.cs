@@ -5,8 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,20 +12,17 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Core;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
 {
     public class DataPlaneCollectionSetup : ICollectionSetup
     {
-        private const int CollectionSettingsVersion = 3;
         private readonly ILogger<DataPlaneCollectionSetup> _logger;
         private readonly CosmosClient _client;
         private readonly Lazy<Container> _container;
@@ -105,12 +100,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 }
 
                 _logger.LogInformation("Collections successfully initialized");
-
-                _logger.LogInformation("Installing Stored Procedures");
-
-                await _storedProcedureInstaller.ExecuteAsync(_container.Value, cancellationToken);
-
-                _logger.LogInformation("Stored Procedures are installed");
             }
             catch (Exception ex)
             {
@@ -120,13 +109,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             }
         }
 
-        public async Task UpdateFhirCollectionSettingsAsync(CancellationToken cancellationToken)
+        public async Task InstallStoredProcs(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Installing Stored Procedures");
+
+            await _storedProcedureInstaller.ExecuteAsync(_container.Value, cancellationToken);
+
+            _logger.LogInformation("Stored Procedures are installed");
+        }
+
+        public async Task UpdateFhirCollectionSettingsAsync(CollectionVersion version, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(_container, nameof(_container));
 
-            var thisVersion = await GetLatestCollectionVersionAsync(_container.Value, cancellationToken);
-
-            if (thisVersion.Version < 2)
+            if (version.Version < 2)
             {
                 var containerResponse = await _container.Value.ReadContainerAsync(cancellationToken: cancellationToken);
 
@@ -149,24 +145,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 containerResponse.Resource.DefaultTimeToLive = -1;
 
                 await _container.Value.ReplaceContainerAsync(containerResponse, cancellationToken: cancellationToken);
-
-                thisVersion.Version = CollectionSettingsVersion;
-                await _container.Value.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
-        }
-
-        private static async Task<CollectionVersion> GetLatestCollectionVersionAsync(Container container, CancellationToken cancellationToken)
-        {
-            FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
-                new QueryDefinition("SELECT * FROM root r"),
-                requestOptions: new QueryRequestOptions
-                {
-                    PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition),
-                });
-
-            FeedResponse<CollectionVersion> result = await query.ReadNextAsync(cancellationToken);
-
-            return result.FirstOrDefault() ?? new CollectionVersion();
         }
     }
 }

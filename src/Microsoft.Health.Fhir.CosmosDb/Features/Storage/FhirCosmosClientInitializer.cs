@@ -4,21 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -94,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
-                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
+                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId)));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
@@ -123,7 +120,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
-            var builder = new CosmosClientBuilder(host, key)
+            CosmosClientBuilder builder;
+
+            builder = configuration.UseManagedIdentity ?
+                new CosmosClientBuilder(host, new DefaultAzureCredential()) :
+                new CosmosClientBuilder(host, key);
+
+            builder
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
@@ -145,6 +148,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private bool IsNewConnectionKey(CosmosDataStoreConfiguration configuration)
         {
             // Configuration key is not empty and hashcode is empty - first process access.
+            if (configuration.UseManagedIdentity)
+            {
+                return false;
+            }
+
             if (!string.IsNullOrWhiteSpace(configuration.Key) && _cosmosKeyHashCode == 0)
             {
                 return true;

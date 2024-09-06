@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 .ToArray()
                 .Select(type => (IStoredProcedureMetadata)Activator.CreateInstance(type));
 
-            IStoredProcedureInstaller storedProcedureInstallter = new DataPlaneStoredProcedureInstaller(fhirStoredProcs);
+            IStoredProcedureInstaller storedProcedureInstaller = new DataPlaneStoredProcedureInstaller(fhirStoredProcs);
 
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
@@ -147,16 +147,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
             await CollectionInitializationSemaphore.WaitAsync();
-            var datacollectionSetup = new DataPlaneCollectionSetup(
+            var dataCollectionSetup = new DataPlaneCollectionSetup(
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 documentClientInitializer,
-                storedProcedureInstallter,
+                storedProcedureInstaller,
                 NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
-                await datacollectionSetup.CreateDatabaseAsync(retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
-                await datacollectionSetup.CreateCollectionAsync(new List<ICollectionInitializer> { fhirCollectionInitializer }, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await dataCollectionSetup.CreateDatabaseAsync(retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await dataCollectionSetup.CreateCollectionAsync(new List<ICollectionInitializer> { fhirCollectionInitializer }, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await dataCollectionSetup.InstallStoredProcs(CancellationToken.None);
+                await dataCollectionSetup.UpdateFhirCollectionSettingsAsync(new CollectionVersion(), CancellationToken.None);
                 _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally

@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Polly;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
@@ -16,6 +17,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 
         public Task CreateCollectionAsync(IEnumerable<ICollectionInitializer> collectionInitializers, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default);
 
-        public Task UpdateFhirCollectionSettingsAsync(CancellationToken cancellationToken);
+        Task InstallStoredProcs(CancellationToken cancellationToken);
+
+        public Task UpdateFhirCollectionSettingsAsync(CollectionVersion version, CancellationToken cancellationToken);
     }
 }

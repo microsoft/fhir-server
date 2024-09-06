@@ -42,12 +42,12 @@ steps:
 
       $vaultName = "${environmentName}-ts"
       $vaultLocation = "westus"
-      $vaultResourceGroupName = $ResourceGroupName
+      $vaultResourceGroupName = "$(ResourceGroupName)"
       if (Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState)
       {
           Write-Host "Attempting to restore vault ${vaultName}"
 
-          Undo-AzKeyVaultRemoval -VaultName $vaultName -Location $vaultLocation -Confirm
+          Undo-AzKeyVaultRemoval -VaultName $vaultName -ResourceGroupName $vaultResourceGroupName -Location $vaultLocation
           Write-Host "KeyVault $vaultName is restored"
       }
       Write-Host "Restored keyvaults"

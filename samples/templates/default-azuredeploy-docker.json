@@ -250,6 +250,8 @@
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "cosmosDbDataContributorRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000002')]",
+        "cosmosDbControlPlaneContributorRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '230815da-be43-4aae-9cb4-875f7bd000aa')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "enableIntegrationStore": "[or(parameters('enableExport'), parameters('enableImport'))]",
         "staticFhirServerConfigProperties": {
@@ -262,6 +264,7 @@
             "FhirServer__Security__EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
+            "CosmosDb__UseManagedIdentity": "true",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
             "CosmosDb__UseQueueClientJobs": "true",
             "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
@@ -364,7 +367,8 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
+                "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
             ],
             "resources": [
                 {
@@ -376,7 +380,7 @@
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
                         "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString'))]"
                     ],
-                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{', '\"Telemetry__Provider\": \"', parameters('telemetryProviderType'), '\",', '\"Telemetry__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\",', '\"Telemetry__ConnectionString\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).ConnectionString, '\"', '}'))), variables('combinedFhirServerConfigProperties'))]"
+                    "properties": "[union(variables('combinedFhirServerConfigProperties'), json(concat('{ \"FhirServer__ResourceManager__DataStoreResourceId\": \"', if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), resourceId('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))), '\", ', if(variables('deployAppInsights'), concat('\"Telemetry__Provider\": \"', parameters('telemetryProviderType'), '\",', '\"Telemetry__InstrumentationKey\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey, '\",', '\"Telemetry__ConnectionString\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString, '\"'), ''), '}')))]"
                 },
                 {
                     "apiVersion": "2018-11-01",
@@ -462,6 +466,50 @@
             }
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2020-04-01-preview",
+            "name": "[guid(uniqueString(variables('cosmosDbControlPlaneContributorRoleId'), parameters('fhirVersion'), variables('serviceName')))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites/', variables('serviceName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('cosmosDbControlPlaneContributorRoleId')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites/', variables('serviceName')), '2020-06-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "health"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
+                "[variables('appServiceResourceId')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('cosmosDbDataContributorRoleId')]",
+                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
+                "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+            }
+        },
+        {
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
@@ -514,6 +562,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2022-09-01",
             "name": "webAppIPsSQLFirewall",
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "properties": {
                 "expressionEvaluationOptions": {
                     "scope": "inner"
