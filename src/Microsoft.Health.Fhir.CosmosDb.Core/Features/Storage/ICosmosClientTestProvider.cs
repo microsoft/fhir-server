@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     public interface ICosmosClientTestProvider
     {
-        Task PerformTestAsync(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration, CancellationToken cancellationToken = default);
+        Task PerformTestAsync(Container container, CancellationToken cancellationToken = default);
     }
 }

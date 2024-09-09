@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -82,6 +83,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 })
                 .Singleton()
                 .AsSelf();
+
+            services.AddSingleton<IParameterStore, CosmosParameterStore>();
 
             services.Add<CosmosContainerProvider>()
                 .Singleton()
@@ -178,7 +181,28 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionDataUpdater>();
 
+            services.Add<ResourceManagerCollectionSetup>()
+                .Singleton()
+                .AsSelf();
+
             services.Add<DataPlaneCollectionSetup>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add(c =>
+                {
+                    CosmosDataStoreConfiguration config = c.GetRequiredService<CosmosDataStoreConfiguration>();
+
+                    if (config.AllowDatabaseCreation || config.AllowCollectionSetup)
+                    {
+                        return config.UseManagedIdentity
+                            ? (ICollectionSetup)c.GetRequiredService<ResourceManagerCollectionSetup>()
+                            : c.GetRequiredService<DataPlaneCollectionSetup>();
+                    }
+
+                    // If collection setup is not required then return the noop implementation.
+                    return new DefaultCollectionSetup();
+                })
                 .Singleton()
                 .AsService<ICollectionSetup>();
 

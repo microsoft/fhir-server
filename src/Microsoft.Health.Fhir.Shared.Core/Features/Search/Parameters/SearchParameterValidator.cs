@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -94,18 +95,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // If a search parameter with the same uri exists already
-                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
+                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
                     {
                         // And if this is a request to create a new search parameter
                         if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
                         {
-                            _logger.LogInformation("Requested to create a new Search parameter but Search parameter definition has a duplicate url. url: {Url}", searchParam.Url);
+                            if (searchParameterInfo.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                                && searchParameterInfo.SearchParameterStatus != SearchParameterStatus.Deleted)
+                            {
+                                _logger.LogInformation("Requested to create a new Search parameter but Search parameter definition has a duplicate url. url: {Url}", searchParam.Url);
 
-                            // We have a conflict
-                            validationFailures.Add(
-                                new ValidationFailure(
-                                    nameof(searchParam.Url),
-                                    string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                                // We have a conflict
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                        nameof(searchParam.Url),
+                                        string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                            }
+                            else
+                            {
+                                CheckForConflictingCodeValue(searchParam, validationFailures);
+                            }
                         }
                         else if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -156,7 +165,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     {
                         foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
                         {
-                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, true, out _))
                             {
                                 _logger.LogInformation("Search parameter definition has a conflicting code value. code: {Code}, baseType: {BaseType}", searchParam.Code, resource);
                                 validationFailures.Add(
@@ -174,7 +183,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             Type type = _modelInfoProvider.GetTypeForFhirType(resource);
                             string fhirBaseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 
-                            if (fhirBaseType == KnownResourceTypes.DomainResource && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            if (fhirBaseType == KnownResourceTypes.DomainResource
+                                && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, true, out _))
                             {
                                 _logger.LogInformation("Search parameter definition has a conflicting code value. code: {Code}, baseType: {BaseType}", searchParam.Code, resource);
                                 validationFailures.Add(
@@ -185,7 +195,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             }
                         }
                     }
-                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, true, out _))
                     {
                         // The search parameter's code value conflicts with an existing one
                         _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType.ToString());

@@ -399,7 +399,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             var history = await _client.SearchAsync($"Patient/{id}/_history");
             Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
-            ////Assert.True(history.Resource.Entry[0].IsDeleted()); TODO: Uncomment when bug is fixed.
+            Assert.True(history.Resource.Entry[0].IsDeleted());
             Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
             Assert.False(history.Resource.Entry[1].IsDeleted());
         }

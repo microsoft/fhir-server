@@ -137,6 +137,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public async Task GivenResourceLoader_WhenLoadResourcesWithSearchParameterResourceType_ThenResourcesWithSearchParameterTypeShouldBeSkipped()
+        {
+            string errorMessage = "SearchParameter resources cannot be processed by import.";
+            using MemoryStream stream = new MemoryStream();
+            using StreamWriter writer = new StreamWriter(stream);
+            await writer.WriteLineAsync("test");
+            await writer.FlushAsync();
+
+            stream.Position = 0;
+
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
+
+            IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>())
+                .Returns(callInfo =>
+                {
+                    long index = (long)callInfo[0];
+                    string content = (string)callInfo[3];
+                    ResourceWrapper resourceWrapper = new ResourceWrapper(
+                            content,
+                            "0",
+                            "SearchParameter",
+                            new RawResource(content, Core.Models.FhirResourceFormat.Json, true),
+                            new ResourceRequest("POST"),
+                            DateTimeOffset.UtcNow,
+                            false,
+                            null,
+                            null,
+                            null,
+                            "SearchParam");
+                    return new ImportResource(index, 0, 0, false, false, false, resourceWrapper);
+                });
+
+            IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
+                .Returns(callInfo =>
+                {
+                    Exception ex = (Exception)callInfo[1];
+                    return ex.Message;
+                });
+
+            Func<long, long> idGenerator = (i) => i;
+            ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
+
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
+
+            int errorCount = 0;
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            {
+                Assert.Equal(errorMessage, resource.ImportError);
+                ++errorCount;
+            }
+
+            await importTask;
+
+            Assert.Equal(1, errorCount);
+        }
+
+        [Fact]
         public async Task GivenResourceLoader_WhenCancelLoadTask_ThenDataLoadTaskShouldBeCanceled()
         {
             string errorMessage = "error";

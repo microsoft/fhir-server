@@ -11,6 +11,7 @@ using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -56,6 +57,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             searchParameter = null;
 
             if (_inner.TryGetSearchParameter(resourceType, code, out var parameter) &&
+                (parameter.IsSearchable || UsePartialSearchParams(parameter)))
+            {
+                searchParameter = parameter;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
+        {
+            searchParameter = null;
+
+            if (_inner.TryGetSearchParameter(resourceType, code, excludePendingDelete, out var parameter) &&
                 (parameter.IsSearchable || UsePartialSearchParams(parameter)))
             {
                 searchParameter = parameter;
@@ -137,9 +153,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return false;
         }
 
+        public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
+        {
+            _inner.TryGetSearchParameter(definitionUri, excludePendingDelete, out var parameter);
+
+            if (parameter.IsSearchable || UsePartialSearchParams(parameter))
+            {
+                value = parameter;
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
         public void DeleteSearchParameter(string url, bool calculateHash = true)
         {
             throw new NotImplementedException();
+        }
+
+        public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
+        {
+            _inner.UpdateSearchParameterStatus(url, desiredStatus);
         }
 
         private bool UsePartialSearchParams(SearchParameterInfo parameter)

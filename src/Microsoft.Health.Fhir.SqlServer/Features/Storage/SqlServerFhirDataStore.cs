@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private static ProcessingFlag _ignoreInputLastUpdated;
-        private static ProcessingFlag _ignoreInputVersion;
-        private static ProcessingFlag _rawResourceDeduping;
+        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
+        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
+        private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
         private static readonly object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new ProcessingFlag("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
+                    _ignoreInputLastUpdated ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
                 }
             }
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputVersion ??= new ProcessingFlag("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
+                    _ignoreInputVersion ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
                 }
             }
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDeduping ??= new ProcessingFlag("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
+                    _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
                 }
             }
         }
@@ -958,60 +958,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
-        }
-
-        private class ProcessingFlag
-        {
-            private readonly ILogger<SqlServerFhirDataStore> _logger;
-            private bool _isEnabled;
-            private DateTime? _lastUpdated;
-            private readonly object _databaseAccessLocker = new object();
-            private readonly string _parameterId;
-            private readonly bool _defaultValue;
-
-            public ProcessingFlag(string parameterId, bool defaultValue, ILogger<SqlServerFhirDataStore> logger)
-            {
-                _parameterId = parameterId;
-                _defaultValue = defaultValue;
-                _logger = logger;
-            }
-
-            public bool IsEnabled(ISqlRetryService sqlRetryService)
-            {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                {
-                    return _isEnabled;
-                }
-
-                lock (_databaseAccessLocker)
-                {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                    {
-                        return _isEnabled;
-                    }
-
-                    _isEnabled = IsEnabledInDatabase(sqlRetryService);
-                    _lastUpdated = DateTime.UtcNow;
-                }
-
-                return _isEnabled;
-            }
-
-            private bool IsEnabledInDatabase(ISqlRetryService sqlRetryService)
-            {
-                try
-                {
-                    using var cmd = new SqlCommand();
-                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
-                    cmd.Parameters.AddWithValue("@Id", _parameterId);
-                    var value = cmd.ExecuteScalarAsync(sqlRetryService, _logger, CancellationToken.None, disableRetries: true).Result;
-                    return value == null ? _defaultValue : (double)value == 1;
-                }
-                catch (Exception)
-                {
-                    return _defaultValue;
-                }
-            }
         }
     }
 }

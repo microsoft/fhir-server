@@ -44,11 +44,11 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 
         _configurationProvider.Load();
 
-        IEnumerable<string> keys = _configurationProvider.GetChildKeys(Array.Empty<string>(), null);
+        var keys = _configurationProvider.GetChildKeys(Array.Empty<string>(), null).ToList();
 
         var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        EnumerateKeys((IReadOnlyCollection<string>)keys, data);
+        EnumerateKeys(keys, data);
 
         Data = data;
     }
@@ -103,7 +103,7 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
                 }
             }
 
-            var innerKeys = (IReadOnlyCollection<string>)_configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
+            var innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath).ToList();
             EnumerateKeys(innerKeys, data, keyPath);
         }
     }

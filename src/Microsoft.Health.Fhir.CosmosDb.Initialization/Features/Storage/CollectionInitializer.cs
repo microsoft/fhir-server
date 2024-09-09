@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
 
             _logger.LogInformation("Finding Container: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
-            var existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
+            ContainerResponse existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
             _logger.LogInformation("Creating Cosmos Container if not exits: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             ContainerResponse containerResponse = await retryPolicy
@@ -61,7 +61,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                                                         await database.CreateContainerIfNotExistsAsync(
                                                         _cosmosCollectionConfiguration.CollectionId,
                                                         $"/{KnownDocumentProperties.PartitionKey}",
-                                                        _cosmosCollectionConfiguration.InitialCollectionThroughput));
+                                                        _cosmosCollectionConfiguration.InitialCollectionThroughput,
+                                                        cancellationToken: CancellationToken.None));
 
             if (containerResponse.StatusCode == HttpStatusCode.Created || containerResponse.Resource.DefaultTimeToLive != -1)
             {
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             {
                 try
                 {
-                    await _clientTestProvider.PerformTestAsync(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration, cancellationToken);
+                    await _clientTestProvider.PerformTestAsync(existingContainer, cancellationToken);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.TooManyRequests)
                 {
