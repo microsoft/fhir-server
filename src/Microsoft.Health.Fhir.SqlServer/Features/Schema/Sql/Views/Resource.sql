@@ -20,8 +20,9 @@ SELECT A.ResourceTypeId
 GO
 CREATE OR ALTER TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
+DECLARE @DummyTop bigint = 9223372036854775807
 BEGIN
-  INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) SELECT ResourceTypeId, ResourceId FROM Inserted
+  --INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) SELECT ResourceTypeId, ResourceId FROM Inserted
 
   INSERT INTO dbo.ResourceTbl
       (
@@ -52,8 +53,9 @@ BEGIN
           ,TransactionId
           ,HistoryTransactionId
           ,OffsetInFile
-      FROM Inserted A
+      FROM (SELECT TOP (@DummyTop) * FROM Inserted) A
            JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 END
 GO
 CREATE OR ALTER TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE

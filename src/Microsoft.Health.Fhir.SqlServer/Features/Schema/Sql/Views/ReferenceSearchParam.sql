@@ -14,8 +14,9 @@ SELECT A.ResourceTypeId
 GO
 CREATE OR ALTER TRIGGER dbo.ReferenceSearchParamIns ON dbo.ReferenceSearchParam INSTEAD OF INSERT
 AS
+DECLARE @DummyTop bigint = 9223372036854775807
 BEGIN
-  INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) SELECT ReferenceResourceTypeId, ReferenceResourceId FROM Inserted WHERE ReferenceResourceTypeId IS NOT NULL
+  --INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) SELECT ReferenceResourceTypeId, ReferenceResourceId FROM Inserted WHERE ReferenceResourceTypeId IS NOT NULL
 
   INSERT INTO dbo.ReferenceSearchParamTbl
       (
@@ -34,8 +35,9 @@ BEGIN
           ,ReferenceResourceTypeId
           ,B.ResourceIdInt
           ,ReferenceResourceVersion
-      FROM Inserted A
+      FROM (SELECT TOP (@DummyTop) * FROM Inserted) A
            JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 END
 GO
 CREATE OR ALTER TRIGGER dbo.ReferenceSearchParamUpd ON dbo.ReferenceSearchParam INSTEAD OF UPDATE

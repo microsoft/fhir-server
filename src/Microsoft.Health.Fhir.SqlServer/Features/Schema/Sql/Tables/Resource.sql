@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceIdInt_Version ON dbo.Resource
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE UNIQUE INDEX IXU_Resource_ResourceTypeId_ResourceIdInt ON dbo.Resource
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceIdInt_INCLUDE_Version_IsDeleted_WHERE_IsHistory_0 ON dbo.Resource
 (
     ResourceTypeId,
     ResourceIdInt

@@ -33,6 +33,7 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
+       ,@RT smallint
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
@@ -40,6 +41,41 @@ SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(var
 SET @AffectedRows = 0
 
 BEGIN TRY
+  DECLARE @RTs AS TABLE (ResourceTypeId smallint NOT NULL PRIMARY KEY)
+  DECLARE @Ids AS TABLE (ResourceTypeId smallint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL)
+
+  INSERT INTO @Ids SELECT DISTINCT ReferenceResourceTypeId, ReferenceResourceId FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NOT NULL
+  INSERT INTO @RTs SELECT DISTINCT ResourceTypeId FROM @Ids
+
+  WHILE EXISTS (SELECT * FROM @RTs)
+  BEGIN
+    SET @RT = (SELECT TOP 1 ResourceTypeId FROM @RTs)
+
+    INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) 
+      SELECT @RT, ResourceId
+        FROM (SELECT DISTINCT ResourceId FROM @Ids WHERE ResourceTypeId = @RT) A
+        WHERE NOT EXISTS (SELECT * FROM dbo.ResourceIdIntMap B WHERE B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId)
+
+    DELETE FROM @RTs WHERE ResourceTypeId = @RT
+  END
+
+  DELETE FROM @Ids
+
+  INSERT INTO @Ids SELECT DISTINCT ResourceTypeId, ResourceId FROM @Resources
+  INSERT INTO @RTs SELECT DISTINCT ResourceTypeId FROM @Ids
+
+  WHILE EXISTS (SELECT * FROM @RTs)
+  BEGIN
+    SET @RT = (SELECT TOP 1 ResourceTypeId FROM @RTs)
+
+    INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId) 
+      SELECT @RT, ResourceId
+        FROM (SELECT DISTINCT ResourceId FROM @Ids WHERE ResourceTypeId = @RT) A
+        WHERE NOT EXISTS (SELECT * FROM dbo.ResourceIdIntMap B WHERE B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId)
+
+    DELETE FROM @RTs WHERE ResourceTypeId = @RT
+  END
+  
   DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
   DECLARE @ResourceInfos AS TABLE
@@ -161,11 +197,11 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
-  INSERT INTO dbo.Resource 
-         ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, OffsetInFile )
-    SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, OffsetInFile
-      FROM @Resources
-  SET @AffectedRows += @@rowcount
+    INSERT INTO dbo.Resource 
+           ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, OffsetInFile )
+      SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, OffsetInFile
+        FROM @Resources
+    SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ResourceWriteClaim 
            ( ResourceSurrogateId, ClaimTypeId, ClaimValue )
@@ -411,7 +447,7 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource''%'
+  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource%'
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
   ELSE
     THROW
