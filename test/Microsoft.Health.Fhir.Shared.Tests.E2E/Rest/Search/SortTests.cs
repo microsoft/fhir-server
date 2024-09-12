@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
+using DotLiquid;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -1114,6 +1115,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             SortTestsAssert.AssertNumberOfResources(expectedOrganizations, returnedResults);
             SortTestsAssert.AssertOrganizationNamesAreEqualInRange(expectedOrganizations.Length, expectedOrganizations, returnedResults);
+        }
+
+        [Theory]
+        [InlineData("address-postalcode")]
+        [InlineData("-address-postalcode")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenNoResourcesWithSortValue_WhenSearchedWithSortParameter_ThenResourcesAreReturned(string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort={sort}");
+
+            SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
