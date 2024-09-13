@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
-            int resultCount = searchResult.Results.Count();
+            int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
@@ -157,8 +157,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
-                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier))
+                if (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending ||
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && !sqlSearchOptions.SortHasMissingModifier))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
@@ -541,14 +541,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         OperationOutcomeConstants.IssueSeverity.Warning,
                                         OperationOutcomeConstants.IssueType.Incomplete,
                                         Core.Resources.TruncatedIncludeMessage));
-                            }
-
-                            // If this is a sort query, lets keep track of whether we actually searched for sort values.
-                            if (clonedSearchOptions.Sort != null &&
-                                clonedSearchOptions.Sort.Count > 0 &&
-                                clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
-                            {
-                                sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
                             }
 
                             // This value is set inside the SortRewriter. If it is set, we need to pass

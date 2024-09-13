@@ -26,11 +26,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool IsSortWithFilter { get; internal set; } = false;
 
         /// <summary>
-        /// Keeps track of whether we searched for sort values as part of the current SQL query.
-        /// </summary>
-        public bool? DidWeSearchForSortValue { get; internal set; }
-
-        /// <summary>
         /// Keeps track of whether missing modifier is specified for search parameter used in sort.
         /// </summary>
         public bool SortHasMissingModifier { get; internal set; }

@@ -735,6 +735,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
+                AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
 
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                     .Append(" IN (")
