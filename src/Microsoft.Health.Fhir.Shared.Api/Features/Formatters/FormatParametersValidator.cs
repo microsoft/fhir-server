@@ -14,11 +14,15 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
@@ -194,6 +198,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (elementsParameterValue != null && string.IsNullOrWhiteSpace(elementsParameterValue))
             {
                 throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
+            }
+        }
+
+        public void CheckIfBundleTypeIsInvalid(HttpContext httpContext)
+        {
+            var fhirContext = httpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+            var eventType = fhirContext.RequestContext.AuditEventType;
+
+            if (eventType == AuditEventSubType.BundleInvalidType)
+            {
+                throw new BadRequestException(fhirContext.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
         }
     }

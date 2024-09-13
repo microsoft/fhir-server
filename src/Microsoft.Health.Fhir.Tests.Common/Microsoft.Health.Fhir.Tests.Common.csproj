@@ -98,6 +98,7 @@
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionInvalidType.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalCreateAndReference.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
