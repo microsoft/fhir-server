@@ -6,21 +6,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -43,6 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly MockClaimsExtractor _claimsExtractor = new MockClaimsExtractor();
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -62,12 +69,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Format = ExportFormatTags.ResourceName,
             });
 
+            _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(x =>
+                {
+                    x[2] = new SearchParameterInfo("name", "name");
+                    return true;
+                });
+
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
             var contextAccess = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, optionsExportConfig, contextAccess);
+            _createExportRequestHandler = new CreateExportRequestHandler(
+                _claimsExtractor,
+                _fhirOperationDataStore,
+                DisabledFhirAuthorizationService.Instance,
+                optionsExportConfig,
+                contextAccess,
+                _searchParameterDefinitionManager,
+                Substitute.For<ILogger<CreateExportRequestHandler>>(),
+                true);
         }
 
         public static IEnumerable<object[]> ExportUriForSameJobs
@@ -137,6 +160,351 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                             {
                                 new Tuple<string, string>("address", "Seattle"),
                             }),
+                        },
+                    },
+                };
+            }
+        }
+
+        /// <summary>
+        /// 1. Invalid parameter names.
+        /// 2. Invalid parameter modifiers.
+        /// 3. Non-enabled search parameters.
+        /// 4. Invalid/non-enabled parameter names/modifiers.
+        /// 5. Invalid/non-enabled parameter names/modifiers in multiple resource types.
+        /// 6. All known/enabled parameters. (success case)
+        /// </summary>
+        public static IEnumerable<object[]> ValidateFilters
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("bad", "bad"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("bad2", "bad2"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "bad",
+                                    "bad2",
+                                }
+                            },
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("bad", "bad"),
+                                    new SearchParameterInfo("bad2", "bad2"),
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender:bad", "male"),
+                                    new KeyValuePair<string, string>("address:bad2", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "gender:bad",
+                                    "address:bad2",
+                                }
+                            },
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("address", "address")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("birthDate", "birthDate")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "gender",
+                                    "birthDate",
+                                }
+                            },
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Supported,
+                                    },
+                                    new SearchParameterInfo("address", "address")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("birthDate", "birthDate")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.PendingDelete,
+                                    },
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name:bad", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "name:bad",
+                                    "address",
+                                }
+                            },
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name"),
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("address", "address")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Disabled,
+                                    },
+                                    new SearchParameterInfo("birthDate", "birthDate")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                            {
+                                "Observation",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("subject", "Patient"),
+                                    new KeyValuePair<string, string>("code", "code"),
+                                    new KeyValuePair<string, string>("note:bad", "note"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "gender",
+                                    "birthDate",
+                                }
+                            },
+                            {
+                                "Observation",
+                                new HashSet<string>
+                                {
+                                    "code",
+                                    "note:bad",
+                                }
+                            },
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Supported,
+                                    },
+                                    new SearchParameterInfo("address", "address")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("birthDate", "birthDate")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.PendingDelete,
+                                    },
+                                }
+                            },
+                            {
+                                "Observation",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("subject", "subject")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("code", "code")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Supported,
+                                    },
+                                    new SearchParameterInfo("note", "note"),
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                        },
+                        new Dictionary<string, IList<SearchParameterInfo>>
+                        {
+                            {
+                                "Patient",
+                                new List<SearchParameterInfo>
+                                {
+                                    new SearchParameterInfo("name", "name")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                    new SearchParameterInfo("gender", "gender")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("address", "address")
+                                    {
+                                        SearchParameterStatus = 0,
+                                    },
+                                    new SearchParameterInfo("birthDate", "birthDate")
+                                    {
+                                        SearchParameterStatus = SearchParameterStatus.Enabled,
+                                    },
+                                }
+                            },
                         },
                     },
                 };
@@ -300,6 +668,81 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
             var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
             Assert.Equal(string.Format(Resources.TypeFilterUnparseable, errorMessage), exception.Message);
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidateFilters))]
+        public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
+            IDictionary<string, IList<KeyValuePair<string, string>>> filters,
+            IDictionary<string, ISet<string>> invalidParameters,
+            IDictionary<string, IList<SearchParameterInfo>> searchParameters)
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }),
+                Arg.Any<CancellationToken>());
+
+            var filterString = new StringBuilder();
+            foreach (var kv in filters)
+            {
+                filterString.Append($"{kv.Key}?");
+                foreach (var p in kv.Value)
+                {
+                    filterString.Append($"{p.Key}={p.Value}&");
+                }
+
+                filterString[filterString.Length - 1] = ',';
+            }
+
+            if (filterString.Length > 0)
+            {
+                filterString.Remove(filterString.Length - 1, 1);
+            }
+
+            foreach (var kv in searchParameters)
+            {
+                foreach (var sp in kv.Value)
+                {
+                    _searchParameterDefinitionManager.TryGetSearchParameter(
+                        Arg.Is<string>(x => x == kv.Key),
+                        Arg.Is<string>(x => x == sp.Code),
+                        out Arg.Any<SearchParameterInfo>())
+                        .Returns(x =>
+                        {
+                            x[2] = (!invalidParameters.ContainsKey(kv.Key) || !invalidParameters[kv.Key].Contains(sp.Code)) ? sp : null;
+                            return x[2] != null;
+                        });
+                }
+            }
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
+            try
+            {
+                _ = await _createExportRequestHandler.Handle(request, _cancellationToken);
+                if (invalidParameters.Any())
+                {
+                    Assert.Fail($"{nameof(BadRequestException)} should be thrown.");
+                }
+            }
+            catch (BadRequestException ex)
+            {
+                if (!invalidParameters.Any())
+                {
+                    Assert.Fail($"{nameof(BadRequestException)} should be not thrown.");
+                }
+
+                // Note: ex.Data should have the key with the validation method name and the value
+                //       that is a list of a string array consisting of a resource type, code, and status.
+                Assert.NotNull(ex.Data?["ValidateTypeFilters"]);
+                Assert.Equal(typeof(List<string[]>), ex.Data["ValidateTypeFilters"].GetType());
+
+                var actualErrors = ((List<string[]>)ex.Data["ValidateTypeFilters"]).Select(x => $"{x[0]}.{x[1]}").OrderBy(x => x);
+                var expectedErrors = invalidParameters.SelectMany(x => x.Value, (x, v) => $"{x.Key}.{v}").OrderBy(x => x);
+                Assert.Equal(expectedErrors, actualErrors);
+            }
         }
 
         /// <summary>
