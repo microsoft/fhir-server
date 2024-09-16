@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .Select(x => x.ResourceUri).ToList();
         }
 
-        private static string GetHashForSupportedProfiles(IEnumerable<ArtifactSummary> summaries)
+        private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
         {
             if (summaries == null)
             {

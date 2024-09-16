@@ -118,11 +118,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
-            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Resources));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.SearchParams));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetResourceTypes));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetDataStoreUsagePercentage));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetSearchParameterTypes));
+            Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.Resources);
+            Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.SearchParams);
+            Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetResourceTypes);
+            Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetDataStoreUsagePercentage);
+            Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetSearchParameterTypes);
             Assert.Equal("500", parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.QueryDelayIntervalInMilliseconds).First().Value.ToString());
             Assert.Equal("100", parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.MaximumNumberOfResourcesPerQuery).First().Value.ToString());
         }

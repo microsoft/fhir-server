@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     public sealed class FormatParametersValidator : IFormatParametersValidator
     {
         private readonly IConformanceProvider _conformanceProvider;
-        private readonly ICollection<TextOutputFormatter> _outputFormatters;
+        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
         private readonly ConcurrentDictionary<ResourceFormat, bool> _supportedFormats = new ConcurrentDictionary<ResourceFormat, bool>();
         private readonly ConcurrentDictionary<string, bool> _supportedPatchFormats = new ConcurrentDictionary<string, bool>();
 
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     throw new NotAcceptableException(Api.Resources.UnsupportedFormatParameter);
                 }
 
-                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
+                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value)?.ToList());
 
                 // Overrides output format type
                 httpContext.Response.ContentType = closestClientMediaType;

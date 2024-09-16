@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
@@ -355,6 +356,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             var configuration = new TelemetryConfiguration();
             Configuration.GetSection("Telemetry").Bind(configuration);
+            services.AddTransient<IMeterFactory, DummyMeterFactory>();
 
             switch (configuration.Provider)
             {

@@ -76,6 +76,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
 #endif
 
+                if (!hasVerb && string.Equals("Import", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                {
+                    hasVerb = true;
+                    httpVerb = resource.IsDeleted() ? Bundle.HTTPVerb.DELETE : Bundle.HTTPVerb.PUT;
+                }
+
                 resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
                 if (hasVerb)
                 {

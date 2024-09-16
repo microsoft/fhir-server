@@ -1,0 +1,153 @@
+{
+	"resourceType": "Bundle",
+	"type": "batch",
+	"entry": [
+	{
+		"resource": {
+			"resourceType": "Condition",
+			"id": "c96b32a1-ac09-4c1a-8007-0baa001f16ac",
+			"extension": [
+			{
+				"extension": [
+				{
+					"url": "care_goal",
+					"valueReference": {
+						"reference": "Goal/fc7e482e-c69c-4027-9d06-a3ca1131c03f",
+						"type": "Goal",
+						"display": "John Smith"
+					}
+				},
+				{
+					"url": "care_goal",
+					"valueReference": {
+						"reference": "Goal/18f1d605-351e-4db9-ae2a-c2749b42ccbf",
+						"type": "Goal",
+						"display": "John Smith"
+					}
+				}],
+				"url": "https://domo.health/fhir/extension/care_goals"
+			}],
+			"category": [
+			{
+				"coding": [
+				{
+					"system": "http://www.domo.health/coding",
+					"code": "main",
+					"display": "John Smith"
+				}],
+				"text": "Diagnosis that can have Subsidiary diagnosis"
+			}],
+			"subject": {
+				"reference": "Patient/859f091b-75a0-4690-8f45-ce192c5e045a",
+				"type": "Patient"
+			},
+			"onsetDateTime": "2024",
+			"recordedDate": "2024-08-07T10:50:35.441Z"
+		},
+		"request": { 
+			"method": "PUT",
+			"url": "Condition/c96b32a1-ac09-4c1a-8007-0baa001f16ac"
+		}
+	},
+	{
+		"resource": {
+			"resourceType": "Goal",
+			"id": "fc7e482e-c69c-4027-9d06-a3ca1131c03f",
+			"lifecycleStatus": "active",
+			"subject": {
+				"reference": "Patient/859f091b-75a0-4690-8f45-ce192c5e045a",
+				"type": "Patient"
+			},
+			"description": [
+			{
+				"text": "something"	
+			}],
+			"startDate": "2024-06-24",
+			"statusDate": "2024-06-24"
+		},
+		"request": { 
+			"method": "PUT",
+			"url": "Goal/fc7e482e-c69c-4027-9d06-a3ca1131c03f"
+		}
+	},
+	{
+		"resource": {
+			"resourceType": "Goal",
+			"id": "18f1d605-351e-4db9-ae2a-c2749b42ccbf",
+			"lifecycleStatus": "active",
+			"subject": {
+				"reference": "Patient/859f091b-75a0-4690-8f45-ce192c5e045a",
+				"type": "Patient"
+			},
+			"description": [
+			{
+				"text": "something"	
+			}],
+			"startDate": "2024-07-10",
+			"statusDate": "2024-07-10"
+		},
+		"request": { 
+			"method": "PUT",
+			"url": "Goal/18f1d605-351e-4db9-ae2a-c2749b42ccbf"
+		}
+	},
+	{
+		"resource": {
+			"resourceType": "Condition",
+			"id": "7b06a53c-1eb4-4352-a810-d9b4651d1b1f",
+			"category": [
+			{
+				"coding": [
+				{
+					"system": "http://www.domo.health/coding",
+					"code": "main",
+					"display": "John Smith"
+				}],
+				"text": "Diagnosis that can have Subsidiary diagnosis"
+			}],
+			"subject": {
+				"reference": "Patient/859f091b-75a0-4690-8f45-ce192c5e045a",
+				"type": "Patient"
+			},
+			"recordedDate": "2024-06-12T11:40:41.846Z"
+		},
+		"request": { 
+			"method": "PUT",
+			"url": "Condition/7b06a53c-1eb4-4352-a810-d9b4651d1b1f"
+		}
+	},
+	{
+		"resource": {
+			"resourceType": "SearchParameter",
+			"url": "https://domo.health/fhir/search-params/extension-care-goals",
+			"name": "extensionCareGoals",
+			"publisher": "DomoSafety SA",
+			"status": "active",
+			"contact": [
+			{
+				"telecom": [
+				{
+					"system": "url",
+					"value": "https://www.domo-safety.com/"
+			}]
+			}],
+			"description": "Returns care goals with a goal id matching the specified string.",
+			"code": "extension-care-goals",
+			"base": [
+				"Composition",
+				"Condition",
+				"MedicationRequest",
+				"ServiceRequest"
+			],
+			"type": "reference",
+			"expression": "extension.where(url = 'https://domo.health/fhir/extension/care_goals').extension.where(url = 'care_goal').value",
+			"multipleOr": true,
+			"multipleAnd": true
+		},
+		"request": { 
+			"method": "POST",
+			"url": "SearchParameter"
+		}
+	}
+	]
+}

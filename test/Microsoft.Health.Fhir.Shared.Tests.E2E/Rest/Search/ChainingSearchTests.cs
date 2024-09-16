@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -348,6 +349,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
+        [Fact]
+        public async Task GivenCountOnlyReverseChainSearchWithDeletedResource_WhenSearched_ThenCorrectCountIsReturned()
+        {
+            string query = $"_has:CareTeam:patient:_tag={Fixture.Tag}&_summary=count";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+            Assert.Equal(1, bundle.Total);
+        }
+
         public class ClassFixture : HttpIntegrationTestFixture
         {
             public ClassFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
@@ -430,6 +440,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanSnomedObservation, snomedCode);
                 SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, smithLoincObservation, loincCode);
                 TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanLoincObservation, loincCode);
+
+                var deletedPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { "Delete" }, Family = "Delete" } } })).Resource;
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{AdamsPatient.Id}") });
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{deletedPatient.Id}") });
+
+                await TestFhirClient.DeleteAsync(deletedPatient);
 
                 var group = new Group
                 {
