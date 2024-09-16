@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public async Task GivenCoreConfigWithVersioningPolicy_WhenCheckingIfKeepHistory_ThenCorrectValueIsReturned(ResourceVersionPolicy versioningPolicy, bool expectedKeepHistory)
         {
             CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, KnownResourceTypes.Patient, null, null, versioningPolicy);
+            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Patient, null, null, versioningPolicy);
 
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
 

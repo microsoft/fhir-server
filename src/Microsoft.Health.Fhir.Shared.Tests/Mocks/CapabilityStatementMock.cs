@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
 
         public static void SetupMockResource(
             CapabilityStatement capability,
-            string resourceType,
+            Hl7.Fhir.Model.ResourceType? resourceType,
             IEnumerable<TypeRestfulInteraction> interactions,
             IEnumerable<SearchParamComponent> searchParams = null,
             ResourceVersionPolicy? versioningPolicy = null)
@@ -37,9 +37,13 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
             capability.Rest[0].Resource.Add(new ResourceComponent
             {
 #if Stu3
-                Type = Enum.Parse<ResourceType>(resourceType),
-#else
                 Type = resourceType,
+#elif R4
+                Type = resourceType.ToString(),
+#elif R5
+                Type = resourceType.ToString(),
+#elif R4B
+                Type = resourceType.ToString(),
 #endif
                 Interaction = interactions?.Select(x => new ResourceInteractionComponent { Code = x }).ToList(),
                 SearchParam = searchParams?.ToList(),

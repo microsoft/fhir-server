@@ -326,7 +326,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 Name = paramName,
                 Code = paramName,
                 Type = SearchParamType.Reference,
+#if R5
+                Target = targetResourceTypes.Cast<VersionIndependentResourceTypesAll?>(),
+#else
                 Target = targetResourceTypes.Cast<ResourceType?>(),
+#endif
             }.ToInfo();
 
             _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(

@@ -2,7 +2,7 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>7.1.53</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>5.8.1</Hl7FhirVersion>
+    <Hl7FhirVersion>5.10.1</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.8.1</Hl7FhirLegacyVersion>
   </PropertyGroup>
   <ItemGroup Label="CVE Mitigation">

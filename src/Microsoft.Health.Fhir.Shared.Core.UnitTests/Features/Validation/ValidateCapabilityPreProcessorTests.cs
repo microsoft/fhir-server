@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         public ValidateCapabilityPreProcessorTests()
         {
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, KnownResourceTypes.Observation, interactions: new[] { TypeRestfulInteraction.Read });
+            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, interactions: new[] { TypeRestfulInteraction.Read });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToTypedElement().ToResourceElement());
