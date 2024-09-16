@@ -1261,6 +1261,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)] // Cosmos doesn't support the sort parameter
+        public async Task GivenAnIncludeSearchWithSortAndResourcesWithAndWithoutTheIncludeParameter_WhenSearched_ThenCorrectResultsAreReturned()
+        {
+            string query = $"_include=MedicationDispense:prescription&_sort=-whenprepared&_count=3&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            Assert.Equal("self", bundle.Link[0].Relation);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispenseWithoutRequest,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest);
+        }
+
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

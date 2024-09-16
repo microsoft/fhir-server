@@ -172,9 +172,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             AdamsMedicationRequest = await CreateMedicationRequest(AdamsPatient, AndersonPractitioner, PercocetMedication);
             SmithMedicationRequest = await CreateMedicationRequest(SmithPatient, SanchezPractitioner, PercocetMedication);
 
-            AdamsMedicationDispense = await CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication);
-            SmithMedicationDispense = await CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication);
-            TrumanMedicationDispenseWithoutRequest = await CreateMedicationDispense(null, TrumanPatient, TramadolMedication);
+            AdamsMedicationDispense = await CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication, "2000-01-01");
+            SmithMedicationDispense = await CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication, "1990-01-01");
+            TrumanMedicationDispenseWithoutRequest = await CreateMedicationDispense(null, TrumanPatient, TramadolMedication, null);
 
             CareTeam = await CreateCareTeam();
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     })).Resource;
             }
 
-            async Task<MedicationDispense> CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
+            async Task<MedicationDispense> CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication, string prepared)
             {
                 return (await TestFhirClient.CreateAsync(
                     new MedicationDispense
@@ -270,6 +270,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                                 Actor = new ResourceReference($"Practitioner/{Practitioner.Id}"),
                             },
                         },
+                        WhenPrepared = prepared,
 #if R5
                         Medication = new CodeableReference
                         {
