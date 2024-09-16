@@ -61,6 +61,17 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
     CYCLE
     CACHE 1000000;
 
+
+GO
+CREATE SEQUENCE dbo.ResourceIdIntMapSequence
+    AS INT
+    START WITH 0
+    INCREMENT BY 1
+    MINVALUE 0
+    MAXVALUE 79999
+    CYCLE
+    CACHE 1000000;
+
 CREATE TYPE dbo.BigintList AS TABLE (
     Id BIGINT NOT NULL PRIMARY KEY);
 
@@ -675,9 +686,9 @@ VALUES                        (2, N'Deletion');
 
 CREATE TABLE dbo.ResourceIdIntMap (
     ResourceTypeId SMALLINT     NOT NULL,
-    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ResourceIdInt  BIGINT       IDENTITY (1, 1) CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (IGNORE_DUP_KEY = ON, DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    ResourceIdInt  BIGINT       NOT NULL,
+    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.ResourceIdIntMap SET (LOCK_ESCALATION = AUTO);
@@ -1351,6 +1362,32 @@ BEGIN CATCH
         ROLLBACK;
     IF error_number() = 1750
         THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.AssignResourceIdInts
+@Count INT, @FirstIdInt BIGINT OUTPUT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'AssignResourceIdInts', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @SequenceRangeFirstValue AS INT;
+BEGIN TRY
+    SET @FirstValueVar = NULL;
+    WHILE @FirstValueVar IS NULL
+        BEGIN
+            EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceIdIntMapSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = @LastValueVar OUTPUT;
+            SET @SequenceRangeFirstValue = CONVERT (INT, @FirstValueVar);
+            IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
+                SET @FirstValueVar = NULL;
+        END
+    SET @FirstIdInt = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    IF @@trancount > 0
+        ROLLBACK;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
     THROW;
 END CATCH
@@ -3416,61 +3453,183 @@ SET @AffectedRows = 0;
 BEGIN TRY
     DECLARE @RTs AS TABLE (
         ResourceTypeId SMALLINT NOT NULL PRIMARY KEY);
-    DECLARE @Ids AS TABLE (
+    DECLARE @InputIds AS TABLE (
         ResourceTypeId SMALLINT     NOT NULL,
-        ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL);
-    INSERT INTO @Ids
+        ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
+    DECLARE @ExistingIds AS TABLE (
+        ResourceTypeId SMALLINT     NOT NULL,
+        ResourceIdInt  BIGINT       NOT NULL,
+        ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
+    DECLARE @InsertIds AS TABLE (
+        ResourceIndex INT          NOT NULL,
+        ResourceId    VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL);
+    DECLARE @InsertedIds AS TABLE (
+        ResourceTypeId SMALLINT     NOT NULL,
+        ResourceIdInt  BIGINT       NOT NULL,
+        ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
+    DECLARE @ResourcesWithIds AS TABLE (
+        ResourceTypeId       SMALLINT        NOT NULL,
+        ResourceSurrogateId  BIGINT          NOT NULL,
+        ResourceIdInt        BIGINT          NOT NULL,
+        Version              INT             NOT NULL,
+        IsDeleted            BIT             NOT NULL,
+        IsHistory            BIT             NOT NULL,
+        RawResource          VARBINARY (MAX) NULL,
+        IsRawResourceMetaSet BIT             NOT NULL,
+        RequestMethod        VARCHAR (10)    NULL,
+        SearchParamHash      VARCHAR (64)    NULL,
+        OffsetInFile         INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
+        UNIQUE (ResourceTypeId, ResourceIdInt, Version));
+    DECLARE @ReferenceSearchParamsWithIds AS TABLE (
+        ResourceTypeId           SMALLINT      NOT NULL,
+        ResourceSurrogateId      BIGINT        NOT NULL,
+        SearchParamId            SMALLINT      NOT NULL,
+        BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
+        ReferenceResourceTypeId  SMALLINT      NULL,
+        ReferenceResourceIdInt   BIGINT        NOT NULL,
+        ReferenceResourceVersion INT           NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt));
+    INSERT INTO @InputIds
     SELECT DISTINCT ReferenceResourceTypeId,
                     ReferenceResourceId
     FROM   @ReferenceSearchParams
     WHERE  ReferenceResourceTypeId IS NOT NULL;
     INSERT INTO @RTs
     SELECT DISTINCT ResourceTypeId
-    FROM   @Ids;
+    FROM   @InputIds;
     WHILE EXISTS (SELECT *
                   FROM   @RTs)
         BEGIN
             SET @RT = (SELECT TOP 1 ResourceTypeId
                        FROM   @RTs);
-            INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId)
+            INSERT INTO @ExistingIds (ResourceTypeId, ResourceIdInt, ResourceId)
             SELECT @RT,
+                   ResourceIdInt,
+                   A.ResourceId
+            FROM   (SELECT *
+                    FROM   @InputIds
+                    WHERE  ResourceTypeId = @RT) AS A
+                   INNER JOIN
+                   dbo.ResourceIdIntMap AS B
+                   ON B.ResourceTypeId = @RT
+                      AND B.ResourceId = A.ResourceId;
+            DELETE @InsertIds;
+            INSERT INTO @InsertIds (ResourceIndex, ResourceId)
+            SELECT row_number() OVER (ORDER BY ResourceId) - 1 AS RowId,
                    ResourceId
-            FROM   (SELECT DISTINCT ResourceId
-                    FROM   @Ids
+            FROM   (SELECT ResourceId
+                    FROM   @InputIds
                     WHERE  ResourceTypeId = @RT) AS A
             WHERE  NOT EXISTS (SELECT *
-                               FROM   dbo.ResourceIdIntMap AS B
+                               FROM   @ExistingIds AS B
                                WHERE  B.ResourceTypeId = @RT
                                       AND B.ResourceId = A.ResourceId);
+            SET @Count = (SELECT count(*)
+                          FROM   @InsertIds);
+            IF @Count > 0
+                BEGIN
+                    EXECUTE dbo.AssignResourceIdInts @Count, @FirstIdInt OUTPUT;
+                    INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceIdInt, ResourceId)
+                    OUTPUT @RT, inserted.ResourceIdInt, inserted.ResourceId INTO @InsertedIds
+                    SELECT @RT,
+                           ResourceIndex + @FirstIdInt,
+                           ResourceId
+                    FROM   @InsertIds;
+                END
             DELETE @RTs
             WHERE  ResourceTypeId = @RT;
         END
-    DELETE @Ids;
-    INSERT INTO @Ids
-    SELECT DISTINCT ResourceTypeId,
-                    ResourceId
-    FROM   @Resources;
+    INSERT INTO @ReferenceSearchParamsWithIds (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion)
+    SELECT A.ResourceTypeId,
+           ResourceSurrogateId,
+           SearchParamId,
+           BaseUri,
+           ReferenceResourceTypeId,
+           isnull(C.ResourceIdInt, B.ResourceIdInt),
+           ReferenceResourceVersion
+    FROM   @ReferenceSearchParams AS A
+           LEFT OUTER JOIN
+           @InsertedIds AS B
+           ON B.ResourceTypeId = A.ReferenceResourceTypeId
+              AND B.ResourceId = A.ReferenceResourceId
+           LEFT OUTER JOIN
+           @ExistingIds AS C
+           ON C.ResourceTypeId = A.ReferenceResourceTypeId
+              AND C.ResourceId = A.ReferenceResourceId;
+    DELETE @InputIds;
+    DELETE @RTs;
+    DELETE @InsertedIds;
+    DELETE @ExistingIds;
+    INSERT INTO @InputIds
+    SELECT   ResourceTypeId,
+             ResourceId
+    FROM     @Resources
+    GROUP BY ResourceTypeId, ResourceId;
     INSERT INTO @RTs
     SELECT DISTINCT ResourceTypeId
-    FROM   @Ids;
+    FROM   @InputIds;
     WHILE EXISTS (SELECT *
                   FROM   @RTs)
         BEGIN
             SET @RT = (SELECT TOP 1 ResourceTypeId
                        FROM   @RTs);
-            INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceId)
+            INSERT INTO @ExistingIds (ResourceTypeId, ResourceIdInt, ResourceId)
             SELECT @RT,
+                   ResourceIdInt,
+                   A.ResourceId
+            FROM   (SELECT *
+                    FROM   @InputIds
+                    WHERE  ResourceTypeId = @RT) AS A
+                   INNER JOIN
+                   dbo.ResourceIdIntMap AS B
+                   ON B.ResourceTypeId = @RT
+                      AND B.ResourceId = A.ResourceId;
+            DELETE @InsertIds;
+            INSERT INTO @InsertIds (ResourceIndex, ResourceId)
+            SELECT row_number() OVER (ORDER BY ResourceId) - 1 AS RowId,
                    ResourceId
-            FROM   (SELECT DISTINCT ResourceId
-                    FROM   @Ids
+            FROM   (SELECT ResourceId
+                    FROM   @InputIds
                     WHERE  ResourceTypeId = @RT) AS A
             WHERE  NOT EXISTS (SELECT *
-                               FROM   dbo.ResourceIdIntMap AS B
+                               FROM   @ExistingIds AS B
                                WHERE  B.ResourceTypeId = @RT
                                       AND B.ResourceId = A.ResourceId);
+            SET @Count = (SELECT count(*)
+                          FROM   @InsertIds);
+            IF @Count > 0
+                BEGIN
+                    EXECUTE dbo.AssignResourceIdInts @Count, @FirstIdInt OUTPUT;
+                    INSERT INTO dbo.ResourceIdIntMap (ResourceTypeId, ResourceIdInt, ResourceId)
+                    OUTPUT @RT, inserted.ResourceIdInt, inserted.ResourceId INTO @InsertedIds
+                    SELECT @RT,
+                           ResourceIndex + @FirstIdInt,
+                           ResourceId
+                    FROM   @InsertIds;
+                END
             DELETE @RTs
             WHERE  ResourceTypeId = @RT;
         END
+    INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile)
+    SELECT A.ResourceTypeId,
+           isnull(C.ResourceIdInt, B.ResourceIdInt),
+           Version,
+           IsHistory,
+           ResourceSurrogateId,
+           IsDeleted,
+           RequestMethod,
+           RawResource,
+           IsRawResourceMetaSet,
+           SearchParamHash,
+           OffsetInFile
+    FROM   @Resources AS A
+           LEFT OUTER JOIN
+           @InsertedIds AS B
+           ON B.ResourceTypeId = A.ResourceTypeId
+              AND B.ResourceId = A.ResourceId
+           LEFT OUTER JOIN
+           @ExistingIds AS C
+           ON C.ResourceTypeId = A.ResourceTypeId
+              AND C.ResourceId = A.ResourceId;
     DECLARE @Existing AS TABLE (
         ResourceTypeId SMALLINT NOT NULL,
         SurrogateId    BIGINT   NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
@@ -3678,9 +3837,9 @@ BEGIN TRY
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
                 END
-            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, OffsetInFile)
+            INSERT INTO dbo.ResourceTbl (ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, OffsetInFile)
             SELECT ResourceTypeId,
-                   ResourceId,
+                   ResourceIdInt,
                    Version,
                    IsHistory,
                    ResourceSurrogateId,
@@ -3691,7 +3850,7 @@ BEGIN TRY
                    SearchParamHash,
                    @TransactionId,
                    OffsetInFile
-            FROM   @Resources;
+            FROM   @ResourcesWithIds;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
             SELECT ResourceSurrogateId,
@@ -3699,15 +3858,15 @@ BEGIN TRY
                    ClaimValue
             FROM   @ResourceWriteClaims;
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
+            INSERT INTO dbo.ReferenceSearchParamTbl (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion)
             SELECT ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
                    BaseUri,
                    ReferenceResourceTypeId,
-                   ReferenceResourceId,
+                   ReferenceResourceIdInt,
                    ReferenceResourceVersion
-            FROM   @ReferenceSearchParams;
+            FROM   @ReferenceSearchParamsWithIds;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
@@ -3868,22 +4027,22 @@ BEGIN TRY
                                    WHERE  C.ResourceSurrogateId = A.ResourceSurrogateId)
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
-            SELECT ResourceTypeId,
+            INSERT INTO dbo.ReferenceSearchParamTbl (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion)
+            SELECT A.ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
                    BaseUri,
                    ReferenceResourceTypeId,
-                   ReferenceResourceId,
+                   ReferenceResourceIdInt,
                    ReferenceResourceVersion
             FROM   (SELECT TOP (@DummyTop) *
-                    FROM   @ReferenceSearchParams) AS A
+                    FROM   @ReferenceSearchParamsWithIds) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
                                   AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
-                                   FROM   dbo.ReferenceSearchParam AS C
+                                   FROM   dbo.ReferenceSearchParamTbl AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
                                           AND C.ResourceSurrogateId = A.ResourceSurrogateId)
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
@@ -5335,7 +5494,8 @@ GO
 CREATE OR ALTER TRIGGER dbo.ResourceIns
     ON dbo.Resource
     INSTEAD OF INSERT
-    AS BEGIN
+    AS DECLARE @DummyTop AS BIGINT = 9223372036854775807;
+       BEGIN
            INSERT INTO dbo.ResourceTbl (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsHistory, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile)
            SELECT A.ResourceTypeId,
                   ResourceSurrogateId,
@@ -5350,11 +5510,13 @@ CREATE OR ALTER TRIGGER dbo.ResourceIns
                   TransactionId,
                   HistoryTransactionId,
                   OffsetInFile
-           FROM   Inserted AS A
+           FROM   (SELECT TOP (@DummyTop) *
+                   FROM   Inserted) AS A
                   INNER JOIN
                   dbo.ResourceIdIntMap AS B
                   ON B.ResourceTypeId = A.ResourceTypeId
-                     AND B.ResourceId = A.ResourceId;
+                     AND B.ResourceId = A.ResourceId
+           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
        END
 
 
