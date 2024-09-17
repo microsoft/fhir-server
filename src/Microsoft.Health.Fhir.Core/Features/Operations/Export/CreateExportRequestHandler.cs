@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -40,16 +41,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
-        private static readonly HashSet<string> KnownSearchParameterModifiers = new HashSet<string>(
-            Enum.GetNames(typeof(SearchModifierCode)).Select(e => ((SearchModifierCode)Enum.Parse(typeof(SearchModifierCode), e)).GetLiteral()),
-            StringComparer.OrdinalIgnoreCase);
-
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ILogger<CreateExportRequestHandler> _logger;
         private readonly bool _includeValidateTypeFiltersValidationDetails;
 
@@ -59,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IAuthorizationService<DataActions> authorizationService,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISearchOptionsFactory searchOptionsFactory,
             ILogger<CreateExportRequestHandler> logger,
             bool includeValidateTypeFiltersValidationDetails = false)
         {
@@ -68,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _claimsExtractor = claimsExtractor;
@@ -76,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _authorizationService = authorizationService;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _contextAccessor = fhirRequestContextAccessor;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchOptionsFactory = searchOptionsFactory;
             _logger = logger;
             _includeValidateTypeFiltersValidationDetails = includeValidateTypeFiltersValidationDetails;
         }
@@ -222,33 +219,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     continue;
                 }
 
-                foreach (var parameter in filter.Parameters)
+                var searchOptions = _searchOptionsFactory.Create(
+                    filter.ResourceType,
+                    new ReadOnlyCollection<Tuple<string, string>>(filter.Parameters));
+                foreach (var parameter in searchOptions.UnsupportedSearchParams)
                 {
-                    string name = null;
-                    string modifier = null;
-                    if (!TrySplitParameterName(parameter.Item1, out name, out modifier)
-                        || string.IsNullOrWhiteSpace(name)
-                        || (!string.IsNullOrWhiteSpace(modifier) ? !KnownSearchParameterModifiers.Contains(modifier) : false))
-                    {
-                        errors.Add(new string[] { filter.ResourceType, parameter.Item1, "Unknown" });
-                        continue;
-                    }
-
-                    // NOTE: some search parameters loaded into SearchParameterDefinitionManager's cache from the embedded resource (search-parameters.json)
-                    //       have the status with "0", inconsistent with the status in the data store. Allow the "0" status as Enabled for now.
-                    SearchParameterInfo searchParameter = null;
-                    if (_searchParameterDefinitionManager.TryGetSearchParameter(filter.ResourceType, name, out searchParameter)
-                        && (searchParameter.SearchParameterStatus == SearchParameterStatus.Enabled
-                        || searchParameter.SearchParameterStatus == 0))
-                    {
-                        continue;
-                    }
-
                     errors.Add(new string[]
                         {
                             filter.ResourceType,
                             parameter.Item1,
-                            searchParameter?.SearchParameterStatus.ToString() ?? "Unknown",
                         });
                 }
             }
@@ -257,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var errorMessage = new StringBuilder($"{errors.Count} invalid search parameter(s) found:{Environment.NewLine}");
                 errors.ForEach(e => errorMessage.AppendLine(
-                    string.Format(CultureInfo.InvariantCulture, "[type: {0}, parameter: {1}, status: {2}]", e[0], e[1], e[2])));
+                    string.Format(CultureInfo.InvariantCulture, "[type: {0}, parameter: {1}]", e[0], e[1])));
 
                 var message = errorMessage.ToString();
                 _logger.LogError(message);
@@ -271,30 +250,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 throw ex;
             }
-        }
-
-        private static bool TrySplitParameterName(string parameterName, out string name, out string modifier)
-        {
-            name = string.Empty;
-            modifier = string.Empty;
-            if (string.IsNullOrWhiteSpace(parameterName))
-            {
-                return false;
-            }
-
-            string[] s = parameterName.Split(':');
-            if (s.Length > 2)
-            {
-                return false;
-            }
-
-            name = s[0];
-            if (s.Length > 1)
-            {
-                modifier = s[1];
-            }
-
-            return true;
         }
     }
 }

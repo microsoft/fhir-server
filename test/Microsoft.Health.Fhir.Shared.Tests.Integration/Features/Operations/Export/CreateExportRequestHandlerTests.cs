@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -49,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly MockClaimsExtractor _claimsExtractor = new MockClaimsExtractor();
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchOptionsFactory _searchOptionsFactory;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -69,13 +71,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Format = ExportFormatTags.ResourceName,
             });
 
-            _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
-                .Returns(x =>
-                {
-                    x[2] = new SearchParameterInfo("name", "name");
-                    return true;
-                });
+            _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
+            _searchOptionsFactory.Create(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>())
+                .Returns(new SearchOptions() { UnsupportedSearchParams = new List<Tuple<string, string>>() });
 
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
@@ -88,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 DisabledFhirAuthorizationService.Instance,
                 optionsExportConfig,
                 contextAccess,
-                _searchParameterDefinitionManager,
+                _searchOptionsFactory,
                 Substitute.For<ILogger<CreateExportRequestHandler>>(),
                 true);
         }
@@ -167,14 +170,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         /// <summary>
-        /// 1. Invalid parameter names.
-        /// 2. Invalid parameter modifiers.
-        /// 3. Non-enabled search parameters.
-        /// 4. Invalid/non-enabled parameter names/modifiers.
-        /// 5. Invalid/non-enabled parameter names/modifiers in multiple resource types.
-        /// 6. All known/enabled parameters. (success case)
+        /// 1. Invalid parameters on single resource.
+        /// 2. Valid parameters on single resource.
+        /// 3. Invalid parameters on multiple resources.
+        /// 4. Valid parameters on multiple resources.
         /// </summary>
-        public static IEnumerable<object[]> ValidateFilters
+        public static IEnumerable<object[]> ValidateTypeFilters
         {
             get
             {
@@ -206,77 +207,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                                 }
                             },
                         },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("bad", "bad"),
-                                    new SearchParameterInfo("bad2", "bad2"),
-                                }
-                            },
-                        },
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, IList<KeyValuePair<string, string>>>
-                        {
-                            {
-                                "Patient",
-                                new List<KeyValuePair<string, string>>
-                                {
-                                    new KeyValuePair<string, string>("name", "Bob"),
-                                    new KeyValuePair<string, string>("gender:bad", "male"),
-                                    new KeyValuePair<string, string>("address:bad2", "here"),
-                                    new KeyValuePair<string, string>("birthDate", "today"),
-                                }
-                            },
-                        },
-                        new Dictionary<string, ISet<string>>
-                        {
-                            {
-                                "Patient",
-                                new HashSet<string>
-                                {
-                                    "gender:bad",
-                                    "address:bad2",
-                                }
-                            },
-                        },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("address", "address")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("birthDate", "birthDate")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                }
-                            },
-                        },
                     },
                     new object[]
                     {
@@ -295,88 +225,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                         },
                         new Dictionary<string, ISet<string>>
                         {
-                            {
-                                "Patient",
-                                new HashSet<string>
-                                {
-                                    "gender",
-                                    "birthDate",
-                                }
-                            },
-                        },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Supported,
-                                    },
-                                    new SearchParameterInfo("address", "address")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("birthDate", "birthDate")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.PendingDelete,
-                                    },
-                                }
-                            },
-                        },
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, IList<KeyValuePair<string, string>>>
-                        {
-                            {
-                                "Patient",
-                                new List<KeyValuePair<string, string>>
-                                {
-                                    new KeyValuePair<string, string>("name:bad", "Bob"),
-                                    new KeyValuePair<string, string>("gender", "male"),
-                                    new KeyValuePair<string, string>("address", "here"),
-                                    new KeyValuePair<string, string>("birthDate", "today"),
-                                }
-                            },
-                        },
-                        new Dictionary<string, ISet<string>>
-                        {
-                            {
-                                "Patient",
-                                new HashSet<string>
-                                {
-                                    "name:bad",
-                                    "address",
-                                }
-                            },
-                        },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name"),
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("address", "address")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Disabled,
-                                    },
-                                    new SearchParameterInfo("birthDate", "birthDate")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                }
-                            },
                         },
                     },
                     new object[]
@@ -422,46 +270,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                                 }
                             },
                         },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Supported,
-                                    },
-                                    new SearchParameterInfo("address", "address")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("birthDate", "birthDate")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.PendingDelete,
-                                    },
-                                }
-                            },
-                            {
-                                "Observation",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("subject", "subject")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("code", "code")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Supported,
-                                    },
-                                    new SearchParameterInfo("note", "note"),
-                                }
-                            },
-                        },
                     },
                     new object[]
                     {
@@ -480,31 +288,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                         },
                         new Dictionary<string, ISet<string>>
                         {
-                        },
-                        new Dictionary<string, IList<SearchParameterInfo>>
-                        {
-                            {
-                                "Patient",
-                                new List<SearchParameterInfo>
-                                {
-                                    new SearchParameterInfo("name", "name")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                    new SearchParameterInfo("gender", "gender")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("address", "address")
-                                    {
-                                        SearchParameterStatus = 0,
-                                    },
-                                    new SearchParameterInfo("birthDate", "birthDate")
-                                    {
-                                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                                    },
-                                }
-                            },
                         },
                     },
                 };
@@ -671,11 +454,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Theory]
-        [MemberData(nameof(ValidateFilters))]
+        [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
-            IDictionary<string, ISet<string>> invalidParameters,
-            IDictionary<string, IList<SearchParameterInfo>> searchParameters)
+            IDictionary<string, ISet<string>> invalidParameters)
         {
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
@@ -702,20 +484,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 filterString.Remove(filterString.Length - 1, 1);
             }
 
-            foreach (var kv in searchParameters)
+            foreach (var kv in invalidParameters)
             {
-                foreach (var sp in kv.Value)
+                SearchOptions searchOptions = new SearchOptions
                 {
-                    _searchParameterDefinitionManager.TryGetSearchParameter(
-                        Arg.Is<string>(x => x == kv.Key),
-                        Arg.Is<string>(x => x == sp.Code),
-                        out Arg.Any<SearchParameterInfo>())
-                        .Returns(x =>
-                        {
-                            x[2] = (!invalidParameters.ContainsKey(kv.Key) || !invalidParameters[kv.Key].Contains(sp.Code)) ? sp : null;
-                            return x[2] != null;
-                        });
-                }
+                    UnsupportedSearchParams = kv.Value.Select(x => new Tuple<string, string>(x, x)).ToList().AsReadOnly(),
+                };
+
+                _searchOptionsFactory.Create(
+                    Arg.Is<string>(x => x == kv.Key),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<ResourceVersionType>(),
+                    Arg.Any<bool>())
+                    .Returns(searchOptions);
             }
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
@@ -735,7 +517,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 }
 
                 // Note: ex.Data should have the key with the validation method name and the value
-                //       that is a list of a string array consisting of a resource type, code, and status.
+                //       that is a list of a string array consisting of a resource type and code.
                 Assert.NotNull(ex.Data?["ValidateTypeFilters"]);
                 Assert.Equal(typeof(List<string[]>), ex.Data["ValidateTypeFilters"].GetType());
 
