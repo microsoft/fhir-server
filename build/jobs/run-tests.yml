@@ -20,7 +20,7 @@ jobs:
       downloadType: 'single'
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'IntegrationTests'
-  
+
   - task: ExtractFiles@1
     displayName: 'Extract Integration Test Binaries'
     inputs:
@@ -37,6 +37,24 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}'
 
+  - task: AzurePowerShell@5
+    displayName: 'Set Workload Identity Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $dataStoreResourceId = $appSettings | where {$_.Name -eq "FhirServer__ResourceManager__DataStoreResourceId"}
+        $dataStoreResourceId = $dataStoreResourceId[0].Value
+        Write-Host "$dataStoreResourceId"
+        Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
+
+
   - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests'
     inputs:
@@ -46,7 +64,11 @@ jobs:
       testRunTitle: '${{ parameters.version }} Integration'
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
-      'CosmosDb:Key': $(CosmosDb--Key)
+      'FhirServer:ResourceManager:DataStoreResourceId': $(DataStoreResourceId)
+      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
 - job: "SqlIntegrationTests"
   pool:
@@ -59,7 +81,7 @@ jobs:
       downloadType: 'single'
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'IntegrationTests'
-  
+
   - task: ExtractFiles@1
     displayName: 'Extract Integration Test Binaries'
     inputs:

@@ -8,8 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 using MediatR;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
@@ -82,7 +85,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Host = Environment.GetEnvironmentVariable("CosmosDb:Host") ?? CosmosDbLocalEmulator.Host,
                 Key = Environment.GetEnvironmentVariable("CosmosDb:Key") ?? CosmosDbLocalEmulator.Key,
                 DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
+                UseManagedIdentity = bool.TryParse(Environment.GetEnvironmentVariable("CosmosDb:UseManagedIdentity"), out bool useManagedIdentity) && useManagedIdentity,
                 AllowDatabaseCreation = true,
+                AllowCollectionSetup = true,
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
                 UseQueueClientJobs = true,
             };
@@ -139,7 +144,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
-            var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, retryExceptionPolicyFactory, NullLogger<FhirCosmosClientInitializer>.Instance);
+            var documentClientInitializer = new FhirCosmosClientInitializer(
+                testProvider,
+                () => new[] { handler },
+                retryExceptionPolicyFactory,
+                new Lazy<TokenCredential>(GetTokenCredential),
+                NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, testProvider, NullLogger<CollectionInitializer>.Instance);
@@ -147,14 +157,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
             await CollectionInitializationSemaphore.WaitAsync();
-            var dataCollectionSetup = new DataPlaneCollectionSetup(
-                _cosmosDataStoreConfiguration,
-                optionsMonitor,
-                documentClientInitializer,
-                storedProcedureInstaller,
-                NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
+                ICollectionSetup dataCollectionSetup;
+
+                if (_cosmosDataStoreConfiguration.UseManagedIdentity)
+                {
+                    var builder = new ConfigurationBuilder();
+                    builder.AddEnvironmentVariables();
+
+                    dataCollectionSetup = new ResourceManagerCollectionSetup(
+                        optionsMonitor,
+                        _cosmosDataStoreConfiguration,
+                        builder.Build(),
+                        fhirStoredProcs,
+                        GetTokenCredential(),
+                        NullLogger<ResourceManagerCollectionSetup>.Instance);
+                }
+                else
+                {
+                    dataCollectionSetup = new DataPlaneCollectionSetup(
+                        _cosmosDataStoreConfiguration,
+                        optionsMonitor,
+                        documentClientInitializer,
+                        storedProcedureInstaller,
+                        NullLogger<DataPlaneCollectionSetup>.Instance);
+                }
+
                 await dataCollectionSetup.CreateDatabaseAsync(retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
                 await dataCollectionSetup.CreateCollectionAsync(new List<ICollectionInitializer> { fhirCollectionInitializer }, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
                 await dataCollectionSetup.InstallStoredProcs(CancellationToken.None);
@@ -269,6 +298,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             _cosmosClient.Dispose();
+        }
+
+        private TokenCredential GetTokenCredential()
+        {
+            // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
+            string federatedClientId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
+            string federatedTenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
+            string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
+            string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
+
+            if (!string.IsNullOrEmpty(federatedClientId) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
+            {
+                AzurePipelinesCredential azurePipelinesCredential = new(federatedTenantId, federatedClientId, serviceConnectionId, systemAccessToken);
+                return azurePipelinesCredential;
+            }
+
+            return new DefaultAzureCredential();
         }
 
         object IServiceProvider.GetService(Type serviceType)
