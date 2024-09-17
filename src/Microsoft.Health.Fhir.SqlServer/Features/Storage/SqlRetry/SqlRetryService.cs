@@ -504,17 +504,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return _replicaTrafficRatio;
                 }
 
-                lock (_databaseAccessLocker)
+                if (Monitor.TryEnter(_databaseAccessLocker, new TimeSpan(0, 0, 5)))
                 {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
+                    try
                     {
-                        logger.LogInformation("Waited, but used replica traffic cache");
-                        return _replicaTrafficRatio;
-                    }
+                        if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
+                        {
+                            logger.LogInformation("Waited, but used replica traffic cache");
+                            return _replicaTrafficRatio;
+                        }
 
-                    logger.LogInformation("Updating replica traffic ratio");
-                    _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder, logger);
-                    _lastUpdated = DateTime.UtcNow;
+                        logger.LogInformation("Updating replica traffic ratio");
+                        _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder, logger);
+                        _lastUpdated = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        Monitor.Exit(_databaseAccessLocker);
+                    }
+                }
+                else
+                {
+                    logger.LogInformation("Timed out waiting for replica traffic, using cached value");
                 }
 
                 return _replicaTrafficRatio;
