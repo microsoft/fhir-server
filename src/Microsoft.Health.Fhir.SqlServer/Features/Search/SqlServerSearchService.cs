@@ -922,6 +922,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
             string resourceType = GetForceReindexResourceType(searchOptions);
+
             if (searchOptions.CountOnly)
             {
                 _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
@@ -931,28 +932,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var queryHints = searchOptions.QueryHints;
             long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
 
             SearchResult results = null;
-            if (ranges?.Count > 0)
-            {
-                results = await SearchBySurrogateIdRange(
-                    resourceType,
-                    ranges[0].StartId,
-                    ranges[0].EndId,
-                    null,
-                    null,
-                    cancellationToken,
-                    searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+            IReadOnlyList<(long StartId, long EndId)> ranges;
 
-                if (results.Results.Any())
-                {
-                    results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
-                }
-            }
-            else
+            int iterationCount = 0; // Track the number of iterations
+            const int maxIterations = 50; // Set maximum iterations to avoid infinite loop.
+
+            do
             {
-                results = new SearchResult(0, new List<Tuple<string, string>>());
+                ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
+
+                if (ranges?.Count > 0)
+                {
+                    results = await SearchBySurrogateIdRange(
+                        resourceType,
+                        ranges[0].StartId,
+                        ranges[0].EndId,
+                        null,
+                        null,
+                        cancellationToken,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+
+                    if (results.Results.Any())
+                    {
+                        results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                        break;  // Exit if valid results are found
+                    }
+                    else
+                    {
+                        // If no results are found, set startId to the end of the current range and retry
+                        startId = ranges[0].EndId + 1;
+                    }
+                }
+
+                iterationCount++; // Increment the iteration count
+
+                _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} Iteration={IterationCount} StartId={StartId} EndId={EndId}", resourceType, iterationCount, startId, endId);
+            }
+            while (ranges?.Count > 0 && iterationCount < maxIterations);
+
+            if (results == null)
+            {
+                _logger.LogWarning("For Reindex, empty result set encountered. Type={ResourceType}.", resourceType);
+                results = new SearchResult(0, []);
             }
 
             _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
