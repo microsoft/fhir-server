@@ -132,7 +132,8 @@ jobs:
         if("${{ parameters.sql }}" -eq "false"){
             Write-Host "Add DevOps MI permission to Cosmos databases"
 
-            $principalId = (Get-AzContext).Account.Id
+            $account = Get-AzContext
+            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
 
             New-AzCosmosDBSqlRoleAssignment `
               -AccountName $webAppName `
