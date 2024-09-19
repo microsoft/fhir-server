@@ -6,9 +6,8 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Subscriptions.Persistence
+namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface ITransactionDataStore
     {

@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.Subscription, StringComparison.Ordinal))
             {
                request.Resource = await _subscriptionValidator.ValidateSubscriptionInput(request.Resource, cancellationToken);
@@ -47,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update

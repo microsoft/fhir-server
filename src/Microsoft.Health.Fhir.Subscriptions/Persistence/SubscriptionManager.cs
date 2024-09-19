@@ -12,9 +12,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using MediatR;
-using Microsoft.Build.Framework;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -29,11 +28,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
     {
         private readonly IScopeProvider<IFhirDataStore> _dataStoreProvider;
         private readonly IScopeProvider<ISearchService> _searchServiceProvider;
-        private List<SubscriptionInfo> _subscriptions = new List<SubscriptionInfo>();
+        private List<SubscriptionInfo> _subscriptions = new();
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<SubscriptionManager> _logger;
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
-        private static readonly object _lock = new object();
+        private static readonly object _lock = new();
         private readonly ISubscriptionUpdator _subscriptionUpdator;
         private readonly IRawResourceFactory _rawResourceFactory;
 
@@ -48,11 +47,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         {
             _dataStoreProvider = EnsureArg.IsNotNull(dataStoreProvider, nameof(dataStoreProvider));
             _searchServiceProvider = EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
-            _resourceDeserializer = resourceDeserializer;
-            _logger = logger;
-            _subscriptionModelConverter = subscriptionModelConverter;
-            _subscriptionUpdator = subscriptionUpdator;
-            _rawResourceFactory = rawResourceFactory;
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _subscriptionModelConverter = EnsureArg.IsNotNull(subscriptionModelConverter, nameof(subscriptionModelConverter));
+            _subscriptionUpdator = EnsureArg.IsNotNull(subscriptionUpdator, nameof(subscriptionUpdator));
+            _rawResourceFactory = EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
         }
 
         public async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
@@ -61,10 +60,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
 
             var updatedSubscriptions = new List<SubscriptionInfo>();
 
-            using var search = _searchServiceProvider.Invoke();
+            using IScoped<ISearchService> search = _searchServiceProvider.Invoke();
 
             // Get all the active subscriptions
-            var activeSubscriptions = await search.Value.SearchAsync(
+            SearchResult activeSubscriptions = await search.Value.SearchAsync(
                 KnownResourceTypes.Subscription,
                 [
                     Tuple.Create("status", "active,requested"),

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Models;
+using Microsoft.Health.Fhir.Subscriptions.Validation;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
@@ -40,12 +41,19 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             }
         }
 
-        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        public async Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            try
+            {
+                await _exportDestinationClient.ConnectAsync(cancellationToken, subscriptionInfo.Channel.Endpoint);
+            }
+            catch (DestinationConnectionException ex)
+            {
+                throw new SubscriptionException(Resources.SubscriptionEndpointNotValid, ex);
+            }
         }
 
-        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

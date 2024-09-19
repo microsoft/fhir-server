@@ -19,11 +19,14 @@ using Microsoft.Health.Fhir.Core.Features.Search.InMemory;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Subscriptions)]
     public class SearchQueryInterperaterTests : IAsyncLifetime
     {
         private ExpressionParser _expressionParser;

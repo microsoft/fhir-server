@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,11 +18,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
         public SubscriptionException(string message)
             : base(message)
         {
+            Debug.Assert(message != null);
         }
 
         public SubscriptionException(string message, Exception innerException)
             : base(message, innerException)
         {
+            Debug.Assert(message != null);
         }
     }
 }

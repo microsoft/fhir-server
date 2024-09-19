@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -17,6 +18,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
     {
         public ResourceElement UpdateStatus(ResourceElement subscription, string status)
         {
+            EnsureArg.IsNotNull(subscription, nameof(subscription));
+
             var subscriptionElementNode = ElementNode.FromElement(subscription.Instance);
             var oldStatusNode = (ElementNode)subscriptionElementNode.Children("status").FirstOrDefault();
             var newStatus = ElementNode.FromElement(oldStatusNode);

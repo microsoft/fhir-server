@@ -13,12 +13,12 @@ using Microsoft.Health.Fhir.Subscriptions.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
-    public class StorageChannelFactory
+    public class SubscriptionChannelFactory
     {
         private IServiceProvider _serviceProvider;
         private Dictionary<SubscriptionChannelType, Type> _channelTypeMap;
 
-        public StorageChannelFactory(IServiceProvider serviceProvider)
+        public SubscriptionChannelFactory(IServiceProvider serviceProvider)
         {
             _serviceProvider = EnsureArg.IsNotNull(serviceProvider, nameof(serviceProvider));
 

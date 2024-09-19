@@ -44,13 +44,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     {
                         string json = item.RawResource.Data;
 
-                        /*
                         // TODO: Add logic to handle soft-deleted resources.
-                        if (item.IsDeleted)
-                        {
-                            ResourceElement element = _resourceDeserializer.Deserialize(item);
-                        }
-                        */
 
                         _exportDestinationClient.WriteFilePart(blobName, json);
                     }
@@ -64,12 +58,12 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
             }
         }
 
-        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        public Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }
 
-        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        public Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

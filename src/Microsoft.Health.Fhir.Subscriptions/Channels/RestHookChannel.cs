@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -27,10 +28,7 @@ using Microsoft.Health.Fhir.Subscriptions.Validation;
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
     [ChannelType(SubscriptionChannelType.RestHook)]
-
-    #pragma warning disable CA1001 // Types that own disposable fields should be disposable
-    public class RestHookChannel : ISubscriptionChannel
-    #pragma warning restore CA1001 // Types that own disposable fields should be disposable
+    public sealed class RestHookChannel : ISubscriptionChannel, IDisposable
     {
         private readonly ILogger<RestHookChannel> _logger;
         private readonly IBundleFactory _bundleFactory;
@@ -42,20 +40,29 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
 
-        public RestHookChannel(ILogger<RestHookChannel> logger, HttpClient httpClient, IBundleFactory bundleFactory, IRawResourceFactory rawResourceFactory, IModelInfoProvider modelInfoProvider, IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> contextAccessor, IHttpContextAccessor httpContextAccessor, IActionContextAccessor actionContextAccessor)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "HttpClientHandler is disposed by HttpClient.")]
+        public RestHookChannel(
+            ILogger<RestHookChannel> logger,
+            IBundleFactory bundleFactory,
+            IRawResourceFactory rawResourceFactory,
+            IModelInfoProvider modelInfoProvider,
+            IUrlResolver urlResolver,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            IHttpContextAccessor httpContextAccessor,
+            IActionContextAccessor actionContextAccessor)
         {
-            _logger = logger;
-#pragma warning disable CA2000 // Dispose objects before losing scope
-            _httpClient = new HttpClient(new HttpClientHandler() { CheckCertificateRevocationList = true }, disposeHandler: true);
-#pragma warning restore CA2000 // Dispose objects before losing scope
-            _bundleFactory = bundleFactory;
-            _rawResourceFactory = rawResourceFactory;
-            _modelInfoProvider = modelInfoProvider;
-            _urlResolver = urlResolver;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _bundleFactory = EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
+            _rawResourceFactory = EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
-            _contextAccessor = contextAccessor;
-            _httpContextAccessor = httpContextAccessor;
-            _actionContextAccessor = actionContextAccessor;
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _httpContextAccessor = EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
+            _actionContextAccessor = EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
+
+            var handler = new HttpClientHandler() { CheckCertificateRevocationList = true };
+            _httpClient = new HttpClient(handler, disposeHandler: true);
         }
 
         public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, SubscriptionInfo subscriptionInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
@@ -70,7 +77,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 { "type", new Code("event-notification") },
             };
 
-            if (!subscriptionInfo.Channel.ContentType.Equals(SubscriptionContentType.Empty))
+            if (subscriptionInfo.Channel.ContentType != SubscriptionContentType.Empty)
             {
                 // add new fields to parameter object from subscription data
                 foreach (ResourceWrapper rw in resources)
@@ -108,10 +115,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
-            await SendPayload(subscriptionInfo.Channel, bundle);
+            await SendPayload(subscriptionInfo.Channel, bundle, cancellationToken);
         }
 
-        public async Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo)
+        public async Task PublishHandShakeAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
             var parameter = new Parameters
@@ -129,10 +136,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
-            await SendPayload(subscriptionInfo.Channel, bundle);
+            await SendPayload(subscriptionInfo.Channel, bundle, cancellationToken);
         }
 
-        public async Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo)
+        public async Task PublishHeartBeatAsync(SubscriptionInfo subscriptionInfo, CancellationToken cancellationToken)
         {
             SetContext();
             List<ResourceWrapper> resourceWrappers = new List<ResourceWrapper>();
@@ -151,7 +158,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
             string bundle = await _bundleFactory.CreateSubscriptionBundleAsync(resourceWrappers.ToArray());
 
-            await SendPayload(subscriptionInfo.Channel, bundle);
+            await SendPayload(subscriptionInfo.Channel, bundle, cancellationToken);
         }
 
         private void SetContext()
@@ -167,13 +174,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     responseHeaders: new Dictionary<string, StringValues>())
                 {
                     IsBackgroundTask = true,
-                    AuditEventType = OperationsConstants.Reindex,
+                    AuditEventType = OperationsConstants.Subscription,
                 };
                 _contextAccessor.RequestContext = fhirRequestContext;
 
                 var httpContext = new DefaultHttpContext();
                 httpContext.Request.Scheme = "https";
-                httpContext.Request.Host = new HostString("fhir.com", 433);
+                httpContext.Request.Host = new HostString("fhir.azurehealthcareapis.com", 433);
                 _httpContextAccessor.HttpContext = httpContext;
 
                 _actionContextAccessor.ActionContext = new AspNetCore.Mvc.ActionContext();
@@ -183,7 +190,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         private async Task SendPayload(
         ChannelInfo chanelInfo,
-        string contents)
+        string contents,
+        CancellationToken cancellationToken)
         {
             HttpRequestMessage request = null!;
 
@@ -199,7 +207,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 };
 
                 // send our request
-                HttpResponseMessage response = await _httpClient.SendAsync(request);
+                HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
 
                 // check the status code
                 if ((response.StatusCode != System.Net.HttpStatusCode.OK) &&
@@ -207,7 +215,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                 {
                     // failure
                    _logger.LogError($"REST POST to {chanelInfo.Endpoint} failed: {response.StatusCode}");
-                   throw new SubscriptionException("Subscription message invalid.");
+                   throw new SubscriptionException(Resources.SubscriptionInvalid);
                 }
                 else
                 {
@@ -225,6 +233,11 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     request.Dispose();
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            _httpClient?.Dispose();
         }
     }
 }

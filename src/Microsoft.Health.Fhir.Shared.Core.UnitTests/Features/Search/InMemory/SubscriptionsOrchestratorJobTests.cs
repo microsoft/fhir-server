@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Subscriptions.Operations;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.ReceivedExtensions;
@@ -41,6 +42,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Subscriptions)]
     public class SubscriptionsOrchestratorJobTests : IAsyncLifetime
     {
         private ISearchIndexer _searchIndexer;

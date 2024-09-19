@@ -31,14 +31,9 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Registration
 {
-    public class SubscriptionsModule : IStartupModule
+    public class SubscriptionsModule(CoreFeatureConfiguration coreFeatureConfiguration) : IStartupModule
     {
-        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
-
-        public SubscriptionsModule(CoreFeatureConfiguration coreFeatureConfiguration)
-        {
-            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
-        }
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
 
         public void Load(IServiceCollection services)
         {
@@ -70,7 +65,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<StorageChannelFactory>()
+            services.Add<SubscriptionChannelFactory>()
                 .Singleton()
                 .AsSelf();
 

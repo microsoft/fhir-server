@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -29,19 +30,21 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
     {
         private readonly ILogger<SubscriptionValidator> _logger;
         private readonly ISubscriptionModelConverter _subscriptionModelConverter;
-        private readonly StorageChannelFactory _subscriptionChannelFactory;
+        private readonly SubscriptionChannelFactory _subscriptionChannelFactory;
         private readonly ISubscriptionUpdator _subscriptionUpdator;
 
-        public SubscriptionValidator(ILogger<SubscriptionValidator> logger, ISubscriptionModelConverter subscriptionModelConverter, StorageChannelFactory subscriptionChannelFactory, ISubscriptionUpdator subscriptionUpdator)
+        public SubscriptionValidator(ILogger<SubscriptionValidator> logger, ISubscriptionModelConverter subscriptionModelConverter, SubscriptionChannelFactory subscriptionChannelFactory, ISubscriptionUpdator subscriptionUpdator)
         {
-            _logger = logger;
-            _subscriptionModelConverter = subscriptionModelConverter;
-            _subscriptionChannelFactory = subscriptionChannelFactory;
-            _subscriptionUpdator = subscriptionUpdator;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _subscriptionModelConverter = EnsureArg.IsNotNull(subscriptionModelConverter, nameof(subscriptionModelConverter));
+            _subscriptionChannelFactory = EnsureArg.IsNotNull(subscriptionChannelFactory, nameof(subscriptionChannelFactory));
+            _subscriptionUpdator = EnsureArg.IsNotNull(subscriptionUpdator, nameof(subscriptionUpdator));
         }
 
         public async Task<ResourceElement> ValidateSubscriptionInput(ResourceElement subscription, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(subscription, nameof(subscription));
+
             SubscriptionInfo subscriptionInfo = _subscriptionModelConverter.Convert(subscription);
 
             var validationFailures = new List<ValidationFailure>();
@@ -50,7 +53,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
             {
                 _logger.LogInformation("Subscription channel type is not valid.");
                 validationFailures.Add(
-                    new ValidationFailure(nameof(subscriptionInfo.Channel.ChannelType), "Subscription channel type is not valid."));
+                    new ValidationFailure(nameof(subscriptionInfo.Channel.ChannelType), Resources.SubscriptionTypeIsNotValid));
             }
 
             if (!subscriptionInfo.Status.Equals(SubscriptionStatus.Off))
@@ -58,14 +61,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Validation
                 try
                 {
                     var subscriptionChannel = _subscriptionChannelFactory.Create(subscriptionInfo.Channel.ChannelType);
-                    await subscriptionChannel.PublishHandShakeAsync(subscriptionInfo);
+                    await subscriptionChannel.PublishHandShakeAsync(subscriptionInfo, cancellationToken);
                     subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Active.GetLiteral());
                 }
                 catch (SubscriptionException)
                 {
                     _logger.LogInformation("Subscription endpoint is not valid.");
                     validationFailures.Add(
-                        new ValidationFailure(nameof(subscriptionInfo.Channel.Endpoint), "Subscription endpoint is not valid."));
+                        new ValidationFailure(nameof(subscriptionInfo.Channel.Endpoint), Resources.SubscriptionEndpointNotValid));
                     subscription = _subscriptionUpdator.UpdateStatus(subscription, SubscriptionStatus.Error.GetLiteral());
                 }
             }

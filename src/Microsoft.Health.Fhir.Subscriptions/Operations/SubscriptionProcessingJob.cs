@@ -18,10 +18,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
     [JobTypeId((int)JobType.SubscriptionsProcessing)]
     public class SubscriptionProcessingJob : IJob
     {
-        private readonly StorageChannelFactory _storageChannelFactory;
+        private readonly SubscriptionChannelFactory _storageChannelFactory;
         private readonly IFhirDataStore _dataStore;
 
-        public SubscriptionProcessingJob(StorageChannelFactory storageChannelFactory, IFhirDataStore dataStore)
+        public SubscriptionProcessingJob(SubscriptionChannelFactory storageChannelFactory, IFhirDataStore dataStore)
         {
             _storageChannelFactory = storageChannelFactory;
             _dataStore = dataStore;

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using FluentValidation.Results;
 using MediatR;
 using Microsoft.Extensions.Hosting;
@@ -29,13 +30,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
         private bool _storageReady = false;
         private readonly ILogger<HeartBeatBackgroundService> _logger;
         private readonly IScopeProvider<SubscriptionManager> _subscriptionManager;
-        private readonly StorageChannelFactory _storageChannelFactory;
+        private readonly SubscriptionChannelFactory _storageChannelFactory;
 
-        public HeartBeatBackgroundService(ILogger<HeartBeatBackgroundService> logger, IScopeProvider<SubscriptionManager> subscriptionManager, StorageChannelFactory storageChannelFactory)
+        public HeartBeatBackgroundService(ILogger<HeartBeatBackgroundService> logger, IScopeProvider<SubscriptionManager> subscriptionManager, SubscriptionChannelFactory storageChannelFactory)
         {
-            _logger = logger;
-            _subscriptionManager = subscriptionManager;
-            _storageChannelFactory = storageChannelFactory;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _subscriptionManager = EnsureArg.IsNotNull(subscriptionManager, nameof(subscriptionManager));
+            _storageChannelFactory = EnsureArg.IsNotNull(storageChannelFactory, nameof(storageChannelFactory));
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -51,6 +52,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                 stoppingToken.ThrowIfCancellationRequested();
                 await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             }
+
+            // TODO: Multi instance sync
 
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));
             var nextHeartBeat = new Dictionary<string, DateTime>();
@@ -68,7 +71,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
 
                 try
                 {
-                    // our logic
                     using IScoped<SubscriptionManager> subscriptionManager = _subscriptionManager.Invoke();
                     await subscriptionManager.Value.SyncSubscriptionsAsync(stoppingToken);
 
@@ -88,7 +90,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                             var channel = _storageChannelFactory.Create(subscription.Channel.ChannelType);
                             try
                             {
-                                await channel.PublishHeartBeatAsync(subscription);
+                                await channel.PublishHeartBeatAsync(subscription, stoppingToken);
                                 nextHeartBeat[subscription.ResourceId] = nextHeartBeat.GetValueOrDefault(subscription.ResourceId).Add(subscription.Channel.HeartBeatPeriod);
                             }
                             catch (SubscriptionException)
@@ -100,7 +102,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.HeartBeats
                 }
                 catch (Exception e)
                 {
-                    _logger.LogWarning(e, "Error executing timer");
+                    _logger.LogWarning(e, "Error executing subscription heartbeat timer");
                 }
             }
         }
