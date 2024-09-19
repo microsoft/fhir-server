@@ -122,11 +122,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                UpsertOutcome outcome = await UpsertPatientData();
-                outcome = await AddPatientHistorical("v2");
-                outcome = await AddPatientHistorical("v3");
-                outcome = await AddPatientHistorical("v4");
-                outcome = await AddPatientHistorical("v5");
+                UpsertOutcome outcome = await AddPatientHistorical("10");
+                outcome = await AddPatientHistorical("11");
+                outcome = await AddPatientHistorical("12");
+                outcome = await AddPatientHistorical("13");
+                outcome = await AddPatientHistorical("14");
                 testPatient = outcome.Wrapper;
 
                 var queryParametersList = new List<Tuple<string, string>>()
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // Pass in a different hash value
                 SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None);
 
-                Assert.Equal("5", testPatient.Version);
+                Assert.Equal("14", testPatient.Version);
 
                 Assert.Single(searchResult.Results);
             }
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 
-            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
         }
     }
 }
