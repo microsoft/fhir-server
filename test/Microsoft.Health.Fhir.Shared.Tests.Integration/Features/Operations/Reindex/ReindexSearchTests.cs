@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 };
 
                 // Pass in a different hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, null, false, CancellationToken.None);
+                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None);
 
                 Assert.Equal("5", testPatient.Version);
 
