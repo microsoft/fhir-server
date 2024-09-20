@@ -922,7 +922,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
             string resourceType = GetForceReindexResourceType(searchOptions);
-
             if (searchOptions.CountOnly)
             {
                 _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
@@ -939,7 +938,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (ranges?.Count > 0)
             {
                 var rangeId = 0;
-                while (results == null)
+                while (results == null && rangeId < ranges.Count)
                 {
                     results = await SearchBySurrogateIdRange(
                         resourceType,
