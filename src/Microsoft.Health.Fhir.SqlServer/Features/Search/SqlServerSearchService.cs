@@ -931,28 +931,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var queryHints = searchOptions.QueryHints;
             long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
 
             SearchResult results = null;
+            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+
             if (ranges?.Count > 0)
             {
-                results = await SearchBySurrogateIdRange(
-                    resourceType,
-                    ranges[0].StartId,
-                    ranges[0].EndId,
-                    null,
-                    null,
-                    cancellationToken,
-                    searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
-
-                if (results.Results.Any())
+                foreach (var range in ranges)
                 {
-                    results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                    results = await SearchBySurrogateIdRange(
+                        resourceType,
+                        range.StartId,
+                        range.EndId,
+                        null,
+                        null,
+                        cancellationToken,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+
+                    if (results.Results.Any())
+                    {
+                        results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                        break;
+                    }
+
+                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
                 }
             }
             else
             {
-                results = new SearchResult(0, new List<Tuple<string, string>>());
+                _logger.LogInformation("For Reindex, no data pages found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
+                results = new SearchResult(0, []);
             }
 
             _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
