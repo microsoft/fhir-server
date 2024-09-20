@@ -937,13 +937,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (ranges?.Count > 0)
             {
-                var rangeId = 0;
-                while (results == null && rangeId < ranges.Count)
+                foreach (var range in ranges)
                 {
                     results = await SearchBySurrogateIdRange(
                         resourceType,
-                        ranges[rangeId].StartId,
-                        ranges[rangeId].EndId,
+                        range.StartId,
+                        range.EndId,
                         null,
                         null,
                         cancellationToken,
@@ -955,21 +954,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         break;
                     }
 
-                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} Iteration={IterationCount} StartId={StartId} EndId={EndId}", resourceType, rangeId, ranges[rangeId].StartId, ranges[rangeId].EndId);
-
-                    rangeId++;
-                    results = null;
-                }
-
-                if (results == null)
-                {
-                    _logger.LogWarning("For Reindex, empty result set encountered. Type={ResourceType}.", resourceType);
-                    results = new SearchResult(0, []);
+                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
                 }
             }
             else
             {
                 _logger.LogInformation("For Reindex, no data pages found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
+                results = new SearchResult(0, []);
             }
 
             _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
