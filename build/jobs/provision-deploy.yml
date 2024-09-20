@@ -130,7 +130,7 @@ jobs:
         }
 
         if("${{ parameters.sql }}" -eq "false"){
-            Write-Host "Add DevOps MI permission to Cosmos databases"
+            Write-Host "Add DevOps MI permission to Cosmos database"
 
             $account = Get-AzContext
             $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
@@ -141,14 +141,6 @@ jobs:
               -Scope "/" `
               -PrincipalId $principalId `
               -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
-
-            $roleDefinitionId = "230815da-be43-4aae-9cb4-875f7bd000aa"
-            $scope = "/subscriptions/$((Get-AzContext).Subscription.Id)/resourceGroups/$($resourceGroupName)/providers/Microsoft.DocumentDB/databaseAccounts/$($webAppName)"
-
-            New-AzRoleAssignment `
-                -ObjectId $principalId `
-                -RoleDefinitionId $roleDefinitionId `
-                -Scope $scope
         }
 
   - template: ./provision-healthcheck.yml

@@ -82,20 +82,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
-                Host = Environment.GetEnvironmentVariable("CosmosDb:Host") ?? CosmosDbLocalEmulator.Host,
-                Key = Environment.GetEnvironmentVariable("CosmosDb:Key") ?? CosmosDbLocalEmulator.Key,
-                DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
-                UseManagedIdentity = bool.TryParse(Environment.GetEnvironmentVariable("CosmosDb:UseManagedIdentity"), out bool useManagedIdentity) && useManagedIdentity,
+                Host = Environment.GetEnvironmentVariable("CosmosDb__Host") ?? CosmosDbLocalEmulator.Host,
+                Key = Environment.GetEnvironmentVariable("CosmosDb__Key") ?? CosmosDbLocalEmulator.Key,
+                DatabaseId = Environment.GetEnvironmentVariable("CosmosDb__DatabaseId") ?? "FhirTests",
+                UseManagedIdentity = bool.TryParse(Environment.GetEnvironmentVariable("CosmosDb__UseManagedIdentity"), out bool useManagedIdentity) && useManagedIdentity,
                 AllowDatabaseCreation = true,
                 AllowCollectionSetup = true,
-                PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+                PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb__PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
                 UseQueueClientJobs = true,
             };
 
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration
             {
                 CollectionId = Guid.NewGuid().ToString(),
-                InitialCollectionThroughput = 1000,
+                InitialCollectionThroughput = 1500,
             };
         }
 
@@ -189,6 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await dataCollectionSetup.InstallStoredProcs(CancellationToken.None);
                 await dataCollectionSetup.UpdateFhirCollectionSettingsAsync(new CollectionVersion(), CancellationToken.None);
                 _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
+                await dataCollectionUpdater.ExecuteAsync(_container, CancellationToken.None);
             }
             finally
             {

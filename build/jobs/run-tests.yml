@@ -64,8 +64,9 @@ jobs:
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
-      'CosmosDb:Host': $(CosmosDb--Host)
-      'FhirServer:ResourceManager:DataStoreResourceId': $(DataStoreResourceId)
+      'CosmosDb__Host': $(CosmosDb--Host)
+      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
+      'CosmosDb__UseManagedIdentity': true
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
