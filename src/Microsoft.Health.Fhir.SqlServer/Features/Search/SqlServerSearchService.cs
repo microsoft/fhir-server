@@ -934,9 +934,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
             SearchResult results = null;
-            IReadOnlyList<(long StartId, long EndId)> ranges;
-
-            ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
 
             if (ranges?.Count > 0)
             {
@@ -963,12 +961,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     rangeId++;
                     results = null;
                 }
-            }
 
-            if (results == null)
+                if (results == null)
+                {
+                    _logger.LogWarning("For Reindex, empty result set encountered. Type={ResourceType}.", resourceType);
+                    results = new SearchResult(0, []);
+                }
+            }
+            else
             {
-                _logger.LogWarning("For Reindex, empty result set encountered. Type={ResourceType}.", resourceType);
-                results = new SearchResult(0, []);
+                _logger.LogInformation("For Reindex, no data pages found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
             }
 
             _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
