@@ -936,19 +936,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult results = null;
             IReadOnlyList<(long StartId, long EndId)> ranges;
 
-            int iterationCount = 0; // Track the number of iterations
-            const int maxIterations = 50; // Set maximum iterations to avoid infinite loop.
+            ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
 
-            do
+            if (ranges?.Count > 0)
             {
-                ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
-
-                if (ranges?.Count > 0)
+                var rangeId = 0;
+                while (results == null)
                 {
                     results = await SearchBySurrogateIdRange(
                         resourceType,
-                        ranges[0].StartId,
-                        ranges[0].EndId,
+                        ranges[rangeId].StartId,
+                        ranges[rangeId].EndId,
                         null,
                         null,
                         cancellationToken,
@@ -957,20 +955,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (results.Results.Any())
                     {
                         results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
-                        break;  // Exit if valid results are found
+                        break;
                     }
-                    else
-                    {
-                        // If no results are found, set startId to the end of the current range and retry
-                        startId = ranges[0].EndId + 1;
-                    }
+
+                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} Iteration={IterationCount} StartId={StartId} EndId={EndId}", resourceType, rangeId, ranges[rangeId].StartId, ranges[rangeId].EndId);
+
+                    rangeId++;
+                    results = null;
                 }
-
-                iterationCount++; // Increment the iteration count
-
-                _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} Iteration={IterationCount} StartId={StartId} EndId={EndId}", resourceType, iterationCount, startId, endId);
             }
-            while (ranges?.Count > 0 && iterationCount < maxIterations);
 
             if (results == null)
             {
