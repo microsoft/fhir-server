@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -30,8 +31,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             "ndjson",
         };
 
+        private static readonly HashSet<string> PreferHeaderExpectedValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            PreferHeaderValueRequired,
+            SearchParameterHandling.Strict.ToString(),
+            SearchParameterHandling.Lenient.ToString(),
+        };
+
         private const string PreferHeaderName = "Prefer";
-        private const string PreferHeaderExpectedValue = "respond-async";
+        private const string PreferHeaderValueRequired = "respond-async";
+        private const char HeaderValueDelimiter = ',';
+
         private readonly HashSet<string> _supportedQueryParams;
 
         public ValidateExportRequestFilterAttribute()
@@ -65,11 +75,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
 
-            if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
-                preferHeaderValue.Count != 1 ||
-                !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
+            if (context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, preferHeaderValue.FirstOrDefault(), PreferHeaderName));
+                var values = preferHeaderValue.ToString().Split(HeaderValueDelimiter, StringSplitOptions.TrimEntries);
+                if (!values.Contains(PreferHeaderValueRequired))
+                {
+                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueRequired}.");
+                }
+
+                foreach (var value in values)
+                {
+                    if (!PreferHeaderExpectedValues.Contains(value))
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, value, PreferHeaderName));
+                    }
+                }
+            }
+            else
+            {
+                throw new RequestNotValidException($"Missing required header, {PreferHeaderName}.");
             }
 
             // Validate that the request does not contain query parameters that are not supported.

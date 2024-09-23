@@ -190,6 +190,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
+        [Theory]
+        [InlineData("respond-async", true)]
+        [InlineData("respond-async,strict", true)]
+        [InlineData("Lenient,respond-async", true)]
+        [InlineData("respond-async,,Lenient", false)]
+        [InlineData("respond-async,Strict,", false)]
+        [InlineData("respond-async,Strict,Lenient", true)]
+        [InlineData("Strict,lenient", false)]
+        [InlineData("", false)]
+        public void GiveARequestWithPreferHeader_WhenExportOperationRequest_ThenPreferHeaderShouldBeValidatedSuccessfully(string preferHeader, bool validHeader)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = preferHeader;
+
+            try
+            {
+                _filter.OnActionExecuting(context);
+                if (!validHeader)
+                {
+                    Assert.Fail($"{nameof(RequestNotValidException)} should be thrown.");
+                }
+            }
+            catch (RequestNotValidException)
+            {
+                if (validHeader)
+                {
+                    Assert.Fail($"{nameof(RequestNotValidException)} should not be thrown.");
+                }
+            }
+        }
+
         private static ActionExecutingContext CreateContext()
         {
             var context = new ActionExecutingContext(
