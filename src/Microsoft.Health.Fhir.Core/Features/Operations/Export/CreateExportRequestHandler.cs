@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -94,7 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
             var filters = ParseFilter(request.Filters);
-            ValidateTypeFilters(filters);
+            if (_contextAccessor.GetIsStrictHandlingEnabled())
+            {
+                ValidateTypeFilters(filters);
+            }
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
