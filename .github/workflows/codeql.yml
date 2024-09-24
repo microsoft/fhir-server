@@ -31,6 +31,7 @@ jobs:
         language: ['csharp', 'javascript']
 
     # runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    runs-on: "ubuntu-latest"
 
     steps:
     - name: Checkout repository
