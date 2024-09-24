@@ -30,7 +30,7 @@ jobs:
       matrix:
         language: ['csharp', 'javascript']
 
-    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    # runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
 
     steps:
     - name: Checkout repository
