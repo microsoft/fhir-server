@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -31,7 +32,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         };
 
         private const string PreferHeaderName = "Prefer";
-        private const string PreferHeaderExpectedValue = "respond-async";
+        private const string PreferHeaderValueRequired = "respond-async";
+        private const string PreferHeaderValueOptional = "handling";
+
         private readonly HashSet<string> _supportedQueryParams;
 
         public ValidateExportRequestFilterAttribute()
@@ -65,11 +68,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
 
-            if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
-                preferHeaderValue.Count != 1 ||
-                !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
+            if (context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValues))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, preferHeaderValue.FirstOrDefault(), PreferHeaderName));
+                var values = preferHeaderValues.SelectMany(x => x.Split(',', StringSplitOptions.TrimEntries)).ToList();
+                var requiredHeaderValueFound = false;
+                foreach (var value in values)
+                {
+                    var v = value.Split('=', StringSplitOptions.TrimEntries);
+                    if (v.Length > 2
+                        || (v.Length == 1 && !(requiredHeaderValueFound = string.Equals(v[0], PreferHeaderValueRequired, StringComparison.OrdinalIgnoreCase)))
+                        || (v.Length == 2 && (!string.Equals(v[0], PreferHeaderValueOptional, StringComparison.OrdinalIgnoreCase) || !Enum.TryParse<SearchParameterHandling>(v[1], true, out _))))
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, value, PreferHeaderName));
+                    }
+                }
+
+                if (!requiredHeaderValueFound)
+                {
+                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueOptional}.");
+                }
+            }
+            else
+            {
+                throw new RequestNotValidException($"Missing required header; {PreferHeaderName}");
             }
 
             // Validate that the request does not contain query parameters that are not supported.
