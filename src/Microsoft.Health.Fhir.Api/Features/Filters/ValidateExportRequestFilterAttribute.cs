@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 if (!requiredHeaderValueFound)
                 {
-                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueOptional}.");
+                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueRequired}.");
                 }
             }
             else
