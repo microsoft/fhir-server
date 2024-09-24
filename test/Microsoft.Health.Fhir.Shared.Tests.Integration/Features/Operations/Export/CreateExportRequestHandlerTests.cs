@@ -6,21 +6,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -43,6 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly MockClaimsExtractor _claimsExtractor = new MockClaimsExtractor();
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
+        private readonly ISearchOptionsFactory _searchOptionsFactory;
 
         private CreateExportRequestHandler _createExportRequestHandler;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -62,12 +71,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Format = ExportFormatTags.ResourceName,
             });
 
+            _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
+            _searchOptionsFactory.Create(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>())
+                .Returns(new SearchOptions() { UnsupportedSearchParams = new List<Tuple<string, string>>() });
+
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
             var contextAccess = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, optionsExportConfig, contextAccess);
+            _createExportRequestHandler = new CreateExportRequestHandler(
+                _claimsExtractor,
+                _fhirOperationDataStore,
+                DisabledFhirAuthorizationService.Instance,
+                optionsExportConfig,
+                contextAccess,
+                _searchOptionsFactory,
+                Substitute.For<ILogger<CreateExportRequestHandler>>(),
+                true);
         }
 
         public static IEnumerable<object[]> ExportUriForSameJobs
@@ -137,6 +163,131 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                             {
                                 new Tuple<string, string>("address", "Seattle"),
                             }),
+                        },
+                    },
+                };
+            }
+        }
+
+        /// <summary>
+        /// 1. Invalid parameters on single resource.
+        /// 2. Valid parameters on single resource.
+        /// 3. Invalid parameters on multiple resources.
+        /// 4. Valid parameters on multiple resources.
+        /// </summary>
+        public static IEnumerable<object[]> ValidateTypeFilters
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("bad", "bad"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("bad2", "bad2"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "bad",
+                                    "bad2",
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                            {
+                                "Observation",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("subject", "Patient"),
+                                    new KeyValuePair<string, string>("code", "code"),
+                                    new KeyValuePair<string, string>("note:bad", "note"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
+                            {
+                                "Patient",
+                                new HashSet<string>
+                                {
+                                    "gender",
+                                    "birthDate",
+                                }
+                            },
+                            {
+                                "Observation",
+                                new HashSet<string>
+                                {
+                                    "code",
+                                    "note:bad",
+                                }
+                            },
+                        },
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, IList<KeyValuePair<string, string>>>
+                        {
+                            {
+                                "Patient",
+                                new List<KeyValuePair<string, string>>
+                                {
+                                    new KeyValuePair<string, string>("name", "Bob"),
+                                    new KeyValuePair<string, string>("gender", "male"),
+                                    new KeyValuePair<string, string>("address", "here"),
+                                    new KeyValuePair<string, string>("birthDate", "today"),
+                                }
+                            },
+                        },
+                        new Dictionary<string, ISet<string>>
+                        {
                         },
                     },
                 };
@@ -300,6 +451,80 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
             var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
             Assert.Equal(string.Format(Resources.TypeFilterUnparseable, errorMessage), exception.Message);
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidateTypeFilters))]
+        public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
+            IDictionary<string, IList<KeyValuePair<string, string>>> filters,
+            IDictionary<string, ISet<string>> invalidParameters)
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }),
+                Arg.Any<CancellationToken>());
+
+            var filterString = new StringBuilder();
+            foreach (var kv in filters)
+            {
+                filterString.Append($"{kv.Key}?");
+                foreach (var p in kv.Value)
+                {
+                    filterString.Append($"{p.Key}={p.Value}&");
+                }
+
+                filterString[filterString.Length - 1] = ',';
+            }
+
+            if (filterString.Length > 0)
+            {
+                filterString.Remove(filterString.Length - 1, 1);
+            }
+
+            foreach (var kv in invalidParameters)
+            {
+                SearchOptions searchOptions = new SearchOptions
+                {
+                    UnsupportedSearchParams = kv.Value.Select(x => new Tuple<string, string>(x, x)).ToList().AsReadOnly(),
+                };
+
+                _searchOptionsFactory.Create(
+                    Arg.Is<string>(x => x == kv.Key),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<ResourceVersionType>(),
+                    Arg.Any<bool>())
+                    .Returns(searchOptions);
+            }
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
+            try
+            {
+                _ = await _createExportRequestHandler.Handle(request, _cancellationToken);
+                if (invalidParameters.Any())
+                {
+                    Assert.Fail($"{nameof(BadRequestException)} should be thrown.");
+                }
+            }
+            catch (BadRequestException ex)
+            {
+                if (!invalidParameters.Any())
+                {
+                    Assert.Fail($"{nameof(BadRequestException)} should be not thrown.");
+                }
+
+                // Note: ex.Data should have the key with the validation method name and the value
+                //       that is a list of a string array consisting of a resource type and code.
+                Assert.NotNull(ex.Data?["ValidateTypeFilters"]);
+                Assert.Equal(typeof(List<string[]>), ex.Data["ValidateTypeFilters"].GetType());
+
+                var actualErrors = ((List<string[]>)ex.Data["ValidateTypeFilters"]).Select(x => $"{x[0]}.{x[1]}").OrderBy(x => x);
+                var expectedErrors = invalidParameters.SelectMany(x => x.Value, (x, v) => $"{x.Key}.{v}").OrderBy(x => x);
+                Assert.Equal(expectedErrors, actualErrors);
+            }
         }
 
         /// <summary>

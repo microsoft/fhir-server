@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Azure.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 clientTestProvider,
                 () => new[] { new TestRequestHandler() },
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<RequestContextAccessor<IFhirRequestContext>>()),
+                new Lazy<TokenCredential>(() => Substitute.For<TokenCredential>()),
                 NullLogger<FhirCosmosClientInitializer>.Instance);
 
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };

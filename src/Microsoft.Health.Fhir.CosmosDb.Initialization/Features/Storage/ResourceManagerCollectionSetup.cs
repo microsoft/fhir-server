@@ -47,6 +47,7 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
         IConfiguration genericConfiguration,
         IEnumerable<IStoredProcedureMetadata> storedProcedures,
+        TokenCredential tokenCredential,
         ILogger<ResourceManagerCollectionSetup> logger)
     {
         EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
@@ -55,13 +56,14 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         _cosmosDataStoreConfiguration = EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
         _storeProceduresMetadata = EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        EnsureArg.IsNotNull(tokenCredential, nameof(tokenCredential));
 
         var dataStoreResourceId = EnsureArg.IsNotNullOrWhiteSpace(
                 genericConfiguration.GetValue(FhirServerResourceManagerDataStoreResourceId, string.Empty),
                 nameof(genericConfiguration),
                 fn => fn.WithMessage($"{FhirServerResourceManagerDataStoreResourceId} must be set."));
 
-        _armClient = new ArmClient(new DefaultAzureCredential());
+        _armClient = new ArmClient(tokenCredential);
         _resourceIdentifier = ResourceIdentifier.Parse(dataStoreResourceId);
         _account = _armClient.GetCosmosDBAccountResource(_resourceIdentifier);
     }

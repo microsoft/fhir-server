@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -439,23 +440,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
+                var logSB = new StringBuilder("Long running retrieve SQL connection");
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
+
                 if (!isReadOnly)
                 {
-                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    logSB.AppendLine("Not read only");
+                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                 }
                 else
                 {
-                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder);
+                    logSB.AppendLine("Checking read only");
+                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder, logger);
+                    logSB.AppendLine($"Got replica traffic ratio in {sw.Elapsed.TotalSeconds} seconds. Ratio is {replicaTrafficRatio}");
 
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {
                         isReadOnlyConnection = string.Empty;
-                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                     }
                     else if (replicaTrafficRatio > 0.99)
                     {
-                        conn = await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                        conn = await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                     }
                     else
                     {
@@ -466,8 +472,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         conn = useWriteConnection
-                                ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
-                                : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                                ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel)
+                                : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                     }
                 }
 
@@ -476,6 +482,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
 
                 logger.LogInformation($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                if (sw.Elapsed.TotalSeconds > 1)
+                {
+                    logSB.AppendLine($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                    logger.LogWarning(logSB.ToString());
+                }
 
                 sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
@@ -484,7 +495,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return conn;
             }
 
-            private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder)
+            private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder, ILogger logger)
             {
                 const int trafficRatioCacheDurationSec = 600;
                 if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
@@ -492,21 +503,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return _replicaTrafficRatio;
                 }
 
-                lock (_databaseAccessLocker)
+                if (Monitor.TryEnter(_databaseAccessLocker, new TimeSpan(0, 0, 5)))
                 {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
+                    try
                     {
-                        return _replicaTrafficRatio;
-                    }
+                        if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
+                        {
+                            logger.LogInformation("Waited, but used replica traffic cache");
+                            return _replicaTrafficRatio;
+                        }
 
-                    _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder);
-                    _lastUpdated = DateTime.UtcNow;
+                        logger.LogInformation("Updating replica traffic ratio");
+                        _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder, logger);
+                        _lastUpdated = DateTime.UtcNow;
+                    }
+                    finally
+                    {
+                        Monitor.Exit(_databaseAccessLocker);
+                    }
+                }
+                else
+                {
+                    logger.LogInformation("Timed out waiting for replica traffic, using cached value");
                 }
 
                 return _replicaTrafficRatio;
             }
 
-            private static double GetReplicaTrafficRatioFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
+            private static double GetReplicaTrafficRatioFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder, ILogger logger)
             {
                 try
                 {
@@ -517,8 +541,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var value = cmd.ExecuteScalar();
                     return value == null ? 0 : (double)value;
                 }
-                catch (SqlException)
+                catch (SqlException ex)
                 {
+                    logger.LogInformation(ex, "Failed to get replica traffic ratio from the database.");
                     return 0;
                 }
             }
