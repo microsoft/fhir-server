@@ -53,7 +53,6 @@ steps:
         $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
-        Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
 
         $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
         $integrationStoreUri = $integrationStoreSettings[0].Value
@@ -100,9 +99,7 @@ steps:
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
-      'TestExportStoreKey': $(TestExportStoreKey)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
-      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
