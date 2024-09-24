@@ -90,10 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
             var filters = ParseFilter(request.Filters);
-            if (_contextAccessor.GetIsStrictHandlingEnabled())
-            {
-                ValidateTypeFilters(filters);
-            }
+            ValidateTypeFilters(filters);
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
@@ -204,6 +201,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ValidateTypeFilters(IList<ExportJobFilter> filters)
         {
+            if (!_contextAccessor.GetIsStrictHandlingEnabled())
+            {
+                _logger.LogInformation("Validation skipped due to strict handling disabled.");
+                return;
+            }
+
             if (filters == null || filters.Count == 0)
             {
                 _logger.LogInformation("No type filters to validate.");

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             if (contextAccessor.RequestContext?.RequestHeaders != null &&
                 contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out StringValues values))
             {
-                var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
+                var handlingValue = values.SelectMany(x => x.Split(',', StringSplitOptions.TrimEntries)).FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
                 if (handlingValue != default)
                 {
                     handlingValue = handlingValue.Substring("handling=".Length);

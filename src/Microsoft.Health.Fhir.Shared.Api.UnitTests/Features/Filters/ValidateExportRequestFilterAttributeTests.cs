@@ -192,12 +192,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         [Theory]
         [InlineData("respond-async", true)]
-        [InlineData("respond-async,strict", true)]
-        [InlineData("Lenient,respond-async", true)]
-        [InlineData("respond-async,,Lenient", false)]
-        [InlineData("respond-async,Strict,", false)]
-        [InlineData("respond-async,Strict,Lenient", true)]
-        [InlineData("Strict,lenient", false)]
+        [InlineData("respond-async,handling=strict", true)]
+        [InlineData("  respond-async ,  handling    =   strict  ", true)]
+        [InlineData("handling=Lenient,respond-async", true)]
+        [InlineData("respond-async,,handling=Lenient", false)]
+        [InlineData("respond-async,handling=Strict,", false)]
+        [InlineData("respond-async,handling=Strict|Lenient", false)]
+        [InlineData("handling=strict", false)]
+        [InlineData("respond-sync", false)]
+        [InlineData("handling=None", false)]
+        [InlineData("respond-async,unknown=strict", false)]
+        [InlineData("respond-async,unknown=strict=Lenient", false)]
         [InlineData("", false)]
         public void GiveARequestWithPreferHeader_WhenExportOperationRequest_ThenPreferHeaderShouldBeValidatedSuccessfully(string preferHeader, bool validHeader)
         {

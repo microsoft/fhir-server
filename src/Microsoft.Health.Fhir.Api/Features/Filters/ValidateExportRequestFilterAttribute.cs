@@ -31,16 +31,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             "ndjson",
         };
 
-        private static readonly HashSet<string> PreferHeaderExpectedValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            PreferHeaderValueRequired,
-            SearchParameterHandling.Strict.ToString(),
-            SearchParameterHandling.Lenient.ToString(),
-        };
-
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderValueRequired = "respond-async";
-        private const char HeaderValueDelimiter = ',';
+        private const string PreferHeaderValueOptional = "handling";
 
         private readonly HashSet<string> _supportedQueryParams;
 
@@ -75,25 +68,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue))
+            if (context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValues))
             {
-                var values = preferHeaderValue.ToString().Split(HeaderValueDelimiter, StringSplitOptions.TrimEntries);
-                if (!values.Contains(PreferHeaderValueRequired))
-                {
-                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueRequired}.");
-                }
-
+                var values = preferHeaderValues.SelectMany(x => x.Split(',', StringSplitOptions.TrimEntries)).ToList();
+                var requiredHeaderValueFound = false;
                 foreach (var value in values)
                 {
-                    if (!PreferHeaderExpectedValues.Contains(value))
+                    var v = value.Split('=', StringSplitOptions.TrimEntries);
+                    if (v.Length > 2
+                        || (v.Length == 1 && !(requiredHeaderValueFound = string.Equals(v[0], PreferHeaderValueRequired, StringComparison.OrdinalIgnoreCase)))
+                        || (v.Length == 2 && (!string.Equals(v[0], PreferHeaderValueOptional, StringComparison.OrdinalIgnoreCase) || !Enum.TryParse<SearchParameterHandling>(v[1], true, out _))))
                     {
                         throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, value, PreferHeaderName));
                     }
                 }
+
+                if (!requiredHeaderValueFound)
+                {
+                    throw new RequestNotValidException($"Missing required header value; header={PreferHeaderName},value={PreferHeaderValueOptional}.");
+                }
             }
             else
             {
-                throw new RequestNotValidException($"Missing required header, {PreferHeaderName}.");
+                throw new RequestNotValidException($"Missing required header; {PreferHeaderName}");
             }
 
             // Validate that the request does not contain query parameters that are not supported.
