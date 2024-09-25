@@ -96,29 +96,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 coord.version,
                 async cancel =>
                 {
-                    var cancelToken = CancellationToken.None; // cancel.Token;
                     try
                     {
-                        var tables = await GetPartitionedTables(cancelToken); // get tables
+                        var tables = await GetPartitionedTables(cancel.Token); // get tables
                         _logger.LogInformation($"DefragWatchdog.GetPartitionedTables.coord={coord.groupId}: tables={tables.Count}.");
 
                         // parallel loop on table level
-                        await ChangeDatabaseSettingsAsync(false, cancelToken);
-                        Parallel.ForEach(tables, new ParallelOptions { MaxDegreeOfParallelism = _threads }, async table =>
+                        await ChangeDatabaseSettingsAsync(false, cancel.Token);
+                        await Parallel.ForEachAsync(tables, new ParallelOptions { MaxDegreeOfParallelism = _threads }, async (table, _) =>
                         {
-                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, cancelToken);
-                            var items = (await GetFragmentation(table, null, null, cancelToken)).ToDictionary(_ => (_.Table, _.Index, _.Partition), _ => _.Frag);
+                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, cancel.Token);
+                            var items = (await GetFragmentation(table, null, null, cancel.Token)).ToDictionary(_ => (_.Table, _.Index, _.Partition), _ => _.Frag);
                             _logger.LogInformation($"DefragWatchdog.GetFragmentation.coord={job.GroupId}: job={job.Id} table={table} items={items.Count}.");
-                            var existingItems = await GetExistingItems(job.Id, cancelToken);
+                            var existingItems = await GetExistingItems(job.Id, cancel.Token);
                             _logger.LogInformation($"DefragWatchdog.GetExistingItems.coord={job.GroupId}: job={job.Id} table={table} existingItems={existingItems.Count}.");
                             foreach (var item in items.Where(_ => !existingItems.Contains(GetItemDefinition(_.Key.Table, _.Key.Index, _.Key.Partition))))
                             {
                                 _logger.LogInformation($"DefragWatchdog.ExecDefragItem.coord={job.GroupId}: job={job.Id} table={item.Key.Table} index={item.Key.Index} partition={item.Key.Partition} beforeFrag={item.Value} starting...");
-                                await ExecDefragItem(job.Id, item.Key.Table, item.Key.Index, item.Key.Partition, cancelToken);
+                                await ExecDefragItem(job.Id, item.Key.Table, item.Key.Index, item.Key.Partition, cancel.Token);
                                 _logger.LogInformation($"DefragWatchdog.ExecDefragItem.coord={job.GroupId}: job={job.Id} table={item.Key.Table} index={item.Key.Index} partition={item.Key.Partition} completed.");
                             }
 
-                            await _sqlQueueClient.CompleteJobAsync(new JobInfo { QueueType = QueueType, Id = job.Id, Version = job.Version, Status = JobStatus.Completed }, false, cancelToken);
+                            await _sqlQueueClient.CompleteJobAsync(new JobInfo { QueueType = QueueType, Id = job.Id, Version = job.Version, Status = JobStatus.Completed }, false, cancel.Token);
                         });
 
                         return null;
@@ -126,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     catch (Exception e)
                     {
                         _logger.LogError(e, "DefragWatchdog failed.");
-                        await _sqlRetryService.TryLogEvent("DefragWatchdog", "Error", e.ToString(), null, cancelToken);
+                        await _sqlRetryService.TryLogEvent("DefragWatchdog", "Error", e.ToString(), null, cancel.Token);
                         throw;
                     }
                 },
