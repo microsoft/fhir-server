@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         await ChangeDatabaseSettingsAsync(false, cancel.Token);
                         await Parallel.ForEachAsync(tables, new ParallelOptions { MaxDegreeOfParallelism = _threads }, async (table, _) =>
                         {
-                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, cancel.Token);
+                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, null, cancel.Token);
                             var items = (await GetFragmentation(table, null, null, cancel.Token)).ToDictionary(_ => (_.Table, _.Index, _.Partition), _ => _.Frag);
                             _logger.LogInformation($"DefragWatchdog.GetFragmentation.coord={job.GroupId}: job={job.Id} table={table} items={items.Count}.");
                             var existingItems = await GetExistingItems(job.Id, cancel.Token);
@@ -221,10 +221,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             try
             {
+                var st = DateTime.UtcNow;
                 await DefragAsync(table, index, partition, cancellationToken);
                 _logger.LogInformation($"DefragWatchdog.ExecDefragItem.DefragAsync: jobId={jobId} table={table} index={index} partition={partition} completed.");
                 var frag = (await GetFragmentation(table, index, partition, cancellationToken)).First().Frag;
-                await CompleteItemAsync(jobId, table, index, partition, frag, cancellationToken);
+                await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, jobId, GetItemDefinition(table, index, partition), JobStatus.Completed, frag.ToString(), st, cancellationToken);
                 _logger.LogInformation($"DefragWatchdog.ExecDefragItem.GetFragmentation: jobId={jobId} table={table} index={index} partition={partition} afterFrag={frag} completed.");
             }
             catch (Exception e)
@@ -241,11 +242,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             cmd.Parameters.AddWithValue("@PartitionNumber", partition);
             cmd.Parameters.AddWithValue("@IsPartitioned", true);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-        }
-
-        private async Task CompleteItemAsync(long jobId, string tableName, string indexName, int partitionNumber, double frag, CancellationToken cancellationToken)
-        {
-            await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, jobId, $"{tableName};{indexName};{partitionNumber}", JobStatus.Completed, frag.ToString(), cancellationToken);
         }
 
         private async Task<(long groupId, long jobId, long version)> GetCoordinatorJobAsync(CancellationToken cancellationToken)

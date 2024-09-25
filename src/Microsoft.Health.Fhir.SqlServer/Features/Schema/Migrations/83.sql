@@ -2084,7 +2084,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.EnqueueJobs
-@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT=1, @IsCompleted BIT=NULL, @Status TINYINT=NULL, @Result VARCHAR (MAX)=NULL, @ReturnJobs BIT=1
+@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT=1, @IsCompleted BIT=NULL, @Status TINYINT=NULL, @Result VARCHAR (MAX)=NULL, @StartDate DATETIME=NULL, @ReturnJobs BIT=1
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
@@ -2131,7 +2131,7 @@ BEGIN TRY
                    DefinitionHash,
                    isnull(@Status, 0) AS Status,
                    CASE WHEN @Status = 2 THEN @Result ELSE NULL END AS Result,
-                   CASE WHEN @Status = 1 THEN getUTCdate() END AS StartDate
+                   CASE WHEN @Status = 1 THEN getUTCdate() ELSE @StartDate END AS StartDate
             FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY Dummy) AS JobId,
                            *
                     FROM   (SELECT *,

@@ -55,7 +55,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @Status tinyint = NULL, @Result varchar(max) = NULL, @ReturnJobs bit = 1
+ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
 -- TODO: Remove after deployment @IsCompleted
 AS
 set nocount on
@@ -113,7 +113,7 @@ BEGIN TRY
             ,DefinitionHash
             ,Status = isnull(@Status,0)
             ,Result = CASE WHEN @Status = 2 THEN @Result ELSE NULL END
-            ,StartDate = CASE WHEN @Status = 1 THEN getUTCdate() END
+            ,StartDate = CASE WHEN @Status = 1 THEN getUTCdate() ELSE @StartDate END
         FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount
