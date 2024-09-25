@@ -39,7 +39,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 definitions.Add(i.ToString());
             }
 
-            IEnumerable<JobInfo> jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
 
             int executedJobCount = 0;
             TestJobFactory factory = new TestJobFactory(t =>
@@ -82,10 +82,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
             string groupDefinition2 = "groupDefinition2";
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, [groupDefinition1], 1, false, false, CancellationToken.None)).First();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, [definition1], 1, false, false, CancellationToken.None)).First();
-            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, [groupDefinition2], 2, false, false, CancellationToken.None)).First();
-            JobInfo job2 = (await queueClient.EnqueueAsync(0, [definition2], 2, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, [groupDefinition1], 1, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, [definition1], 1, false, CancellationToken.None)).First();
+            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, [groupDefinition2], 2, false, CancellationToken.None)).First();
+            JobInfo job2 = (await queueClient.EnqueueAsync(0, [definition2], 2, false, CancellationToken.None)).First();
 
             int executeCount = 0;
             TestJobFactory factory = new TestJobFactory(t =>
@@ -155,7 +155,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
             job1.Status = JobStatus.Running;
             job1.HeartbeatDateTime = DateTime.Now.AddSeconds(-3);
 
@@ -192,7 +192,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
@@ -230,7 +230,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
@@ -267,7 +267,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, ["task1"], null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, ["task1"], null, false, CancellationToken.None)).First();
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
@@ -302,7 +302,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
@@ -379,7 +379,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 definitions.Add(i.ToString());
             }
 
-            var jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
+            var jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
             Assert.Equal(numberOfJobs, jobs.Count);
             Assert.True(jobs.All(t => t.Status == JobStatus.Created));
 

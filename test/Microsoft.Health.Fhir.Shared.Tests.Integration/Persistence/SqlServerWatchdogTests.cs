@@ -48,15 +48,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [Fact]
-        public async Task Defrag()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task Defrag(bool indexRebuildIsEnabled)
         {
+            // ebale logging
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search') A");
+            const string indexRebuildIsEnabledId = "Defrag.IndexRebuild.IsEnabled";
+            ExecuteSql("DELETE FROM dbo.Parameters WHERE Id = '" + indexRebuildIsEnabledId + "'");
+            if (indexRebuildIsEnabled)
+            {
+                ExecuteSql("INSERT INTO dbo.Parameters (Id, Number) SELECT Id = '" + indexRebuildIsEnabledId + "', 1");
+            }
+
             // populate data
             ExecuteSql(@"
 BEGIN TRANSACTION
-CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))
-INSERT INTO DefragTestTable (Data) SELECT TOP 100000 '' FROM syscolumns A1, syscolumns A2
-DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
+IF object_id('DefragTestTable') IS NOT NULL DROP TABLE DefragTestTable
+CREATE TABLE DefragTestTable (ResourceTypeId smallint, Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id, ResourceTypeId) ON PartitionScheme_ResourceTypeId (ResourceTypeId))
+INSERT INTO DefragTestTable (ResourceTypeId, Data) SELECT TOP 100000 96,'' FROM syscolumns A1, syscolumns A2
+DELETE FROM DefragTestTable WHERE ResourceTypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
 COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
@@ -352,7 +364,7 @@ END
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND CreateDate > @Current ORDER BY JobId DESC", conn);
+            using var cmd = new SqlCommand("SELECT TOP 1000 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND CreateDate > @Current ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
             cmd.Parameters.AddWithValue("@Current", current);
             using SqlDataReader reader = cmd.ExecuteReader();

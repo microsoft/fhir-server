@@ -1,6 +1,7 @@
 ﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @Status tinyint = NULL, @Result varchar(max) = NULL, @ReturnJobs bit = 1
+-- TODO: Remove after deployment @IsCompleted
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -8,7 +9,7 @@ DECLARE @SP varchar(100) = 'EnqueueJobs'
                            +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
                            +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
-                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
+                           +' S='+isnull(convert(varchar,@Status),'NULL')
        ,@st datetime = getUTCdate()
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
@@ -46,6 +47,8 @@ BEGIN TRY
             ,Definition
             ,DefinitionHash
             ,Status
+            ,Result
+            ,StartDate
         )
       OUTPUT inserted.JobId INTO @JobIds
       SELECT @QueueType
@@ -53,7 +56,9 @@ BEGIN TRY
             ,JobId
             ,Definition
             ,DefinitionHash
-            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
+            ,Status = isnull(@Status,0)
+            ,Result = CASE WHEN @Status = 2 THEN @Result ELSE NULL END
+            ,StartDate = CASE WHEN @Status = 1 THEN getUTCdate() END
         FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount
