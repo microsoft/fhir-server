@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch replace operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch replace operation. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
             }
 
             return ResourceElement.ToPoco<Resource>();

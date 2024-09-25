@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch insert operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch insert operation. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
             }
 
             var listElements = targetParent.Children(name).ToList()
