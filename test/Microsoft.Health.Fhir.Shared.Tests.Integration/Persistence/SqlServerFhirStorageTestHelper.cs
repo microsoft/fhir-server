@@ -105,8 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
                     await connection.OpenAsync(cancellationToken);
                     await using SqlCommand sqlCommand = connection.CreateCommand();
-                    sqlCommand.CommandText = "EXECUTE sp_changedbowner 'sa'";
-                    await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
+                    sqlCommand.CommandText = "SELECT 1";
+                    await sqlCommand.ExecuteScalarAsync(cancellationToken);
                     await connection.CloseAsync();
                 });
 
