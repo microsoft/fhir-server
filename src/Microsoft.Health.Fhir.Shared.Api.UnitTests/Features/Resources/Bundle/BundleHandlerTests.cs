@@ -79,8 +79,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var fhirJsonSerializer = new FhirJsonSerializer();
             var fhirJsonParser = new FhirJsonParser();
 
+            var loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
+
             ISearchService searchService = Substitute.For<ISearchService>();
-            var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser());
+            var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser(), loggerResourceReferenceResolver);
 
             var transactionBundleValidatorLogger = Substitute.For<ILogger<TransactionBundleValidator>>();
             var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver, transactionBundleValidatorLogger);
