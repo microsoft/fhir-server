@@ -13,6 +13,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -850,13 +851,75 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
         }
 
-        [Conditional("DEBUG")]
         private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection sqlConnection)
         {
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            sqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
+            sqlConnection.InfoMessage += (sender, args) =>
+            {
+                var cost = CalculateQueryCostMetric(args);
+                double aggregateCost = cost;
+
+                if (_requestContextAccessor.RequestContext != null)
+                {
+                    if (_requestContextAccessor.RequestContext.ResponseHeaders.TryGetValue(KnownHeaders.QueryCost, out var aggCostString))
+                    {
+                        aggregateCost += double.Parse(aggCostString, CultureInfo.InvariantCulture);
+                    }
+
+                    _requestContextAccessor.RequestContext.ResponseHeaders[KnownHeaders.QueryCost] = Math.Round(aggregateCost, 2).ToString(CultureInfo.InvariantCulture);
+                }
+
+                _logger.LogDebug("X-Query-Cost: {QueryCost}, Single Query Cost: {SingleQueryCost}, message: {Message}", aggregateCost, cost, args.Message);
+            };
+        }
+
+        private static double CalculateQueryCostMetric(SqlInfoMessageEventArgs e)
+        {
+            int logicalReads = 0;
+            int cpuTimeMs = 0;
+            int elapsedTimeMs = 0;
+
+            foreach (SqlError info in e.Errors)
+            {
+                string message = info.Message;
+
+                if (message.StartsWith("Table", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extract logical reads
+                    var match = Regex.Match(message, @"logical reads (\d+)");
+                    if (match.Success)
+                    {
+                        logicalReads += int.Parse(match.Groups[1].Value);
+                    }
+                }
+                else if (message.Contains("CPU time", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extract CPU time and elapsed time
+                    var matchCpu = Regex.Match(message, @"CPU time = (\d+) ms");
+                    var matchElapsed = Regex.Match(message, @"elapsed time = (\d+) ms");
+
+                    if (matchCpu.Success)
+                    {
+                        cpuTimeMs += int.Parse(matchCpu.Groups[1].Value);
+                    }
+
+                    if (matchElapsed.Success)
+                    {
+                        elapsedTimeMs += int.Parse(matchElapsed.Groups[1].Value);
+                    }
+                }
+            }
+
+            // Calculate custom cost metric
+            double cpuWeight = 0.5;
+            double ioWeight = 0.3;
+            double timeWeight = 0.2;
+
+            double queryCost = (cpuTimeMs * cpuWeight) + (logicalReads * ioWeight) + (elapsedTimeMs * timeWeight);
+
+            return queryCost;
         }
 
         /// <summary>
