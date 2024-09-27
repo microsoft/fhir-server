@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} for {Operation.Path} when processing patch delete operation. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
+                throw new InvalidOperationException($"{ex.Message} for {Operation.Path} when processing patch delete operation.", ex);
             }
 
             if (Target is not null)
