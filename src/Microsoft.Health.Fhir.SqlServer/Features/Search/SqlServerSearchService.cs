@@ -1321,7 +1321,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
                 catch (SqlException ex)
                 {
-                    logger.LogWarning("ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
+                    logger.LogWarning(ex, "ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
                 }
             }
 
@@ -1340,7 +1340,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
                 catch (SqlException ex)
                 {
-                    logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
+                    logger.LogWarning(ex, "ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
             }
         }
