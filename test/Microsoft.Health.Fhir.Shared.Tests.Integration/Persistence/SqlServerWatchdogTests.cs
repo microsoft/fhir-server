@@ -150,7 +150,7 @@ END
         public async Task RollTransactionForward()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("DELETE FROM dbo.Resource");
             ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");
 
             using var cts = new CancellationTokenSource();
@@ -186,7 +186,7 @@ END
                 Assert.Equal("Test", e.Message);
             }
 
-            Assert.Equal(1, GetCount("Resource")); // resource inserted
+            Assert.Equal(1, GetCount("ResourceTbl")); // resource inserted
             Assert.Equal(0, GetCount("NumberSearchParam")); // number is not inserted
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");

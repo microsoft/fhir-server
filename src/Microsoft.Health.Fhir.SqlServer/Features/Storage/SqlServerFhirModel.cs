@@ -403,20 +403,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlDbType = SqlDbType.Structured,
                     Value = collection,
                     Direction = ParameterDirection.Input,
-                    TypeName = "dbo.SearchParamTableType_1",
+                    TypeName = "dbo.SearchParamTableType_2",
                 };
-
-                if (_schemaInformation.Current >= (int)SchemaVersion.V52)
-                {
-                    tableValuedParameter = new SqlParameter
-                    {
-                        ParameterName = "searchParamStatuses",
-                        SqlDbType = SqlDbType.Structured,
-                        Value = collection,
-                        Direction = ParameterDirection.Input,
-                        TypeName = "dbo.SearchParamTableType_2",
-                    };
-                }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
                 sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });

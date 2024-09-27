@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -437,7 +438,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out bool isPartialEntry,
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
-                                    out byte[] rawResourceBytes,
+                                    out SqlBytes rawResourceSqlBytes,
+                                    out long? transactionId,
+                                    out int? offsetInFile,
                                     out bool isInvisible);
 
                                 if (isInvisible)
@@ -462,8 +465,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     rawResource = new Lazy<string>(() =>
                                     {
-                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                        var decompressedResource = SqlStoreClient<SqlServerSearchService>.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
 
                                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
@@ -649,7 +651,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out byte[] rawResourceBytes,
+                            out SqlBytes rawResourceSqlBytes,
+                            out long? transactionId,
+                            out int? offsetInFile,
                             out bool isInvisible);
 
                         if (isInvisible)
@@ -663,8 +667,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        var rawResource = SqlStoreClient<SqlServerSearchService>.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
@@ -836,7 +839,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out byte[] rawResourceBytes,
+            out SqlBytes rawResourceSqlBytes,
+            out long? transactionId,
+            out int? offsetInFile,
             out bool isInvisible)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
@@ -849,8 +854,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isPartialEntry = reader.Read(_isPartial, 7);
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
-            rawResourceBytes = reader.GetSqlBytes(10).Value;
-            isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+            rawResourceSqlBytes = reader.GetSqlBytes(10);
+            transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
+            offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
+            isInvisible = false;
+            if (rawResourceSqlBytes != null)
+            {
+                var rawResourceBytes = rawResourceSqlBytes.Value;
+                if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF)
+                {
+                    isInvisible = true;
+                }
+            }
         }
 
         [Conditional("DEBUG")]

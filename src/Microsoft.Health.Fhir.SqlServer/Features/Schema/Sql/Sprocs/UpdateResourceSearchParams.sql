@@ -30,15 +30,16 @@ BEGIN TRY
 
   -- Update the search parameter hash value in the main resource table
   UPDATE B
-    SET SearchParamHash = A.SearchParamHash
+    SET SearchParamHash = (SELECT SearchParamHash FROM @Resources A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
-    FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    WHERE B.IsHistory = 0
+    FROM dbo.Resource B 
+    WHERE EXISTS (SELECT * FROM @Resources A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+      AND B.IsHistory = 0
   SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
   DELETE FROM B FROM @Ids A JOIN dbo.ResourceWriteClaim B ON B.ResourceSurrogateId = A.ResourceSurrogateId
-  DELETE FROM B FROM @Ids A JOIN dbo.ReferenceSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+  DELETE FROM B FROM dbo.ReferenceSearchParam B WHERE EXISTS (SELECT * FROM @Ids A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
   DELETE FROM B FROM @Ids A JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.TokenText B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.StringSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
