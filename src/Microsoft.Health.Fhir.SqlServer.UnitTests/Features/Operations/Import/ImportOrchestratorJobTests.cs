@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return properties;
                 });
             TestQueueClient testQueueClient = new TestQueueClient();
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorInputData) }, 1, false, false, CancellationToken.None)).First();
+            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorInputData) }, 1, false, CancellationToken.None)).First();
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     throw new IntegrationDataStoreException("dummy", HttpStatusCode.Unauthorized);
                 });
             TestQueueClient testQueueClient = new TestQueueClient();
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
+            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, CancellationToken.None)).First();
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
