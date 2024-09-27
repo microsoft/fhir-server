@@ -22,40 +22,49 @@ BEGIN TRY
       SELECT B.ResourceTypeId
             ,B.ResourceId
             ,ResourceSurrogateId
-            ,B.Version
+            ,C.Version
             ,IsDeleted
             ,IsHistory
             ,RawResource
             ,IsRawResourceMetaSet
             ,SearchParamHash
+            ,TransactionId
+            ,OffsetInFile
         FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
-             JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+             JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+             JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = '' AND C.Version = A.Version
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     ELSE
       SELECT *
         FROM (SELECT B.ResourceTypeId
                     ,B.ResourceId
                     ,ResourceSurrogateId
-                    ,B.Version
+                    ,C.Version
                     ,IsDeleted
                     ,IsHistory
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
+                    ,TransactionId
+                    ,OffsetInFile
                 FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NOT NULL) A
-                     JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+                     JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                     JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = '' AND C.Version = A.Version
               UNION ALL
               SELECT B.ResourceTypeId
                     ,B.ResourceId
                     ,ResourceSurrogateId
-                    ,B.Version
+                    ,C.Version
                     ,IsDeleted
                     ,IsHistory
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
+                    ,TransactionId
+                    ,OffsetInFile
                 FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NULL) A
-                     JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                     JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                     JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_ResourceTypeId_INCLUDE_Version_IsDeleted_WHERE_IsHistory_0) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = ''
                 WHERE IsHistory = 0
              ) A
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
@@ -63,14 +72,17 @@ BEGIN TRY
     SELECT B.ResourceTypeId
           ,B.ResourceId
           ,ResourceSurrogateId
-          ,B.Version
+          ,C.Version
           ,IsDeleted
           ,IsHistory
           ,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
+          ,TransactionId
+          ,OffsetInFile
       FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
-           JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+           JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+           JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_ResourceTypeId_INCLUDE_Version_IsDeleted_WHERE_IsHistory_0) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = ''
       WHERE IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 

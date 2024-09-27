@@ -13,3 +13,12 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         CYCLE
         CACHE 1000000
 GO
+CREATE SEQUENCE dbo.ResourceIdIntMapSequence
+        AS int
+        START WITH 0
+        INCREMENT BY 1
+        MINVALUE 0
+        MAXVALUE 79999
+        CYCLE
+        CACHE 1000000
+GO
