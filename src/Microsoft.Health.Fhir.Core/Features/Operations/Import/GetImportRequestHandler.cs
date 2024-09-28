@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -24,15 +25,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class GetImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
-        private readonly IQueueClient _queueClient;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public GetImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService)
+        public GetImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
         {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
-            _queueClient = queueClient;
+            _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
         }
 
@@ -45,69 +46,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
-            if (coord == null || coord.Status == JobStatus.Archived)
-            {
-                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
-            }
-            else if (coord.Status == JobStatus.Created || coord.Status == JobStatus.Running)
+            var outcome = await _fhirOperationDataStore.GetImportJobByIdAsync(request.JobId.ToString(), cancellationToken);
+
+            // If orchestrator is still waiting to be processed or queuing child jobs, return accepted with no body.
+            if (outcome.OrchetratorJob.Status == JobStatus.Created || outcome.OrchetratorJob.Status == JobStatus.Running)
             {
                 return new GetImportResponse(HttpStatusCode.Accepted);
             }
-            else if (coord.Status == JobStatus.Cancelled)
+
+            if (outcome.Status == JobStatus.Cancelled)
             {
                 throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
             }
-            else if (coord.Status == JobStatus.Failed)
-            {
-                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result);
-                if (errorResult.HttpStatusCode == 0)
-                {
-                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
-                }
 
-                // hide error message for InternalServerError
-                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
-            }
-            else if (coord.Status == JobStatus.Completed)
-            {
-                var start = Stopwatch.StartNew();
-                var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
-                var results = GetProcessingResultAsync(jobs);
-                await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
-                var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
-                var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
-                var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-
-                if (cancelledJobsExist && !failedJobsExist)
-                {
-                    throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
-                }
-                else if (failedJobsExist)
-                {
-                    var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
-                    if (errorResult.HttpStatusCode == 0)
-                    {
-                        errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
-                    }
-
-                    // hide error message for InternalServerError
-                    var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
-                }
-                else // no failures here
-                {
-                    var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
-                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = results.Completed, Error = results.Failed };
-                    return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
-                }
-            }
-            else
+            if (outcome.OrchetratorJob.Status != JobStatus.Completed)
             {
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
             }
+
+            var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(outcome.OrchetratorJob.Result);
+            var results = GetProcessingResultAsync(outcome.ProcessingJobs);
+
+            var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = outcome.OrchetratorJob.CreateDate, Output = results.Completed, Error = results.Failed };
+            return new GetImportResponse(outcome.Status == JobStatus.Completed ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
 
             static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed) GetProcessingResultAsync(IList<JobInfo> jobs)
             {

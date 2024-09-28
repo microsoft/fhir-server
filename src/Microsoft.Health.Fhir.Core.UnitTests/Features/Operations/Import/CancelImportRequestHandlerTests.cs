@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
     {
         private const long JobId = 12345;
 
-        private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
+        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             var collection = new ServiceCollection();
             collection
                 .Add(sp => new CancelImportRequestHandler(
-                    _queueClient,
+                    _fhirOperationDataStore,
                     DisabledFhirAuthorizationService.Instance,
                     NullLogger<CancelImportRequestHandler>.Instance))
                 .Singleton()
@@ -55,60 +55,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             _mediator = new Mediator(provider);
         }
 
-        [Theory]
-        [InlineData(JobStatus.Completed)]
-        [InlineData(JobStatus.Cancelled)]
-        [InlineData(JobStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(JobStatus taskStatus)
-        {
-            OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));
-
-            Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
-        }
-
-        [Theory]
-        [InlineData(JobStatus.Created)]
-        [InlineData(JobStatus.Running)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(JobStatus jobStatus)
-        {
-            JobInfo jobInfo = await SetupAndExecuteCancelImportAsync(jobStatus, HttpStatusCode.Accepted);
-
-            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, jobInfo.GroupId, _cancellationToken);
-        }
-
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingWithNotExistJob_ThenNotFoundShouldBeReturned()
         {
-            _queueClient.CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new JobNotExistException("Task not exist."));
+            _fhirOperationDataStore.CancelOrchestratedJob(QueueType.Import, Arg.Any<string>(), _cancellationToken).Returns<Task>(_ => throw new JobNotExistException("Task not exist."));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(JobId, _cancellationToken));
-        }
-
-        private async Task<JobInfo> SetupAndExecuteCancelImportAsync(JobStatus jobStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
-        {
-            JobInfo jobInfo = SetupBulkImportJob(jobStatus, isCanceled);
-
-            CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(expectedStatusCode, response.StatusCode);
-
-            return jobInfo;
-        }
-
-        private JobInfo SetupBulkImportJob(JobStatus jobStatus, bool isCanceled)
-        {
-            var jobInfo = new JobInfo
-            {
-                Id = JobId,
-                GroupId = JobId,
-                Status = jobStatus,
-                Definition = string.Empty,
-                CancelRequested = isCanceled,
-            };
-
-            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), JobId, Arg.Any<bool>(), _cancellationToken).Returns(jobInfo);
-
-            return jobInfo;
         }
     }
 }

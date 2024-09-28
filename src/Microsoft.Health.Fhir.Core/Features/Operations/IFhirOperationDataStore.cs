@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -49,6 +51,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired export job.</returns>
         Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets an import job by id.
+        /// </summary>
+        /// <param name="id">The id of the job.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>An instance of the existing import job.</returns>
+        /// <exception cref="JobNotFoundException"> thrown when the specific <paramref name="id"/> is not found. </exception>
+        Task<(JobStatus? Status, JobInfo OrchetratorJob, List<JobInfo> ProcessingJobs)> GetImportJobByIdAsync(string id, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Cancels a job by id.
+        /// </summary>
+        /// <param name="queueType">x</param>
+        /// <param name="jobId">465</param>
+        /// <param name="cancellationToken">x4545</param>
+        /// <returns>4646x</returns>
+        Task CancelOrchestratedJob(QueueType queueType, string jobId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Commits a new reindex job record to the data store.
