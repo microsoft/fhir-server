@@ -22,12 +22,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ICollection<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
-        /// AcrTargetResourceUri to acquire AAD token for ACR access token since ACR is not an AAD resource. 
+        /// AcrTargetResourceUri to acquire AAD token for ACR access token since ACR is not an AAD resource.
         /// To enable Trusted Services scenarios, we must use the ACR-specific URI rather than the more generic ARM URI.
         /// https://dev.azure.com/msazure/AzureContainerRegistry/_wiki/wikis/ACR%20Specs/480000/TrustedServicesPatterns
         /// The value is "https://containerregistry.azure.net/" for AzureCloud and DogFood.
         /// </summary>
-        public string AcrTargetResourceUri { get; set; } = "https://containerregistry.azure.net/";
+        public Uri AcrTargetResourceUri { get; set; } = new Uri("https://containerregistry.azure.net/");
 
         /// <summary>
         /// Configuration for templates.
