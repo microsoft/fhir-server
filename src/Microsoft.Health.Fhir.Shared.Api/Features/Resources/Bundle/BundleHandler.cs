@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -860,28 +861,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return;
             }
 
+            // If the result is a successful, no need to log the outcome for potential troubleshooting.
+            if (SuccessfullStatusCodeToAvoidAdditionalLogging.Contains(entryComponent.Response.Status))
+            {
+                return;
+            }
+
             try
             {
-                // If the result is not a success, log the outcome for potential troubleshooting.
-                if (!SuccessfullStatusCodeToAvoidAdditionalLogging.Contains(entryComponent.Response.Status))
+                StringBuilder reason = new StringBuilder();
+                if (entryComponent.Response.Outcome is OperationOutcome operationOutcome && operationOutcome.Issue.Any())
                 {
-                    string reason = string.Empty;
-                    if (entryComponent.Response.Outcome is OperationOutcome operationOutcome)
+                    foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
                     {
-                        if (operationOutcome.Issue.Any())
-                        {
-                            OperationOutcome.IssueComponent issue = operationOutcome.Issue.First();
-
-                            reason = $"{issue.Severity} / {issue.Code} / {issue.Diagnostics}";
-                        }
+                        reason.AppendLine($"{issue.Severity} / {issue.Code} / {SanitizeString(issue.Diagnostics)}");
                     }
-
-                    _logger.LogInformation(
-                        "Throubleshoot Outcome {Index}: {HttpStatus}. Reason: {Reason}",
-                        index,
-                        entryComponent.Response.Status,
-                        reason);
                 }
+                else
+                {
+                    reason.Append("Reason is not defined.");
+                }
+
+                _logger.LogInformation(
+                    "Throubleshoot Outcome {Index}: {HttpStatus}. Reason: {Reason}",
+                    index,
+                    entryComponent.Response.Status,
+                    reason.ToString());
             }
             catch (Exception ex)
             {
@@ -930,6 +935,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 },
             };
+        }
+
+        private static string SanitizeString(string input)
+        {
+            return input.Replace(Environment.NewLine, string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
