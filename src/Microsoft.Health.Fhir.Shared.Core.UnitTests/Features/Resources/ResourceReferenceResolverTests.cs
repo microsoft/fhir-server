@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
         public ResourceReferenceResolverTests()
         {
-            _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
+            _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
         }
 
         [Fact]

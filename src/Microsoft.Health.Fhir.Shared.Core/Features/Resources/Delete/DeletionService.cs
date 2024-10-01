@@ -127,7 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     cancellationToken,
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
                     versionType: request.VersionType,
-                    onlyIds: true);
+                    onlyIds: true,
+                    logger: _logger);
             }
 
             long numDeleted = 0;
@@ -179,7 +180,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
                                 ct,
                                 request.VersionType,
-                                onlyIds: true);
+                                onlyIds: true,
+                                logger: _logger);
                         }
                     }
                     else

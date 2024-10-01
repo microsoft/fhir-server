@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Castle.Core.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -31,12 +30,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ILogger<TransactionBundleValidator> _logger = Substitute.For<ILogger<TransactionBundleValidator>>();
+        private readonly ILogger<ResourceReferenceResolver> _loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _idDictionary;
 
         public TransactionBundleValidatorTests()
         {
-            _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser()), _logger);
+            _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser(), _loggerResourceReferenceResolver), _logger);
             _idDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 

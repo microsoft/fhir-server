@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
-using Castle.Core.Logging;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -16,7 +15,6 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -114,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-            var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
+            var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
             _resourceIdProvider = new ResourceIdProvider();
 
             var auditLogger = Substitute.For<IAuditLogger>();
