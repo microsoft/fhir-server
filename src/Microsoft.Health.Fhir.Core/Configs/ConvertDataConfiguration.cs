@@ -30,10 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public Uri AcrTargetResourceUri { get; set; } = new Uri("https://containerregistry.azure.net/");
 
         /// <summary>
-        /// ArmResourceManagerId to aquire AAD token for ACR access token since ACR is not an AAD resource.
+        /// ArmResourceManagerId to acquire AAD token for ACR access token since ACR is not an AAD resource.
         /// The value is "https://management.azure.com/" for AzureCloud and DogFood.
         /// Could be changed to "https://management.usgovcloudapi.net/" for Azure Government and "https://management.chinacloudapi.cn/ " for Azure China.
         /// </summary>
+        [Obsolete("Use AcrTargetResourceUri instead")]
         public string ArmResourceManagerId { get; set; } = "https://management.azure.com/";
 
         /// <summary>
