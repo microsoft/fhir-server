@@ -939,7 +939,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static string SanitizeString(string input)
         {
-            return input.Replace(Environment.NewLine, string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+            return input
+                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("\r", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("\n", string.Empty, StringComparison.OrdinalIgnoreCase);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
