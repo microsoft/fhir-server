@@ -61,11 +61,10 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            var aadResourceUri = AcrTargetResourceUri;
             string aadToken;
             try
             {
-                aadToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(aadResourceUri, cancellationToken);
+                aadToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(AcrTargetResourceUri, cancellationToken);
             }
             catch (AccessTokenProviderException ex)
             {
