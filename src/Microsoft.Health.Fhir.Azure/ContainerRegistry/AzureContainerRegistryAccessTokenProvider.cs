@@ -33,6 +33,8 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         private const string ExchangeAcrRefreshTokenUrl = "oauth2/exchange";
         private const string GetAcrAccessTokenUrl = "oauth2/token";
 
+        private static readonly Uri AcrTargetResourceUri = new Uri("https://containerregistry.azure.net/");
+
         private readonly IAccessTokenProvider _aadTokenProvider;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
@@ -59,7 +61,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            var aadResourceUri = _convertDataConfiguration.AcrTargetResourceUri;
+            var aadResourceUri = AcrTargetResourceUri;
             string aadToken;
             try
             {
