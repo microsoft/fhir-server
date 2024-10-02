@@ -31,7 +31,18 @@ GO
 CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
 BEGIN
-  INSERT INTO dbo.ResourceCurrent
+  INSERT INTO dbo.RawResources
+      (
+          ResourceTypeId
+         ,ResourceSurrogateId
+         ,RawResource
+      )
+    SELECT ResourceTypeId
+          ,ResourceSurrogateId
+          ,RawResource
+      FROM Inserted
+
+  INSERT INTO dbo.ResourceCurrentTbl
       (
            ResourceTypeId
           ,ResourceSurrogateId
@@ -39,7 +50,7 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
@@ -50,14 +61,14 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
       FROM Inserted
       WHERE IsHistory = 0
 
-  INSERT INTO dbo.ResourceHistory
+  INSERT INTO dbo.ResourceHistoryTbl
       (
            ResourceTypeId
           ,ResourceSurrogateId
@@ -65,7 +76,7 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
@@ -77,7 +88,7 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
@@ -94,7 +105,7 @@ BEGIN
     UPDATE B
       SET SearchParamHash = A.SearchParamHash -- this is the only update we support
       FROM Inserted A
-           JOIN dbo.ResourceCurrent B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.ResourceCurrentTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
       WHERE A.IsHistory = 0
     
     RETURN
@@ -104,10 +115,10 @@ BEGIN
     RAISERROR('Generic updates are not supported via Resource view',18,127)
 
   DELETE FROM A
-    FROM dbo.ResourceCurrent A
+    FROM dbo.ResourceCurrentTbl A
     WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
 
-  INSERT INTO dbo.ResourceHistory
+  INSERT INTO dbo.ResourceHistoryTbl
       (
            ResourceTypeId
           ,ResourceSurrogateId
@@ -115,7 +126,7 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
@@ -127,7 +138,7 @@ BEGIN
           ,Version
           ,IsDeleted
           ,RequestMethod
-          ,RawResource
+          --,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
           ,TransactionId
@@ -140,11 +151,16 @@ CREATE TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
 AS
 BEGIN
   DELETE FROM A
-    FROM dbo.ResourceCurrent A
+    FROM dbo.ResourceCurrentTbl A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
 
   DELETE FROM A
-    FROM dbo.ResourceHistory A
+    FROM dbo.ResourceHistoryTbl A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
+
+  DELETE FROM A
+    FROM dbo.RawResources A
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+      AND NOT EXISTS (SELECT * FROM Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) 
 END
 GO
