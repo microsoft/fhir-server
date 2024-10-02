@@ -54,8 +54,10 @@ BEGIN TRY
        ,ResourceSurrogateId  bigint              NOT NULL
        ,ResourceIdInt        bigint              NOT NULL
        ,Version              int                 NOT NULL
+       ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
        ,IsDeleted            bit                 NOT NULL
        ,IsHistory            bit                 NOT NULL
+       ,KeepHistory          bit                 NOT NULL
        ,RawResource          varbinary(max)      NULL
        ,IsRawResourceMetaSet bit                 NOT NULL
        ,RequestMethod        varchar(10)         NULL
@@ -166,12 +168,39 @@ BEGIN TRY
   END
   
   INSERT INTO @ResourcesWithIds
-         (   ResourceTypeId,                           ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile )
-    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile
+         (   ResourceTypeId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile )
+    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile
       FROM @Resources A
            LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
            LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
+  --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Action='Insert',@Target='@ResourcesWithIds',@Rows=@@rowcount,@Start=@st
+
 -- Prepare id map for resources End ---------------------------------------------------------------------------
+END TRY
+BEGIN CATCH
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+
+  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%'
+  BEGIN
+    DELETE FROM @ResourcesWithIds
+    DELETE FROM @ReferenceSearchParamsWithIds
+    DELETE FROM @InputIds
+    DELETE FROM @RTs
+    DELETE FROM @InsertedIds
+    DELETE FROM @ExistingIds
+
+    GOTO RetryResourceIdIntMapInsert
+  END
+  ELSE
+    THROW
+END CATCH
+
+--EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Text='ResourceIdIntMap populated'
+
+BEGIN TRY
 
   DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
@@ -229,9 +258,9 @@ BEGIN TRY
     INSERT INTO @ResourceInfos
             (  ResourceTypeId,           SurrogateId,   Version,   KeepHistory, PreviousVersion,   PreviousSurrogateId )
       SELECT A.ResourceTypeId, A.ResourceSurrogateId, A.Version, A.KeepHistory,       B.Version, B.ResourceSurrogateId
-        FROM (SELECT TOP (@DummyTop) * FROM @Resources WHERE HasVersionToCompare = 1) A
-             LEFT OUTER JOIN dbo.Resource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
-               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
+        FROM (SELECT TOP (@DummyTop) * FROM @ResourcesWithIds WHERE HasVersionToCompare = 1) A
+             LEFT OUTER JOIN dbo.ResourceTbl B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
+               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <= PreviousVersion)

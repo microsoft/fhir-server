@@ -25,11 +25,14 @@ BEGIN TRY
         ,MatchedTransactionId = D.TransactionId
         ,MatchedOffsetInFile = D.OffsetInFile
         -- ResourceIndex allows to deal with more than one late arrival per resource 
-    FROM (SELECT TOP (@DummyTop) *, ResourceIndex = convert(int,row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) FROM @ResourceDateKeys) A
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version < 0 ORDER BY B.Version) M -- minus
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
+    FROM (SELECT TOP (@DummyTop) A.*, M.ResourceIdInt, ResourceIndex = convert(int,row_number() OVER (PARTITION BY A.ResourceTypeId, A.ResourceId ORDER BY ResourceSurrogateId DESC)) 
+            FROM @ResourceDateKeys A
+                 LEFT OUTER JOIN dbo.ResourceIdIntMap M WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON M.ResourceTypeId = A.ResourceTypeId AND M.ResourceId = A.ResourceId
+         ) A
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.ResourceTbl B WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.Version > 0 AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.ResourceTbl B WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.Version > 0 AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.ResourceTbl B WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.Version < 0 ORDER BY B.Version) M -- minus
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.ResourceTbl B WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
