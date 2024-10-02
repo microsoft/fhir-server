@@ -232,12 +232,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         denormalizedPredicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
                     }
 
-                    AppendHistoryClause(delimitedClause); // This helps to select correct physical table
-                    if (expression.SearchParamTableExpressions.Count == 0)
-                    {
-                        AppendDeletedClause(delimitedClause);
-                        AppendSearchParameterHashClause(delimitedClause);
-                    }
+                    AppendHistoryClause(delimitedClause, context.ResourceVersionTypes); // This does not hurt today, but will be neded with resource history separation
+
+                    AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
                 }
 
                 if (!searchOptions.CountOnly)
@@ -480,8 +477,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.ResourceCurrent.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(tableName)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
+                    .Append(" ON ").Append(VLatest.ResourceCurrent.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
+                    .Append(" AND ").Append(VLatest.ResourceCurrent.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
 
                 // once we have visited a table after the union all, the remained of the inner joins
                 // should be on T1 and Sid1
@@ -535,10 +532,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.ResourceCurrent.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.ResourceCurrent.ResourceSurrogateId, null).AppendLine(" AS Sid1") // SELECT and FROM can be on same line only for singe line statements
-                    .Append("FROM ").AppendLine(VLatest.Resource)
+                    .Append("FROM ").AppendLine(VLatest.ResourceCurrent)
                     .Append(_joinShift).Append("JOIN ").Append(cte)
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
+                    .Append(" ON ").Append(VLatest.ResourceCurrent.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1")
+                    .Append(" AND ").Append(VLatest.ResourceCurrent.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
@@ -692,8 +689,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 const string referenceSourceResourceTableAlias = "refSourceResource";
                 StringBuilder.Append(_joinShift).Append("JOIN ").Append(VLatest.ResourceCurrent).Append(' ').Append(referenceSourceResourceTableAlias)
-                    .Append(" ON ").Append(VLatest.ResourceCurrent.ResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceSourceResourceTableAlias)
-                    .Append(" AND ").Append(VLatest.ResourceCurrent.ResourceSurrogateId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceResourceTableAlias)
+                    .Append(" ON ").Append(VLatest.ResourceCurrent.ResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.ResourceCurrent.ResourceTypeId, referenceSourceResourceTableAlias)
+                    .Append(" AND ").Append(VLatest.ResourceCurrent.ResourceSurrogateId, referenceSourceTableAlias).Append(" = ").Append(VLatest.ResourceCurrent.ResourceSurrogateId, referenceSourceResourceTableAlias)
                     .Append(" AND ");
                 chainedExpression.ExpressionOnTarget.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(referenceSourceResourceTableAlias));
                 StringBuilder.AppendLine();
@@ -1299,7 +1296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (resourceVersionType.HasFlag(ResourceVersionType.Latest) && !resourceVersionType.HasFlag(ResourceVersionType.SoftDeleted))
             {
                 delimited.BeginDelimitedElement();
-                StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0 ");
+                StringBuilder.Append(VLatest.ResourceCurrent.IsDeleted, tableAlias).Append(" = 0 ");
             }
             else if (resourceVersionType.HasFlag(ResourceVersionType.SoftDeleted) && !resourceVersionType.HasFlag(ResourceVersionType.Latest))
             {
@@ -1318,7 +1315,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (resourceVersionType.HasFlag(ResourceVersionType.Latest) && !resourceVersionType.HasFlag(ResourceVersionType.History))
             {
                 delimited.BeginDelimitedElement();
-                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
+                StringBuilder.Append(VLatest.ResourceCurrent.IsHistory, tableAlias).Append(" = 0 ");
             }
             else if (resourceVersionType.HasFlag(ResourceVersionType.History) && !resourceVersionType.HasFlag(ResourceVersionType.Latest))
             {
