@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Client
     public class FhirClient : IFhirClient
     {
         private const string BundleProcessingLogicHeader = "x-bundle-processing-logic";
+        private const string ConditionalQueryProcessingLogicHeader = "x-conditionalquery-processing-logic";
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
@@ -322,7 +323,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, url);
+            using var message = new HttpRequestMessage(HttpMethod.Get, url.TrimStart('/'));
             message.Headers.Accept.Add(_mediaType);
 
             if (customHeader != null)
@@ -469,44 +470,49 @@ namespace Microsoft.Health.Fhir.Client
             return await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
+            if (checkSuccessStatus)
+            {
+                await EnsureSuccessStatusCodeAsync(response);
+            }
 
             return response;
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleOptions bundleOptions = default, CancellationToken cancellationToken = default)
         {
+            if (bundleOptions == null)
+            {
+                bundleOptions = FhirBundleOptions.Default;
+            }
+
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
                 Content = CreateStringContent(bundle),
             };
 
             message.Headers.Accept.Add(_mediaType);
-            message.Headers.Add(BundleProcessingLogicHeader, processingLogic.ToString());
 
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
-
-            await EnsureSuccessStatusCodeAsync(response);
-
-            return await CreateResponseAsync<Bundle>(response);
-        }
-
-        public async Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel, CancellationToken cancellationToken = default)
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
+            // Profile validation.
+            if (bundleOptions.ProfileValidation)
             {
-                Content = CreateStringContent(bundle),
-            };
-            message.Headers.Add(ProfileValidation, profileValidation.ToString());
-            message.Headers.Accept.Add(_mediaType);
-            message.Headers.Add(BundleProcessingLogicHeader, processingLogic.ToString());
+                message.Headers.Add(ProfileValidation, bundleOptions.ProfileValidation.ToString());
+            }
+
+            // Bundle processing logic (parallel or sequential).
+            message.Headers.Add(BundleProcessingLogicHeader, bundleOptions.BundleProcessingLogic.ToString());
+
+            // Conditional query processing logic.
+            if (bundleOptions.MaximizeConditionalQueryParallelism)
+            {
+                message.Headers.Add(ConditionalQueryProcessingLogicHeader, "parallel");
+            }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 

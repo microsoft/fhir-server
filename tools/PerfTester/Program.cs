@@ -45,6 +45,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
         private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool _writesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
+        private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
 
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient<SqlServerFhirDataStore> _store;
@@ -56,6 +57,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
+            DumpResourceIds();
+
             if (_callType == "GetDate" || _callType == "LogEvent")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")}");
@@ -63,9 +66,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 return;
             }
 
-            if (_callType == "HttpUpdate" || _callType == "HttpCreate")
+            if (_callType == "SingleId" || _callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
             {
-                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelHttpPuts();
                 return;
             }
@@ -83,8 +86,6 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
                 return;
             }
-
-            DumpResourceIds();
 
             var resourceIds = GetRandomIds();
             SwitchToResourceTable();
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
         private static void ExecuteParallelHttpPuts()
         {
-            var resourceIds = _callType == "HttpUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
+            var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
             var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
             var sw = Stopwatch.StartNew();
@@ -187,6 +188,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0L;
             var resources = 0;
             long sumLatency = 0;
+            var singleId = Guid.NewGuid().ToString();
             BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
@@ -195,17 +197,21 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 }
 
                 var callId = (int)Interlocked.Increment(ref calls) - 1;
-                if (_callType == "HttpUpdate" && callId >= resourceIds.Count)
+                if ((_callType == "HttpUpdate" || _callType == "BundleUpdate") && callId >= resourceIds.Count)
                 {
                     return;
                 }
 
-                var resourceIdInput = _callType == "HttpUpdate" ? resourceIds[callId].ResourceId : Guid.NewGuid().ToString();
+                var resourceIdInput = _callType == "SingleId"
+                                    ? singleId
+                                    : _callType == "HttpUpdate" || _callType == "BundleUpdate"
+                                          ? resourceIds[callId].ResourceId
+                                          : Guid.NewGuid().ToString();
 
                 var swLatency = Stopwatch.StartNew();
                 var json = lineItem.Item2.First();
                 var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
-                var status = PutResource(json, resourceType, resourceId);
+                var status = _callType == "BundleUpdate" ? PostBundle(json, resourceType, resourceId) : PutResource(json, resourceType, resourceId);
                 Interlocked.Increment(ref resources);
                 var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
                 Interlocked.Add(ref sumLatency, mcsec);
@@ -259,6 +265,18 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             Console.WriteLine($"{tableOrView} type=GetResourcesByTransactionIdAsync threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
+        private static int GetResorceIdsPerCall()
+        {
+            var resourceIdsPerCall = 1;
+            if (_callType.StartsWith("SearchByIds")) // set list of ids
+            {
+                var split = _callType.Split(':');
+                resourceIdsPerCall = int.Parse(split[1]);
+            }
+
+            return resourceIdsPerCall;
+        }
+
         private static void ExecuteParallelCalls(ReadOnlyList<(short ResourceTypeId, string ResourceId)> resourceIds)
         {
             var tableOrView = GetResourceObjectType();
@@ -267,56 +285,78 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0;
             var errors = 0;
             long sumLatency = 0;
-            BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, 1, (thread, resourceId) =>
+            var resourceIdsPerCall = GetResorceIdsPerCall();
+            for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                Interlocked.Increment(ref calls);
-                var swLatency = Stopwatch.StartNew();
-                if (_callType == "GetAsync")
+                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, resourceIdsPerCall, (thread, resourceIds) =>
                 {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), CancellationToken.None).Result.FirstOrDefault();
-                    if (first == null)
+                    Interlocked.Increment(ref calls);
+                    var swLatency = Stopwatch.StartNew();
+                    if (_callType == "GetAsync")
                     {
-                        Interlocked.Increment(ref errors);
-                    }
-
-                    if (first.ResourceId != id)
-                    {
-                        throw new ArgumentException("Incorrect resource returned");
-                    }
-                }
-                else if (_callType == "HardDeleteNoChangeCapture")
-                {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
-                }
-                else if (_callType == "HardDeleteWithChangeCapture")
-                {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
-
-                Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
-
-                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
-                {
-                    lock (swReport)
-                    {
-                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
+                        var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), true, CancellationToken.None).Result.FirstOrDefault();
+                        if (first == null)
                         {
-                            Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
-                            swReport.Restart();
+                            Interlocked.Increment(ref errors);
+                        }
+
+                        if (first.ResourceId != id)
+                        {
+                            throw new ArgumentException("Incorrect resource returned");
                         }
                     }
-                }
-            });
+                    else if (_callType.StartsWith("SearchByIds"))
+                    {
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId)?.ToList());
+                        if (status != "OK")
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
+                    }
+                    else if (_callType == "HttpGet")
+                    {
+                        var id = resourceIds.Item2.First().ResourceId;
+                        var status = GetResource(_nameFilter, id); // apply true translation to type name
+                        if (status != "OK")
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
+                    }
+                    else if (_callType == "HardDeleteNoChangeCapture")
+                    {
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
+                        _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
+                    }
+                    else if (_callType == "HardDeleteWithChangeCapture")
+                    {
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
+                        _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+
+                    Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
+
+                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                                swReport.Restart();
+                            }
+                        }
+                    }
+                });
+            }
+
             Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
@@ -395,7 +435,8 @@ END
             var container = GetContainer();
             var size = container.GetBlockBlobClient(_storageBlobName).GetProperties().Value.ContentLength;
             size -= 1000 * 10; // will get 10 ids in single seek. never go to the exact end, so there is always room for 10 ids from offset. designed for large data sets. 600M ids = 25GB.
-            Parallel.For(0, (_calls / 10) + 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
+            var ids = _calls * GetResorceIdsPerCall();
+            Parallel.For(0, (ids / 10) + 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
             {
                 var resourceIds = GetRandomIdsBySingleOffset(container, size);
                 lock (results)
@@ -407,7 +448,7 @@ END
                 }
             });
 
-            var output = results.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(_calls).ToList();
+            var output = results.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(ids).ToList();
             Console.WriteLine($"Selected random ids={output.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
             return output;
         }
@@ -650,6 +691,233 @@ END
             if (bad)
             {
                 Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static string GetBundle(string entry)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""batch"",""entry"":[");
+            builder.Append(entry);
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
+        private static string GetEntry(string jsonString, string resourceType, string resourceId)
+        {
+            var builder = new StringBuilder();
+            builder.Append('{')
+                   .Append(@"""fullUrl"":""").Append(resourceType).Append('/').Append(resourceId).Append('"')
+                   .Append(',').Append(@"""resource"":").Append(jsonString)
+                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
+                   .Append('}');
+            return builder.ToString();
+        }
+
+        private static string PostBundle(string jsonString, string resourceType, string resourceId)
+        {
+            var entry = GetEntry(jsonString, resourceType, resourceId);
+            var bundle = GetBundle(entry);
+            using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint);
+                bad = false;
+                try
+                {
+                    if (!_writesEnabled)
+                    {
+                        GetDate();
+                        status = "Skip";
+                        break;
+                    }
+
+                    var response = _httpClient.PostAsync(uri, content).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.Created:
+                        case HttpStatusCode.Conflict:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static string GetResources(string resourceType, System.Collections.Generic.IReadOnlyCollection<string> resourceIds)
+        {
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "?_id=" + string.Join(",", resourceIds)) + "&_count=1000";
+                bad = false;
+                try
+                {
+                    var response = _httpClient.GetAsync(uri).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed readind. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static string GetResource(string resourceType, string resourceId)
+        {
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId);
+                bad = false;
+                try
+                {
+                    var response = _httpClient.GetAsync(uri).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed reading ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
             }
 
             return status;

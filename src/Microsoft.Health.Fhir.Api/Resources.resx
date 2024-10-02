@@ -182,6 +182,9 @@
     <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
+  <data name="OperationNotSupported" xml:space="preserve">
+    <value>The requested operation is not supported.</value>
+  </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder="FHIR"}</comment>
@@ -227,8 +230,8 @@
     <value>The requested "_format" parameter is not supported.</value>
   </data>
   <data name="UnsupportedHeaderValue" xml:space="preserve">
-    <value>Value supplied for the "{0}" header is not supported.</value>
-    <comment>{0} is the header name.</comment>
+    <value>Value supplied, {0},  for the "{1}" header is not supported.</value>
+    <comment>{0] is the value, {1} is the header name.</comment>
   </data>
   <data name="OperationNotEnabled" xml:space="preserve">
     <value>The requested "{0}" operation is not enabled</value>
@@ -320,6 +323,9 @@
   <data name="ImportRequestNotValid" xml:space="preserve">
     <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
   </data>
+  <data name="ImportRequestDuplicateInputFiles" xml:space="preserve">
+    <value>Import request cannot have duplicate files. Found duplicates: {0}. </value>
+  </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>
     <comment>{0}: template collection reference</comment>
@@ -407,5 +413,17 @@
   <data name="BundleInvalidCombination" xml:space="preserve">
     <value>Invalid combination of processing logic and bundle type: {0} and {1}.</value>
     <comment>Error message when there is a invalid/unknown combination of a bundle type and a processing logic.</comment>
+  </data>
+  <data name="TypeFilterNotSupportedWithHistoryOrDeletedExport" xml:space="preserve">
+    <value>The request "_typeFilter" cannot be used with an export request with historical or soft deleted resources.</value>
+  </data>
+  <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
+    <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
+  </data>
+  <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
+    <value>Not able to create final result. Retry the operation.</value>
+  </data>
+  <data name="MissingInputParams" xml:space="preserve">
+    <value>inputParams not found, request body must be a valid Parameters resource.</value>
   </data>
 </root>

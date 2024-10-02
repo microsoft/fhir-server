@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 KnownResourceTypes.Organization,
                 KnownResourceTypes.Practitioner,
                 KnownResourceTypes.Medication,
+                KnownCompartmentTypes.Device,
             };
 
             var inExpression = Expression.In(FieldName.TokenCode, null, universalResourceTypes);

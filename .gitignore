@@ -292,3 +292,9 @@ install-aso/
 # Generated C# code
 *.Generated.cs
 *.Generated.*.cs
+
+# Azurite temporary files
+__*
+
+# For our Mac friends
+.DS_Store

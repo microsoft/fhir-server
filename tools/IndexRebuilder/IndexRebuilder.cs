@@ -76,7 +76,7 @@ namespace Microsoft.Health.Internal.IndexRebuilder
             return cancelInt;
         }
 
-        private IList<(string Table, IList<string> SqlCommands)> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
+        private List<(string Table, IList<string> SqlCommands)> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
         {
             var resultsDic = new Dictionary<string, List<string>>();
             var tablesWithPreservedOrder = new List<string>();

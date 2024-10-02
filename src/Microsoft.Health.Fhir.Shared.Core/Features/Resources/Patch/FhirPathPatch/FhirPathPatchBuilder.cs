@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
         /// </summary>
         /// <param name="resource">FHIR Resource.</param>
         /// <param name="parameters">Patch Parameters.</param>
-        public FhirPathPatchBuilder(Resource resource, Parameters parameters)
+        public FhirPathPatchBuilder(Resource resource, Hl7.Fhir.Model.Parameters parameters)
         : this(resource)
         {
             Build(parameters);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
         /// </summary>
         /// <param type="parameters" name="parameters">The parameters to build the chain of the builder.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Build(Parameters parameters)
+        public FhirPathPatchBuilder Build(Hl7.Fhir.Model.Parameters parameters)
         {
             foreach (var param in parameters.Parameter)
             {

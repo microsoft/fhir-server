@@ -15,11 +15,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
     [FhirType("EntryComponent")]
     public class RawBundleEntryComponent : Bundle.EntryComponent
     {
+        private readonly bool _isDeleted;
+
         public RawBundleEntryComponent(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             ResourceElement = new RawResourceElement(resourceWrapper);
+            _isDeleted = resourceWrapper.IsDeleted;
         }
 
         public RawResourceElement ResourceElement { get; set; }
@@ -32,6 +35,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
             }
 
             throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether or not the resource has been deleted.
+        /// </summary>
+        /// <returns>True if the resource is deleted.</returns>
+        /// <remarks>This instance method supersedes the extension method, Bundle.EntryComponent.IsDeleted().</remarks>
+        public bool IsDeleted()
+        {
+            return _isDeleted;
         }
     }
 }

@@ -35,7 +35,7 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts"
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
     )
 
     Set-StrictMode -Version Latest
@@ -60,7 +60,7 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName
+    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
@@ -69,16 +69,20 @@ function Add-AadTestAuthEnvironment {
 
     $retryCount = 0
     # Make sure key vault exists and is ready
-    while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
+    while (!(Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName )) {
         $retryCount += 1
 
-        if ($retryCount -gt 7) {
+        if ($retryCount -gt 20) {
             throw "Could not connect to the vault $KeyVaultName"
         }
 
-        sleep 10
+        Write-Warning "Waiting on keyvault. Retry $retryCount"
+        sleep 30
     }
 
+    $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
+
+    Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADUser -UserPrincipalName $azContext.Account.Id).Id
@@ -87,14 +91,28 @@ function Add-AadTestAuthEnvironment {
         Write-Host "Current context is service principal: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
     }
+    elseif ($azContext.Account.Type -eq "ClientAssertion") {
+        Write-Host "Current context is ClientAssertion: $($azContext.Account.Id)"
+        $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
+    }
     else {
         Write-Host "Current context is account of type '$($azContext.Account.Type)' with id of '$($azContext.Account.Id)"
         throw "Running as an unsupported account type. Please use either a 'User' or 'Service Principal' to run this command"
     }
 
+    # Check if the role assignment already exists
     if ($currentObjectId) {
-        Write-Host "Adding permission to keyvault for $currentObjectId"
-        Set-AzKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get,List,Set
+        $existingRoleAssignments = Get-AzRoleAssignment -ObjectId $currentObjectId -Scope $keyVaultResourceId
+        $roleExists = $existingRoleAssignments | Where-Object { $_.RoleDefinitionName -eq "Key Vault Secrets Officer" }
+
+        # Create the role assignment if it does not exist
+        if (-not $roleExists) {
+            Write-Host "Adding permission to keyvault for $currentObjectId"
+            New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId | Out-Null
+        }
+        else {
+            Write-Host "Role assignment already exists for $currentObjectId"
+        }
     }
 
     Write-Host "Ensuring API application exists"
@@ -111,14 +129,26 @@ function Add-AadTestAuthEnvironment {
     }
 
     Write-Host "Setting roles on API Application"
-    $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
+
+    # 1 - Setting up roles
+    if ($testAuthEnvironment.users.length -eq 0) {
+        # List of users can be empty, then rely only in the list of client applications
+        $appRoles = $testAuthEnvironment.clientApplications.roles | Select-Object -Unique
+    }
+    else {
+        $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
+    }    
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
-    Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $KeyVaultName
+    # 2 - Validating users
+    $environmentUsers = @()
+    if ($testAuthEnvironment.users.length -gt 0) {
+        Write-Host "Ensuring users and role assignments for API Application exist"
+        $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.users -KeyVaultName $KeyVaultName
+    }
 
+    # 3 - Validating client applications
     $environmentClientApplications = @()
-
     Write-Host "Ensuring client application exists"
     foreach ($clientApp in $testAuthEnvironment.clientApplications) {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id

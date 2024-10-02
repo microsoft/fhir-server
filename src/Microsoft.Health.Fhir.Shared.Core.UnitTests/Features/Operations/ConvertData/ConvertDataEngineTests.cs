@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using DotLiquid;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
+using Microsoft.Health.Fhir.Liquid.Converter.Processors;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -91,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenJsonConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
-            var request = GetJsonRequestWithDefaultTemplates();
+            var request = GetJsonRequestWithDefaultTemplates(treatDatesAsStrings: true);
             var response = await convertDataEngine.Process(request, CancellationToken.None);
 
             var setting = new ParserSettings()
@@ -105,6 +107,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.NotEmpty(patient.Id);
             Assert.Equal("Smith", patient.Name.First().Family);
             Assert.Equal("2001-01-10", patient.BirthDate);
+            Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
+        }
+
+        [Fact]
+        public async Task GivenJsonConvertDataRequest_WithTreatDatesAsStringDisabled_CorrectResultShouldReturn()
+        {
+            var expectedDate = "2023-07-28T01:59:23.388-05:00";
+            var convertDataEngine = GetDefaultEngine();
+            var request = GetJsonRequestWithDefaultTemplates();
+            var response = await convertDataEngine.Process(request, CancellationToken.None);
+
+            // We do not use the FhirJsonParser as the date returned when not treating dates as strings does not pass validation.
+            var node = System.Text.Json.Nodes.JsonNode.Parse(response.Resource);
+
+            Assert.NotEmpty(node!["id"].ToJsonString());
+            Assert.Equal("Smith", node!["name"][0]["family"].ToString());
+            Assert.Equal("2001-01-10", node!["birthDate"].ToString());
+
+            // Newtonsoft converts the provided date to a DateTime object in the local timezone. So we repeat that behavior here
+            Assert.Equal(DateTime.Parse(expectedDate).ToString("G", CultureInfo.InvariantCulture), node!["deceasedDateTime"].ToString());
         }
 
         [Fact]
@@ -330,19 +352,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(wrongTemplateCollection);
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            var convertEngine = new ConvertDataEngine(templateProviderFactory, Options.Create(_config), logger);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            var convertEngine = new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), logger, new NullLogger<JsonProcessor>());
 
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertEngine.Process(request, CancellationToken.None));
-            Assert.True(exception.InnerException is PostprocessException);
+            var fhirConverterException = exception.InnerException as FhirConverterException;
+            Assert.True(fhirConverterException is PostprocessException);
 
             logger
                 .Received()
-                .Log(LogLevel.Information, Arg.Any<string>());
+                .Log(LogLevel.Error, Arg.Is<string>(s => s.Equals($"Convert data failed. An exception of type {fhirConverterException.GetType()} occurred with error code - {fhirConverterException.FhirConverterErrorCode}. {fhirConverterException.StackTrace}")), Arg.Is<FhirConverterException>(e => e == null));
 
             logger
                 .DidNotReceive()
-                .Log(LogLevel.Information, Arg.Any<string>(), Arg.Is<PostprocessException>(e => e != null));
+                .Log(Arg.Any<LogLevel>(), Arg.Any<string>(), Arg.Is<FhirConverterException>(e => e != null));
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
@@ -355,9 +380,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Ccda), "CCD");
         }
 
-        private static ConvertDataRequest GetJsonRequestWithDefaultTemplates()
+        private static ConvertDataRequest GetJsonRequestWithDefaultTemplates(bool treatDatesAsStrings = false)
         {
-            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient", treatDatesAsStrings);
         }
 
         private static ConvertDataRequest GetFhirRequestWithDefaultTemplates()
@@ -432,11 +457,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
 
             return new ConvertDataEngine(
                 templateProviderFactory,
+                convertProcessorFactory,
                 convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
         }
 
         private IConvertDataEngine GetDefaultEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
@@ -447,7 +475,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            return new ConvertDataEngine(
+                templateProviderFactory,
+                convertProcessorFactory,
+                Options.Create(_config),
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
         }
 
         private IConvertDataEngine GetCustomEngine()
@@ -459,11 +494,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(containerRegistryTokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
 
             return new ConvertDataEngine(
                 templateProviderFactory,
+                convertProcessorFactory,
                 convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
         }
 
         private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
@@ -472,7 +510,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var templateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            return new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>(), new NullLogger<JsonProcessor>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.

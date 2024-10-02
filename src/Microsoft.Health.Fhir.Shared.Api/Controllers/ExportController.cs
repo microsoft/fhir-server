@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -30,8 +31,10 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Identity.Client;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -58,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ConvertDataConfiguration _convertConfig;
         private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private readonly FeatureConfiguration _features;
+        private readonly IFhirRuntimeConfiguration _fhirConfig;
 
         public ExportController(
             IMediator mediator,
@@ -66,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             IOptions<FeatureConfiguration> features,
-            ILogger<ExportController> logger)
+            IFhirRuntimeConfiguration fhirConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -74,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(artifactStoreConfig, nameof(artifactStoreConfig));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(fhirConfig, nameof(fhirConfig));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -83,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _convertConfig = operationsConfig.Value.ConvertData;
             _artifactStoreConfig = artifactStoreConfig.Value;
             _features = features.Value;
+            _fhirConfig = fhirConfig;
         }
 
         [HttpGet]
@@ -96,13 +101,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
+            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null,
+            [FromQuery(Name = KnownQueryParameterNames.IncludeAssociatedData)] string includeAssociatedData = null,
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
+            (bool includeHistory, bool includeDeleted) = ValidateAndParseIncludeAssociatedData(includeAssociatedData, typeFilter);
 
             return await SendExportRequest(
                 exportType: ExportJobType.All,
@@ -113,6 +121,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: isParallel,
+                includeHistory: includeHistory,
+                includeDeleted: includeDeleted,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -123,16 +134,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType(
+            string typeParameter,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
-            string typeParameter)
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
@@ -152,6 +164,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: false,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -162,17 +175,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceTypeById(
+            string typeParameter,
+            string idParameter,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
-            string typeParameter,
-            string idParameter)
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
@@ -193,6 +207,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: false,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -243,11 +258,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string groupId = null,
             string containerName = null,
             string formatName = null,
-            bool isParallel = true,
+            bool? isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
+            uint maxCount = 0,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
         {
+            bool isParallelWithDefault = GetExportParallelSetting(isParallel, _fhirConfig);
+
             CreateExportResponse response = await _mediator.ExportAsync(
                 _fhirRequestContextAccessor.RequestContext.Uri,
                 exportType,
@@ -258,7 +278,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId,
                 containerName,
                 formatName,
-                isParallel,
+                isParallelWithDefault,
+                includeDeleted,
+                includeHistory,
+                maxCount,
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
@@ -292,7 +315,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
                     CheckConfigCollectionReferenceIsValid(anonymizationConfigCollectionReference);
-                    CheckIfConfigCollectionReferencIsConfigured(anonymizationConfigCollectionReference);
+                    CheckIfConfigCollectionReferenceIsConfigured(anonymizationConfigCollectionReference);
                 }
             }
         }
@@ -326,7 +349,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckIfConfigCollectionReferencIsConfigured(string anonymizationConfigCollectionReference)
+        private void CheckIfConfigCollectionReferenceIsConfigured(string anonymizationConfigCollectionReference)
         {
             var ociImage = ImageInfo.CreateFromImageReference(anonymizationConfigCollectionReference);
 
@@ -343,6 +366,44 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new RequestNotValidException(string.Format(Resources.AnonymizationConfigCollectionNotConfigured, anonymizationConfigCollectionReference));
             }
+        }
+
+        private static (bool includeHistory, bool includeDeleted) ValidateAndParseIncludeAssociatedData(string associatedData, string typeFilter)
+        {
+            var associatedDataParams = (associatedData ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var possibleParams = new List<string> { "_history", "_deleted" };
+            var invalidParams = associatedDataParams.Where(param => !possibleParams.Contains(param)).ToList();
+
+            if (invalidParams.Any())
+            {
+                throw new RequestNotValidException(string.Format(Resources.InvalidExportAssociatedDataParameter, string.Join(',', invalidParams)));
+            }
+
+            bool includeHistory = associatedDataParams.Contains("_history");
+            bool includeDeleted = associatedDataParams.Contains("_deleted");
+
+            if ((includeHistory || includeDeleted) && !string.IsNullOrWhiteSpace(typeFilter))
+            {
+                throw new RequestNotValidException(string.Format(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport, "_history and _deleted"));
+            }
+
+            return (includeHistory, includeDeleted);
+        }
+
+        private static bool GetExportParallelSetting(bool? isParallelFromRequest, IFhirRuntimeConfiguration fhirConfig)
+        {
+            if (isParallelFromRequest is not null)
+            {
+                return isParallelFromRequest.Value;
+            }
+
+            // Api For FHIR defaults to non-parallel export.
+            if (fhirConfig is AzureApiForFhirRuntimeConfiguration)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

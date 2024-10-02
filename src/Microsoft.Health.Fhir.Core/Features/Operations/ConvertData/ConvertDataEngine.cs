@@ -17,32 +17,46 @@ using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
+using Microsoft.Health.Fhir.Liquid.Converter.Parsers;
 using Microsoft.Health.Fhir.Liquid.Converter.Processors;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class ConvertDataEngine : IConvertDataEngine
     {
         private readonly ITemplateProviderFactory _templateProviderFactory;
+        private readonly IConvertProcessorFactory _convertProcessorFactory;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
+        // An IFhirConvert with the 'old' behavior of converting datetime values into .Net DateTime objects
+        private readonly IFhirConverter _jsonParserDatesAsDateTimeObjects;
+
+        // Local cache of IFhirConverter instance.
         private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
 
         public ConvertDataEngine(
             ITemplateProviderFactory templateProviderFactory,
+            IConvertProcessorFactory convertProcessorFactory,
             IOptions<ConvertDataConfiguration> convertDataConfiguration,
-            ILogger<ConvertDataEngine> logger)
+            ILogger<ConvertDataEngine> logger,
+            ILogger<JsonProcessor> jsonProcessorLogger)
         {
-            EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
-            EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            _templateProviderFactory = EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
+            _convertProcessorFactory = EnsureArg.IsNotNull(convertProcessorFactory, nameof(convertProcessorFactory));
+            _convertDataConfiguration = EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration)).Value;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _templateProviderFactory = templateProviderFactory;
-            _convertDataConfiguration = convertDataConfiguration.Value;
-            _logger = logger;
+            var processorSetting = new ProcessorSettings
+            {
+                TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
+                EnableTelemetryLogger = _convertDataConfiguration.EnableTelemetryLogger,
+            };
 
-            InitializeConvertProcessors();
+            InitializeConvertProcessors(processorSetting);
+
+            _jsonParserDatesAsDateTimeObjects = new JsonProcessor(processorSetting, new JsonDataParser(new JsonSerializerSettings()), jsonProcessorLogger);
         }
 
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
@@ -75,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         private string GetConvertDataResult(ConvertDataRequest convertRequest, ITemplateProvider templateProvider, CancellationToken cancellationToken)
         {
-            var converter = _converterMap.GetValueOrDefault(convertRequest.InputDataType);
+            var converter = GetFhirConverter(convertRequest);
             if (converter == null)
             {
                 // This case should never happen.
@@ -95,15 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                     throw new ConvertDataTimeoutException(Core.Resources.ConvertDataOperationTimeout, convertException.InnerException);
                 }
 
-                if (convertException is PostprocessException)
-                {
-                    _logger.LogInformation($"An exception of type {convertException.GetType()} occurred during postprocessing. {convertException.StackTrace}", "Convert data failed.");
-                }
-                else
-                {
-                    _logger.LogInformation(convertException, "Convert data failed.");
-                }
-
+                _logger.LogError($"Convert data failed. An exception of type {convertException.GetType()} occurred with error code - {convertException.FhirConverterErrorCode}. {convertException.StackTrace}");
                 throw new ConvertDataFailedException(string.Format(Core.Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)
@@ -118,17 +124,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// which throws a Timeout Exception when render process elapsed longer than timeout threshold.
         /// Reference: https://github.com/dotliquid/dotliquid/blob/master/src/DotLiquid/Context.cs
         /// </summary>
-        private void InitializeConvertProcessors()
+        private void InitializeConvertProcessors(ProcessorSettings processorSetting)
         {
-            var processorSetting = new ProcessorSettings
-            {
-                TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
-            };
+            _converterMap.Add(DataType.Ccda, _convertProcessorFactory.GetProcessor(DataType.Ccda, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Fhir, _convertProcessorFactory.GetProcessor(DataType.Fhir, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Hl7v2, _convertProcessorFactory.GetProcessor(DataType.Hl7v2, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Json, _convertProcessorFactory.GetProcessor(DataType.Json, ConvertDataOutputFormat.Fhir, processorSetting));
+        }
 
-            _converterMap.Add(DataType.Hl7v2, new Hl7v2Processor(processorSetting));
-            _converterMap.Add(DataType.Ccda, new CcdaProcessor(processorSetting));
-            _converterMap.Add(DataType.Json, new JsonProcessor(processorSetting));
-            _converterMap.Add(DataType.Fhir, new FhirProcessor(processorSetting));
+        private IFhirConverter GetFhirConverter(ConvertDataRequest convertDataRequest)
+        {
+            if (convertDataRequest.InputDataType == DataType.Json && !convertDataRequest.JsonDeserializationTreatDatesAsStrings)
+            {
+                return _jsonParserDatesAsDateTimeObjects;
+            }
+
+            return _converterMap.GetValueOrDefault(convertDataRequest.InputDataType);
         }
     }
 }

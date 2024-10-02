@@ -13,13 +13,17 @@
     <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
     <None Remove="TestFiles\Normative\MemberMatch.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
   </ItemGroup>
   <ItemGroup>
-	<EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Flag.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Import-Observation.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
@@ -129,6 +133,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\Practitioner.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore.json" />

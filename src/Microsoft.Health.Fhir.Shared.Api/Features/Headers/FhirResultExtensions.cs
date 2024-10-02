@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Globalization;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
                 if (url.IsAbsoluteUri)
                 {
-                    fhirResult.Headers.Add(HeaderNames.Location, url.AbsoluteUri);
+                    fhirResult.Headers[HeaderNames.Location] = url.AbsoluteUri;
                 }
             }
 
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         {
             if (weakETag != null)
             {
-                fhirResult.Headers.Add(HeaderNames.ETag, weakETag.ToString());
+                fhirResult.Headers[HeaderNames.ETag] = weakETag.ToString();
             }
 
             return fhirResult;
@@ -56,10 +57,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         {
             IResourceElement resource = fhirResult.Result;
 
-            var lastUpdated = resource?.LastUpdated;
+            DateTimeOffset? lastUpdated = resource?.LastUpdated;
+
             if (lastUpdated != null)
             {
-                fhirResult.Headers.Add(HeaderNames.LastModified, lastUpdated.Value.ToString("r", CultureInfo.InvariantCulture));
+                fhirResult.Headers[HeaderNames.LastModified] = lastUpdated.Value.ToString("r", CultureInfo.InvariantCulture);
             }
 
             return fhirResult;

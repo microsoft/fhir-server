@@ -6,12 +6,15 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -37,22 +40,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
-            if (lastUpdatedIsNull)
-            {
-                resource.Meta.LastUpdated = Clock.UtcNow;
-            }
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
+            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
 
             var keepVersion = true;
-            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
             {
                 resource.Meta.VersionId = "1";
                 keepVersion = false;
             }
 
             var resourceElement = resource.ToResourceElement();
-            var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
 
-            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
+            var isDeleted = resourceElement.IsSoftDeleted();
+
+            if (isDeleted)
+            {
+                resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
+            }
+
+            var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)

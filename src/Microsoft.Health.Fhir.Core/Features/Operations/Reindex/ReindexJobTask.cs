@@ -19,6 +19,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -138,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // If no queries have been added to the progress then this is a new job
                 if (_reindexJobRecord.QueryList?.Count == 0)
                 {
+                    _logger.LogInformation("Picked up a new job");
                     if (!await TryPopulateNewJobFields(cancellationToken))
                     {
                         return;
@@ -197,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourceList = new HashSet<string>();
 
             // filter list of SearchParameters by the target resource types
-            if (_reindexJobRecord.TargetResourceTypes.Any())
+            if (_reindexJobRecord.TargetResourceTypes.Count > 0)
             {
                 foreach (var searchParam in possibleNotYetIndexedParams)
                 {
@@ -251,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!notYetIndexedParams.Any() && resourceList.Count == 0)
+            if (notYetIndexedParams.Count == 0 && resourceList.Count == 0)
             {
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
@@ -312,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, id: {Id}.", _reindexJobRecord.FailureCount);
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}.", _reindexJobRecord.FailureCount);
 
                 if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
@@ -332,6 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "tokenSource.CancelAsync(false) doesn't exist.")]
         private async Task ProcessJob()
         {
             var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -373,6 +376,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // if this query has a created task, cancel it
                         if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
                         {
+                            _logger.LogInformation("Stale Query that is being reset to queued. Status : {StaleQueryStatus}, StartResourceSurrogateId : {StaleQueryStartSurrogateId}, ResourceType : {StaleQueryResourceType}", staleQuery.Status, staleQuery.StartResourceSurrogateId, staleQuery.ResourceType);
                             try
                             {
                                 tokenSource.Cancel(false);
@@ -407,6 +411,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var finishedTasks = queryTasks.Where(t => t.IsCompleted).ToArray();
                     foreach (var finishedTask in finishedTasks)
                     {
+                        _logger.LogInformation("Details of Reindex Task completed LastModified : {LastModified} ResourceType: {ResourceType} StartResourceSurrogateId: {StartResourceSurrogateId}", finishedTask.Result.LastModified, finishedTask.Result.ResourceType, finishedTask.Result.StartResourceSurrogateId);
                         queryTasks.Remove(finishedTask);
                         queryCancellationTokens.Remove(await finishedTask);
                     }
@@ -426,9 +431,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _reindexJobRecord.Status = wrapper.JobRecord.Status;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // if something went wrong with fetching job status, we shouldn't fail process loop.
+                    _logger.LogWarning(ex, "Reindex error occurred while fetching job status.");
                 }
                 finally
                 {
@@ -450,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            Task.WaitAll(queryTasks.ToArray(), _cancellationToken);
+            await Task.WhenAll(queryTasks);
         }
 
         private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
@@ -541,6 +547,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         if (_reindexJobRecord.QueryList.Count > 10)
                         {
                             var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
+                            _logger.LogInformation("Reindex job that is being removed from  query list StartResourceSurrogateId: {StartResourceSurrogateId}, ResourceType: {ResourceType}, FailureCount: {FailureCount}, Status: {Status}", queryStatusToRemove?.StartResourceSurrogateId, queryStatusToRemove?.ResourceType, queryStatusToRemove?.FailureCount, queryStatusToRemove?.Status);
                             _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
                         }
 
@@ -795,7 +802,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <summary>
         /// Gets called from <see cref="CheckJobCompletionStatus"/> and only gets called when all queryList items are status of completed
         /// </summary>
-        /// <returns>Task<(int totalCount, List<string></returns>
+        /// <returns>Count and resource types.</returns>
         private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount()
         {
             int totalCount = 0;
@@ -879,6 +886,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
         private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
             var completeResourceList = new HashSet<string>(resourceTypes);

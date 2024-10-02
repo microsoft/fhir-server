@@ -59,6 +59,14 @@
             "max": "1",
             "documentation": "Whether to divide the job into multiple parallel operations. Defaults to true.",
             "type": "bool"
+        },
+        {
+            "name": "_maxCount",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The number of resources to load per request in an export job. Higher values can improve performance, but values that are too high can cause the process to run out of memory. A value of 0 uses the system default. Defaults to 0.",
+            "type": "uint"
         }
     ]
 }

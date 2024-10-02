@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
+        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// </summary>
+        public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
         /// The anonymization configuration
         /// </summary>
         /// <remarks>The anonymization configuration location and addition information. </remarks>
@@ -90,6 +95,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string IgnoreSearchParamHash = "_ignoreSearchParamHash";
 
+        public const string FeedRange = "_feedRange";
+
         /// <summary>
         /// Frequently used SearchParameters
         /// </summary>
@@ -98,5 +105,15 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string HardDelete = "_hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
+
+        /// <summary>
+        /// Used by $export as a comma-separated list of parameters instructing which initial data should be included.
+        /// </summary>
+        public const string IncludeAssociatedData = "includeAssociatedData";
+
+        /// <summary>
+        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// </summary>
+        public const string MaxCount = "_maxCount";
     }
 }

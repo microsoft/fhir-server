@@ -1,0 +1,64 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "extension": [
+                    {
+                        "url": "http://mycompany.org/fhir/StructureDefinition/resource-created-date",
+                        "valueDate": "2023-07-05"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "extension": [
+                    {
+                        "url": "http://mycompany.org/fhir/StructureDefinition/resource-created-date",
+                        "valueDate": "2023-06-13"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "extension": [
+                    {
+                        "url": "http://mycompany.org/fhir/StructureDefinition/resource-created-date",
+                        "valueDate": "2023-12-02"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "text": {
+                    "status": "additional",
+                    "div": "<div><p>Null example for resource-created-date to show without :missing</p></div>"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        }
+    ]
+}

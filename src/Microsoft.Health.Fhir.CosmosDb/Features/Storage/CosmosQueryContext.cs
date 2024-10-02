@@ -19,13 +19,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="sqlQuerySpec">The SQL query.</param>
         /// <param name="feedOptions">The options.</param>
         /// <param name="continuationToken">Continuation token</param>
-        public CosmosQueryContext(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions = null, string continuationToken = null)
+        /// <param name="feedRange">Feed range</param>
+        public CosmosQueryContext(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions = null, string continuationToken = null, FeedRange feedRange = null)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             SqlQuerySpec = sqlQuerySpec;
             FeedOptions = feedOptions;
             ContinuationToken = continuationToken;
+            FeedRange = feedRange;
         }
 
         /// <inheritdoc />
@@ -36,5 +38,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         /// <inheritdoc />
         public string ContinuationToken { get; }
+
+        /// <inheritdoc />
+        public FeedRange FeedRange { get; }
     }
 }

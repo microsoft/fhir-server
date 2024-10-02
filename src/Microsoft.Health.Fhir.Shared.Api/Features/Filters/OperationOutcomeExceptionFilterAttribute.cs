@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.Gone;
                         if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
                         {
-                            operationOutcomeResult.Headers.Add(HeaderNames.ETag, WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId).ToString());
+                            operationOutcomeResult.Headers[HeaderNames.ETag] = WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId).ToString();
                         }
 
                         break;
@@ -110,6 +110,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         }
 
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
+                        break;
+                    case IncompleteDeleteException:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
                         break;
                     case BadRequestException _:
                     case RequestNotValidException _:
@@ -167,7 +170,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         if (!string.IsNullOrEmpty(everythingOperationException.ContentLocationHeaderValue))
                         {
-                            operationOutcomeResult.Headers.Add(HeaderNames.ContentLocation, everythingOperationException.ContentLocationHeaderValue);
+                            operationOutcomeResult.Headers[HeaderNames.ContentLocation] = everythingOperationException.ContentLocationHeaderValue;
                         }
 
                         break;
@@ -234,6 +237,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             else if (context.Exception is System.OperationCanceledException)
             {
                 context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is System.OverflowException)
+            {
+                context.Result = CreateOperationOutcomeResult(context.Exception.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.TooLong, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception.InnerException != null)

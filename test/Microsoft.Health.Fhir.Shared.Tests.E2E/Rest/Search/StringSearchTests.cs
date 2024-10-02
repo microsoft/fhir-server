@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// </summary>
         [Fact(Skip= "Test does not succeed as expected. Bug assigned to Jared.")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async void GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
+        public async Task GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
         {
             HttpStatusCode httpStatusCode = HttpStatusCode.OK;
             string body = Samples.GetJson("MemberMatch");

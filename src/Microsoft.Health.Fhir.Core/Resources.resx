@@ -736,4 +736,12 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="PartialDeleteSuccess" xml:space="preserve">
+    <value>Deleted {0} versions of the target resource.</value>
+    <comment>{0} is replaced with the number of deleted versions of the resource.</comment>
+  </data>
+  <data name="ExportOutOfMemoryException" xml:space="preserve">
+    <value>The FHIR Server ran out of memory while processing an export job. Please use the _maxCount parameter when requesting an export job to reduce the number of resources exported at one time. The count used in this job was {0}</value>
+    <comment>'{0}' the value of _maxCount used for this export job.</comment>
+  </data>
 </root>

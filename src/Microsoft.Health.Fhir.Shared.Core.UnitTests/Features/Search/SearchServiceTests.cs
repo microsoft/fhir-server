@@ -5,13 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -104,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => SearchResult.Empty(_unsupportedQueryParameters);
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, null, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, null, null, CancellationToken.None));
         }
 
         [Fact]
@@ -121,9 +125,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
-            SearchResult searchResult = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, null, null, CancellationToken.None);
+            SearchResult searchResult = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, null, null, null, CancellationToken.None);
 
             Assert.Empty(searchResult.Results);
+        }
+
+        [Fact]
+        public async Task GivenAHistorySearch_WhenUsingSummaryCountOrCountZero_ThenSearchOptionsShouldBeProperlyFormed()
+        {
+            var expectedSearchOptions = new SearchOptions();
+
+            _searchOptionsFactory.Create(
+                Arg.Any<string>(),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(list => list.Any(item => item.Item1 == KnownQueryParameterNames.Summary && item.Item2 == SummaryType.Count.ToString())),
+                resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted).Returns(expectedSearchOptions);
+
+            var expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
+
+            _searchService.SearchImplementation = options =>
+            {
+                Assert.Same(expectedSearchOptions, options);
+
+                return expectedSearchResult;
+            };
+
+            var observation = new Observation { Id = "123" }.ToResourceElement();
+            _fhirDataStore.GetAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == observation.InstanceType && key.Id == observation.Id),
+                Arg.Any<CancellationToken>()).Returns(new ResourceWrapper(observation, _rawResourceFactory.Create(observation, keepMeta: true), _resourceRequest, false, null, null, null));
+
+            SearchResult allCountZero = await _searchService.SearchHistoryAsync(null, null, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult allSummaryCount = await _searchService.SearchHistoryAsync(null, null, null, null, null, null, "count", null, null, CancellationToken.None);
+            SearchResult allPatientCountZero = await _searchService.SearchHistoryAsync(observation.InstanceType, null, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult allPatientSummaryCount = await _searchService.SearchHistoryAsync(observation.InstanceType, null, null, null, null, null, "count", null, null, CancellationToken.None);
+            SearchResult singlePatientCountZero = await _searchService.SearchHistoryAsync(observation.InstanceType, observation.Id, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult singlePatientSummaryCount = await _searchService.SearchHistoryAsync(observation.InstanceType, observation.Id, null, null, null, null, "count", null, null, CancellationToken.None);
+            Assert.Same(expectedSearchResult, allCountZero);
+            Assert.Same(expectedSearchResult, allPatientCountZero);
+            Assert.Same(expectedSearchResult, allPatientCountZero);
+            Assert.Same(expectedSearchResult, allPatientSummaryCount);
+            Assert.Same(expectedSearchResult, singlePatientCountZero);
+            Assert.Same(expectedSearchResult, singlePatientSummaryCount);
         }
 
         [Theory]
@@ -155,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private class TestSearchService : SearchService
         {
             public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
-                : base(searchOptionsFactory, fhirDataStore)
+                : base(searchOptionsFactory, fhirDataStore, NullLogger.Instance)
             {
                 SearchImplementation = options => null;
             }
@@ -168,13 +210,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
 
             public override Task<SearchResult> SearchAsync(
-                SearchOptions searchOptions,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(SearchImplementation(searchOptions));
-            }
-
-            protected override Task<SearchResult> SearchHistoryInternalAsync(
                 SearchOptions searchOptions,
                 CancellationToken cancellationToken)
             {

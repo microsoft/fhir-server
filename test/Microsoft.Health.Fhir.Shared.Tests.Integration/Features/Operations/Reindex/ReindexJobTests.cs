@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private ReindexJobConfiguration _jobConfiguration;
         private CreateReindexRequestHandler _createReindexRequestHandler;
+        private ReindexSingleResourceRequestHandler _reindexSingleResourceRequestHandler;
         private ReindexUtilities _reindexUtilities;
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
@@ -137,6 +138,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                 optionsReindexConfig,
                                                 _searchParameterDefinitionManager,
                                                 _searchParameterOperations);
+
+            _reindexSingleResourceRequestHandler = new ReindexSingleResourceRequestHandler(
+                                                    DisabledFhirAuthorizationService.Instance,
+                                                    _scopedDataStore.Value,
+                                                    _searchIndexer,
+                                                    Deserializers.ResourceDeserializer,
+                                                    _searchParameterOperations,
+                                                    _searchParameterDefinitionManager);
 
             _reindexUtilities = new ReindexUtilities(
                 () => _scopedDataStore,
@@ -272,6 +281,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenSingleResourceReindex_ThenReindexJobShouldComplete()
+        {
+            string observationId = Guid.NewGuid().ToString();
+            UpsertOutcome observationSample = await CreateObservationResource(observationId);
+            var request = GetReindexRequest("POST", observationId, "Observation");
+
+            ReindexSingleResourceResponse response = await _reindexSingleResourceRequestHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(response);
+        }
+
+        private ReindexSingleResourceRequest GetReindexRequest(string httpMethod, string resourceId = null, string resourceType = null)
+        {
+            resourceId = resourceId ?? Guid.NewGuid().ToString();
+            resourceType = resourceType ?? "Observation";
+
+            return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
+        }
+
+        [Fact]
         public async Task GivenSearchParametersToReindex_ThenReindexJobShouldComplete()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -317,8 +346,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -437,8 +466,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -518,10 +547,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -586,8 +615,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -675,9 +704,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager2.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -735,7 +764,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -809,8 +838,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(samplePatient.Wrapper.ToResourceKey(), false, CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sampleObservation.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(samplePatient.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sampleObservation.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -820,7 +849,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CancellationTokenSource cancellationTokenSource,
             int delay = 1000)
         {
-            const int MaxNumberOfAttempts = 120;
+            const int MaxNumberOfAttempts = 240;
 
             Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
@@ -866,9 +895,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
 
             _reindexJobWorker = new ReindexJobWorker(
-                () => _scopedOperationDataStore,
+                _scopedOperationDataStore.CreateMockScopeProviderFromScoped(),
                 Options.Create(_jobConfiguration),
-                InitializeReindexJobTask,
+                InitializeReindexJobTask().CreateMockScopeProvider(),
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
@@ -907,7 +936,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return searchParam;
         }
 
-        private ReindexJobTask InitializeReindexJobTask()
+        private IReindexJobTask InitializeReindexJobTask()
         {
             return new ReindexJobTask(
                 () => _scopedOperationDataStore,
@@ -1004,7 +1033,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var mediator = new Mediator(services);
 
-            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockScopeProviderFromScoped(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

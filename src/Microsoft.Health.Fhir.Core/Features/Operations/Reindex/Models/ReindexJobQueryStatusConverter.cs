@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 {
     /// <summary>
-    /// JsonConverter to handle change <see cref="ReindexJobRecord.QueryList"> from ConcurrentBag to ConcurrentDictionary.
+    /// JsonConverter to handle change <see cref="ReindexJobRecord.QueryList" /> from ConcurrentBag to ConcurrentDictionary.
     /// For backcompat and fact what we don't need values in dictionary and only key uniqueness, we read and write it as array and not dictionary.
     /// </summary>
     public class ReindexJobQueryStatusConverter : JsonConverter<ConcurrentDictionary<ReindexJobQueryStatus, byte>>

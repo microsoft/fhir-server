@@ -3,20 +3,19 @@
 There are two modes of $import supported today-
 
 1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
-1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated and versionId from resource Meta (if present in resource JSON).
+1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated, or both lastUpdated and versionId, from resource Meta (if present in resource JSON). There are no performance differences between incremental and initial modes.  
 
 The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
 
 ## Prerequisites
 
 * NDJSON FHIR data to be imported.
-* Each NDJSON file should contain resources of only one type.
-* You may have multiple NDJSON files per resource type.
+* You may have multiple NDJSON files in single import.
 
 ### Current limitations
 
-* Conditional references in resources are not supported for initial mode import.
-* If multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
+* In initial mode, resources with conditional references will be logged as errors. In incremental mode, resources with conditional references will be loaded but references will not be resolved.
+* If multiple input resource records share the same resource ID, they are deduplicated. This logic choses one record for load, while the rest are logged as errors. In initial mode deduplication is performed on resource ID. In incremental mode, if lastUpdated is not provided, deduplication is the same as in the initial mode. If lastUpdated is provided, then resource records are deduplicated on a combination of resource ID and lastUpdated. The choice of record for load is not deterministic, as it is dependent on the processing order of records, and this order is not guaranteed by distributed parallel import design.
 
 ## How to use $import
 
@@ -105,13 +104,14 @@ Content-Type:application/fhir+json
 | Parameter Name      | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
-| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
-| type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) that match the input file. |
-|URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
+| type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**
@@ -126,18 +126,27 @@ Content-Type:application/fhir+json
         },
         {
             "name": "mode",
-            "valueString": "InitialLoad"
+            "valueString": "IncrementalLoad"
+        },
+        {
+            "name": "allowNegativeVersions",
+            "valueBoolean": true
         },
         {
             "name": "input",
             "part": [
                 {
-                    "name": "type",
-                    "valueString": "Patient"
-                },
+                    "name": "url",
+                    "valueUri": "https://example.blob.core.windows.net/resources/abc.ndjson"
+                }
+            ]
+        },
+        {
+            "name": "input",
+            "part": [
                 {
                     "name": "url",
-                    "valueUri": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+                    "valueUri": "https://example.blob.core.windows.net/resources/xyz.ndjson"
                 },
                 {
                     "name": "etag",
@@ -189,9 +198,14 @@ Below are some of the important fields in the response body:
     "request": "https://importperf.azurewebsites.net/$Import",
     "output": [
         {
-            "type": "Patient",
+            "type": "null",
             "count": 10000,
-            "inputUrl": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+            "inputUrl": "https://example.blob.core.windows.net/resources/abc.ndjson"
+        },
+        {
+            "type": "null",
+            "count": 100,
+            "inputUrl": "https://example.blob.core.windows.net/resources/xyz.ndjson"
         },
         {
             "type": "CarePlan",
@@ -304,11 +318,13 @@ Below are some errors you may encounter:
 ## Best practices and tips for increasing throughput
 
 1. Deploy the FHIR server, SQL Server database, and the storage account in the same region to avoid data movement across regions.
-1. The optimal NDJSON file size for import is 50MB-500MB. Combine smaller files of the same resource type together, and then split big files into smaller files.
+1. The optimal NDJSON file size for import is >=50MB (or >=20K resources, no upper limit). Consider combining smaller files together.
+1. For optimal performance total size of files in single import should be large (>=100GB or >=100M resources, no upper limit). 
+1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports.
+1. There is no limit on number of files in single import (tested with 50K files). Small number of files (up to single file) is preferred. 
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.
-    2. Ensure the number of tasks each machine is allowed to run is equal to or greater than number of v-cores on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
+    2. Ensure the number of tasks each machine is allowed to run is 2 per each v-core on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
     3. Save changes to the configuration and restart the app.
 1. Besides scaling out, you can also scale up each machine. For more information, see [Scale up an app](https://docs.microsoft.com/en-us/azure/app-service/manage-scale-up) to achieve this. In general, the P3V2 machine is enough for most of the scenarios.
-1. Create the configuration ```FhirServer__Operations__Import__DisableUniqueOptionalIndexesForImport```, and set it to `True` when your input size is larger than 10GB.

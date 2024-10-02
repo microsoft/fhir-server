@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +26,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.Parameters;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
@@ -55,20 +57,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
+        public async Task GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
             SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration);
 
-            Func<System.Threading.Tasks.Task> act = () => controller.GetSearchParametersStatus(default(CancellationToken));
+            Func<Task> act = () => controller.GetSearchParametersStatus(default(CancellationToken));
 
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(act);
         }
 
         [Fact]
-        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsTrue_ThenMediatorShouldBeCalled()
+        public async Task GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsTrue_ThenMediatorShouldBeCalled()
         {
             try
             {
@@ -82,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAnInvalidUpdateRequestBody_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
+        public async Task GivenAnInvalidUpdateRequestBody_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
         {
             var requestBody = CreateInvalidRequestBody();
 
@@ -92,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAValidSearchParameterStatusUpdateRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
+        public async Task GivenAValidSearchParameterStatusUpdateRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
@@ -105,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAValidSearchParameterStatusUpdateRequest_WhenServiceIsAzureApiForFhir_ThenRequestNotValidExceptionShouldBeReturned()
+        public async Task GivenAValidSearchParameterStatusUpdateRequest_WhenServiceIsAzureApiForFhir_ThenRequestNotValidExceptionShouldBeReturned()
         {
             AzureApiForFhirRuntimeConfiguration azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
             SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), azureApiForFhirConfiguration);
@@ -116,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalled()
+        public async Task GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalled()
         {
             var requestBody = CreateValidRequestBody();
 
@@ -132,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalledWithCorrectParameters()
+        public async Task GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalledWithCorrectParameters()
         {
             var requestBody = CreateValidRequestBody();
             try

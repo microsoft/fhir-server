@@ -3,11 +3,12 @@
 
 variables:
   buildConfiguration: 'Release' 
-  defaultBuildFramework: 'net7.0' 
+  publicDockerImagePlatforms: 'linux/amd64,linux/arm64'
+  testDockerImagePlatforms: 'linux/amd64'
+  defaultBuildFramework: 'net8.0' 
   azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
-  composeLocation: 'build/docker/docker-compose.yaml'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
@@ -26,7 +27,7 @@ variables:
   TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
   #-----------------------------------------------------------------------------------------
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
-  ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+  ConnectedServiceName: 'oss-service-connection-with-workloadidentity'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'

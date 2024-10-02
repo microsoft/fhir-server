@@ -10,8 +10,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -24,19 +27,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="fhirDataStore">The data store</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
+        /// <param name="logger">Logger</param>
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, ILogger logger)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchOptionsFactory = searchOptionsFactory;
             _fhirDataStore = fhirDataStore;
+            _logger = logger;
         }
 
         /// <inheritdoc />
@@ -44,9 +51,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -75,6 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime since,
             PartialDateTime before,
             int? count,
+            string summary,
             string continuationToken,
             string sort,
             CancellationToken cancellationToken,
@@ -87,6 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (since != null)
                 {
                     // _at and _since cannot be both specified.
+                    _logger.LogWarning("Invalid Search Operation (_since)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -97,7 +108,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (before != null)
                 {
-                    // _at and _since cannot be both specified.
+                    // _at and _before cannot be both specified.
+                    _logger.LogWarning("Invalid Search Operation (_before)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -114,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {
                     // you cannot specify a value for _before in the future
+                    _logger.LogWarning("Invalid Search Operation (_before in the future)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -155,11 +168,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
+            else if ((count.HasValue && count == 0) || (summary is not null && summary.Equals(SummaryType.Count.ToString(), StringComparison.OrdinalIgnoreCase)))
+            {
+                queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Summary, SummaryType.Count.ToString()));
+            }
 
             if (!string.IsNullOrEmpty(sort))
             {
                 if (!string.Equals(sort.TrimStart('-'), KnownQueryParameterNames.LastUpdated, StringComparison.Ordinal))
                 {
+                    _logger.LogWarning("Invalid Search Operation (SearchSortParameterNotSupported)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -174,9 +192,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted;
 
-            SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, historyResourceVersionTypes);
+
+            SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
 
             // If no results are returned from the _history search
             // determine if the resource actually exists or if the results were just filtered out.
@@ -187,6 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (resource == null)
                 {
+                    _logger.LogWarning("Resource Not Found (ResourceNotFoundById)");
                     throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, resourceType, resourceId));
                 }
             }
@@ -225,14 +246,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        /*
+        public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
+            string resourceType,
+            DateTime start,
+            DateTime end,
+            int rangeSize,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellation)
+        {
+            // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
+
+            // Add gt and lt lastUpdated query paraemters
+            // Get count on the search
+            // If count = rangeSize+-10% add time range to list
+            // Else if count > rangeSize+10% remove half the previous add
+            // Else if count < rangeSize-10% add half the previous cut back
+            // Once till time > end time, till = end and make it the last entry in the list
+            // Return list
+        }
+        */
+
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
-            SearchOptions searchOptions,
-            CancellationToken cancellationToken);
-
-        protected abstract Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
@@ -240,5 +283,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-     }
+    }
 }

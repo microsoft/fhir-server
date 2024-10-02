@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch move operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch move operation.", ex);
             }
 
             // Check indexes

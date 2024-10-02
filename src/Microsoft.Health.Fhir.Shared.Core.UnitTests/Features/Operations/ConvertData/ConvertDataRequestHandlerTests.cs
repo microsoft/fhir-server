@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
+using Microsoft.Health.Fhir.Liquid.Converter.Processors;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -85,6 +86,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.NotEmpty(patient.Id);
             Assert.Equal("Smith", patient.Name.First().Family);
             Assert.Equal("2001-01-10", patient.BirthDate);
+            Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
         }
 
         [Fact]
@@ -119,11 +121,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetDefaultTemplateProvider().Returns(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
 
             var convertDataEngine = new ConvertDataEngine(
                 templateProviderFactory,
+                convertProcessorFactory,
                 convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
 
             IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             authorizationService.CheckAccess(default, default).ReturnsForAnyArgs(DataActions.ConvertData);
@@ -146,7 +151,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleJsonRequest()
         {
-            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient", true);
         }
 
         private static ConvertDataRequest GetSampleFhirRequest()

@@ -14,13 +14,16 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -42,6 +45,8 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -182,12 +187,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             GetResourceHandler = new GetResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, DisabledFhirAuthorizationService.Instance, FhirRequestContextAccessor, SearchService);
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider);
+            var auditLogger = Substitute.For<IAuditLogger>();
+            var logger = Substitute.For<ILogger<DeletionService>>();
+
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
 
             var collection = new ServiceCollection();
 
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
@@ -216,6 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
             IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
+            LinkGenerator linkGenerator = Substitute.For<LinkGenerator>();
 
             var httpContext = new DefaultHttpContext();
             var actionContext = new ActionContext();
@@ -241,7 +250,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 urlHelperFactory,
                 httpContextAccessor,
                 actionContextAccessor,
-                bundleHttpContextAccessor);
+                bundleHttpContextAccessor,
+                linkGenerator);
         }
     }
 }

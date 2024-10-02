@@ -640,7 +640,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
-            Assert.Equal(25, results.Results.Count());
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
+            Assert.Equal(27, results.Results.Count());
         }
 
         [SkippableFact]

@@ -16,6 +16,5 @@
     <Compile Include="$(MSBuildThisFileDirectory)TestApplication.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestApplications.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestUser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TestUsers.cs" />
   </ItemGroup>
 </Project>

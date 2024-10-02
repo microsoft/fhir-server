@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -87,6 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            LogVersioningPolicyConfiguration();
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -131,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            IEnumerable<IProvideCapability> providers = providerFactory.Value;
+                            var providers = providerFactory.Value.ToList();
                             foreach (IProvideCapability provider in providers)
                             {
                                 Stopwatch watch = Stopwatch.StartNew();
@@ -205,11 +209,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
                         _logger.LogError("SystemConformanceProvider is already disposed. SystemConformanceProvider's BackgroudLoop is completed.");
+                        return;
                     }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
@@ -234,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     _builder.SyncProfiles();
                 }
 
-                await (_metadataSemaphore?.WaitAsync(CancellationToken.None) ?? Task.CompletedTask);
+                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
                 try
                 {
                     _metadata = null;
@@ -262,9 +267,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             _logger.LogInformation("SystemConformanceProvider: DisposeAsync invoked.");
 
+            if (_disposed)
+            {
+                _logger.LogInformation("SystemConformanceProvider: Instance is already disposed.");
+                return;
+            }
+
             if (!_cancellationTokenSource.IsCancellationRequested)
             {
-                _cancellationTokenSource.Cancel();
+                await _cancellationTokenSource.CancelAsync();
             }
 
             if (_rebuilder != null)
@@ -349,6 +360,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             finally
             {
                 _metadataSemaphore?.Release();
+            }
+        }
+
+        private void LogVersioningPolicyConfiguration()
+        {
+            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default) || _configuration.Value.Versioning.ResourceTypeOverrides.Any())
+            {
+                StringBuilder versioning = new StringBuilder();
+                versioning.AppendLine($"Default version is: '{_configuration.Value.Versioning.Default ?? "(default)"}'.");
+
+                foreach (var resourceTypeVersioning in _configuration.Value.Versioning.ResourceTypeOverrides)
+                {
+                    versioning.AppendLine($"'{resourceTypeVersioning.Key}' version overridden to: '{resourceTypeVersioning.Value}'.");
+                }
+
+                _logger.LogInformation(versioning.ToString());
             }
         }
     }

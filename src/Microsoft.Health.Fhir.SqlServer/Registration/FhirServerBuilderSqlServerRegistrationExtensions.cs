@@ -12,6 +12,7 @@ using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -50,6 +51,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.AddSingleton<IParameterStore, SqlServerParameterStore>();
 
             services.Add<SqlServerSearchParameterStatusDataStore>()
                 .Singleton()
@@ -129,11 +132,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<SqlQueueClient>()
                 .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlImportReindexer>()
-                .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
 

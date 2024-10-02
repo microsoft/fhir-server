@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
+        private const string _invisibleResource = " ";
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -52,12 +53,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, CancellationToken cancellationToken, bool includeInvisible = false)
         {
-            return await GetAsync(keys.Select(_ => new ResourceDateKey(getResourceTypeId(_.ResourceType), _.Id, 0, _.VersionId)).ToList(), decompress, getResourceTypeName, cancellationToken);
+            return await GetAsync(keys.Select(_ => new ResourceDateKey(getResourceTypeId(_.ResourceType), _.Id, 0, _.VersionId)).ToList(), decompress, getResourceTypeName, isReadOnly, cancellationToken, includeInvisible);
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             if (keys == null || keys.Count == 0)
             {
@@ -73,8 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    //// ignore nulls returned for invisible resources
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -85,15 +85,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
+
+                    throw;
                 }
             }
         }
 
-        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
         {
             if (keys == null || keys.Count == 0)
             {
-                return new List<ResourceDateKey>();
+                return new List<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>();
             }
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
@@ -103,23 +105,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _sqlRetryService,
                 (reader) =>
                 {
-                    var resourceTypeId = reader.Read(VLatest.ResourceCurrent.ResourceTypeId, 0);
-                    var resourceId = reader.Read(VLatest.ResourceCurrent.ResourceId, 1);
-                    var resourceSurrogateId = reader.Read(VLatest.ResourceCurrent.ResourceSurrogateId, 2);
-                    var version = reader.Read(VLatest.ResourceCurrent.Version, 3);
-                    return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
+                    var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
+                    var resourceId = reader.Read(table.ResourceId, 1);
+                    var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
+                    var version = reader.Read(table.Version, 3);
+                    string matchedVersion = null;
+                    RawResource matchedRawResource = null;
+                    if (reader.FieldCount > 4 && version == 0)
+                    {
+                        matchedVersion = reader.Read(table.Version, 4).ToString();
+                        matchedRawResource = new RawResource(ReadRawResource(reader, decompress, 5), FhirResourceFormat.Json, true);
+                    }
+
+                    return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedRawResource));
                 },
                 _logger,
                 cancellationToken);
             return resources;
         }
 
+        private static Lazy<string> ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index)
+        {
+            var rawResourceBytes = reader.GetSqlBytes(index).Value;
+            Lazy<string> rawResource;
+            if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
+            {
+                rawResource = new Lazy<string>(_invisibleResource);
+            }
+            else
+            {
+                rawResource = new Lazy<string>(() =>
+                {
+                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                    return decompress(rawResourceStream);
+                });
+            }
+
+            return rawResource;
+        }
+
         internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            //// ignore nulls returned for invisible resources
-            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
+            //// ignore invisible resources
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
         }
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
@@ -130,26 +160,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var version = reader.Read(VLatest.ResourceCurrent.Version, 3);
             var isDeleted = reader.Read(VLatest.ResourceCurrent.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.ResourceCurrent.IsHistory, 5);
-            var rawResourceBytes = reader.GetSqlBytes(6).Value;
+            var rawResource = ReadRawResource(reader, decompress, 6);
             var isRawResourceMetaSet = reader.Read(VLatest.ResourceCurrent.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.ResourceCurrent.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.ResourceCurrent.RequestMethod, 9) : null;
-
-            if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
-            {
-                return null;
-            }
-
-            using var rawResourceStream = new MemoryStream(rawResourceBytes);
-            var rawResource = decompress(rawResourceStream);
-
             return new ResourceWrapper(
                 resourceId,
                 version.ToString(CultureInfo.InvariantCulture),
                 getResourceTypeName(resourceTypeId),
                 new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                 readRequestMethod ? new ResourceRequest(requestMethod) : null,
-                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                resourceSurrogateId.ToLastUpdated(),
                 isDeleted,
                 searchIndices: null,
                 compartmentIndices: null,
@@ -208,8 +229,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
             }
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+            // Code below has retries on execution timeouts.
+            // Reason: GP databases are created with single data file. When database is heavily loaded by writes, single data file leads to long (up to several minutes) IO waits.
+            // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
+            var start = DateTime.UtcNow;
+            var timeoutRetries = 0;
+            while (true)
+            {
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                    return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+                }
+                catch (Exception e)
+                {
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
         }
 
         internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)

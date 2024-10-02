@@ -4,51 +4,49 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Utility;
+using Microsoft.Health.Fhir.Core.Logging;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    internal sealed class BundleHandlerStatistics
+    public sealed class BundleHandlerStatistics : BaseOperationStatistics
     {
-        private const string LoggingLabel = "bundleStatistics";
+        private const string LoggingCategory = "bundleStatistics";
 
-        private readonly Stopwatch _stopwatch;
+        private readonly ConcurrentBag<BundleHandlerStatisticEntry> _entries;
 
-        private readonly List<BundleHandlerStatisticEntry> _entries;
-
-        public BundleHandlerStatistics(BundleType? bundleType, BundleProcessingLogic processingLogic, int numberOfResources)
+        public BundleHandlerStatistics(
+            BundleType? bundleType,
+            BundleProcessingLogic bundleProcessingLogic,
+            bool optimizedQuerySet,
+            int numberOfResources)
+            : base()
         {
             BundleType = bundleType;
-            ProcessingLogic = processingLogic;
+            BundleProcessingLogic = bundleProcessingLogic;
+            OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
-            _entries = new List<BundleHandlerStatisticEntry>();
-
-            _stopwatch = new Stopwatch();
+            _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
         }
 
         public int NumberOfResources { get; }
 
+        public int RegisteredEntries => _entries.Count;
+
         public BundleType? BundleType { get; }
 
-        public BundleProcessingLogic ProcessingLogic { get; }
+        public BundleProcessingLogic BundleProcessingLogic { get; }
 
-        public void StartCollectingResults()
-        {
-            _stopwatch.Start();
-        }
+        public bool OptimizedQueryProcessing { get; }
 
-        public void StopCollectingResults()
-        {
-            _stopwatch.Stop();
-        }
+        public override string GetLoggingCategory() => LoggingCategory;
 
-        public string GetStatisticsAsJson()
+        public override string GetStatisticsAsJson()
         {
             var finalStatistics = _entries
                 .GroupBy(e => string.Concat(e.HttpVerb, " - ", e.HttpStatusCode))
@@ -56,16 +54,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 .ToArray();
 
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
-            int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 499);
-            int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 299);
+            int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 500);
+            int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
 
             JObject serializableEntity = JObject.FromObject(new
             {
-                label = LoggingLabel,
+                label = GetLoggingCategory(),
                 bundleType = BundleType.ToString(),
-                processingLogic = ProcessingLogic.ToString(),
+                processingLogic = BundleProcessingLogic.ToString(),
+                optimizedQuerySet = OptimizedQueryProcessing.ToString(),
                 numberOfResources = NumberOfResources,
-                executionTime = _stopwatch.ElapsedMilliseconds,
+                registeredEntries = RegisteredEntries,
+                executionTime = ElapsedMilliseconds,
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,

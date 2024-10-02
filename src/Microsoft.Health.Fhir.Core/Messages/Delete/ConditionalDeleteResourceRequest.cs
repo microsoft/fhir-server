@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
@@ -21,7 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             DeleteOperation deleteOperation,
             int? maxDeleteCount,
             BundleResourceContext bundleResourceContext = null,
-            bool deleteAll = false)
+            bool deleteAll = false,
+            ResourceVersionType versionType = ResourceVersionType.Latest,
+            bool allowPartialSuccess = false)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
@@ -29,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             DeleteOperation = deleteOperation;
             MaxDeleteCount = maxDeleteCount;
             DeleteAll = deleteAll;
+            VersionType = versionType;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -36,6 +41,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public int? MaxDeleteCount { get; }
 
         public bool DeleteAll { get; }
+
+        public ResourceVersionType VersionType { get; }
+
+        public bool AllowPartialSuccess { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

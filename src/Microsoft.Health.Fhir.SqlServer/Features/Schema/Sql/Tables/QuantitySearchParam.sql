@@ -7,11 +7,8 @@
     QuantityCodeId int NULL,
     SingleValue decimal(36,18) NULL,
     LowValue decimal(36,18) NOT NULL,
-    HighValue decimal(36,18) NOT NULL,
-    IsHistory bit NOT NULL
+    HighValue decimal(36,18) NOT NULL
 )
-
-ALTER TABLE dbo.QuantitySearchParam ADD CONSTRAINT DF_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )
 
@@ -22,55 +19,47 @@ ON dbo.QuantitySearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
+CREATE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
 ON dbo.QuantitySearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
-    SingleValue,
-    ResourceSurrogateId
+    SingleValue
 )
 INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0 AND SingleValue IS NOT NULL
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+WHERE SingleValue IS NOT NULL
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
+CREATE INDEX IX_SearchParamId_QuantityCodeId_LowValue_HighValue_INCLUDE_SystemId
 ON dbo.QuantitySearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
     LowValue,
-    HighValue,
-    ResourceSurrogateId
+    HighValue
 )
 INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
+CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
 ON dbo.QuantitySearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
     HighValue,
-    LowValue,
-    ResourceSurrogateId
+    LowValue
 )
 INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

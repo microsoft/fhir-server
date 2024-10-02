@@ -20,7 +20,7 @@ BEGIN TRY
 
   IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
     UPDATE dbo.Resource
-      SET IsHistory = 1
+      SET IsDeleted = 1
          ,RawResource = 0xF -- invisible value
          ,SearchParamHash = NULL
          ,HistoryTransactionId = @TransactionId

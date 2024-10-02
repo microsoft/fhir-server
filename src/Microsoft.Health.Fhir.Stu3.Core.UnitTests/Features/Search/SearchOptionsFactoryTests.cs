@@ -149,8 +149,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             Assert.NotNull(options.Expression);

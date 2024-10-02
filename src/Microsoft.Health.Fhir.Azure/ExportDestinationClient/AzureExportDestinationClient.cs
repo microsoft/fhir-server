@@ -16,6 +16,7 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private readonly Dictionary<string, List<string>> _dataBuffers = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, BlobStreamWriter> _blobStreams = new Dictionary<string, BlobStreamWriter>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -80,6 +81,19 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
                 throw new DestinationConnectionException(se.Message, (HttpStatusCode)se.Status);
             }
+            catch (AggregateException ex) when (ex.InnerExceptions[0] is RequestFailedException)
+            {
+                // The blob container has added a 6 attempt retry that creates an aggregate exception if it can't find the blob.
+                var innerException = (RequestFailedException)ex.InnerExceptions[0];
+                _logger.LogWarning(innerException, "{Error}", innerException.Message);
+                throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+            }
+            catch (AccessTokenProviderException ex)
+            {
+                // Can't get an access token, likely an error with setup
+                _logger.LogWarning(ex, "Failed to get access token for export");
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
+            }
         }
 
         public void WriteFilePart(string fileName, string data)
@@ -88,21 +102,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
-            List<string> dataBuffer;
-            if (!_dataBuffers.TryGetValue(fileName, out dataBuffer))
+            BlobStreamWriter blobStream;
+            if (!_blobStreams.TryGetValue(fileName, out blobStream))
             {
-                dataBuffer = new List<string>();
-                _dataBuffers.Add(fileName, dataBuffer);
+                blobStream = new BlobStreamWriter(_blobContainer.GetBlockBlobClient(fileName));
+                _blobStreams.Add(fileName, blobStream);
             }
 
-            dataBuffer.Add(data);
+            blobStream.StreamWriter.WriteLine(data);
         }
 
         public IDictionary<string, Uri> Commit()
         {
             Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
 
-            foreach (string fileName in _dataBuffers.Keys)
+            foreach (string fileName in _blobStreams.Keys)
             {
                 var blobUri = CommitFile(fileName);
                 blobUris.Add(fileName, blobUri);
@@ -113,23 +127,29 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public Uri CommitFile(string fileName)
         {
-            Uri uri;
-            if (_dataBuffers.ContainsKey(fileName))
+            Uri uri = null;
+            if (_blobStreams.ContainsKey(fileName))
             {
                 try
                 {
                     uri = CommitFileRetry(fileName);
                 }
-                catch (RequestFailedException)
+                catch (RequestFailedException ex)
                 {
+                    _logger.LogError(ex, "Failed to write export file");
                     try
                     {
                         uri = CommitFileRetry(fileName);
                     }
-                    catch (RequestFailedException ex)
+                    catch (ObjectDisposedException odEx)
                     {
-                        _logger.LogError(ex, "Failed to write export file");
+                        _logger.LogError(odEx, "Failed to write export file due to ObjectDisposedException");
                         throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
+                    }
+                    catch (RequestFailedException ex2)
+                    {
+                        _logger.LogError(ex2, "Failed to write export file on retry");
+                        throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
                     }
                 }
             }
@@ -138,24 +158,19 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ArgumentException($"Cannot commit non-existant file {fileName}");
             }
 
-            _dataBuffers.Remove(fileName);
+            _blobStreams[fileName].Dispose();
+            _blobStreams.Remove(fileName);
             return uri;
         }
 
         private Uri CommitFileRetry(string fileName)
         {
-            BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
+            var blobWriter = _blobStreams[fileName];
 
-            using var stream = blockBlob.OpenWrite(true);
-            using var writer = new StreamWriter(stream);
+            blobWriter.StreamWriter.Flush();
+            blobWriter.StreamWriter.Close();
 
-            var dataLines = _dataBuffers[fileName];
-            foreach (var line in dataLines)
-            {
-                writer.WriteLine(line);
-            }
-
-            return blockBlob.Uri;
+            return blobWriter.BlobUri;
         }
 
         private void CheckIfClientIsConnected()
@@ -163,6 +178,28 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             if (_blobClient == null || _blobContainer == null)
             {
                 throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        private class BlobStreamWriter : IDisposable
+        {
+            public BlobStreamWriter(BlockBlobClient blockBlob)
+            {
+                BlobUri = blockBlob.Uri;
+                Stream = blockBlob.OpenWrite(true);
+                StreamWriter = new StreamWriter(Stream);
+            }
+
+            public Stream Stream { get; private set;  }
+
+            public StreamWriter StreamWriter { get; private set; }
+
+            public Uri BlobUri { get; private set; }
+
+            public void Dispose()
+            {
+                StreamWriter?.Dispose();
+                Stream?.Dispose();
             }
         }
     }

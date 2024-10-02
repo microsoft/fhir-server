@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly TestFhirClient _client;
+        private const string Divcontent = "Generated Narrative with Details";
 
         public DeleteTests(HttpIntegrationTestFixture fixture)
         {
@@ -69,6 +71,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 return exception;
             }
+        }
+
+        [Fact]
+        public async Task GivenADeletedResource_WhenSearchWithNotModifier_ThenDeletedResourcesShouldNotBeReturned()
+        {
+            FhirResponse<Flag> response = await _client.CreateAsync(Samples.GetJsonSample("Flag").ToPoco<Flag>());
+
+            // Delete all Flag resources
+            await _client.DeleteAllResources(ResourceType.Flag, null);
+
+            var searchResults = await _client.SearchAsync("Flag?identifier:not=123");
+
+            Assert.True(searchResults.Resource.Entry == null || searchResults.Resource.Entry.Count == 0);
         }
 
         [Fact]
@@ -169,6 +184,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Update the observation.
             for (int i = 0; i < 50; i++)
             {
+                observation.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>{Divcontent + " Version:" + i.ToString()}</b></p></div>",
+                };
                 using FhirResponse<Observation> loopResponse = await _client.UpdateAsync(observation);
 
                 versionIds.Add(loopResponse.Resource.Meta.VersionId);

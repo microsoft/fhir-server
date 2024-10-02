@@ -25,8 +25,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorOperationTests
     {
-        private static readonly Random _rnd = new Random((int)DateTime.UtcNow.Ticks);
-
         [Theory]
         [InlineData(10)]
         [InlineData(100)]
@@ -56,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
                 if (i == (numberOfResources - 1))
                 {
-                    Task.WaitAll(tasksWaitingForMergeAsync);
+                    await Task.WhenAll(tasksWaitingForMergeAsync);
 
                     // After waiting for all tasks, the operation should be completed.
                     Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
@@ -75,7 +73,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [InlineData(10)]
         [InlineData(100)]
         [InlineData(500)]
-        public void GivenABatchOperation_WhenAppendedMultipleResourcesInParallelWaitForAllToBeAppended_ThenCompleteWithSuccess(int numberOfResources)
+        public async Task GivenABatchOperation_WhenAppendedMultipleResourcesInParallelWaitForAllToBeAppended_ThenCompleteWithSuccess(int numberOfResources)
         {
             // When all resources in a bundle are properly appended to the operation in parallel and the operation is committed, then the expected state is 'Completed'.
 
@@ -100,11 +98,60 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 tasksWaitingForMergeAsync.Add(appendedResourceTask);
             });
 
-            Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
+            await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
 
             Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
+        }
+
+        [Fact]
+        public async Task GivenABatchOperation_WhenJustOneResourcedIsAppendedAndAllOtherResourcesAreHanging_ThenCancelTheOperationAfter120SecondsToAvoidRunningForever()
+        {
+            // Long running test.
+
+            // A security exit clause in Bundle Orchestrator Operation throws a TaskCanceledException after 100 seconds waiting for resources.
+            // This security exit clause was added to avoid a looping running forever, while resources are not appended.
+
+            // In this test, to simulate that scenario, a bundle operation is created expecting 10 resources, but only one is appended.
+            // The other 9 resources are never appened, forcing the looping to keep waiting for the remaining resources.
+            // This security exit clause will be activated after 100 seconds, cancelling the operation.
+
+            const int numberOfResources = 10;
+            const int maxWaitingTimeInSeconds = 120;
+
+            BundleOrchestratorOperationType operationType = BundleOrchestratorOperationType.Batch;
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(maxWaitingTimeInSeconds));
+
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+
+            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(operationType, "POST", numberOfResources);
+
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(operationType, operation.Type);
+
+            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, new BundleResourceContext(GetHttpVerb(0), operation.Id));
+
+            Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
+            tasksWaitingForMergeAsync.Add(appendedResourceTask);
+
+            try
+            {
+                await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
+            }
+            catch (OperationCanceledException)
+            {
+                Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+                Assert.False(cts.IsCancellationRequested);
+
+                return;
+            }
+
+            // Test should fail if the security exit clause is removed or if it does not raise a TaskCanceledException.
+            Assert.Fail("There is a security exit clause in Bundle Orchestrator Operation. This clause was not activated: internal cancellation was supposed to happen before the external cancellation.");
         }
 
         [Theory]
@@ -112,7 +159,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [InlineData(100, BundleOrchestratorOperationType.Transaction)]
         [InlineData(500, BundleOrchestratorOperationType.Batch)]
         [InlineData(1000, BundleOrchestratorOperationType.Transaction)]
-        public void GivenABatchOperation_WhenAllResourcedAreReleasedInParallel_ThenCancelTheOperation(int numberOfResources, BundleOrchestratorOperationType operationType)
+        public async Task GivenABatchOperation_WhenAllResourcedAreReleasedInParallel_ThenCancelTheOperation(int numberOfResources, BundleOrchestratorOperationType operationType)
         {
             // When all resources in a bundle are released, then the operation state changes to 'Canceled'.
 
@@ -133,7 +180,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 tasksWaitingForMergeAsync.Add(releasedResourceTask);
             });
 
-            Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
+            await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
 
             Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
@@ -144,7 +191,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [InlineData(10)]
         [InlineData(100)]
         [InlineData(500)]
-        public void GivenABatchOperation_WhenHalfOfResourcesAreReleasedInParallel_ThenBatchShouldProcessTheRemainingResources(int numberOfResources)
+        public async Task GivenABatchOperation_WhenHalfOfResourcesAreReleasedInParallel_ThenBatchShouldProcessTheRemainingResources(int numberOfResources)
         {
             // This test validates the logic when half of resources in a bundle are released due an expected behavior, and the other half is expected to be processed.
 
@@ -178,7 +225,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 tasksWaitingForMergeAsync.Add(appendTask);
             });
 
-            Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
+            await Task.WhenAll(tasksWaitingForMergeAsync.ToArray());
 
             Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);

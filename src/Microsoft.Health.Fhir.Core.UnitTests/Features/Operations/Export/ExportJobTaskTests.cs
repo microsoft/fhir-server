@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
 using System.Threading;
@@ -16,10 +17,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
@@ -147,7 +150,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken,
-                true)
+                true,
+                ResourceVersionType.Latest)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool capturedSearch = false;
@@ -157,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken,
-                true)
+                true,
+                ResourceVersionType.Latest)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -321,40 +326,104 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType)
+        [Fact]
+        public async Task GivenAnExportJobWithHistoryAndSoftDeletes_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            bool capturedSearch = false;
+
+            var exportJobRecordIncludeHistory = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                includeHistory: true,
+                includeDeleted: true,
+                maximumNumberOfResourcesPerQuery: 1);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordIncludeHistory);
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient, includeHistory: true, includeDeleted: true)),
+                _cancellationToken,
+                true,
+                ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted)
+                .Returns(x =>
+                {
+                    capturedSearch = true;
+
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.True(capturedSearch);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType, bool includeHistory = false, bool includeDeleted = false)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[2]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[3]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"ge{since}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[2]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[3]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
+                arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[3]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[4]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"ge{since}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
+                arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
+        }
+
+#if NET8_0_OR_GREATER
+        [Fact]
+        public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
+        {
+            ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
+            exportJobConfiguration.StorageAccountConnection = "connection";
+            exportJobConfiguration.StorageAccountUri = string.Empty;
+
+            var exportJobRecordWithConnection = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
+
+            var exportJobTask = CreateExportJobTask(exportJobConfiguration);
+
+            _searchService.SearchAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    _cancellationToken,
+                    true)
+                .Returns(x => CreateSearchResult());
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
+            {
+                await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Fact]
@@ -369,7 +438,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -394,7 +463,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -404,6 +473,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(TaskCanceledException))]
+        public async Task GivenSearchCanceled_WhenExecuted_ThenJobStatusShouldBeUpdatedToCanceled(Type exceptionType)
+        {
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns<SearchResult>(x =>
+                {
+                    _cancellationTokenSource.Cancel();
+                    throw (Exception)Activator.CreateInstance(exceptionType);
+                });
+
+            // Canceled requests are saved without the origional cancellation token.
+            _fhirOperationDataStore.ClearSubstitute();
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
+            {
+                await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Canceled, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
+        }
+#endif
 
         [Fact]
         public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()
@@ -488,39 +590,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
-        {
-            ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
-            exportJobConfiguration.StorageAccountConnection = "connection";
-            exportJobConfiguration.StorageAccountUri = string.Empty;
-
-            var exportJobRecordWithConnection = CreateExportJobRecord(
-                exportJobType: ExportJobType.Patient,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
-
-            var exportJobTask = CreateExportJobTask(exportJobConfiguration);
-
-            _searchService.SearchAsync(
-               Arg.Any<string>(),
-               Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-               _cancellationToken,
-               true)
-               .Returns(x => CreateSearchResult());
-
-            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
-
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
-            {
-                await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-            }
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Fact]
@@ -834,7 +903,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -889,7 +960,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -1107,7 +1180,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
 
                     for (int index = 0; index < ids.Length; index++)
@@ -1175,7 +1250,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
 
                     countOfSearches++;
 
@@ -1250,7 +1327,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     if (countOfSearches == 1)
                     {
-                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                            .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                            .Select(x => x.Item2).First().Split(',');
                         continuationTokenIndex = 0;
                     }
                     else if (countOfSearches == 2)
@@ -1261,7 +1340,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2).Substring(2));
+                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(
+                            x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                                .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.ContinuationToken)
+                                .Select(x => x.Item2).First())[2..]);
                     }
 
                     return CreateSearchResult(
@@ -1342,7 +1424,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
+
                     SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
 
                     for (int index = 0; index < ids.Length; index++)
@@ -1363,7 +1448,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
-                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
+                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
 
@@ -2076,7 +2163,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             uint numberOfPagesPerCommit = 0,
             string containerName = null,
             string anonymizationConfigurationLocation = null,
-            string anonymizationConfigurationFileEtag = null)
+            string anonymizationConfigurationFileEtag = null,
+            bool includeHistory = false,
+            bool includeDeleted = false)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -2094,7 +2183,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit,
                 storageAccountContainerName: containerName,
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
-                anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag);
+                anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag,
+                includeHistory: includeHistory,
+                includeDeleted: includeDeleted);
         }
 
         private ExportJobTask CreateExportJobTask(
@@ -2148,7 +2239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 null));
         }
 
-        private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null)
+        private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null, CancellationToken? token = null)
         {
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
@@ -2163,7 +2254,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
 
-            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, token is null ? _cancellationToken : token.Value).Returns(x =>
             {
                 _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
 

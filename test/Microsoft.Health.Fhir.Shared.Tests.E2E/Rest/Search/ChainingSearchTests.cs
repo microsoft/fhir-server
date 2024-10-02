@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -268,17 +269,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
         {
-            string query = $"subject:Patient.gender=male";
+            string tag = Guid.NewGuid().ToString();
+            string query = $"_tag={tag}&subject:Patient.gender=male";
 
             Patient resource = Samples.GetJsonSample("Patient-f001").ToPoco<Patient>();
-
-            // Create 1001 patients that exceed the sub-query limit
-            foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(100))
+            resource.Meta = new Meta()
             {
-                await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
+                Tag = new List<Coding>()
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+
+            try
+            {
+                // Safe number to create resources without hitting any Cosmos DB limit, as the number of RUs assigned is low.
+                const int batchSize = 10;
+
+                // Create 1001 patients that exceed the sub-query limit
+                foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(batchSize))
+                {
+                    await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed while creating resources: {ex.Message}", ex);
             }
 
-            await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
+            try
+            {
+                await Client.SearchAsync(ResourceType.Observation, query);
+
+                Assert.Fail("Test was expected to fail with a FhirException.");
+            }
+            catch (FhirClientException fce)
+            {
+                const string expectedMessage = "Sub-queries in a chained expression cannot return more than 1000 results";
+
+                Assert.True(
+                    fce.Message.Contains(expectedMessage),
+                    $"FhirClientException received is different than the one expected: Message: {fce.Message}");
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Unexpected exception thrown: {ex}");
+            }
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -312,6 +348,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(2, bundle.Entry.Count);
         }
 #endif
+
+        [Fact]
+        public async Task GivenCountOnlyReverseChainSearchWithDeletedResource_WhenSearched_ThenCorrectCountIsReturned()
+        {
+            string query = $"_has:CareTeam:patient:_tag={Fixture.Tag}&_summary=count";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+            Assert.Equal(1, bundle.Total);
+        }
 
         public class ClassFixture : HttpIntegrationTestFixture
         {
@@ -395,6 +440,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanSnomedObservation, snomedCode);
                 SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, smithLoincObservation, loincCode);
                 TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanLoincObservation, loincCode);
+
+                var deletedPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { "Delete" }, Family = "Delete" } } })).Resource;
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{AdamsPatient.Id}") });
+                await TestFhirClient.CreateAsync(new CareTeam() { Meta = meta, Subject = new ResourceReference($"Patient/{deletedPatient.Id}") });
+
+                await TestFhirClient.DeleteAsync(deletedPatient);
 
                 var group = new Group
                 {

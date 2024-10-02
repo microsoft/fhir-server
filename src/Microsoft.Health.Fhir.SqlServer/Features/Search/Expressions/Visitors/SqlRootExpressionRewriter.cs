@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitChained(ChainedExpression expression, int context) => ConvertNonMultiary(expression);
 
-        private Expression ConvertNonMultiary(Expression expression)
+        private SqlRootExpression ConvertNonMultiary(Expression expression)
         {
             if (TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind))
             {

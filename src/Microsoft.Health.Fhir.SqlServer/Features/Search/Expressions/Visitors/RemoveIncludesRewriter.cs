@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// A rewriter that removes <see cref="IncludeExpression">s from an expression tree.
+    /// A rewriter that removes <see cref="IncludeExpression" />s from an expression tree.
     /// </summary>
     internal class RemoveIncludesRewriter : ExpressionRewriterWithInitialContext<object>
     {

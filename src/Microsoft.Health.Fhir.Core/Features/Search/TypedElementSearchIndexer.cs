@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // This allow to resolve %resource FhirPath to provided value.
             context.Resource = resource.Instance;
 
-            IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
+            var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType).ToList();
 
             foreach (SearchParameterInfo searchParameter in searchParameters)
             {
@@ -177,19 +177,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else
                 {
-                    /// <remarks>
-                    /// searchValue should not have a null value
-                    /// But if the input json is not in the correct format then we are parsing the body here <see cref="FhirJsonInputFormatter"/> and passing the initial validations for required fields here <see cref="ModelAttributeValidator"/>
-                    /// e.g. If the body contains Coverage.status = "", then after parsing Coverage.status = null & Coverage.statusElement = null, resulting into minimum cardinality error as expected
-                    /// If the body contains Coverage.status = , then after parsing Coverage.status = null & Coverage.statusElement = {value=null}, which passes the Firely validation and CodeToTokenSearchValueConverter returns null
-                    /// In this case return BadRequestException with a valid message instead of 500
-                    /// </remarks>
+                    // <remarks>
+                    // searchValue should not have a null value
+                    // But if the input json is not in the correct format then we are parsing the body here <see cref="FhirJsonInputFormatter"/> and passing the initial validations for required fields here <see cref="ModelAttributeValidator"/>
+                    // e.g. If the body contains Coverage.status = "", then after parsing Coverage.status = null &amp; Coverage.statusElement = null, resulting into minimum cardinality error as expected
+                    // If the body contains Coverage.status = , then after parsing Coverage.status = null &amp; Coverage.statusElement = {value=null}, which passes the Firely validation and CodeToTokenSearchValueConverter returns null
+                    // In this case return BadRequestException with a valid message instead of 500
+                    // </remarks>
                     throw new BadRequestException(string.Format(Core.Resources.ValueCannotBeNull, searchParameter.Expression));
                 }
             }
         }
 
-        private IReadOnlyList<ISearchValue> ExtractSearchValues(
+        private List<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
             SearchParamType? searchParameterType,
             IReadOnlyList<string> allowedReferenceResourceTypes,
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                IEnumerable<ISearchValue> searchValues = converter.ConvertTo(extractedValue);
+                var searchValues = converter.ConvertTo(extractedValue).ToList();
 
                 if (searchValues != null)
                 {

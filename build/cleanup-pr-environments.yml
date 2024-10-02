@@ -17,7 +17,7 @@ stages:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: 'Delete resource group'
       inputs:
         azureSubscription: $(ConnectedServiceName)

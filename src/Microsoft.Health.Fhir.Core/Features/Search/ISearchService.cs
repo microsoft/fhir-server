@@ -23,12 +23,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
+        /// <param name="resourceVersionTypes">Which version types (latest, soft-deleted, history) to include in search.</param>
+        /// <param name="onlyIds">Whether to return only the resource ids, not the full resource</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false);
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false);
 
         /// <summary>
         /// Searches the resources using the <paramref name="searchOptions"/>.
@@ -67,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime since,
             PartialDateTime before,
             int? count,
+            string summary,
             string continuationToken,
             string sort,
             CancellationToken cancellationToken,
@@ -101,5 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
     }
 }

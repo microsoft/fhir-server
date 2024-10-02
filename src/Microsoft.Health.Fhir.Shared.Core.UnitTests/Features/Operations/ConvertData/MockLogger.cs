@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     public abstract class MockLogger<T> : ILogger<T>
     {
         void ILogger.Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
-         => Log(logLevel, formatter(state, exception));
+         => Log(logLevel, formatter(state, exception), exception);
 
         public abstract void Log(LogLevel logLevel, object state, Exception exception = null);
 

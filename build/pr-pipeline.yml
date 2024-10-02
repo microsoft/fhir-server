@@ -19,24 +19,12 @@ stages:
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
-
         $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
         $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
 
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
-
-- stage: UpdateRandom
-  displayName: 'Determine Random String'
-  dependsOn: []
-  jobs:
-  - job: Password
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/update-sqlAdminPassword.yml
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -49,7 +37,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet7
+  - job: Windows_dotnet8
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -66,6 +54,19 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: 'net6.0'
+  
+ 
+- stage: BuildArtifacts
+  displayName: 'Build artifacts'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
@@ -78,11 +79,12 @@ stages:
         componentGovernance: true
         packageArtifacts: true
         packageIntegrationTests: true
-    
+
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
   - BuildUnitTests
+  - BuildArtifacts
   jobs:
   - job: Guardian
     pool:
@@ -100,6 +102,7 @@ stages:
   - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
+      buildPlatform: $(testDockerImagePlatforms)
 
 - stage: provisionEnvironment
   displayName: Provision Environment
@@ -111,7 +114,7 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)
@@ -125,6 +128,10 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+    - template: ./jobs/add-resource-group-role-assignments.yml
+      parameters:
+        azureSubscription: $(ConnectedServiceName)
+        resourceGroupName: $(ResourceGroupName)
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
@@ -151,8 +158,15 @@ stages:
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      adminType: 'userAssignedManagedIdentity'
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      deploymentName: "AppServer"
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)inttest
+      adminType: 'federatedServiceConnection'
+      deploymentName: "IntegrationTests"
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
@@ -191,7 +205,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
@@ -232,7 +245,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
@@ -273,7 +285,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
@@ -314,14 +325,13 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployStu3
   - deployStu3Sql
@@ -331,11 +341,12 @@ stages:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
       appServiceName: $(DeploymentEnvironmentName)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR4
   - deployR4Sql
@@ -345,11 +356,12 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4B
   displayName: 'Run R4B Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR4B
   - deployR4BSql
@@ -359,11 +371,12 @@ stages:
       version: R4B
       keyVaultName: $(DeploymentEnvironmentNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR5
   - deployR5Sql
@@ -373,6 +386,7 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'

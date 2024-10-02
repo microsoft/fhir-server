@@ -14,14 +14,13 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -71,8 +70,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
-            const int GCCollectTrigger = 150;
-
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
@@ -83,11 +80,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
-                    if (resourceExecutionContext.Index > 0 && resourceExecutionContext.Index % GCCollectTrigger == 0)
-                    {
-                        RunGarbageCollection();
-                    }
-
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                     // Creating new instances per record in the bundle, and making their access thread-safe.
@@ -125,6 +117,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         watch.Stop();
                         _logger.LogInformation("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
                     }
+                    catch (OperationCanceledException ex)
+                    {
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
+                        _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+                    }
                     catch (FhirTransactionFailedException ex)
                     {
                         _logger.LogError(ex, "BundleHandler - Failed transaction. Canceling Bundle Orchestrator Operation: {ErrorMessage}", ex.Message);
@@ -132,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // In case of a FhirTransactionFailedException, the entire Bundle Operation should be canceled.
                         bundleOperation.Cancel($"Failed transaction. Resource at position {resourceExecutionContext.Index}. Status Code: {ex.ResponseStatusCode}. Message: {ex.Message}");
 
-                        requestCancellationToken.Cancel();
+                        await requestCancellationToken.CancelAsync();
 
                         throw;
                     }
@@ -146,12 +143,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 try
                 {
-                    // The following Task.WaitAll should wait for all requests to finish.
+                    // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
-
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {
@@ -271,13 +267,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     HttpContext httpContext = request.HttpContext;
+
+                    // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
+                    httpContext.RequestAborted = cancellationToken;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))
                     {
                         resourceIdProvider.Create = () => persistedId;
                     }
 
-                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(
+                        request,
+                        httpVerb,
+                        httpContext,
+                        bundleOperation,
+                        originalFhirRequestContext,
+                        auditEventTypeMapping,
+                        requestContext,
+                        bundleHttpContextAccessor,
+                        logger);
 
                     // Attempt 1.
                     await request.Handler.Invoke(httpContext);
@@ -353,55 +361,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             responseBundle.Entry[entryIndex] = entryComponent;
 
             return entryComponent;
-        }
-
-        private static void SetupContexts(
-            RouteContext request,
-            HTTPVerb httpVerb,
-            HttpContext httpContext,
-            IBundleOrchestratorOperation bundleOperation,
-            IFhirRequestContext requestContext,
-            IAuditEventTypeMapping auditEventTypeMapping,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
-        {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-
-            var newFhirRequestContext = new FhirRequestContext(
-                httpContext.Request.Method,
-                httpContext.Request.GetDisplayUrl(),
-                requestContext.BaseUri.OriginalString,
-                requestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
-            {
-                Principal = requestContext.Principal,
-                ResourceType = resourceType?.ToString(),
-                AuditEventType = auditEventTypeMapping.GetAuditEventType(
-                    controllerName?.ToString(),
-                    actionName?.ToString()),
-                ExecutingBatchOrTransaction = true,
-            };
-
-            // Assign the current Bundle Orchestrator Operation ID as part of the downstream request.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
-
-            // Assign the HTTP Verb operation associated with the request as part of the downstream request.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
-
-            requestContextAccessor.RequestContext = newFhirRequestContext;
-
-            bundleHttpContextAccessor.HttpContext = httpContext;
-
-            foreach (string headerName in HeadersToAccumulate)
-            {
-                if (requestContext.ResponseHeaders.TryGetValue(headerName, out var values))
-                {
-                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
-                }
-            }
         }
 
         private struct ResourceExecutionContext

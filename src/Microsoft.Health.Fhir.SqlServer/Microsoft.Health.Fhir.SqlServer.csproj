@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <!-- Properties used by sql task to generate full script-->
+  <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
     <LatestSchemaVersion>84</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
@@ -31,7 +31,6 @@
       <MutableClassVersion Condition="'%(Filename)' == '$(LatestSchemaVersion)'">Latest</MutableClassVersion>
     </EmbeddedResource>
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\*.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\*.sql" Exclude="Features\Schema\Migrations\*.diff.sql;Features\Schema\Migrations\$(LatestSchemaVersion).sql">
@@ -76,7 +75,7 @@
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
-
+  
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>

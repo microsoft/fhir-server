@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ContinuationToken = other.ContinuationToken;
             CountOnly = other.CountOnly;
             IncludeTotal = other.IncludeTotal;
+            OnlyIds = other.OnlyIds;
 
             MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
             Expression = other.Expression;
@@ -48,12 +49,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             QueryHints = other.QueryHints;
+
+            ResourceVersionTypes = other.ResourceVersionTypes;
         }
 
         /// <summary>
         /// Gets the optional continuation token.
         /// </summary>
         public string ContinuationToken { get; internal set; }
+
+        /// <summary>
+        /// Gets the optional feed range used by CosmosDb queries.
+        /// </summary>
+        public string FeedRange { get; internal set; }
 
         /// <summary>
         /// Gets a value indicating whether to only return the record count
@@ -112,6 +120,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <summary>
+        /// Which version types (latest, soft-deleted, history) to include in search.
+        /// </summary>
+        public ResourceVersionType ResourceVersionTypes { get; internal set; } = ResourceVersionType.Latest;
+
+        /// <summary>
         /// Gets the search expression.
         /// </summary>
         public Expression Expression { get; internal set; }
@@ -127,6 +140,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
 
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
+
+        public bool OnlyIds { get; set; }
+
+        /// <summary>
+        /// Flag for async operations that want to return a large number of results.
+        /// </summary>
+        public bool IsLargeAsyncOperation { get; internal set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -38,6 +39,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Schema)]
     public class SqlServerSchemaUpgradeTests
@@ -49,11 +51,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
+            var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
             SqlServerFhirStorageTestHelper testHelper1 = null;
             SqlServerFhirStorageTestHelper testHelper2 = null;
@@ -90,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // The schema upgrade scripts starting from v7 were made idempotent.
                 if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
                 {
-                    var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot_Diff");
 
                     SqlServerFhirStorageTestHelper testHelper = null;
                     SchemaUpgradeRunner upgradeRunner;
@@ -118,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
             var searchService = Substitute.For<ISearchService>();
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.MinForUpgrade, maxSchemaVersion);
@@ -129,8 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
-            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(config, sqlRetryLogicBaseProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                () => defaultSqlConnectionWrapperFactory.CreateMockScope(),
+                defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
@@ -169,11 +170,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
             Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionStringProviderFunc);
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
@@ -288,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
+                    var objectsToSkip = new[] { "GetResourceSearchParamStats", "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
                     objectsToSkip.Add("PartitionFunction_ResourceChangeData_Timestamp"); // definition is not predictable as it has start time component
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
@@ -334,28 +333,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private string Normalize(string text)
         {
+            // normalize newlines
+            text = text.Replace("\r\n", "\n").Replace("\r", "\n");
+
             // remove inline comments
-            while (text.IndexOf("--") != -1)
+            while (text.Contains("--"))
             {
                 var indexStart = text.IndexOf("--");
-                var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
+                var indexEnd = text.IndexOf("\n", indexStart);
+
                 if (indexEnd == -1)
                 {
-                    indexEnd = text.IndexOf('\r', indexStart);
-                    if (indexEnd == -1)
-                    {
-                        break;
-                    }
+                    text = text.Substring(0, indexStart);
                 }
-
-                text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
+                else
+                {
+                    text = text.Substring(0, indexStart) + text.Substring(indexEnd + 1);
+                }
             }
 
             return text.ToLowerInvariant()
-                       .Replace(Environment.NewLine, " ")
-                       .Replace("\r", " ")
-                       .Replace("\t", " ")
-                       .Replace(";", " ")
+                       .Replace("\n", string.Empty)
+                       .Replace("\r", string.Empty)
+                       .Replace("\t", string.Empty)
+                       .Replace(";", string.Empty)
                        .Replace(" output,", " out,")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")

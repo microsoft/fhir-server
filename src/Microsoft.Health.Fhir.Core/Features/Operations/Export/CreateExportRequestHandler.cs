@@ -5,23 +5,30 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -35,25 +42,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ISearchOptionsFactory _searchOptionsFactory;
+        private readonly ILogger<CreateExportRequestHandler> _logger;
+        private readonly bool _includeValidateTypeFiltersValidationDetails;
 
         public CreateExportRequestHandler(
             IClaimsExtractor claimsExtractor,
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            ISearchOptionsFactory searchOptionsFactory,
+            ILogger<CreateExportRequestHandler> logger,
+            bool includeValidateTypeFiltersValidationDetails = false)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _contextAccessor = fhirRequestContextAccessor;
+            _searchOptionsFactory = searchOptionsFactory;
+            _logger = logger;
+            _includeValidateTypeFiltersValidationDetails = includeValidateTypeFiltersValidationDetails;
         }
 
         public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
@@ -72,34 +90,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
             var filters = ParseFilter(request.Filters);
+            ValidateTypeFilters(filters);
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
+            uint maxCount = request.MaxCount > 0 ? request.MaxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery;
+
             var jobRecord = new ExportJobRecord(
-                request.RequestUri,
-                request.RequestType,
-                formatConfiguration.Format,
-                request.ResourceType,
-                filters,
-                "N/A",
-                _exportJobConfiguration.RollingFileSizeInMB,
-                requestorClaims,
-                request.Since,
-                request.Till,
-                null,
-                null,
-                null,
-                null,
-                request.GroupId,
-                storageAccountConnectionHash,
-                _exportJobConfiguration.StorageAccountUri,
-                request.AnonymizationConfigurationCollectionReference,
-                request.AnonymizationConfigurationLocation,
-                request.AnonymizationConfigurationFileETag,
-                _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                _exportJobConfiguration.NumberOfPagesPerCommit,
-                request.ContainerName,
-                request.IsParallel,
+                requestUri: request.RequestUri,
+                exportType: request.RequestType,
+                exportFormat: formatConfiguration.Format,
+                resourceType: request.ResourceType,
+                filters: filters,
+                hash: "N/A",
+                rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,
+                requestorClaims: requestorClaims,
+                since: request.Since,
+                till: request.Till,
+                groupId: request.GroupId,
+                storageAccountConnectionHash: storageAccountConnectionHash,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                anonymizationConfigurationCollectionReference: request.AnonymizationConfigurationCollectionReference,
+                anonymizationConfigurationLocation: request.AnonymizationConfigurationLocation,
+                anonymizationConfigurationFileETag: request.AnonymizationConfigurationFileETag,
+                maximumNumberOfResourcesPerQuery: maxCount > 0 ? maxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+                storageAccountContainerName: request.ContainerName,
+                isParallel: request.IsParallel,
+                includeHistory: request.IncludeHistory,
+                includeDeleted: request.IncludeDeleted,
                 smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
@@ -112,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// </summary>
         /// <param name="filterString">The _typeFilter parameter input.</param>
         /// <returns>A list of <see cref="ExportJobFilter"/></returns>
-        private static IList<ExportJobFilter> ParseFilter(string filterString)
+        private static List<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
 
@@ -121,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var filterArray = filterString.Split(",");
                 foreach (string filter in filterArray)
                 {
-                    var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+                    var parameterIndex = filter.IndexOf('?', StringComparison.Ordinal);
 
                     if (parameterIndex < 0 || parameterIndex == filter.Length - 1)
                     {
@@ -178,6 +197,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             };
 
             return formatConfiguration;
+        }
+
+        private void ValidateTypeFilters(IList<ExportJobFilter> filters)
+        {
+            if (!_contextAccessor.GetIsStrictHandlingEnabled())
+            {
+                _logger.LogInformation("Validation skipped due to strict handling disabled.");
+                return;
+            }
+
+            if (filters == null || filters.Count == 0)
+            {
+                _logger.LogInformation("No type filters to validate.");
+                return;
+            }
+
+            var errors = new List<string[]>();
+            foreach (var filter in filters)
+            {
+                if (filter.Parameters == null || filter.Parameters.Count == 0)
+                {
+                    continue;
+                }
+
+                var searchOptions = _searchOptionsFactory.Create(
+                    filter.ResourceType,
+                    new ReadOnlyCollection<Tuple<string, string>>(filter.Parameters));
+                foreach (var parameter in searchOptions.UnsupportedSearchParams)
+                {
+                    errors.Add(new string[]
+                        {
+                            filter.ResourceType,
+                            parameter.Item1,
+                        });
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                var errorMessage = new StringBuilder($"{errors.Count} invalid search parameter(s) found:{Environment.NewLine}");
+                errors.ForEach(e => errorMessage.AppendLine(
+                    string.Format(CultureInfo.InvariantCulture, "[type: {0}, parameter: {1}]", e[0], e[1])));
+
+                var message = errorMessage.ToString();
+                _logger.LogError(message);
+
+                var ex = new BadRequestException(message);
+                if (_includeValidateTypeFiltersValidationDetails)
+                {
+                    // Note: Test purpose only
+                    ex.Data.Add(nameof(ValidateTypeFilters), errors);
+                }
+
+                throw ex;
+            }
         }
     }
 }

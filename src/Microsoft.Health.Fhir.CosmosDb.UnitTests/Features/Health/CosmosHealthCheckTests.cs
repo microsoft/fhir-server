@@ -15,7 +15,10 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Features.Health;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -67,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             var diagnostics = Substitute.For<CosmosDiagnostics>();
             var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
 
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs(coce);
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(coce);
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
@@ -95,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 return Task.CompletedTask;
             };
 
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Healthy, result.Status);
@@ -105,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [Fact]
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs<HttpRequestException>();
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs<HttpRequestException>();
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
@@ -118,17 +121,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             {
                 var cosmosException = new CosmosException("Some error message", HttpStatusCode.Forbidden, subStatusCode: clientCmkIssue, activityId: null, requestCharge: 0);
                 _testProvider.ClearSubstitute();
-                _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs(cosmosException);
+                _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(cosmosException);
 
                 HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-                Assert.Equal(HealthStatus.Unhealthy, result.Status);
-                Assert.Contains("customer-managed key is not available", result.Description);
+                Assert.Equal(HealthStatus.Degraded, result.Status);
+
                 Assert.NotNull(result.Data);
-                Assert.True(result.Data.ContainsKey("IsCustomerManagedKeyError"));
-                Assert.True((bool)result.Data["IsCustomerManagedKeyError"]);
-                Assert.NotNull(result.Exception);
-                Assert.Equal(cosmosException, result.Exception);
+                Assert.True(result.Data.Any());
+
+                Assert.True(result.Data.ContainsKey("Reason"));
+                Assert.Equal(HealthStatusReason.CustomerManagedKeyAccessLost, result.Data["Reason"]);
+
+                Assert.True(result.Data.ContainsKey("Error"));
+                Assert.Equal(FhirHealthErrorCode.Error412.ToString(), result.Data["Error"]);
             }
         }
 
@@ -136,7 +142,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             const int SomeNonClientErrorSubstatusCode = 12345;
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None)
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
                 .ThrowsForAnyArgs(new CosmosException(
                     "An error message",
                     HttpStatusCode.Forbidden,
@@ -147,21 +153,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
-            Assert.DoesNotContain("customer-managed key is not available", result.Description);
-            Assert.False(result.Data.Any());
-            Assert.Null(result.Exception);
+
+            Assert.NotNull(result.Data);
+            Assert.True(result.Data.Any());
+
+            Assert.True(result.Data.ContainsKey("Error"));
+            Assert.Equal(FhirHealthErrorCode.Error500.ToString(), result.Data["Error"]);
         }
 
         [Fact]
         public async Task GivenCosmosDbWithTooManyRequests_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None)
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
                 .ThrowsForAnyArgs(new Exception(null, new RequestRateExceededException(TimeSpan.Zero)));
 
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.Equal(HealthStatus.Healthy, result.Status);
-            Assert.Contains("rate limit", result.Description);
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+
+            Assert.True(result.Data.ContainsKey("Error"));
+            Assert.Equal(FhirHealthErrorCode.Error429.ToString(), result.Data["Error"]);
         }
     }
 }

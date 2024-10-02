@@ -10,6 +10,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
@@ -19,18 +20,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
-        private readonly TransactionWatchdog _transactionWatchdog;
+        private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
-            Func<IScoped<TransactionWatchdog>> transactionWatchdog,
+            IScopeProvider<TransactionWatchdog> transactionWatchdog,
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
-            _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke().Value;
+            _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
         }
 
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await _defragWatchdog.StartAsync(stoppingToken);
             await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
-            await _transactionWatchdog.StartAsync(stoppingToken);
+            await _transactionWatchdog.Value.StartAsync(stoppingToken);
             await _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken);
 
             while (true)

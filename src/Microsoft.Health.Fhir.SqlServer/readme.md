@@ -42,7 +42,7 @@ https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Conv
   - When using \#tables - make sure to create all indexes in place (i.e. do not change the table once created), otherwise it won't be cached.
   - No dynamic SQL - it causes all kinds of issues (security, compilations, temp tables...) - servicing scripts and WIT are the only place you should find it.
   - If there's only one good way to execute the query, hint it (see below for an example) so it cannot deviate. If there's a bad plan, the optimizer will find it, and you will get called.
-  - Don't go crazy with secondary indexes - make sure they're actually used - SQL has a DMV for that: sys.dm\_db\_index\_usage\_stats
+  - Ensure secondary indexes are actually used - SQL has a DMV for that: sys.dm\_db\_index\_usage\_stats
   - Avoid OR's in WHERE or JOIN clauses if there's an index - you can achieve the same effect with a UNION
 
 ### Online Index Creation and page compression 

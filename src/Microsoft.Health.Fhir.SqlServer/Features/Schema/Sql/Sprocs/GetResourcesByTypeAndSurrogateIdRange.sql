@@ -1,13 +1,15 @@
 ﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalStartId bigint = NULL, @GlobalEndId bigint = NULL
+CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
                            +' S='+isnull(convert(varchar,@StartId),'NULL')
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL') -- Could this just be a boolean for if historical records should be returned? GlobalEndId should equal EndId in all cases I can think of.
+                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
+                           +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
+                           +' DE'+isnull(convert(varchar,@IncludeDeleted),'NULL')
        ,@st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
 
@@ -15,7 +17,7 @@ BEGIN TRY
   DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
   DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
 
-  IF @GlobalEndId IS NOT NULL -- snapshot view
+  IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view
   BEGIN
     INSERT INTO @ResourceIds
       SELECT DISTINCT ResourceId
@@ -23,7 +25,7 @@ BEGIN TRY
         WHERE ResourceTypeId = @ResourceTypeId 
           AND ResourceSurrogateId BETWEEN @StartId AND @EndId
           AND IsHistory = 1
-          AND IsDeleted = 0
+          AND (IsDeleted = 0 OR @IncludeDeleted = 1)
         OPTION (MAXDOP 1)
 
     IF @@rowcount > 0
@@ -44,14 +46,14 @@ BEGIN TRY
     FROM dbo.Resource
     WHERE ResourceTypeId = @ResourceTypeId 
       AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
-      AND IsHistory = 0
-      AND IsDeleted = 0
+      AND (IsHistory = 0 OR @IncludeHistory = 1)
+      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
   UNION ALL
   SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
     FROM @SurrogateIds
          JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
     WHERE IsHistory = 1
-      AND IsDeleted = 0
+      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
       OPTION (MAXDOP 1)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount

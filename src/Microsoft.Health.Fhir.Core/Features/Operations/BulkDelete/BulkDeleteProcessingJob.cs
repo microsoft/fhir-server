@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -30,21 +31,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
+        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IMediator mediator)
+            IMediator mediator,
+            Func<IScoped<ISearchService>> searchService,
+            IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
 
@@ -58,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     method: "BulkDelete",
                     uriString: definition.Url,
                     baseUriString: definition.BaseUrl,
-                    correlationId: jobInfo.Id.ToString(),
+                    correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId.ToString(),
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
                 {
@@ -67,37 +73,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                IReadOnlySet<string> itemsDeleted;
+                long numDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
+                List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
                 try
                 {
-                    itemsDeleted = await deleter.Value.DeleteMultipleAsync(
+                    numDeleted = await deleter.Value.DeleteMultipleAsync(
                         new ConditionalDeleteResourceRequest(
-                            definition.Type,
+                            types[0],
                             (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
                             definition.DeleteOperation,
                             maxDeleteCount: null,
-                            deleteAll: true),
+                            deleteAll: true,
+                            versionType: definition.VersionType,
+                            allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                         cancellationToken);
                 }
-                catch (IncompleteOperationException<IReadOnlySet<string>> ex)
+                catch (IncompleteOperationException<long> ex)
                 {
-                    itemsDeleted = ex.PartialResults;
+                    numDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count);
+                result.ResourcesDeleted.Add(types[0], numDeleted);
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count), cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
 
                 if (exception != null)
                 {
-                    var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
-                    jobException.RequestCancellationOnFailure = true;
-                    throw jobException;
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
+                }
+
+                if (types.Count > 1)
+                {
+                    types.RemoveAt(0);
+                    using var searchService = _searchService.Invoke();
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, searchService.Value, types, cancellationToken);
+
+                    if (processingDefinition != null)
+                    {
+                        await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+                    }
                 }
 
                 return JsonConvert.SerializeObject(result);

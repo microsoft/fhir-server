@@ -43,6 +43,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public uint MaximumNumberOfResourcesPerQuery { get; set; } = 10000;
 
         /// <summary>
+        /// For SQL export, controlls the number of parallel id ranges to gather to be used for parallel export.
+        /// </summary>
+        public int NumberOfParallelRecordRanges { get; set; } = 100;
+
+        /// <summary>
+        /// For SQL export, controlls the DOP (degree of parallelization) used by the coordinator to build sub-jobs.
+        /// </summary>
+        public int CoordinatorMaxDegreeOfParallelization { get; set; } = 4;
+
+        /// <summary>
         /// Number of pages to be iterated before committing the export progress.
         /// </summary>
         public uint NumberOfPagesPerCommit { get; set; } = 10;
@@ -62,5 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines the approximate file size for a single exported file.
         /// </summary>
         public uint RollingFileSizeInMB { get; set; } = 64;
+
+        /// <summary>
+        /// The maximum number of times a job can be restarted before it is considered failed.
+        /// </summary>
+        public uint MaxJobRestartCount { get; set; } = 64;
     }
 }

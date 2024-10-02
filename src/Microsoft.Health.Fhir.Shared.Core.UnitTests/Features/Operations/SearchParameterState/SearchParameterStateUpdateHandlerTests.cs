@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.SearchParameterState
 {
@@ -62,7 +63,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger);
             _cancellationToken = CancellationToken.None;
@@ -176,8 +178,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestToUpdateSearchParameterStatus_WhenTheStatusIsEnabled_ThenTheStatusShouldBeUpdated()
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenTheStatusIsEnabled_ThenTheStatusShouldBeUpdated()
         {
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
@@ -197,7 +201,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestToUpdateSearchParameterStatus_WhenTheResourceIsNotFound_ThenAnOperationOutcomeIsReturnedWithInformationSeverity()
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenTheResourceIsNotFound_ThenAnOperationOutcomeIsReturnedWithInformationSeverity()
         {
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
@@ -217,7 +221,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestToUpdateSearchParameterStatus_WhenStatusIsNotSupportedOrDisabled_ThenAnOperationOutcomeIsReturnedWithErrorSeverity()
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenStatusIsNotSupportedOrDisabled_ThenAnOperationOutcomeIsReturnedWithErrorSeverity()
         {
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
@@ -237,8 +241,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestToUpdateSearchParameterStatus_WhenStatusIsDisabled_ThenTheStatusIsUpdatedAsPendingDisable()
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenStatusIsDisabled_ThenTheStatusIsUpdatedAsPendingDisable()
         {
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
@@ -258,8 +264,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async void GivenARequestToUpdateSearchParameterStatus_WhenRequestIsValied_ThenAuditLogContainsStateChange()
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenRequestIsValied_ThenAuditLogContainsStateChange()
         {
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
             var loggers = CreateTestAuditLogger();
             var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
