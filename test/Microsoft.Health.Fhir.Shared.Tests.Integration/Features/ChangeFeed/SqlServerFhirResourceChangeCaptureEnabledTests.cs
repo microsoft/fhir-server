@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenImportingNegativeVersions_ThenResourceChangesShouldBeReturned()
         {
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("DELETE FROM dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 

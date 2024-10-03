@@ -605,7 +605,8 @@ CREATE TABLE dbo.ResourceCurrent (
     RawResource          VARBINARY (MAX) NULL,
     IsRawResourceMetaSet BIT             CONSTRAINT DF_ResourceCurrent_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    TransactionId        BIGINT          NULL,
+    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
     CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
@@ -614,6 +615,10 @@ ALTER TABLE dbo.ResourceCurrent SET (LOCK_ESCALATION = AUTO);
 
 CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL
     ON dbo.ResourceCurrent(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE INDEX IX_ResourceTypeId_HistoryTransactionId_WHERE_HistoryTransactionId_NOT_NULL
+    ON dbo.ResourceCurrent(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
@@ -634,7 +639,8 @@ SELECT A.ResourceTypeId,
        B.RawResource,
        IsRawResourceMetaSet,
        SearchParamHash,
-       TransactionId
+       TransactionId,
+       HistoryTransactionId
 FROM   dbo.ResourceCurrentTbl AS A
        LEFT OUTER JOIN
        dbo.RawResources AS B
@@ -5251,7 +5257,7 @@ SELECT ResourceTypeId,
        IsRawResourceMetaSet,
        SearchParamHash,
        TransactionId,
-       NULL
+       HistoryTransactionId
 FROM   dbo.ResourceCurrent;
 
 
@@ -5298,6 +5304,30 @@ CREATE TRIGGER dbo.ResourceUpd
     ON dbo.Resource
     INSTEAD OF UPDATE
     AS BEGIN
+           IF UPDATE (IsDeleted)
+              AND UPDATE (RawResource)
+              AND UPDATE (SearchParamHash)
+              AND UPDATE (HistoryTransactionId)
+              AND NOT UPDATE (IsHistory)
+               BEGIN
+                   UPDATE B
+                   SET    RawResource = A.RawResource
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.RawResources AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+                   UPDATE B
+                   SET    IsDeleted            = A.IsDeleted,
+                          SearchParamHash      = A.SearchParamHash,
+                          HistoryTransactionId = A.HistoryTransactionId
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.ResourceCurrentTbl AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+                   RETURN;
+               END
            IF UPDATE (SearchParamHash)
               AND NOT UPDATE (IsHistory)
                BEGIN
@@ -5311,6 +5341,14 @@ CREATE TRIGGER dbo.ResourceUpd
                    WHERE  A.IsHistory = 0;
                    RETURN;
                END
+           IF UPDATE (RawResource)
+               UPDATE B
+               SET    RawResource = A.RawResource
+               FROM   Inserted AS A
+                      INNER JOIN
+                      dbo.RawResources AS B
+                      ON B.ResourceTypeId = A.ResourceTypeId
+                         AND B.ResourceSurrogateId = A.ResourceSurrogateId;
            IF NOT UPDATE (IsHistory)
                RAISERROR ('Generic updates are not supported via Resource view', 18, 127);
            DELETE A

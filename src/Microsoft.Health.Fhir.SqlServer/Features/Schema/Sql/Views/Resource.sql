@@ -25,7 +25,7 @@ SELECT ResourceTypeId
       ,IsRawResourceMetaSet
       ,SearchParamHash
       ,TransactionId
-      ,NULL
+      ,HistoryTransactionId
   FROM dbo.ResourceCurrent
 GO
 CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
@@ -100,16 +100,39 @@ GO
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
+  IF UPDATE(IsDeleted) AND UPDATE(RawResource) AND UPDATE(SearchParamHash) AND UPDATE(HistoryTransactionId) AND NOT UPDATE(IsHistory) -- HardDeleteResource
+  BEGIN
+    UPDATE B
+      SET RawResource = A.RawResource
+      FROM Inserted A
+           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+    
+    UPDATE B
+      SET IsDeleted = A.IsDeleted
+         ,SearchParamHash = A.SearchParamHash
+         ,HistoryTransactionId = A.HistoryTransactionId
+      FROM Inserted A
+           JOIN dbo.ResourceCurrentTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+  
+    RETURN
+  END
+
   IF UPDATE(SearchParamHash) AND NOT UPDATE(IsHistory)
   BEGIN
     UPDATE B
-      SET SearchParamHash = A.SearchParamHash -- this is the only update we support
+      SET SearchParamHash = A.SearchParamHash
       FROM Inserted A
            JOIN dbo.ResourceCurrentTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
       WHERE A.IsHistory = 0
     
     RETURN
   END
+
+  IF UPDATE(RawResource) -- invisible records
+    UPDATE B
+      SET RawResource = A.RawResource
+      FROM Inserted A
+           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
 
   IF NOT UPDATE(IsHistory)
     RAISERROR('Generic updates are not supported via Resource view',18,127)
