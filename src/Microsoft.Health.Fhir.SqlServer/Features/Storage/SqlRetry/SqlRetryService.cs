@@ -432,24 +432,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private DateTime? _lastUpdated;
             private readonly object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
-            private long _usageCounter = 0;
+
+            // private long _usageCounter = 0;
 
             public ReplicaHandler()
             {
             }
 
+#pragma warning disable CA1822 // Mark members as static. Need instance variables for when replica traffic ratio is reenabled.
             public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, CancellationToken cancel)
+#pragma warning restore CA1822 // Mark members as static
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
                 var logSB = new StringBuilder("Long running retrieve SQL connection");
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
 
-                if (!isReadOnly)
-                {
-                    logSB.AppendLine("Not read only");
-                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
-                }
+                // if (!isReadOnly)
+                // {
+                logSB.AppendLine("Not read only");
+                conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+
+                // }
+
+                /* Disabling replica traffic ratio check as it is taking too long to execute and is not used in the code.
                 else
                 {
                     logSB.AppendLine("Checking read only");
@@ -478,6 +484,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                     }
                 }
+                */
 
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
