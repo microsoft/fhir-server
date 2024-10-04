@@ -14,6 +14,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -72,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ReplicaHandler _replicaHandler;
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
+        private CoreFeatureConfiguration _coreFeatureConfiguration;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -82,18 +84,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
         /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
         /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
+        /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
-            SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
+            SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
 
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {
@@ -111,16 +117,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
 
-            InitReplicaHandler();
+            InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
         }
 
+        /*
         private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
             InitReplicaHandler();
             InitEventLogHandler();
         }
+        */
 
         /// <summary>
         /// Defines a custom delegate that can be used instead of or in addition to IsExceptionRetriable method to examine if thrown
@@ -131,6 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
 
+        /*
         /// <summary>
         /// Simplified class generator.
         /// </summary>
@@ -147,6 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             service._retryMillisecondsDelay = retryMillisecondsDelay;
             return service;
         }
+        */
 
         /// <summary>
         /// This method examines exception <paramref name="ex"/> and determines if the exception represent an retriable error.
@@ -405,13 +415,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static void InitReplicaHandler()
+        private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
         {
             if (_replicaHandler == null) // this is needed, strictly speaking, only if SqlRetryService is not singleton, but it works either way.
             {
                 lock (_initLocker)
                 {
-                    _replicaHandler ??= new ReplicaHandler();
+                    _replicaHandler ??= new ReplicaHandler(coreFeatureConfiguration);
                 }
             }
         }
@@ -433,29 +443,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private readonly object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
 
-            // private long _usageCounter = 0;
+            private long _usageCounter = 0;
+            private CoreFeatureConfiguration _coreFeatureConfiguration;
 
-            public ReplicaHandler()
+            public ReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
             {
+                _coreFeatureConfiguration = coreFeatureConfiguration;
             }
 
-#pragma warning disable CA1822 // Mark members as static. Need instance variables for when replica traffic ratio is reenabled.
             public async Task<SqlConnection> GetConnection<TLogger>(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger<TLogger> logger, CancellationToken cancel)
-#pragma warning restore CA1822 // Mark members as static
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
                 var logSB = new StringBuilder("Long running retrieve SQL connection");
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
 
-                // if (!isReadOnly)
-                // {
-                logSB.AppendLine("Not read only");
-                conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
-
-                // }
-
-                /* Disabling replica traffic ratio check as it is taking too long to execute and is not used in the code.
+                if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
+                {
+                    logSB.AppendLine("Not read only");
+                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+                }
                 else
                 {
                     logSB.AppendLine("Checking read only");
@@ -484,7 +491,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
                     }
                 }
-                */
 
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
