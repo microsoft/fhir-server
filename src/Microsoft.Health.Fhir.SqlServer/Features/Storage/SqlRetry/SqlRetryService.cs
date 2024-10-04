@@ -121,14 +121,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             InitEventLogHandler();
         }
 
-        /*
         private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
-            InitReplicaHandler();
+            _coreFeatureConfiguration = new CoreFeatureConfiguration();
+            InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
         }
-        */
 
         /// <summary>
         /// Defines a custom delegate that can be used instead of or in addition to IsExceptionRetriable method to examine if thrown
@@ -139,7 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
 
-        /*
         /// <summary>
         /// Simplified class generator.
         /// </summary>
@@ -156,7 +154,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             service._retryMillisecondsDelay = retryMillisecondsDelay;
             return service;
         }
-        */
 
         /// <summary>
         /// This method examines exception <paramref name="ex"/> and determines if the exception represent an retriable error.
