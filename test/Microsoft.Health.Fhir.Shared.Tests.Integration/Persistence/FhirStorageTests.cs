@@ -79,10 +79,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
                 await _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE TRIGGER Resource_Trigger ON Resource FOR INSERT
+CREATE TRIGGER Resource_Trigger ON ResourceCurrentTbl FOR INSERT
 AS
 IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 'Error') < {requestedExceptions}
-  INSERT INTO Resource SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
+  INSERT INTO ResourceCurrentTbl SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
                     ");
 
                 var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
