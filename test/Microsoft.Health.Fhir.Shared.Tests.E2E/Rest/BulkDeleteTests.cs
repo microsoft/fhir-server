@@ -109,8 +109,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, history.Resource.Entry.Count);
         }
 
-        [SkippableFact]
-        public async Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist()
+        [SkippableTheory]
+        [InlineData(KnownQueryParameterNames.BulkHardDelete)]
+        [InlineData(KnownQueryParameterNames.HardDelete)]
+        public async Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist(string hardDeleteKey)
         {
             CheckBulkDeleteEnabled();
 
@@ -126,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 tag,
                 queryParams: new Dictionary<string, string>
                 {
-                    { "_hardDelete", "true" },
+                    { hardDeleteKey, "true" },
                 });
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);

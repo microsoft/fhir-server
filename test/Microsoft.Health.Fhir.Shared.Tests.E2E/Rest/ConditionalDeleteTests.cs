@@ -59,19 +59,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
 
-        [InlineData(true, 1)]
-        [InlineData(true, 100)]
-        [InlineData(false, 1)]
-        [InlineData(false, 100)]
+        [InlineData(KnownQueryParameterNames.BulkHardDelete, true, 1)]
+        [InlineData(KnownQueryParameterNames.HardDelete, true, 100)]
+        [InlineData(KnownQueryParameterNames.HardDelete, false, 1)]
+        [InlineData(KnownQueryParameterNames.BulkHardDelete, false, 100)]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(bool hardDelete, int deleteCount)
+        public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(string hardDeleteKey, bool hardDeleteValue, int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 1);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={deleteCount}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&{hardDeleteKey}={hardDeleteValue}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
             await ValidateResults(identifier, 0);

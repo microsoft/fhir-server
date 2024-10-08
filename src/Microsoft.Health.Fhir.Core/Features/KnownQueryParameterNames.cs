@@ -102,7 +102,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string Identifier = "identifier";
 
-        public const string HardDelete = "_hardDelete";
+        public const string BulkHardDelete = "_hardDelete";
+
+        public const string HardDelete = "hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
 
