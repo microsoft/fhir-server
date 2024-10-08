@@ -34,8 +34,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertDoesNotChangeHash(parameters, () =>
             {
                 parameters.AddParameter(1, includeInHash: false);
-                parameters.AddParameter(VLatest.Resource.ResourceId, "abc", false);
-                parameters.AddParameter(VLatest.Resource.ResourceId, (object)"123", false);
+                parameters.AddParameter(VLatest.ResourceCurrent.ResourceId, "abc", false);
+                parameters.AddParameter(VLatest.ResourceCurrent.ResourceId, (object)"123", false);
             });
 
             Assert.False(parameters.HasParametersToHash);
