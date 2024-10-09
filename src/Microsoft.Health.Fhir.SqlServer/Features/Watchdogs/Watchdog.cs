@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
-        private double _periodSec;
-        private double _leasePeriodSec;
         private readonly FhirTimer _fhirTimer;
 
         protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
@@ -60,11 +58,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"{Name}.ExecuteAsync: starting...");
 
-            await InitParamsAsync(PeriodSec, LeasePeriodSec);
+            await InitParamsAsync();
 
             await Task.WhenAll(
-                _fhirTimer.ExecuteAsync(_periodSec, OnNextTickAsync, cancellationToken),
-                _watchdogLease.ExecuteAsync(AllowRebalance, _leasePeriodSec, cancellationToken));
+                _fhirTimer.ExecuteAsync(PeriodSec, OnNextTickAsync, cancellationToken),
+                _watchdogLease.ExecuteAsync(AllowRebalance, LeasePeriodSec, cancellationToken));
 
             _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
         }
@@ -85,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
         }
 
-        private async Task InitParamsAsync(double periodSec, double leasePeriodSec) // No CancellationToken is passed since we shouldn't cancel initialization.
+        private async Task InitParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
         {
             using (_logger.BeginTimedScope($"{Name}.InitParamsAsync"))
             {
@@ -98,13 +96,13 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
 INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             ");
                 cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
-                cmd.Parameters.AddWithValue("@PeriodSec", periodSec);
+                cmd.Parameters.AddWithValue("@PeriodSec", PeriodSec);
                 cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
-                cmd.Parameters.AddWithValue("@LeasePeriodSec", leasePeriodSec);
+                cmd.Parameters.AddWithValue("@LeasePeriodSec", LeasePeriodSec);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
-                _periodSec = await GetPeriodAsync(CancellationToken.None);
-                _leasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
+                PeriodSec = await GetPeriodAsync(CancellationToken.None);
+                LeasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
 
                 await InitAdditionalParamsAsync();
 
