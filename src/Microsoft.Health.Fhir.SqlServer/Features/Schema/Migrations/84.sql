@@ -5271,7 +5271,7 @@ CREATE TRIGGER dbo.ResourceIns
                   ResourceSurrogateId,
                   RawResource
            FROM   Inserted;
-           INSERT INTO dbo.ResourceCurrentTbl (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId)
+           INSERT INTO dbo.ResourceCurrentTbl (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
            SELECT ResourceTypeId,
                   ResourceSurrogateId,
                   ResourceId,
@@ -5280,7 +5280,8 @@ CREATE TRIGGER dbo.ResourceIns
                   RequestMethod,
                   IsRawResourceMetaSet,
                   SearchParamHash,
-                  TransactionId
+                  TransactionId,
+                  HistoryTransactionId
            FROM   Inserted
            WHERE  IsHistory = 0;
            INSERT INTO dbo.ResourceHistoryTbl (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)

@@ -32,67 +32,19 @@ CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
 BEGIN
   INSERT INTO dbo.RawResources
-      (
-          ResourceTypeId
-         ,ResourceSurrogateId
-         ,RawResource
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,RawResource
+         ( ResourceTypeId, ResourceSurrogateId, RawResource )
+    SELECT ResourceTypeId, ResourceSurrogateId, RawResource
       FROM Inserted
 
   INSERT INTO dbo.ResourceCurrentTbl
-      (
-           ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
+         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 0
 
   INSERT INTO dbo.ResourceHistoryTbl
-      (
-           ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
+         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
 END
@@ -142,30 +94,8 @@ BEGIN
     WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
 
   INSERT INTO dbo.ResourceHistoryTbl
-      (
-           ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          --,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
+         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
 END
