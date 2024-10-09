@@ -926,8 +926,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var queryHints = searchOptions.QueryHints;
-            long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long globalStartId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            long globalEndId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long queryStartId = globalStartId;
 
             SearchResult results = null;
             IReadOnlyList<(long StartId, long EndId)> ranges;
@@ -935,7 +936,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             do
             {
                 // Get surrogate ID ranges
-                ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 50, true, cancellationToken);
 
                 foreach (var range in ranges)
                 {
@@ -958,11 +959,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
                 }
+
+                // If no resources are found in the group of surrogate id ranges, move forward the starting point.
+                queryStartId = ranges[-1].EndId + 1;
             }
             while (ranges is not null && ranges.Count > 0); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
             // Return empty result when no resources are found in the given range provided by queryHints.
-            _logger.LogInformation("No surrogate ID ranges found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
+            _logger.LogInformation("No surrogate ID ranges found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
             return new SearchResult(0, []);
         }
 
