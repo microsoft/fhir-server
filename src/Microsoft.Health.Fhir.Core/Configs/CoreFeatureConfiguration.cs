@@ -86,5 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or set a value indicating whether the server supports Subscription processing.
         /// </summary>
         public bool SupportsSubscriptions { get; set; }
+
+        /// <summary>
+        /// Whether the service supports SQL read only replicas.
+        /// </summary>
+        public bool SupportsSqlReplicas { get; set; } = false;
     }
 }

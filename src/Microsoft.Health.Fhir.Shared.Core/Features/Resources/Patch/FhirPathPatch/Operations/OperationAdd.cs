@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch add operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch add operation.", ex);
             }
 
             return ResourceElement.ToPoco<Resource>();

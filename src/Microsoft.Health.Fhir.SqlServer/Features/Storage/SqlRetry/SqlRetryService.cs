@@ -14,6 +14,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -72,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static ReplicaHandler _replicaHandler;
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
+        private CoreFeatureConfiguration _coreFeatureConfiguration;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -82,18 +84,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
         /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
         /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
+        /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
-            SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
+            SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
 
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {
@@ -111,14 +117,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
 
-            InitReplicaHandler();
+            InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
         }
 
         private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
-            InitReplicaHandler();
+            _coreFeatureConfiguration = new CoreFeatureConfiguration();
+            InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
         }
 
@@ -201,14 +208,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Executes delegate <paramref name="action"/> and retries it's execution if retriable error is encountered error.
         /// In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="action">Delegate to be executed.</param>
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql<TLogger>(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger<TLogger> logger, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -403,13 +409,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static void InitReplicaHandler()
+        private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
         {
             if (_replicaHandler == null) // this is needed, strictly speaking, only if SqlRetryService is not singleton, but it works either way.
             {
                 lock (_initLocker)
                 {
-                    _replicaHandler ??= new ReplicaHandler();
+                    _replicaHandler ??= new ReplicaHandler(coreFeatureConfiguration);
                 }
             }
         }
@@ -430,10 +436,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private DateTime? _lastUpdated;
             private readonly object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
-            private long _usageCounter = 0;
 
-            public ReplicaHandler()
+            private long _usageCounter = 0;
+            private CoreFeatureConfiguration _coreFeatureConfiguration;
+
+            public ReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
             {
+                _coreFeatureConfiguration = coreFeatureConfiguration;
             }
 
             public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger logger, CancellationToken cancel)
@@ -443,7 +452,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var logSB = new StringBuilder("Long running retrieve SQL connection");
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
 
-                if (!isReadOnly)
+                if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
                 {
                     logSB.AppendLine("Not read only");
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);

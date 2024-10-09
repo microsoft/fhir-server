@@ -239,6 +239,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
                 context.ExceptionHandled = true;
             }
+            else if (context.Exception is System.OverflowException)
+            {
+                context.Result = CreateOperationOutcomeResult(context.Exception.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.TooLong, HttpStatusCode.BadRequest);
+                context.ExceptionHandled = true;
+            }
             else if (context.Exception.InnerException != null)
             {
                 Exception outerException = context.Exception;
