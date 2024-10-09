@@ -188,59 +188,62 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
             var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
-            var sw = Stopwatch.StartNew();
-            var swReport = Stopwatch.StartNew();
-            var calls = 0L;
-            var errors = 0L;
-            var resources = 0;
-            long sumLatency = 0;
-            var singleId = Guid.NewGuid().ToString();
-            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
+            for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                if (Interlocked.Read(ref calls) >= _calls)
+                var sw = Stopwatch.StartNew();
+                var swReport = Stopwatch.StartNew();
+                var calls = 0L;
+                var errors = 0L;
+                var resources = 0;
+                long sumLatency = 0;
+                var singleId = Guid.NewGuid().ToString();
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
                 {
-                    return;
-                }
-
-                var callId = (int)Interlocked.Increment(ref calls) - 1;
-                if ((_callType == "HttpUpdate" || _callType == "BundleUpdate") && callId >= resourceIds.Count)
-                {
-                    return;
-                }
-
-                var resourceIdInput = _callType == "SingleId"
-                                    ? singleId
-                                    : _callType == "HttpUpdate" || _callType == "BundleUpdate"
-                                          ? resourceIds[callId].ResourceId
-                                          : Guid.NewGuid().ToString();
-
-                var swLatency = Stopwatch.StartNew();
-                var json = lineItem.Item2.First();
-                var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
-                var status = _callType == "BundleUpdate" ? PostBundle(json, resourceType, resourceId) : PutResource(json, resourceType, resourceId);
-                Interlocked.Increment(ref resources);
-                var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
-                Interlocked.Add(ref sumLatency, mcsec);
-                _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
-                if (_callType != "BundleUpdate" && status != "OK" && status != "Created")
-                {
-                    Interlocked.Increment(ref errors);
-                }
-
-                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
-                {
-                    lock (swReport)
+                    if (Interlocked.Read(ref calls) >= _calls)
                     {
-                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        return;
+                    }
+
+                    var callId = (int)Interlocked.Increment(ref calls) - 1;
+                    if ((_callType == "HttpUpdate" || _callType == "BundleUpdate") && callId >= resourceIds.Count)
+                    {
+                        return;
+                    }
+
+                    var resourceIdInput = _callType == "SingleId"
+                                        ? singleId
+                                        : _callType == "HttpUpdate" || _callType == "BundleUpdate"
+                                              ? resourceIds[callId].ResourceId
+                                              : Guid.NewGuid().ToString();
+
+                    var swLatency = Stopwatch.StartNew();
+                    var json = lineItem.Item2.First();
+                    var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
+                    var status = _callType == "BundleUpdate" ? PostBundle(json, resourceType, resourceId) : PutResource(json, resourceType, resourceId);
+                    Interlocked.Increment(ref resources);
+                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                    Interlocked.Add(ref sumLatency, mcsec);
+                    _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                    if (_callType != "BundleUpdate" && status != "OK" && status != "Created")
+                    {
+                        Interlocked.Increment(ref errors);
+                    }
+
+                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                    {
+                        lock (swReport)
                         {
-                            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
-                            swReport.Restart();
+                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                                swReport.Restart();
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+            }
         }
 
         private static void ExecuteParallelCalls(ReadOnlyList<long> tranIds)
