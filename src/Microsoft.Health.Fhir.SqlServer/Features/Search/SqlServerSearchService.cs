@@ -930,12 +930,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
             SearchResult results = null;
-            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+            IReadOnlyList<(long StartId, long EndId)> ranges;
 
-            if (ranges?.Count > 0)
+            do
             {
+                // Get surrogate ID ranges
+                ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+
                 foreach (var range in ranges)
                 {
+                    // Search within the surrogate ID range
                     results = await SearchBySurrogateIdRange(
                         resourceType,
                         range.StartId,
@@ -948,20 +952,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (results.Results.Any())
                     {
                         results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
-                        break;
+                        _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
+                        return results;
                     }
 
                     _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
                 }
             }
-            else
-            {
-                _logger.LogInformation("For Reindex, no data pages found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
-                results = new SearchResult(0, []);
-            }
+            while (ranges is not null && ranges.Count > 0); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
-            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
-            return results;
+            // Return empty result when no resources are found in the given range provided by queryHints.
+            _logger.LogInformation("No surrogate ID ranges found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
+            return new SearchResult(0, []);
         }
 
         /// <summary>
