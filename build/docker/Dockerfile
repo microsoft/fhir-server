@@ -79,7 +79,7 @@ COPY . .
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net8.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.8-cbl-mariner2.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.10-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
