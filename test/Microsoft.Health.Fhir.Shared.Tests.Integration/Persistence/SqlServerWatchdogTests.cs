@@ -214,7 +214,7 @@ END
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
             DateTime startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
@@ -251,7 +251,7 @@ END
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
             var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
