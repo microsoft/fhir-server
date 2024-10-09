@@ -961,7 +961,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
 
                 // If no resources are found in the group of surrogate id ranges, move forward the starting point.
-                queryStartId = ranges[-1].EndId + 1;
+                if (ranges.Any())
+                {
+                    queryStartId = ranges.Max(x => x.EndId) + 1;
+                }
             }
             while (ranges is not null && ranges.Count > 0); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
