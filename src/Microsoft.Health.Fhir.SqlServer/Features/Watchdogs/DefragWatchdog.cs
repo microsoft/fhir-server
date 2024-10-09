@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, Definitions, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, Definitions, null, true, cancellationToken);
 
                 if (jobs.Count > 0)
                 {

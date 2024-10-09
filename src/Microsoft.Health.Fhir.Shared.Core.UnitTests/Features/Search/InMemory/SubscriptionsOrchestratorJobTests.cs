@@ -149,7 +149,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
                 1,
                 Arg.Any<bool>(),
-                Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -177,7 +176,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 (byte)QueueType.Subscriptions,
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
                 1,
-                Arg.Any<bool>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
         }
@@ -207,7 +205,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 Arg.Is<string[]>(resources => ContainsResourcesWithIds(resources, expectedIds)),
                 1,
                 Arg.Any<bool>(),
-                Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -234,7 +231,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
                 (byte)QueueType.Subscriptions,
                 Arg.Any<string[]>(),
                 1,
-                Arg.Any<bool>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
         }
