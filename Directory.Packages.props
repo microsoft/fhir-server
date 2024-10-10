@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.1" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.0" />
@@ -31,6 +33,7 @@
   </Choose>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.1.2" />
+    <PackageVersion Include="Azure.Messaging.EventGrid" Version="4.24.0" />
     <PackageVersion Include="Azure.Identity" Version="1.12.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.1" />

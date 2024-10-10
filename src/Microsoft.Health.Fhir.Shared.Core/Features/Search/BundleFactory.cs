@@ -7,8 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using DotLiquid.Util;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -16,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
@@ -27,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ILogger<BundleFactory> _logger;
+        private readonly FhirJsonParser _fhirJsonParser = new Hl7.Fhir.Serialization.FhirJsonParser();
 
         public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<BundleFactory> logger)
         {
@@ -240,6 +245,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             };
 
             return bundle.ToResourceElement();
+        }
+
+        public async System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources)
+        {
+            EnsureArg.HasItems(resources, nameof(resources));
+
+            Bundle bundle = new()
+            {
+                Type = Bundle.BundleType.Transaction,
+                Entry = new(),
+            };
+
+            foreach (ResourceWrapper rw in resources)
+            {
+                var rawResource = rw.RawResource.Data;
+                var resource = await _fhirJsonParser.ParseAsync<Resource>(rawResource);
+                Enum.TryParse(rw.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
+
+                var resourcesEntry = new Bundle.EntryComponent
+                {
+                    Resource = resource,
+                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(rw)),
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = httpVerb,
+                        Url = $"{rw.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? rw.ResourceId : null)}",
+                    },
+                };
+
+                bundle.Entry.Add(resourcesEntry);
+            }
+
+            return await bundle.ToJsonAsync();
         }
     }
 }

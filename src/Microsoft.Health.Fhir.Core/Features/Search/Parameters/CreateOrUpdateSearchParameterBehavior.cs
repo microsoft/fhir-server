@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class CreateOrUpdateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
     {
-        private ISearchParameterOperations _searchParameterOperations;
-        private IFhirDataStore _fhirDataStore;
+        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IFhirDataStore _fhirDataStore;
 
         public CreateOrUpdateSearchParameterBehavior(ISearchParameterOperations searchParameterOperations, IFhirDataStore fhirDataStore)
         {

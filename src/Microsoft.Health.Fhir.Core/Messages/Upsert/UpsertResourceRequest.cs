@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             WeakETag = weakETag;
         }
 
-        public ResourceElement Resource { get; }
+        public ResourceElement Resource { get; set; }
 
         public BundleResourceContext BundleResourceContext { get; }
 

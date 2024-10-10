@@ -138,11 +138,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                ActionContext?.HttpContext,
                 routeName,
                 routeValues,
-                Request.Scheme,
-                Request.Host.Value);
+                Request?.Scheme,
+                Request?.Host.Value);
         }
 
         public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)

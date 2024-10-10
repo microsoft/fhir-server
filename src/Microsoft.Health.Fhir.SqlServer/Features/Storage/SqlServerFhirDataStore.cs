@@ -12,7 +12,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -41,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// A SQL Server-backed <see cref="IFhirDataStore"/>.
     /// </summary>
-    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
+    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability, ITransactionDataStore
     {
         private const string InitialVersion = "1";
 
@@ -945,7 +944,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
             return await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }

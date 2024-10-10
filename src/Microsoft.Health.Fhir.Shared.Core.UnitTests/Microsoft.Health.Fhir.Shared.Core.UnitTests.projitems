@@ -46,12 +46,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToTokenSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InMemory\SearchQueryInterperaterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InMemory\SubscriptionsOrchestratorJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CanonicalToUriSearchValueConverterTests.cs" />
@@ -88,7 +90,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\EnumLiteralJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManagerTests.cs" />
