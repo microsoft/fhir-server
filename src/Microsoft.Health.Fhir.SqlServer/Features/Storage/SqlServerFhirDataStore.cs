@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                        await Task.Delay(5000, cancellationToken);
+                        await Task.Delay(1000, cancellationToken);
                         continue;
                     }
 
@@ -402,6 +402,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
+            var maxRetries = GetMaxRetries(resources, importMode);
             var retries = 0;
             while (true)
             {
@@ -413,15 +414,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
+                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
-                        await Task.Delay(1000, cancellationToken);
+                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
+                        await Task.Delay(retries > 3 ? 10 : 1000, cancellationToken); // if >3 assume that it is id generation problem
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
-                    await StoreClient.TryLogEvent(nameof(ImportResourcesInternalAsync), "Error", $"retries={retries} error={e}", null, cancellationToken);
+                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
+                    await StoreClient.TryLogEvent(nameof(ImportResourcesInternalAsync), "Error", $"retries={retries} resources={resources.Count} error={e}", null, cancellationToken);
 
                     throw;
                 }
@@ -430,6 +431,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var dups = resources.Except(results.Loaded).Except(results.Conflicts)?.ToList();
 
             return GetErrors(dups, results.Conflicts);
+
+            int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
+            {
+                return importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated) ? 80000 / resources.Count : 30; // 80K is id sequence rollover
+            }
 
             List<string> GetErrors(IReadOnlyCollection<ImportResource> dups, IReadOnlyCollection<ImportResource> conflicts)
             {
