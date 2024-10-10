@@ -926,8 +926,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var queryHints = searchOptions.QueryHints;
-            long globalStartId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            long globalEndId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long globalStartId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            long globalEndId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
             long queryStartId = globalStartId;
 
             SearchResult results = null;
@@ -966,10 +966,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     queryStartId = ranges.Max(x => x.EndId) + 1;
                 }
             }
-            while (ranges is not null && ranges.Count > 0); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
+            while (ranges.Any()); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
             // Return empty result when no resources are found in the given range provided by queryHints.
-            _logger.LogInformation("No surrogate ID ranges found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
+            _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
             return new SearchResult(0, []);
         }
 
