@@ -172,8 +172,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
                 return;
             }
 
-            ExecuteSql("TRUNCATE TABLE EventLog");
-            ExecuteSql("DELETE FROM Resource");
+            var st = DateTime.UtcNow;
+            ExecuteSql("DELETE FROM Resource WHERE ResourceTypeId = 103 AND ResourceSurrogateId BETWEEN 4794128640080000000 AND 4794128640080000000 + 79999");
             ExecuteSql("ALTER SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence RESTART WITH 0");
             ExecuteSql("IF 0 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 0', 18, 127)");
 
@@ -210,7 +210,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             //// Now it suceedes after 100 retries
             await ImportWaitAsync(checkLocation, true);
 
-            ExecuteSql("IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%') RAISERROR('Number of errors is not 100', 18, 127)");
+            ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
         [Fact]
