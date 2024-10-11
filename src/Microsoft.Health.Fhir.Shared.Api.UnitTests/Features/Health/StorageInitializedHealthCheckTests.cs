@@ -9,11 +9,14 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.Features.Health;
 
+[Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+[Trait(Traits.Category, Categories.DataSourceValidation)]
 public class StorageInitializedHealthCheckTests
 {
     private readonly StorageInitializedHealthCheck _sut = new();
