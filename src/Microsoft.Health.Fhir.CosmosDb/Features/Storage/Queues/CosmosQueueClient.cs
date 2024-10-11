@@ -53,6 +53,7 @@ public class CosmosQueueClient : IQueueClient
         string[] definitions,
         long? groupId,
         bool forceOneActiveJobGroup,
+        bool isCompleted,
         CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(definitions, nameof(definitions));
@@ -120,18 +121,18 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, bool isCompleted, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -150,7 +151,7 @@ public class CosmosQueueClient : IQueueClient
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = (byte)JobStatus.Created,
+                Status = isCompleted ? (byte)JobStatus.Completed : (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };

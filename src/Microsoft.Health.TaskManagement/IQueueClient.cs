@@ -23,9 +23,10 @@ namespace Microsoft.Health.JobManagement
         /// <param name="definitions">Job definiation</param>
         /// <param name="groupId">Group id for jobs. Optional</param>
         /// <param name="forceOneActiveJobGroup">Only enqueue job only if there's no active job with same queue type.</param>
+        /// <param name="isCompleted">Enqueue completed jobs.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Job ids for all jobs, include existed jobs.</returns>
-        public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
+        public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs

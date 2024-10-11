@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                 return list;
             });
 
-            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, Arg.Any<CancellationToken>()).Returns(x =>
+            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>
             {
                 string[] definitions = x.ArgAt<string[]>(1);
                 Assert.Equal(numExpectedJobsPerResourceType, definitions.Length);

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         string[] definitions = [JsonConvert.SerializeObject(processingRecord)];
 
                         _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
-                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, cancellationToken);
+                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
                     }
                 }
             }
