@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string>() { "Patient", "Observation", "Encounter" });
             _mockSearchService.GetFeedRanges(Arg.Any<CancellationToken>()).Returns(new List<string>() { "Range1", "Range2", "Range3" });
 
-            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, Arg.Any<CancellationToken>()).Returns(x =>
+            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>
             {
                 string[] definitions = x.ArgAt<string[]>(1);
                 Assert.Single(definitions); // CosmosDB export jobs always have a single definition.
