@@ -1119,6 +1119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         /*
          * Needs investigation, this breaks GivenPatients_WhenSearchedWithSortParamAndMissingIdentifier_SearchResultsReturnedShouldHonorMissingIdentifier
+         */
         [Theory]
         [InlineData("address-postalcode")]
         [InlineData("-address-postalcode")]
@@ -1132,7 +1133,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
         }
-        */
 
         private async Task<Patient[]> CreatePatients(string tag)
         {

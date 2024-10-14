@@ -231,7 +231,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             }
             catch (Exception ex)
             {
-                Trace.TraceError("Failed to delete database: " + ex.Message);
+                Trace.TraceError($"Failed to delete database: {ex.Message}. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
             }
         }
 
