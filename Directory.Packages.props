@@ -69,7 +69,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="8.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.7" />
-    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
