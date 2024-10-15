@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
 
         /// <summary>
-        /// Headers to propagate from the inner actions to the outer HTTP request.
+        /// Status codes that do not require additional logging for troubleshooting.
         /// </summary>
         private static readonly string[] SuccessfullStatusCodeToAvoidAdditionalLogging = new[]
         {
@@ -941,8 +941,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             return input
                 .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\r", string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\n", string.Empty, StringComparison.OrdinalIgnoreCase);
+                .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)
+                .Replace("\n", " ", StringComparison.OrdinalIgnoreCase);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
