@@ -383,32 +383,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
-                if (_schemaInformation.Current < (int)SchemaVersion.V52)
-                {
-                    foreach (var status in statuses)
-                    {
-                        if (status.Status == SearchParameterStatus.Unsupported)
-                        {
-                            status.Status = SearchParameterStatus.Disabled;
-                        }
-                    }
-                }
-
                 var collection = new SearchParameterStatusCollection();
                 collection.AddRange(statuses);
 
                 var tableValuedParameter = new SqlParameter
-                {
-                    ParameterName = "searchParamStatuses",
-                    SqlDbType = SqlDbType.Structured,
-                    Value = collection,
-                    Direction = ParameterDirection.Input,
-                    TypeName = "dbo.SearchParamTableType_1",
-                };
-
-                if (_schemaInformation.Current >= (int)SchemaVersion.V52)
-                {
-                    tableValuedParameter = new SqlParameter
                     {
                         ParameterName = "searchParamStatuses",
                         SqlDbType = SqlDbType.Structured,
@@ -416,7 +394,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         Direction = ParameterDirection.Input,
                         TypeName = "dbo.SearchParamTableType_2",
                     };
-                }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
                 sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });

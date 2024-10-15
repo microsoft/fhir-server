@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>()).Returns(args =>
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
             {
                 var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var response = await _handler.Handle(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
-            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, null, new List<Tuple<string, string>>(), false);
             await Assert.ThrowsAsync<JobNotExistException>(async () => await _handler.Handle(request, CancellationToken.None));
