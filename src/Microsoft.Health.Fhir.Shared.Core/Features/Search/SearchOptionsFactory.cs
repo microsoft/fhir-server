@@ -133,7 +133,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                    // check if previous link header is present
+                    var fullContinuationToken = query.Item2;
+
+                    continuationToken = ContinuationTokenConverter.Decode(fullContinuationToken.Split("||", 2)[0]);
                     setDefaultBundleTotal = false;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.FeedRange, StringComparison.OrdinalIgnoreCase))

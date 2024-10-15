@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken()
-                : EverythingOperationContinuationToken.FromJson(ContinuationTokenConverter.Decode(continuationToken));
+                : EverythingOperationContinuationToken.FromJson(ContinuationTokenConverter.Decode(continuationToken.Split("||", 2)[0]));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {

@@ -46,8 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resultSortOrder">The order the results are sorted in</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <param name="removeTotalParameter">True if the _total parameter should be removed from the url, false otherwise.</param>
+        /// <param name="addPreviousLink">Whether to add the previous link</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false);
+        Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false, bool addPreviousLink = true);
+
+        Uri ResolvePreviousRouteUrl();
 
         /// <summary>
         /// Resolves the URL for the specified routeName.
