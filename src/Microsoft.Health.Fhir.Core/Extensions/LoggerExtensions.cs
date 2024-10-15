@@ -18,31 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class LoggerExtensions
     {
-#pragma warning disable CA1068 // CancellationToken parameters must come last. Cancellation token being last breaks up the readability of the command by seperating the message and its args.
-        public static void LogVerbose(this ILogger logger, IParameterStore store, CancellationToken cancellationToken, string message, params object?[] args)
-#pragma warning restore CA1068 // CancellationToken parameters must come last
+        public static void LogVerbose(this ILogger logger, IParameterStore store, string message, params object?[] args)
         {
-            var logParameterTask = store.GetParameter("LogLevel", cancellationToken);
+            var logParameterTask = store.GetParameter("LogLevel");
 
-            while (logParameterTask.Status != TaskStatus.RanToCompletion)
-            {
-                if (logParameterTask.Status == TaskStatus.Faulted)
-                {
-                    logger.LogWarning(logParameterTask.Exception, "Failed to retrieve LogLevel parameter. Logging at default level.");
-                    return;
-                }
-                else if (logParameterTask.Status == TaskStatus.Canceled)
-                {
-                    logger.LogWarning("Retrieving LogLevel parameter cancelled. Logging at default level.");
-                    return;
-                }
-
-                Thread.Sleep(1);
-            }
-
-#pragma warning disable CA1849 // Runs synchronously to allow for the logger to be used in a synchronous context.
-            if (logParameterTask.Result.CharValue == "Verbose")
-#pragma warning restore CA1068
+            if (logParameterTask.CharValue == "Verbose")
             {
                 logger.LogInformation(message, args);
             }

@@ -37,25 +37,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public async Task<Parameter> GetParameter(string name, CancellationToken cancellationToken)
+        private async Task InitializeAsync(CancellationToken cancellationToken)
         {
-            if (_parameters.TryGetValue(name, out var value) && value.Item1.AddSeconds(_cacheExpirationInSeconds) > DateTime.UtcNow)
-            {
-                return value.Item2;
-            }
-
             try
             {
                 using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
                 conn.RetryLogicProvider = null;
                 await conn.OpenAsync(cancellationToken);
-                using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT * FROM dbo.Parameters WHERE Id = @name", conn);
-                cmd.Parameters.AddWithValue("@name", name);
+                using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT * FROM dbo.Parameters", conn);
 
-                Parameter parameter = new Parameter();
                 using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                if (await reader.ReadAsync(cancellationToken))
+                while (await reader.ReadAsync(cancellationToken))
                 {
+                    Parameter parameter = new Parameter();
                     parameter = new Parameter()
                     {
                         Name = reader.GetString(0),
@@ -67,15 +61,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         UpdatedOn = await reader.IsDBNullAsync(6, cancellationToken) ? DateTime.MinValue : reader.GetDateTime(6),
                         UpdatedBy = await reader.IsDBNullAsync(7, cancellationToken) ? null : reader.GetString(7),
                     };
-                }
 
-                _parameters[name] = new Tuple<DateTime, Parameter>(DateTime.UtcNow, parameter);
-                return parameter;
+                    _parameters[parameter.Name] = new Tuple<DateTime, Parameter>(DateTime.UtcNow, parameter);
+                }
             }
-            catch (SqlException)
+            catch (SqlException ex)
             {
-                _logger.LogError("Failed to get parameter {Name}", name);
+                _logger.LogError(ex, "Failed to initialize parameters");
                 throw;
+            }
+        }
+
+        public Parameter GetParameter(string name)
+        {
+            if (_parameters.TryGetValue(name, out var value) && value.Item1.AddSeconds(_cacheExpirationInSeconds) > DateTime.UtcNow)
+            {
+                return value.Item2;
+            }
+            else
+            {
+                // As the point of Parameters is to be able to apply different settings to each service, we can't expect all services to have the same parameters.
+                _logger.LogWarning("Parameter {Name} not found. Filling cache with blank parameter.", name);
+                _parameters[name] = new Tuple<DateTime, Parameter>(DateTime.UtcNow, new Parameter { Name = name });
+                return _parameters[name].Item2;
             }
         }
 

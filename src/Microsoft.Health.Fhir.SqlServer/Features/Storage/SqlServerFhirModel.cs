@@ -196,22 +196,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            int retryCount = 0;
+            while (true)
             {
-                 _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
+                try
+                {
+                    using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
+                    using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                    using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                    {
+                        _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
+                    }
+
+                    // Run the schema initialization required for all schema versions, from the minimum version to the current version.
+                    await InitializeBase(cancellationToken);
+
+                    // If we are applying a full snap shot schema file, or if the server is just starting up
+                    await InitializeSearchParameterStatuses(cancellationToken);
+
+                    _highestInitializedVersion = version;
+
+                    await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    retryCount++;
+
+                    if (retryCount < 3)
+                    {
+                        _logger.LogError(ex, "Error initializing the SQL Server FHIR model. Retrying atempt {RetryCount}.", retryCount);
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "Error initializing the SQL Server FHIR model. Retry limit reached.");
+                        throw;
+                    }
+                }
             }
-
-            // Run the schema initialization required for all schema versions, from the minimum version to the current version.
-            await InitializeBase(cancellationToken);
-
-            // If we are applying a full snap shot schema file, or if the server is just starting up
-            await InitializeSearchParameterStatuses(cancellationToken);
-
-            _highestInitializedVersion = version;
-
-            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)

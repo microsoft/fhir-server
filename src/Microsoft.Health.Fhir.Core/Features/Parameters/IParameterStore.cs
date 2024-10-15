@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Parameters
 {
     public interface IParameterStore
     {
-        public Task<Parameter> GetParameter(string name, CancellationToken cancellationToken);
+        public Parameter GetParameter(string name);
 
         public Task SetParameter(Parameter parameter, CancellationToken cancellationToken);
 

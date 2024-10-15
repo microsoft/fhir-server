@@ -12,9 +12,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosParameterStore : IParameterStore
     {
-        public Task<Parameter> GetParameter(string name, CancellationToken cancellationToken)
+        public Parameter GetParameter(string name)
         {
-            return Task.FromResult(new Parameter());
+            return new Parameter();
         }
 
         public Task SetParameter(Parameter parameter, CancellationToken cancellationToken)
