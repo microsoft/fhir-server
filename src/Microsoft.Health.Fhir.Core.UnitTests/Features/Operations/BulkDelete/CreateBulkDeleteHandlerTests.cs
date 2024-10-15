@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -56,7 +57,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 requestHeaders: new Dictionary<string, StringValues>(),
                 responseHeaders: new Dictionary<string, StringValues>());
 
-            _handler = new CreateBulkDeleteHandler(_authorizationService, _queueClient, _contextAccessor, _searchService);
+            _handler = new CreateBulkDeleteHandler(
+                _authorizationService,
+                _queueClient,
+                _contextAccessor,
+                _searchService,
+                Substitute.For<ILogger<CreateBulkDeleteHandler>>());
         }
 
         [Fact]
