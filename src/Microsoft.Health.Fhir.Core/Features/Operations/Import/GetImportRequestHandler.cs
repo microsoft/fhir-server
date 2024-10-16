@@ -95,7 +95,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     // hide error message for InternalServerError
                     var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+
+                    // throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+                    // The above line is commented out to avoid throwing an exception and instead return the result.
+
+                    var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
+                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = results.Completed, Error = results.Failed };
+                    return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
                 }
                 else // no failures here
                 {
@@ -122,6 +128,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     {
                         failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                     }
+                }
+
+                foreach (var job in jobs.Where(_ => _.Status == JobStatus.Failed))
+                {
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
+                    var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
+                    completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = new Uri(definition.ResourceLocation) });
+                    failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                 }
 
                 // group success results by url
