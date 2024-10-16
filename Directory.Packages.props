@@ -61,7 +61,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.43.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.43.1" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
