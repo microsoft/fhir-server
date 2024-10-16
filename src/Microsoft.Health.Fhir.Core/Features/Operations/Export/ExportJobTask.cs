@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 dataSize,
                 isAnonymizedExport);
 
-            await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
+            await _mediator.PublishNotificationWithExceptionHandling(nameof(ExportJobTask), new ExportTaskMetricsNotification(_exportJobRecord), _logger, cancellationToken);
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)

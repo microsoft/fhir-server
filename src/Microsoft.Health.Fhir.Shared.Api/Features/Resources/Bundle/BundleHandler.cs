@@ -433,7 +433,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 });
             }
 
-            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
+            var notification = new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction);
+            await _mediator.PublishNotificationWithExceptionHandling(nameof(BundleHandler), notification, _logger, CancellationToken.None);
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)

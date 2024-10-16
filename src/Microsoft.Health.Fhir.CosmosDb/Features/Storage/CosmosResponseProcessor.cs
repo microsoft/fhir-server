@@ -168,29 +168,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 cosmosMetrics.IsThrottled = true;
             }
 
-            try
-            {
-                await _mediator.Publish(cosmosMetrics, cancellationToken);
-            }
-            catch (ObjectDisposedException ode)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogWarning(ode, "ObjectDisposedException. Unable to publish CosmosDB metric. Cancellation was requested.");
-                }
-                else
-                {
-                    _logger.LogCritical(ode, "ObjectDisposedException. Unable to publish CosmosDB metric.");
-                }
-            }
-            catch (OperationCanceledException oce)
-            {
-                _logger.LogWarning(oce, "OperationCanceledException. Unable to publish CosmosDB metric. Cancellation was requested.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Unable to publish CosmosDB metric.");
-            }
+            await _mediator.PublishNotificationWithExceptionHandling(string.Join(':', [nameof(CosmosResponseProcessor), nameof(AddRequestChargeToFhirRequestContextAsync)]), cosmosMetrics, _logger, cancellationToken);
         }
 
         private static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
@@ -257,18 +235,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 exceptionNotification.BaseException = exception;
 
                 await _mediator.Publish(exceptionNotification, cancellationToken);
-            }
-            catch (ObjectDisposedException ode)
-            {
-                _logger.LogWarning(ode, "ObjectDisposedException. Failure while publishing Exception notification.");
-            }
-            catch (OperationCanceledException oce)
-            {
-                _logger.LogWarning(oce, "OperationCanceledException. Unable to publish CosmosDB metric. Cancellation was requested.");
+                await _mediator.PublishNotificationWithExceptionHandling(string.Join(':', [nameof(CosmosResponseProcessor), nameof(EmitExceptionNotificationAsync)]), exceptionNotification, _logger, cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Unable to publish CosmosDB metric.");
+                _logger.LogCritical(ex, "Unable to publish CosmosDB metric.");
             }
         }
     }

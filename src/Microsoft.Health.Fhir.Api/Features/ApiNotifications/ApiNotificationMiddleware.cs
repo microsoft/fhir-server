@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Extensions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                         apiNotification.ResourceType = fhirRequestContext.ResourceType;
                         apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
-                        await _mediator.Publish(apiNotification, CancellationToken.None);
+                        await _mediator.PublishNotificationWithExceptionHandling(nameof(ApiNotificationMiddleware), apiNotification, _logger, CancellationToken.None);
                     }
                 }
                 catch (Exception e)
