@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
                 storageServiceUri = EnvironmentVariables.StorageEmulatorUri;
                 blobContainerName = segments[1];
-                blobName = segments[2];
+                blobName = string.Join("/", segments.Skip(2));
             }
 
             // Use the other GetBlobClient method
