@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         private async Task<BlobContainerClient> InitializeAnonymizationContainer()
         {
-            var storageUri = new Uri(Environment.GetEnvironmentVariable(TestExportStoreUriEnvironmentVariableName));
+            var storageUri = new Uri(EnvironmentVariables.GetEnvironmentVariable(TestExportStoreUriEnvironmentVariableName));
             BlobServiceClient blobClient = AzureStorageBlobHelper.GetBlobServiceClient(storageUri);
             BlobContainerClient container = blobClient.GetBlobContainerClient("anonymization");
             await container.CreateIfNotExistsAsync();

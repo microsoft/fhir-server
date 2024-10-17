@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
@@ -84,8 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
-            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
@@ -183,10 +183,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queueClient = new TestQueueClient();
 
             // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
-            string federatedClientID = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
-            string federatedTenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
-            string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
-            string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
+            string federatedClientID = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string federatedTenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
 
             if (!string.IsNullOrEmpty(federatedClientID) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
             {

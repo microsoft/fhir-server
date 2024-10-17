@@ -117,8 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
@@ -196,8 +195,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var testConnectionString1 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
             var testConnectionString2 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
 

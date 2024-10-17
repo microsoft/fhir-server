@@ -91,8 +91,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Crucible", "test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.shproj", "{218CD980-E236-4EF7-A022-0E94EF844D8F}"
-EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.E2E.Common", "test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.shproj", "{0478B687-7105-40F6-A2DC-81057890E944}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Azure.UnitTests", "src\Microsoft.Health.Fhir.Azure.UnitTests\Microsoft.Health.Fhir.Azure.UnitTests.csproj", "{4C4701AA-8DE4-44B2-8134-102F040C34F8}"
@@ -199,11 +197,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PerfTester", "tools\PerfTes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlScriptRunner", "tools\SqlScriptRunner\SqlScriptRunner.csproj", "{76C29222-8D35-43A2-89C5-43114D113C10}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.CosmosDb.Initialization", "src\Microsoft.Health.Fhir.CosmosDb.Initialization\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj", "{10661BC9-01B0-4E35-9751-3B5CE97E25C0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.Initialization", "src\Microsoft.Health.Fhir.CosmosDb.Initialization\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj", "{10661BC9-01B0-4E35-9751-3B5CE97E25C0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests", "src\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests.csproj", "{B9AAA11D-8C8C-44C3-AADE-801376EF82F0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests", "src\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests\Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests.csproj", "{B9AAA11D-8C8C-44C3-AADE-801376EF82F0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.CosmosDb.Core", "src\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj", "{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.Core", "src\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj", "{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -521,7 +519,6 @@ Global
 		{49DA2851-2A19-4969-AE87-94837BACBE7D} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{6A804695-44D9-4335-B559-9E9A0DAB1102} = {7457B218-2651-49B5-BED8-22233889516A}
-		{218CD980-E236-4EF7-A022-0E94EF844D8F} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{0478B687-7105-40F6-A2DC-81057890E944} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{4C4701AA-8DE4-44B2-8134-102F040C34F8} = {7457B218-2651-49B5-BED8-22233889516A}
 		{61443024-E60B-4E61-9851-B8D57A8886DC} = {FCD51BAF-BFE5-476F-B562-C9AB36AA9839}
@@ -580,8 +577,8 @@ Global
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -589,14 +586,12 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1495bba7-07b8-47ca-b2ed-511003b57667}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core.UnitTests\Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems*{1b944b8a-54f2-4af3-a38a-ca7f1ab5c618}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1b944b8a-54f2-4af3-a38a-ca7f1ab5c618}*SharedItemsImports = 5
-		test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems*{218cd980-e236-4ef7-a022-0e94ef844d8f}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{28ee5d89-e439-46e1-bbe0-5ae986d409c7}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{295745e2-4dd3-4aab-908d-b3dee976bf0e}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core.UnitTests\Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems*{443ecda6-e05b-4bb0-90d9-441fb77cd919}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{443ecda6-e05b-4bb0-90d9-441fb77cd919}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems*{4640d17c-7229-4d90-a330-0423dfc3ffc5}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{49da2851-2a19-4969-ae87-94837bacbe7d}*SharedItemsImports = 5
-		test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems*{49da2851-2a19-4969-ae87-94837bacbe7d}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{49da2851-2a19-4969-ae87-94837bacbe7d}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{49da2851-2a19-4969-ae87-94837bacbe7d}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems*{4b4abb04-42ba-461c-a202-e480a2ae538e}*SharedItemsImports = 13
@@ -615,7 +610,6 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Web.UnitTests\Microsoft.Health.Fhir.Shared.Web.UnitTests.projitems*{73bc4365-2bfb-41c7-b0b1-610059f967ac}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems*{743ea25c-a6f5-4b41-bc56-69d9a89386a3}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
-		test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems*{81a3b383-1560-45e1-9540-9143060243dd}*SharedItemsImports = 5
@@ -630,7 +624,6 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{a0320ae9-3f87-44a3-8263-5af7e00085d4}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems*{a4c416db-67b9-48ae-bc67-96bfced1bcf5}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{a5ded132-32b1-4804-95f5-ebc6092ec8ae}*SharedItemsImports = 5
-		test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems*{a5ded132-32b1-4804-95f5-ebc6092ec8ae}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{a5ded132-32b1-4804-95f5-ebc6092ec8ae}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{a5ded132-32b1-4804-95f5-ebc6092ec8ae}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{a898cc57-69d0-4454-bb70-784c138a05bf}*SharedItemsImports = 13

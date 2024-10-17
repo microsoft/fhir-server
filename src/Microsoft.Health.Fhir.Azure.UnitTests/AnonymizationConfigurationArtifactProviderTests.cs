@@ -182,9 +182,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         {
             var containerRegistry = new ContainerRegistryInfo
             {
-                Server = Environment.GetEnvironmentVariable("TestContainerRegistryServer"),
-                Username = Environment.GetEnvironmentVariable("TestContainerRegistryServer")?.Split('.')[0],
-                Password = Environment.GetEnvironmentVariable("TestContainerRegistryPassword"),
+                Server = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer),
+                Username = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer)?.Split('.')[0],
+                Password = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryPassword),
             };
 
             if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))

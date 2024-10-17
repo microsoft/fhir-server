@@ -12,6 +12,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using IdentityServer4.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
 {
@@ -45,14 +46,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                 throw new Exception("Invalid blob URI");
             }
 
-            string blobContainerName = segments[0];
-            string blobName = string.Join("/", segments.Skip(1));
+            string storageServiceUri = string.Empty;
+            string blobContainerName = string.Empty;
+            string blobName = string.Empty;
+            if (!IsLocalRun(blobUri))
+            {
+                storageServiceUri = $"https://{storageAccountName}.blob.core.windows.net";
+                blobContainerName = segments[0];
+                blobName = string.Join("/", segments.Skip(1));
+            }
+            else
+            {
+                if (segments.Length < 3)
+                {
+                    throw new Exception("Invalid blob URI for a local run.");
+                }
 
-            // Construct the storage service URI
-            Uri storageServiceUri = new Uri($"https://{storageAccountName}.blob.core.windows.net");
+                storageServiceUri = EnvironmentVariables.StorageEmulatorUri;
+                blobContainerName = segments[1];
+                blobName = string.Join("/", segments.Skip(2));
+            }
 
             // Use the other GetBlobClient method
-            return GetBlobClient(storageServiceUri, blobContainerName, blobName);
+            return GetBlobClient(new Uri(storageServiceUri), blobContainerName, blobName);
         }
 
         public static BlobServiceClient GetBlobServiceClient(Uri storageServiceUri)
@@ -64,10 +80,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             TokenCredential credential = IsAzurePipelinesRun()
                 ? new AzurePipelinesCredential(
-                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID"),
-                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID"),
-                    Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"),
-                    Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN"))
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken))
                 : new DefaultAzureCredential();
 
             var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
@@ -91,15 +107,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E
         private static bool IsAzurePipelinesRun()
         {
             string[] variableNames = [
-                "AZURESUBSCRIPTION_CLIENT_ID",
-                "AZURESUBSCRIPTION_TENANT_ID",
-                "AZURESUBSCRIPTION_SERVICE_CONNECTION_ID",
-                "SYSTEM_ACCESSTOKEN",
+                KnownEnvironmentVariableNames.AzureSubscriptionClientId,
+                KnownEnvironmentVariableNames.AzureSubscriptionTenantId,
+                KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId,
+                KnownEnvironmentVariableNames.SystemAccessToken,
             ];
 
             foreach (var variableName in variableNames)
             {
-                string variableValue = Environment.GetEnvironmentVariable(variableName);
+                string variableValue = EnvironmentVariables.GetEnvironmentVariable(variableName);
                 if (string.IsNullOrEmpty(variableValue))
                 {
                     return false;
