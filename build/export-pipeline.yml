@@ -27,9 +27,8 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - task: UseDotNet@2
-      displayName: 'Use .NET sdk'
       inputs:
-        useGlobalJson: true
+        version: '8.0.x'
     - task: DotNetCoreCLI@2
       displayName: 'dotnet build $(buildConfiguration)'
       inputs:
