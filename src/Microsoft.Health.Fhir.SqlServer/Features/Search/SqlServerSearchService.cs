@@ -936,7 +936,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             do
             {
                 // Get surrogate ID ranges
-                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 10, true, cancellationToken);
+
+                // Order the ranges by start id as they come back unordered. This ensures records aren't skipped during reindex.
+                ranges = ranges.OrderBy(x => x.StartId).ToList();
 
                 foreach (var range in ranges)
                 {
