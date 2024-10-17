@@ -6,7 +6,6 @@ set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'GetResources'
        ,@InputRows int
-       ,@DummyTop bigint = 9223372036854775807
        ,@NotNullVersionExists bit 
        ,@NullVersionExists bit
        ,@MinRT smallint
@@ -22,57 +21,69 @@ BEGIN TRY
       SELECT B.ResourceTypeId
             ,B.ResourceId
             ,ResourceSurrogateId
-            ,B.Version
+            ,C.Version
             ,IsDeleted
             ,IsHistory
             ,RawResource
             ,IsRawResourceMetaSet
             ,SearchParamHash
-        FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
-             JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+            ,TransactionId
+            ,OffsetInFile
+        FROM (SELECT * FROM @ResourceKeys) A
+             INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+             INNER LOOP JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = '' AND C.Version = A.Version
+        OPTION (MAXDOP 1)
     ELSE
       SELECT *
         FROM (SELECT B.ResourceTypeId
                     ,B.ResourceId
                     ,ResourceSurrogateId
-                    ,B.Version
+                    ,C.Version
                     ,IsDeleted
                     ,IsHistory
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
-                FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NOT NULL) A
-                     JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+                    ,TransactionId
+                    ,OffsetInFile
+                FROM (SELECT * FROM @ResourceKeys WHERE Version IS NOT NULL) A
+                     INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                     INNER LOOP JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_Version_ResourceTypeId) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = '' AND C.Version = A.Version
               UNION ALL
               SELECT B.ResourceTypeId
                     ,B.ResourceId
                     ,ResourceSurrogateId
-                    ,B.Version
+                    ,C.Version
                     ,IsDeleted
                     ,IsHistory
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
-                FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NULL) A
-                     JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                    ,TransactionId
+                    ,OffsetInFile
+                FROM (SELECT * FROM @ResourceKeys WHERE Version IS NULL) A
+                     INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                     INNER LOOP JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_ResourceTypeId_INCLUDE_Version_IsDeleted_WHERE_IsHistory_0) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = ''
                 WHERE IsHistory = 0
              ) A
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+        OPTION (MAXDOP 1)
   ELSE
     SELECT B.ResourceTypeId
           ,B.ResourceId
           ,ResourceSurrogateId
-          ,B.Version
+          ,C.Version
           ,IsDeleted
           ,IsHistory
           ,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
-      FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
-           JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+          ,TransactionId
+          ,OffsetInFile
+      FROM (SELECT * FROM @ResourceKeys) A
+           INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+           INNER LOOP JOIN dbo.ResourceTbl C WITH (INDEX = IXU_ResourceIdInt_ResourceId_ResourceTypeId_INCLUDE_Version_IsDeleted_WHERE_IsHistory_0) ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.ResourceId = ''
       WHERE IsHistory = 0
-      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+      OPTION (MAXDOP 1)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY

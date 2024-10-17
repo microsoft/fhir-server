@@ -204,6 +204,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.ResourceCurrent.RawResource, resourceTableAlias);
 
+                StringBuilder.Append(", ").Append(VLatest.Resource.TransactionId, resourceTableAlias);
+                StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
+
                 if (IsSortValueNeeded(context))
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");

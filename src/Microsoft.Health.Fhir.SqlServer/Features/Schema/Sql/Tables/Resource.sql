@@ -13,7 +13,8 @@ CREATE TABLE dbo.ResourceCurrent
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
-   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT DF_Resource_ResourceId DEFAULT ''
+   ,ResourceIdInt               bigint                  NOT NULL CONSTRAINT DF_Resource_ResourceIdInt DEFAULT 0
    ,Version                     int                     NOT NULL
    ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceCurrent_IsHistory DEFAULT 0, CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0)
    ,IsDeleted                   bit                     NOT NULL
@@ -23,18 +24,15 @@ CREATE TABLE dbo.ResourceCurrent
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
    ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
-
+   ,OffsetInFile                int                     NULL
     CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-   ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceIdInt UNIQUE (ResourceTypeId, ResourceId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT CH_ResourceCurrent_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
+   ,CONSTRAINT CH_ResourceCurrent_ResourceIdInt_ResourceId CHECK (ResourceIdInt = 0 AND ResourceId <> '' OR ResourceIdInt <> 0 AND ResourceId = '')
 )
 
 ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 
--- Strictly speaking, IsHistory=0 filter in the index is not required because table has check constraint. 
--- But SQL Server has a bug. For queries having IsHistory=0 in WHERE, SQL knows that only current table should be looked at.
--- But when choosing indexes it forgets about this unless IsHistory=0 is also included in index definition.
--- Without this redundant filtering clause in the index SQL chooses clustered index scan. For large tables it is a difference between running OK and timing out. 
---CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsHistory_0_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0 AND IsDeleted = 0 WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 CREATE INDEX IX_ResourceTypeId_HistoryTransactionId_WHERE_HistoryTransactionId_NOT_NULL ON dbo.ResourceCurrent (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
@@ -54,6 +52,7 @@ SELECT A.ResourceTypeId
       ,SearchParamHash
       ,TransactionId 
       ,HistoryTransactionId
+      ,OffsetInFile
   FROM dbo.ResourceCurrentTbl A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
 GO
@@ -61,7 +60,8 @@ CREATE TABLE dbo.ResourceHistory
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
-   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT DF_Resource_ResourceId DEFAULT ''
+   ,ResourceIdInt               bigint                  NOT NULL CONSTRAINT DF_Resource_ResourceIdInt DEFAULT 0
    ,Version                     int                     NOT NULL
    ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceHistory_IsHistory DEFAULT 1, CONSTRAINT CH_ResourceHistory_IsHistory CHECK (IsHistory = 1)
    ,IsDeleted                   bit                     NOT NULL
@@ -71,9 +71,12 @@ CREATE TABLE dbo.ResourceHistory
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
    ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
+   ,OffsetInFile                int                     NULL
 
     CONSTRAINT PKC_ResourceHistory_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_ResourceHistory_ResourceTypeId_ResourceId_Version UNIQUE (ResourceTypeId, ResourceId, Version) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT CH_ResourceHistory_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
+   ,CONSTRAINT CH_ResourceHistory_ResourceIdInt_ResourceId CHECK (ResourceIdInt = 0 AND ResourceId <> '' OR ResourceIdInt <> 0 AND ResourceId = '')
 )
 
 ALTER TABLE dbo.ResourceHistory SET ( LOCK_ESCALATION = AUTO )
@@ -97,6 +100,7 @@ SELECT A.ResourceTypeId
       ,SearchParamHash
       ,TransactionId
       ,HistoryTransactionId
+      ,OffsetInFile
   FROM dbo.ResourceHistoryTbl A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
 GO
