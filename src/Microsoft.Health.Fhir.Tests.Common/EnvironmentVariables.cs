@@ -28,13 +28,13 @@ namespace Microsoft.Health.Fhir.Tests.Common
             { KnownEnvironmentVariableNames.CosmosDbKey, CosmosDbLocalEmulator.Key },
             { KnownEnvironmentVariableNames.CosmosDbPreferredLocations, string.Empty },
             { KnownEnvironmentVariableNames.CosmosDbUseManagedIdentity, string.Empty },
-            { KnownEnvironmentVariableNames.CrucibleEnvironmentUrl, string.Empty },
             { KnownEnvironmentVariableNames.SqlServerConnectionString, LocalSqlConnectionString },
             { KnownEnvironmentVariableNames.SystemAccessToken, string.Empty },
             { KnownEnvironmentVariableNames.TestContainerRegistryPassword, string.Empty },
             { KnownEnvironmentVariableNames.TestContainerRegistryServer, string.Empty },
             { KnownEnvironmentVariableNames.TestEnvironmentName, string.Empty },
             { KnownEnvironmentVariableNames.TestEnvironmentUrl, string.Empty },
+            { KnownEnvironmentVariableNames.TestExportStoreUri, StorageEmulatorUri },
             { KnownEnvironmentVariableNames.TestIntegrationStoreUri, StorageEmulatorUri },
         };
 
