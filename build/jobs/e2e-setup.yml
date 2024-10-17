@@ -8,7 +8,7 @@ steps:
 
   - task: UseDotNet@2
     inputs:
-      useGlobalJson: true
+      version: '8.0.x'
         
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'

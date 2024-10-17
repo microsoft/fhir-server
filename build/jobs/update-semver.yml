@@ -8,7 +8,7 @@ steps:
   
 - task: UseDotNet@2
   inputs:
-    useGlobalJson: true
+    version: '8.0.x'
     
 - powershell: |
     dotnet tool install --global GitVersion.Tool --version 5.12.0

@@ -7,9 +7,8 @@ parameters:
 
 steps:
 - task: UseDotNet@2
-  displayName: Use .NET Core sdk
   inputs:
-    useGlobalJson: true
+    version: '8.0.x'
 
 - ${{ if eq(parameters.analyzeBinaries, 'true') }}:
   - task: DownloadBuildArtifacts@0

@@ -9,9 +9,8 @@ parameters:
 
 steps:
 - task: UseDotNet@2
-  displayName: 'Use .NET SDK'
   inputs:
-    useGlobalJson: true
+    version: '8.0.x'
 
 - ${{ if eq(parameters.targetBuildFramework, '') }}:
   - task: DotNetCoreCLI@2
