@@ -5,12 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
     public static class EnvironmentVariables
     {
+        public const string CosmosDbEmulatorHost = "https://localhost:8081";
+        public const string CosmosDbEmulatorKey = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
         public const string DefaultCosmosDbId = "FhirTests";
         public const string LocalSqlConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         public const string MasterDatabaseName = "master";
@@ -24,8 +25,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
             { KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId, string.Empty },
             { KnownEnvironmentVariableNames.AzureSubscriptionTenantId, string.Empty },
             { KnownEnvironmentVariableNames.CosmosDbDatabaseId, DefaultCosmosDbId },
-            { KnownEnvironmentVariableNames.CosmosDbHost, CosmosDbLocalEmulator.Host },
-            { KnownEnvironmentVariableNames.CosmosDbKey, CosmosDbLocalEmulator.Key },
+            { KnownEnvironmentVariableNames.CosmosDbHost, CosmosDbEmulatorHost },
+            { KnownEnvironmentVariableNames.CosmosDbKey, CosmosDbEmulatorKey },
             { KnownEnvironmentVariableNames.CosmosDbPreferredLocations, string.Empty },
             { KnownEnvironmentVariableNames.CosmosDbUseManagedIdentity, string.Empty },
             { KnownEnvironmentVariableNames.SqlServerConnectionString, LocalSqlConnectionString },
