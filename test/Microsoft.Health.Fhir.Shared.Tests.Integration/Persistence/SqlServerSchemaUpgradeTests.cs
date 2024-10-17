@@ -296,8 +296,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                     if (schemaDifference.SourceObject != null
                         && schemaDifference.TargetObject != null
-                        && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
-                        && await IsStoredProcedureTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
+                        && (schemaDifference.SourceObject.ObjectType.Name == "Procedure" || schemaDifference.SourceObject.ObjectType.Name == "View")
+                        && await IsObjectTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
                     {
                         continue;
                     }
@@ -318,10 +318,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return unexpectedDifference.ToString();
         }
 
-        private async Task<bool> IsStoredProcedureTextEqual(string connStr1, string connStr2, string storedProcedureName)
+        private async Task<bool> IsObjectTextEqual(string connStr1, string connStr2, string objectName)
         {
-            var text1 = await GetStoredProcedureText(connStr1, storedProcedureName);
-            var text2 = await GetStoredProcedureText(connStr2, storedProcedureName);
+            var text1 = await GetObjectText(connStr1, objectName);
+            var text2 = await GetObjectText(connStr2, objectName);
 
             text1 = Normalize(text1);
             text2 = Normalize(text2);
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace("))on", ")on");
         }
 
-        private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
+        private async Task<string> GetObjectText(string connStr, string storedProcedureName)
         {
             using var conn = new SqlConnection(connStr);
             await conn.OpenAsync();

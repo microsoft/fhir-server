@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             finally
             {
                 ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
-                ExecuteSql("TRUNCATE TABLE dbo.Resource");
+                ExecuteSql("DELETE FROM dbo.Resource");
                 ExecuteSql(DropTrigger);
             }
         }
@@ -151,7 +151,7 @@ retryOnTestException:
         private void PrepareData()
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("DELETE FROM dbo.Resource");
             var surrId = DateTimeOffset.UtcNow.ToId();
             ExecuteSql(@$"
 INSERT INTO Resource 

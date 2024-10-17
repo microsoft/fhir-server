@@ -79,10 +79,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
                 await _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE TRIGGER Resource_Trigger ON Resource FOR INSERT
+CREATE TRIGGER Resource_Trigger ON ResourceCurrentTbl FOR INSERT
 AS
 IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 'Error') < {requestedExceptions}
-  INSERT INTO Resource SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
+  INSERT INTO ResourceCurrentTbl SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
                     ");
 
                 var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
@@ -204,7 +204,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
+            //// noramlly we do not allow update in place
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.ResourceCurrent SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
         [Fact]
