@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
         public object AddParameter(Column column, object value, bool includeInHash)
         {
-            if (column.Metadata.Name == VLatest.ResourceCurrent.ResourceTypeId.Metadata.Name // logic uses "ResourceTypeId" string value. Resource table is chosen arbitrarily.
+            if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name // logic uses "ResourceTypeId" string value. Resource table is chosen arbitrarily.
                     || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
                     || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name) // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.
             {

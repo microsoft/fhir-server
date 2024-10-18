@@ -380,9 +380,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlCommand.CommandType = CommandType.StoredProcedure;
                             }
 
-                            // Put "union" view
-                            queryText = queryText.Replace("dbo.ResourceCurrent", "dbo.Resource", StringComparison.InvariantCulture);
-
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                             sqlCommand.CommandText = queryText;
@@ -847,21 +844,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out int? offsetInFile,
             out bool isInvisible)
         {
-            resourceTypeId = reader.Read(VLatest.ResourceCurrent.ResourceTypeId, 0);
-            resourceId = reader.Read(VLatest.ResourceCurrent.ResourceId, 1);
-            version = reader.Read(VLatest.ResourceCurrent.Version, 2);
-            isDeleted = reader.Read(VLatest.ResourceCurrent.IsDeleted, 3);
-            resourceSurrogateId = reader.Read(VLatest.ResourceCurrent.ResourceSurrogateId, 4);
-            requestMethod = reader.Read(VLatest.ResourceCurrent.RequestMethod, 5);
+            resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            version = reader.Read(VLatest.Resource.Version, 2);
+            isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
+            resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
+            requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
             isMatch = reader.Read(_isMatch, 6);
             isPartialEntry = reader.Read(_isPartial, 7);
-            isRawResourceMetaSet = reader.Read(VLatest.ResourceCurrent.IsRawResourceMetaSet, 8);
-            searchParameterHash = reader.Read(VLatest.ResourceCurrent.SearchParamHash, 9);
+            isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
+            searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceSqlBytes = reader.GetSqlBytes(10);
-            transactionId = reader.Read(VLatest.ResourceCurrent.TransactionId, 11);
-            offsetInFile = reader.Read(VLatest.ResourceCurrent.OffsetInFile, 12);
+            transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
+            offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
             isInvisible = false;
-            if (rawResourceSqlBytes != null)
+            if (!rawResourceSqlBytes.IsNull)
             {
                 var rawResourceBytes = rawResourceSqlBytes.Value;
                 if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF)
