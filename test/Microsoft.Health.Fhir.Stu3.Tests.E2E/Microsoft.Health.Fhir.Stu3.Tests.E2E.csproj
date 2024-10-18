@@ -52,22 +52,6 @@
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />
-  <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">
-
-    <!--
-      Verify that the we are compiling with the exact version of the SDK that is specified in the global.json file.
-      If the version specified in the file is not installed on the system, dotnet uses the latest installed version instead.
-      We want to avoid that behavior because new SDK versions by default target the runtime version it is released with,
-      so the runtime behavior could be different depending on what SDK versions were installed on the machine that compiled
-      the code.
-    -->
-    <PropertyGroup>
-      <GlobalJsonPath>$([MSBuild]::GetPathOfFileAbove(global.json))</GlobalJsonPath>
-      <GlobalJsonContent>$([System.IO.File]::ReadAllText($(GlobalJsonPath)))</GlobalJsonContent>
-      <ParsedSdkVersion><![CDATA[$([System.Text.RegularExpressions.Regex]::Match($(GlobalJsonContent), '"version"\s*:\s*"(\d+.\d+.\d+)"').Groups[1].Value)]]></ParsedSdkVersion>
-    </PropertyGroup>
-    <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)" Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
-  </Target>
   <Target Name="AddRuntimeConfigFileToBuiltProjectOutputGroupOutput" Condition=" '$(GenerateRuntimeConfigurationFiles)' == 'true'" BeforeTargets="BuiltProjectOutputGroup">
     <ItemGroup>
       <BuiltProjectOutputGroupOutput Include="$(ProjectRuntimeConfigFilePath)" FinalOutputPath="$(ProjectRuntimeConfigFilePath)" />
