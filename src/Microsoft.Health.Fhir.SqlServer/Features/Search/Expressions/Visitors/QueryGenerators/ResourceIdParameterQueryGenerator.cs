@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            VisitSimpleString(expression, context, VLatest.Resource.ResourceId, expression.Value);
+            VisitSimpleString(expression, context, VLatest.ResourceCurrent.ResourceId, expression.Value);
 
             return context;
         }
