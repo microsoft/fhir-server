@@ -121,7 +121,7 @@ BEGIN TRY
   INSERT INTO @ReferenceSearchParamsWithIds
          (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,                  ReferenceResourceIdInt, ReferenceResourceVersion )
     SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), ReferenceResourceVersion
-      FROM @ReferenceSearchParams A
+      FROM (SELECT * FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NOT NULL) A
            LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
            LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ReferenceResourceTypeId AND C.ResourceId = A.ReferenceResourceId
 -- Prepare id map for reference search params End ---------------------------------------------------------------------------

@@ -3634,7 +3634,9 @@ BEGIN TRY
            ReferenceResourceTypeId,
            isnull(C.ResourceIdInt, B.ResourceIdInt),
            ReferenceResourceVersion
-    FROM   @ReferenceSearchParams AS A
+    FROM   (SELECT *
+            FROM   @ReferenceSearchParams
+            WHERE  ReferenceResourceTypeId IS NOT NULL) AS A
            LEFT OUTER JOIN
            @InsertedIds AS B
            ON B.ResourceTypeId = A.ReferenceResourceTypeId
