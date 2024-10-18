@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private readonly HashSet<string> _exlcudedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
         {
+            KnownQueryParameterNames.BulkHardDelete,
             KnownQueryParameterNames.HardDelete,
             KnownQueryParameterNames.PurgeHistory,
         };
@@ -54,18 +56,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDelete)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDelete([FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
+        public async Task<IActionResult> BulkDelete(HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(null, hardDelete, purgeHistory, false);
+            return await SendDeleteRequest(null, hardDeleteModel.IsHardDelete, purgeHistory, false);
         }
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
+        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory, false);
+            return await SendDeleteRequest(typeParameter, hardDeleteModel.IsHardDelete, purgeHistory, false);
         }
 
         [HttpDelete]

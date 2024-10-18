@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly SqlStoreClient<SqlServerFhirDataStore> _sqlStoreClient;
+        private readonly SqlStoreClient _sqlStoreClient;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -80,14 +80,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IImportErrorSerializer importErrorSerializer)
+            IImportErrorSerializer importErrorSerializer,
+            SqlStoreClient storeClient)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            _sqlStoreClient = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, logger);
+            _sqlStoreClient = EnsureArg.IsNotNull(storeClient, nameof(storeClient));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _ = new SqlSecondaryStore<SqlServerFhirDataStore>(_sqlRetryService, _logger);
         }
 
-        internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
+        internal SqlStoreClient StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
@@ -209,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                        await Task.Delay(5000, cancellationToken);
+                        await Task.Delay(1000, cancellationToken);
                         continue;
                     }
 
@@ -462,6 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
+            var maxRetries = GetMaxRetries(resources, importMode);
             var retries = 0;
             while (true)
             {
@@ -473,16 +475,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
+                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
-                        await _sqlRetryService.TryLogEvent(nameof(ImportResourcesInternalAsync), "Warn", $"retries={retries} error={sqlEx.Message}", null, cancellationToken);
-                        await Task.Delay(500, cancellationToken);
+                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
+                        await _sqlRetryService.TryLogEvent(nameof(ImportResourcesInternalAsync), "Warn", $"retries={retries} resources={resources.Count} error={sqlEx.Message}", null, cancellationToken);
+                        await Task.Delay(retries > 3 ? 10 : 500, cancellationToken); // if >3 assume that it is id generation problem
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
-                    await StoreClient.TryLogEvent(nameof(ImportResourcesInternalAsync), "Error", $"retries={retries} error={e}", null, cancellationToken);
+                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
+                    await StoreClient.TryLogEvent(nameof(ImportResourcesInternalAsync), "Error", $"retries={retries} resources={resources.Count} error={e}", null, cancellationToken);
 
                     throw;
                 }
@@ -491,6 +493,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var dups = resources.Except(results.Loaded).Except(results.Conflicts)?.ToList();
 
             return GetErrors(dups, results.Conflicts);
+
+            int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
+            {
+                return importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated) ? 80000 / resources.Count : 30; // 80K is id sequence rollover
+            }
 
             List<string> GetErrors(IReadOnlyCollection<ImportResource> dups, IReadOnlyCollection<ImportResource> conflicts)
             {
