@@ -1,53 +1,40 @@
 ﻿CREATE VIEW dbo.Resource
-AS
-SELECT ResourceTypeId
-      ,ResourceSurrogateId
+AS 
+SELECT A.ResourceTypeId
+      ,A.ResourceSurrogateId
       ,ResourceId
+      ,A.ResourceIdInt
       ,Version
       ,IsHistory
       ,IsDeleted
       ,RequestMethod
-      ,RawResource
+      ,B.RawResource
       ,IsRawResourceMetaSet
       ,SearchParamHash
-      ,TransactionId
+      ,TransactionId 
       ,HistoryTransactionId
-  FROM dbo.ResourceHistory
+      ,OffsetInFile
+  FROM dbo.CurrentResources A
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
 UNION ALL
-SELECT ResourceTypeId
-      ,ResourceSurrogateId
+SELECT A.ResourceTypeId
+      ,A.ResourceSurrogateId
       ,ResourceId
+      ,A.ResourceIdInt
       ,Version
       ,IsHistory
       ,IsDeleted
       ,RequestMethod
-      ,RawResource
+      ,B.RawResource
       ,IsRawResourceMetaSet
       ,SearchParamHash
-      ,TransactionId
+      ,TransactionId 
       ,HistoryTransactionId
-  FROM dbo.ResourceCurrent
-GO
-CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
-AS
-BEGIN
-  INSERT INTO dbo.RawResources
-         ( ResourceTypeId, ResourceSurrogateId, RawResource )
-    SELECT ResourceTypeId, ResourceSurrogateId, RawResource
-      FROM Inserted
-
-  INSERT INTO dbo.ResourceCurrentTbl
-         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
-      FROM Inserted
-      WHERE IsHistory = 0
-
-  INSERT INTO dbo.ResourceHistoryTbl
-         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
-      FROM Inserted
-      WHERE IsHistory = 1
-END
+      ,OffsetInFile
+  FROM dbo.HistoryResources A
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
 GO
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
@@ -64,7 +51,7 @@ BEGIN
          ,SearchParamHash = A.SearchParamHash
          ,HistoryTransactionId = A.HistoryTransactionId
       FROM Inserted A
-           JOIN dbo.ResourceCurrentTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   
     RETURN
   END
@@ -74,7 +61,7 @@ BEGIN
     UPDATE B
       SET SearchParamHash = A.SearchParamHash
       FROM Inserted A
-           JOIN dbo.ResourceCurrentTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
       WHERE A.IsHistory = 0
     
     RETURN
@@ -90,12 +77,12 @@ BEGIN
     RAISERROR('Generic updates are not supported via Resource view',18,127)
 
   DELETE FROM A
-    FROM dbo.ResourceCurrentTbl A
+    FROM dbo.CurrentResources A
     WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
 
-  INSERT INTO dbo.ResourceHistoryTbl
-         ( ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId
+  INSERT INTO dbo.HistoryResources
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile
       FROM Inserted
       WHERE IsHistory = 1
 END
@@ -104,11 +91,11 @@ CREATE TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
 AS
 BEGIN
   DELETE FROM A
-    FROM dbo.ResourceCurrentTbl A
+    FROM dbo.CurrentResources A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
 
   DELETE FROM A
-    FROM dbo.ResourceHistoryTbl A
+    FROM dbo.HistoryResources A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
 
   DELETE FROM A
