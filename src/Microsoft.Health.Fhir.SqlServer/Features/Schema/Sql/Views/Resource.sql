@@ -36,6 +36,28 @@ SELECT A.ResourceTypeId
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
 GO
+CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
+AS
+BEGIN
+  INSERT INTO dbo.RawResources
+         ( ResourceTypeId, ResourceSurrogateId, RawResource )
+    SELECT ResourceTypeId, ResourceSurrogateId, RawResource
+      FROM Inserted
+      WHERE RawResource IS NOT NULL
+
+  INSERT INTO dbo.CurrentResources
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile
+      FROM Inserted
+      WHERE IsHistory = 0
+
+  INSERT INTO dbo.HistoryResources
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile
+      FROM Inserted
+      WHERE IsHistory = 1
+END
+GO
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
@@ -46,6 +68,13 @@ BEGIN
       FROM Inserted A
            JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
     
+    IF @@rowcount = 0
+      INSERT INTO dbo.RawResources
+             ( ResourceTypeId, ResourceSurrogateId, RawResource )
+        SELECT ResourceTypeId, ResourceSurrogateId, RawResource
+          FROM Inserted
+          WHERE RawResource IS NOT NULL
+
     UPDATE B
       SET IsDeleted = A.IsDeleted
          ,SearchParamHash = A.SearchParamHash
@@ -68,10 +97,19 @@ BEGIN
   END
 
   IF UPDATE(RawResource) -- invisible records
+  BEGIN
     UPDATE B
       SET RawResource = A.RawResource
       FROM Inserted A
            JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+
+    IF @@rowcount = 0
+      INSERT INTO dbo.RawResources
+             ( ResourceTypeId, ResourceSurrogateId, RawResource )
+        SELECT ResourceTypeId, ResourceSurrogateId, RawResource
+          FROM Inserted
+          WHERE RawResource IS NOT NULL
+  END
 
   IF NOT UPDATE(IsHistory)
     RAISERROR('Generic updates are not supported via Resource view',18,127)
@@ -101,6 +139,5 @@ BEGIN
   DELETE FROM A
     FROM dbo.RawResources A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
-      AND NOT EXISTS (SELECT * FROM Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) 
 END
 GO

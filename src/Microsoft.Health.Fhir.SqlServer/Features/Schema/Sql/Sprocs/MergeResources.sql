@@ -324,18 +324,10 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
-    INSERT INTO dbo.CurrentResources 
+    INSERT INTO dbo.Resource 
            ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, OffsetInFile )
       SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, OffsetInFile
         FROM @ResourcesWithIds
-        WHERE IsHistory = 0
-    SET @AffectedRows += @@rowcount
-
-    INSERT INTO dbo.HistoryResources 
-           ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, OffsetInFile )
-      SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, OffsetInFile
-        FROM @ResourcesWithIds
-        WHERE IsHistory = 1
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ResourceWriteClaim 

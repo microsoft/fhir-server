@@ -39,7 +39,7 @@ BEGIN TRY
 
   -- First, delete all the search params of the resources to reindex.
   DELETE FROM B FROM @Ids A JOIN dbo.ResourceWriteClaim B ON B.ResourceSurrogateId = A.ResourceSurrogateId
-  DELETE FROM B FROM dbo.ReferenceSearchParam B WHERE EXISTS (SELECT * FROM @Ids A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+  DELETE FROM B FROM dbo.ReferenceSearchParams B WHERE EXISTS (SELECT * FROM @Ids A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
   DELETE FROM B FROM @Ids A JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.TokenText B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.StringSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -60,10 +60,11 @@ BEGIN TRY
     SELECT ResourceSurrogateId, ClaimTypeId, ClaimValue
       FROM @ResourceWriteClaims
 
-  INSERT INTO dbo.ReferenceSearchParam 
-         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion )
-    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
-      FROM @ReferenceSearchParams
+  INSERT INTO dbo.ReferenceSearchParams 
+         (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion )
+    SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,        B.ResourceIdInt, ReferenceResourceVersion
+      FROM @ReferenceSearchParams A
+           JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ReferenceResourceId
 
   INSERT INTO dbo.TokenSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )

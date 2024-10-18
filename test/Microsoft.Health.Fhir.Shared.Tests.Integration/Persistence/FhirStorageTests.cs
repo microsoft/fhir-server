@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 CREATE TRIGGER Resource_Trigger ON CurrentResources FOR INSERT
 AS
 IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 'Error') < {requestedExceptions}
-  INSERT INTO ResourceCurrentTbl SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
+  INSERT INTO CurrentResources SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
                     ");
 
                 var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
@@ -197,16 +197,23 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         private async Task UpdateResource(Patient patient)
         {
             var oldId = patient.Id;
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceId = '{oldId}' AND Version = 1");
+            await _fixture.SqlHelper.ExecuteSqlCmd(@$"
+UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{oldId}') AND Version = 1
+              ");
             var newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{oldId}'), Version = 2, IsHistory = 1 WHERE ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{newId}') AND Version = 1");
+            await _fixture.SqlHelper.ExecuteSqlCmd(@$"
+UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{newId}') AND Version = 1
+UPDATE dbo.HistoryResources SET ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{oldId}'), Version = 2 WHERE ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{newId}') AND Version = 1
+              ");
             newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
             //// noramlly we do not allow update in place
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.CurrentResources SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
+            await _fixture.SqlHelper.ExecuteSqlCmd(@$"
+UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{oldId}'), Version = 3 WHERE ResourceIdInt = (SELECT ResourceIdInt FROM ResourceIdIntMap WHERE ResourceId = '{newId}') AND Version = 1
+              ");
         }
 
         [Fact]

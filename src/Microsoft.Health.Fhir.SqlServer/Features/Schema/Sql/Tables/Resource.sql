@@ -49,7 +49,6 @@ CREATE TABLE dbo.CurrentResources
    ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_CurrentResources_IsHistory DEFAULT 0, CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0)
    ,IsDeleted                   bit                     NOT NULL
    ,RequestMethod               varchar(10)             NULL
-   ,RawResource                 varbinary(max)          NULL
    ,IsRawResourceMetaSet        bit                     NOT NULL CONSTRAINT DF_CurrentResources_IsRawResourceMetaSet DEFAULT 0
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL
@@ -58,7 +57,7 @@ CREATE TABLE dbo.CurrentResources
 
     CONSTRAINT PKC_CurrentResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-   ,CONSTRAINT CH_CurrentResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
+   --,CONSTRAINT CH_CurrentResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.CurrentResources SET ( LOCK_ESCALATION = AUTO )
@@ -75,7 +74,6 @@ CREATE TABLE dbo.HistoryResources
    ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_HistoryResources_IsHistory DEFAULT 1, CONSTRAINT CH_HistoryResources_IsHistory CHECK (IsHistory = 1)
    ,IsDeleted                   bit                     NOT NULL
    ,RequestMethod               varchar(10)             NULL
-   ,RawResource                 varbinary(max)          NULL
    ,IsRawResourceMetaSet        bit                     NOT NULL CONSTRAINT DF_HistoryResources_IsRawResourceMetaSet DEFAULT 0
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL
@@ -84,7 +82,7 @@ CREATE TABLE dbo.HistoryResources
 
     CONSTRAINT PKC_HistoryResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-   ,CONSTRAINT CH_HistoryResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
+   --,CONSTRAINT CH_HistoryResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.HistoryResources SET ( LOCK_ESCALATION = AUTO )
