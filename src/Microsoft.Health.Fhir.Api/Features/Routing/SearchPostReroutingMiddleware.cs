@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 && request.Method == "POST"
                 && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
             {
-                if (request.ContentType is null || request.ContentType == "application/x-www-form-urlencoded")
+                if (request.ContentType is null || request.HasFormContentType)
                 {
                     if (request.HasFormContentType)
                     {
