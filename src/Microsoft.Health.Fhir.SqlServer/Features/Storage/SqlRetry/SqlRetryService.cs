@@ -74,19 +74,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
         private CoreFeatureConfiguration _coreFeatureConfiguration;
-  private readonly string _database;
+        private readonly string _database;
 
-  /// <summary>
-  /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
-  /// is designed to operate as a standard .NET service and all of the parameters to the constructor are passed
-  /// using .NET dependency injection.
-  /// </summary>
-  /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
-  /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
-  /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
-  /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
-  /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
-  public SqlRetryService(
+        /// <summary>
+        /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
+        /// is designed to operate as a standard .NET service and all of the parameters to the constructor are passed
+        /// using .NET dependency injection.
+        /// </summary>
+        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
+        /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
+        /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
+        /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
+        public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
@@ -106,7 +106,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 throw new ArgumentException("default database cannot be master");
             }
-   _coreFeatureConfiguration = coreFeatureConfiguration.Value;
+
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
 
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {

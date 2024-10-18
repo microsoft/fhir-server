@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     rawResource = new Lazy<string>(() =>
                                     {
-                                        var decompressedResource = SqlStoreClient<SqlServerSearchService>.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
+                                        var decompressedResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
 
                                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
@@ -664,7 +664,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        var rawResource = SqlStoreClient<SqlServerSearchService>.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
+                        var rawResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
