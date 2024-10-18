@@ -151,23 +151,29 @@ retryOnTestException:
         private void PrepareData()
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            ExecuteSql("DELETE FROM dbo.ResourceIdIntMap");
             ExecuteSql("DELETE FROM dbo.Resource");
             var surrId = DateTimeOffset.UtcNow.ToId();
             ExecuteSql(@$"
+INSERT INTO ResourceIdIntMap 
+        (ResourceTypeId, ResourceId, ResourceIdInt)
+  SELECT ResourceTypeId,    newid(),         RowId
+    FROM (SELECT RowId FROM (SELECT RowId = row_number() OVER (ORDER BY A1.id) FROM syscolumns A1, syscolumns A2) A WHERE RowId <= 1000) A
+         CROSS JOIN (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name IN ('Patient','Observation','Claim')) B
+
 INSERT INTO Resource 
-        (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
+        (ResourceTypeId,ResourceIdInt,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
   SELECT ResourceTypeId
-        ,newid()
+        ,ResourceIdInt
         ,1
         ,0
-        ,{surrId} - RowId * 1000 -- go to the past
+        ,{surrId} - ResourceIdInt * 1000 -- go to the past
         ,0
         ,null
         ,0x12345
         ,1
         ,null 
-    FROM (SELECT RowId FROM (SELECT RowId = row_number() OVER (ORDER BY A1.id) FROM syscolumns A1, syscolumns A2) A WHERE RowId <= 1000) A
-         CROSS JOIN (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name IN ('Patient','Observation','Claim')) B
+    FROM ResourceIdIntMap B
                 ");
         }
 
