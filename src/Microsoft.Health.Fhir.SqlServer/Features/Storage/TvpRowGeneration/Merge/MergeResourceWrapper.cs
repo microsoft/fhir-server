@@ -30,5 +30,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merg
         /// Flag indicating whether version in resource wrapper == (existing version in the database + 1)
         /// </summary>
         public bool HasVersionToCompare { get; internal set; }
+
+        /// <summary>
+        /// Reasource record offset in adls file
+        /// </summary>
+        public int? OffsetInFile { get; internal set; }
     }
 }

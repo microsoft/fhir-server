@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -201,12 +200,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
-                if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
-                }
+                StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+
+                StringBuilder.Append(", ").Append(VLatest.Resource.TransactionId, resourceTableAlias);
+                StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
 
                 if (IsSortValueNeeded(context))
                 {
@@ -218,22 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (selectingFromResourceTable)
             {
-                StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
-
-                if (expression.SearchParamTableExpressions.Count == 0 &&
-                    !context.ResourceVersionTypes.HasFlag(ResourceVersionType.History) &&
-                    !context.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted) &&
-                    expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
-                    !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
-                {
-                    // If this is a simple search over a resource type (like GET /Observation)
-                    // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
-                    StringBuilder.Append(" WITH (INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
-                }
-                else
-                {
-                    StringBuilder.AppendLine();
-                }
+                StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
 
                 if (expression.SearchParamTableExpressions.Count > 0)
                 {
@@ -269,15 +253,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
-                        {
-                            Column column = sort.searchParameterInfo.Name switch
                             {
-                                SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
-                                SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
-                                _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
-                            };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
+                                Column column = sort.searchParameterInfo.Name switch
+                                {
+                                    SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
+                                    SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
+                                    _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                                };
+                                sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                            })
                             .AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions))
@@ -1345,11 +1329,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendMinOrMax(in IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
         {
-            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-            {
-                return;
-            }
-
             delimited.BeginDelimitedElement();
             if (context.Sort[0].sortOrder == SortOrder.Ascending)
             {
