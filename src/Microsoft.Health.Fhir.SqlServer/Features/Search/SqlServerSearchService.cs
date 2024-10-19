@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _defaultNumberOfColumnsReadFromResult = 11;
+        private const int _defaultNumberOfColumnsReadFromResult = 13;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IParameterStore _parameterStore;
