@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                     exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                     exceptionNotification.BaseException = exception;
 
-                    await _mediator.PublishNotificationWithExceptionHandling(nameof(ExceptionNotificationMiddleware), exceptionNotification, _logger, CancellationToken.None);
+                    await _mediator.Publish(exceptionNotification, CancellationToken.None);
                 }
                 catch (Exception e)
                 {
