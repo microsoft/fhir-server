@@ -342,11 +342,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 dataSize,
                 isAnonymizedExport);
 
-            var notification = new ExportTaskMetricsNotification(_exportJobRecord);
-
             try
             {
-                await _mediator.Publish(notification, cancellationToken);
+                await _mediator.Publish(ExportTaskMetricsNotification(_exportJobRecord);, cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {
