@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    internal class SqlSecondaryStore<T>
+    internal class SqlAdlsStore
     {
         private static readonly object _parameterLocker = new object();
         private static string _adlsContainer;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static BlobContainerClient _adlsClient;
         private static bool _adlsIsSet;
 
-        public SqlSecondaryStore(ISqlRetryService sqlRetryService, ILogger<T> logger)
+        public SqlAdlsStore(ISqlRetryService sqlRetryService, ILogger logger)
         {
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public static string AdlsAccountKey => _adlsIsSet ? _adlsAccountKey : throw new ArgumentOutOfRangeException();
 
-        private static string GetStorageParameter(ISqlRetryService sqlRetryService, ILogger<T> logger, string parameterId)
+        private static string GetStorageParameter(ISqlRetryService sqlRetryService, ILogger logger, string parameterId)
         {
             lock (_parameterLocker)
             {

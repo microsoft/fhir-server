@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            _ = new SqlSecondaryStore<SqlServerFhirDataStore>(_sqlRetryService, _logger);
+            _ = new SqlAdlsStore(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         retry:
             try
             {
-                using var stream = await SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var stream = await SqlAdlsStore.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
                 using var writer = new StreamWriter(stream);
                 var offset = 0;
                 foreach (var resource in resources)
@@ -761,7 +761,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (SqlSecondaryStore<SqlServerFhirDataStore>.AdlsClient != null)
+            if (SqlAdlsStore.AdlsClient != null)
             {
                 await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
