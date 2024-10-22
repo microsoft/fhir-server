@@ -42,7 +42,7 @@ jobs:
 
     - uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
+        use-latest: true
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -60,8 +60,8 @@ jobs:
     - name: dotnet restore
       run: dotnet restore
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
+    - name: Build
+      run: dotnet build --configuration Release
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
