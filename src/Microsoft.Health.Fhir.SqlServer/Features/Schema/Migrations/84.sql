@@ -2240,7 +2240,7 @@ BEGIN TRY
                                     FROM     dbo.JobQueue
                                     WHERE    QueueType = @QueueType
                                     ORDER BY JobId DESC), 0);
-            INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, Result, StartDate)
+            INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, Result, StartDate, EndDate)
             OUTPUT inserted.JobId INTO @JobIds
             SELECT @QueueType,
                    isnull(@GroupId, @MaxJobId + 1) AS GroupId,
@@ -2249,7 +2249,8 @@ BEGIN TRY
                    DefinitionHash,
                    isnull(@Status, 0) AS Status,
                    CASE WHEN @Status = 2 THEN @Result ELSE NULL END AS Result,
-                   CASE WHEN @Status = 1 THEN getUTCdate() ELSE @StartDate END AS StartDate
+                   CASE WHEN @Status = 1 THEN getUTCdate() ELSE @StartDate END AS StartDate,
+                   CASE WHEN @Status = 2 THEN getUTCdate() ELSE NULL END AS EndDate
             FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY Dummy) AS JobId,
                            *
                     FROM   (SELECT *,
