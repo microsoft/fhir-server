@@ -944,7 +944,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Handle Multiple Results sets to include from
             if (count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < count - 1)
             {
-                StringBuilder.AppendLine("),");
+                StringBuilder.AppendLine(")").Append(",");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
                 if (_curFromCteIndex < count - 1)
@@ -1156,7 +1156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
 
             StringBuilder.Append("FROM ").AppendLine(cteToLimit);
-            StringBuilder.AppendLine("),");
+            StringBuilder.AppendLine(")").Append(",");
 
             // the 'original' include cte is not in the union, but this new layer is instead
             _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));

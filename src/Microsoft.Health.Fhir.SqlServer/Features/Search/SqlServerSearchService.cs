@@ -362,6 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+                            SqlCommandSimplifier.CombineIterativeIncludes(stringBuilder, _logger);
 
                             var queryText = stringBuilder.ToString();
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
