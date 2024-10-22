@@ -70,9 +70,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
                         var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
-                        if (results == null || results.Count != 1)
+                        if (results == null)
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
+                        }
+                        else if (results.Count != 1)
+                        {
+                            throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReferenceToMultipleResources, reference.Reference));
                         }
 
                         string resourceId = results.First().Resource.ResourceId;
