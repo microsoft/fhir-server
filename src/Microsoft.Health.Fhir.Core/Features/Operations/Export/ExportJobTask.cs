@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                await _mediator.Publish(ExportTaskMetricsNotification(_exportJobRecord);, cancellationToken);
+                await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {
