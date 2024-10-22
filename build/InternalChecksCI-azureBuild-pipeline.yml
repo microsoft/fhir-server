@@ -50,9 +50,8 @@ jobs:
       nugetConfigPath: nuget.config
 
   - task: UseDotNet@2
-    displayName: Use .NET Core sdk
     inputs:
-      useGlobalJson: true
+      version: '8.0.x'
 
   - task: DotNetCoreCLI@1
     name: ''
