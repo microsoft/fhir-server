@@ -6,11 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -118,11 +122,68 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
                 }
             }
+
+            _ = new SqlAdlsStore(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
+
+        private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            var blobName = GetBlobNameForRaw(transactionId);
+        retry:
+            try
+            {
+                using var stream = await SqlAdlsStore.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var writer = new StreamWriter(stream);
+                var offset = 0;
+                foreach (var resource in resources)
+                {
+                    resource.OffsetInFile = offset;
+                    var line = resource.ResourceWrapper.RawResource.Data;
+                    offset += Encoding.UTF8.GetByteCount(line) + eol;
+                    await writer.WriteLineAsync(line);
+                }
+
+                #pragma warning disable CA2016
+                await writer.FlushAsync();
+            }
+            catch (Exception e)
+            {
+                await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", e.ToString(), start, cancellationToken);
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Task.Delay(1000, cancellationToken);
+                    goto retry;
+                }
+
+                throw;
+            }
+
+            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} Resources={resources.Count}", start, cancellationToken);
+        }
+
+        internal static string GetBlobNameForRaw(long transactionId)
+        {
+            return $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson";
+        }
+
+        private static string GetPermanentHashCode(long tr)
+        {
+            var hashCode = 0;
+            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
+        }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
@@ -417,7 +478,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
-                        await Task.Delay(retries > 3 ? 10 : 1000, cancellationToken); // if >3 assume that it is id generation problem
+                        await _sqlRetryService.TryLogEvent(nameof(ImportResourcesInternalAsync), "Warn", $"retries={retries} resources={resources.Count} error={sqlEx.Message}", null, cancellationToken);
+                        await Task.Delay(retries > 3 ? 10 : 500, cancellationToken); // if >3 assume that it is id generation problem
                         continue;
                     }
 
@@ -699,6 +761,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+            if (SqlAdlsStore.AdlsClient != null)
+            {
+                await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+            }
+
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
