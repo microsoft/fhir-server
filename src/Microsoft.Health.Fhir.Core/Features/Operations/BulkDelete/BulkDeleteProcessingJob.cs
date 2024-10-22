@@ -11,12 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -35,22 +33,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly IMediator _mediator;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
-        private readonly ILogger<BulkDeleteProcessingJob> _logger;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
             Func<IScoped<ISearchService>> searchService,
-            IQueueClient queueClient,
-            ILogger<BulkDeleteProcessingJob> logger)
+            IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -105,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 result.ResourcesDeleted.Add(types[0], numDeleted);
 
-                await _mediator.PublishNotificationWithExceptionHandling(nameof(BulkDeleteProcessingJob), new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), _logger, cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
 
                 if (exception != null)
                 {
