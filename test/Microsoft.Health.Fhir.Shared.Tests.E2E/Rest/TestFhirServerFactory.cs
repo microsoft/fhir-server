@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 
@@ -54,9 +55,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             switch (dataStore)
             {
                 case DataStore.CosmosDb:
-                    return Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
+                    return EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}");
                 case DataStore.SqlServer:
-                    return Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}_Sql");
+                    return EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}_Sql");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
             }
