@@ -15,15 +15,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal static class SqlCommandSimplifier
     {
-        private static Regex s_findCteMatch = new Regex(",cte(\\d+) AS\\r\\n\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = (\\d*)\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\((\\d*)\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte(\\d+) WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1");
+        private static Regex s_findCteMatch = new Regex(",cte(\\d+) AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = (\\d*)\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\((\\d*)\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte(\\d+) WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1");
 
-        private static string s_removeCteMatchBase = "(,cte<CteNumber> AS\\r\\n\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = <SearchParamId>\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\(<ResourceTypeId>\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1.*\\r\\n\\s*\\)\\r\\n\\s*,cte<CteNextNumber> AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT .*T1, Sid1, IsMatch, .* AS IsPartial \\r\\n\\s*FROM cte<CteNumber>\\r\\n\\s*\\))";
+        private static string s_removeCteMatchBase = "(\\s*,cte<CteNumber> AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = <SearchParamId>\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\(<ResourceTypeId>\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1.*\\r\\n\\s*\\)\\r\\n\\s*,cte<CteNextNumber> AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT .*T1, Sid1, IsMatch, .* AS IsPartial \\r\\n\\s*FROM cte<CteNumber>\\r\\n\\s*\\))";
 
-        private static string s_removeUnionSegmentMatchBase = "(\\s*UNION ALL\\r\\n\\s*SELECT T1, Sid1, IsMatch, IsPartial\\r\\n\\s*FROM cte<CteNextNumber> WHERE NOT EXISTS \\(SELECT \\* FROM cte\\d+ WHERE cte\\d+.Sid1 = cte<CteNextNumber>.Sid1 AND cte\\d+.T1 = cte<CteNextNumber>.T1\\))\\r\\n";
+        private static string s_removeUnionSegmentMatchBase = "(\\s*UNION ALL\\r\\n\\s*SELECT T1, Sid1, IsMatch, IsPartial\\r\\n\\s*FROM cte<CteNextNumber> WHERE NOT EXISTS \\(SELECT \\* FROM cte\\d+ WHERE cte\\d+.Sid1 = cte<CteNextNumber>.Sid1 AND cte\\d+.T1 = cte<CteNextNumber>.T1\\))";
 
-        private static string s_existsSelectStatement = "SELECT T1, Sid1 FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
+        private static string s_existsSelectStatement = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
 
-        private static string s_unionExistsSelectStatment = "SELECT T1, Sid1 FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 UNION SELECT T1, Sid1 FROM cte<OtherSourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
+        private static string s_unionExistsSelectStatment = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 UNION SELECT * FROM cte<OtherSourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
 
         internal static void CombineIterativeIncludes(IndentedStringBuilder stringBuilder, ILogger logger)
         {
@@ -41,9 +41,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         if (item.SearchParamId == cteParams[i].SearchParamId && item.ResourceTypeId == cteParams[i].ResourceTypeId)
                         {
-                            if (!redundantCtes.Exists((redundantCte) =>
-                                (redundantCte.Item1.CteNumber == item.SourceCte && redundantCte.Item2.CteNumber == cteParams[i].SourceCte)
-                                || (redundantCte.Item2.CteNumber == item.SourceCte && redundantCte.Item1.CteNumber == cteParams[i].SourceCte)))
+                            if (!unionCanidateCtes.Exists((unionCte) =>
+                                (unionCte.Item1.CteNumber + 1 == item.SourceCte && unionCte.Item2.CteNumber + 1 == cteParams[i].SourceCte)
+                                || (unionCte.Item2.CteNumber + 1 == item.SourceCte && unionCte.Item1.CteNumber + 1 == cteParams[i].SourceCte)))
                             {
                                 unionCanidateCtes.Add((item, cteParams[i]));
                             }
@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             }
                         }
                     }
+
+                    index++;
                 }
 
                 foreach (var redundantCte in redundantCtes)
