@@ -1507,6 +1507,63 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenImportTriggeredWithMultipleFilesWithCancel_ThenTaskShouldBeCanceled()
+        {
+            _metricHandler?.ResetCount();
+
+            string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
+            var patients = new List<InputResource>();
+
+            for (int i = 0; i <= 100; i++)
+            {
+                string resourceId = Guid.NewGuid().ToString("N");
+                string patientNdJsonResourceN = patientNdJsonResource.Replace("##PatientID##", resourceId);
+
+                (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResourceN, _fixture.StorageAccount);
+
+                var inputResource = new InputResource()
+                {
+                    Url = location,
+                    Type = "Patient",
+                };
+
+                patients.Add(inputResource);
+            }
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = patients,
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            await Task.Delay(TimeSpan.FromMinutes(1));
+
+            var response = await _client.CancelImport(checkLocation);
+
+            // wait task completed
+            while (response.StatusCode != HttpStatusCode.Conflict)
+            {
+                // We know that this test will fail, so I added this break to avoid to loop forever
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    break;
+                }
+
+                response = await _client.CancelImport(checkLocation);
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
+            }
+
+            // Right now, this exception will not thrown because the import job was never cancelled
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
         [Fact(Skip = "long running tests for invalid url")]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResourceUrl_ThenBadRequestShouldBeReturned()
         {
