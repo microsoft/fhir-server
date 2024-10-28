@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<IReadOnlyCollection<(string Table, string Index, int Partition, double Frag)>> GetFragmentation(string tableName, string indexName, int? partitionNumber, CancellationToken cancellationToken)
         {
-            await using var cmd = new SqlCommand("dbo.DefragGetFragmentation") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.DefragGetFragmentation") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
             cmd.Parameters.AddWithValue("@TableName", tableName);
             if (indexName != null)
             {
