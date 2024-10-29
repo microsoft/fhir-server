@@ -15,15 +15,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal static class SqlCommandSimplifier
     {
-        private static Regex s_findCteMatch = new Regex(",cte(\\d+) AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = (\\d*)\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\((\\d*)\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte(\\d+) WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1");
+        private static readonly Regex FindCteMatch = new Regex(",cte(\\d+) AS\\s*\\r\\n\\s*\\(\\s*\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch\\s*\\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\s*\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\s*\\r\\n\\s*WHERE refSource.SearchParamId = (\\d*)\\s*\\r\\n\\s*AND refTarget.IsHistory = 0\\s*\\r\\n\\s*AND refTarget.IsDeleted = 0\\s*\\r\\n\\s*AND refSource.ResourceTypeId IN \\((\\d*)\\)\\s*\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte(\\d+) WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1");
 
-        private static string s_removeCteMatchBase = "(\\s*,cte<CteNumber> AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\r\\n\\s*WHERE refSource.SearchParamId = <SearchParamId>\\r\\n\\s*AND refTarget.IsHistory = 0 \\r\\n\\s*AND refTarget.IsDeleted = 0 \\r\\n\\s*AND refSource.ResourceTypeId IN \\(<ResourceTypeId>\\)\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1.*\\r\\n\\s*\\)\\r\\n\\s*,cte<CteNextNumber> AS\\r\\n\\s*\\(\\r\\n\\s*SELECT DISTINCT .*T1, Sid1, IsMatch, .* AS IsPartial \\r\\n\\s*FROM cte<CteNumber>\\r\\n\\s*\\))";
+        private const string RemoveCteMatchBase = "(\\s*,cte<CteNumber> AS\\s*\\r\\n\\s*\\(\\s*\\r\\n\\s*SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch\\s*\\r\\n\\s*FROM dbo.ReferenceSearchParam refSource\\s*\\r\\n\\s*JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId\\s*\\r\\n\\s*WHERE refSource.SearchParamId = <SearchParamId>\\s*\\r\\n\\s*AND refTarget.IsHistory = 0\\s*\\r\\n\\s*AND refTarget.IsDeleted = 0\\s*\\r\\n\\s*AND refSource.ResourceTypeId IN \\(<ResourceTypeId>\\)\\s*\\r\\n\\s*AND EXISTS \\(SELECT \\* FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1.*\\r\\n\\s*\\)\\s*\\r\\n\\s*,cte<CteNextNumber> AS\\s*\\r\\n\\s*\\(\\s*\\r\\n\\s*SELECT DISTINCT .*T1, Sid1, IsMatch, .* AS IsPartial\\s*\\r\\n\\s*FROM cte<CteNumber>\\s*\\r\\n\\s*\\))";
 
-        private static string s_removeUnionSegmentMatchBase = "(\\s*UNION ALL\\r\\n\\s*SELECT T1, Sid1, IsMatch, IsPartial\\r\\n\\s*FROM cte<CteNextNumber> WHERE NOT EXISTS \\(SELECT \\* FROM cte\\d+ WHERE cte\\d+.Sid1 = cte<CteNextNumber>.Sid1 AND cte\\d+.T1 = cte<CteNextNumber>.T1\\))";
+        private const string RemoveUnionSegmentMatchBase = "(\\s*UNION ALL\\s*\\r\\n\\s*SELECT T1, Sid1, IsMatch, IsPartial\\s*\\r\\n\\s*FROM cte<CteNextNumber> WHERE NOT EXISTS \\(SELECT \\* FROM cte\\d+ WHERE cte\\d+.Sid1 = cte<CteNextNumber>.Sid1 AND cte\\d+.T1 = cte<CteNextNumber>.T1\\))";
 
-        private static string s_existsSelectStatement = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
+        private const string ExistsSelectStatement = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
 
-        private static string s_unionExistsSelectStatment = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 UNION SELECT * FROM cte<OtherSourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
+        private const string UnionExistsSelectStatment = "SELECT * FROM cte<SourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 UNION SELECT * FROM cte<OtherSourceCte> WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1";
 
         internal static void CombineIterativeIncludes(IndentedStringBuilder stringBuilder, ILogger logger)
         {
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static List<ReferenceSearchInformation> GetIncludeCteParams(string commandText)
         {
             var ctes = new List<ReferenceSearchInformation>();
-            var cteMatches = s_findCteMatch.Matches(commandText);
+            var cteMatches = FindCteMatch.Matches(commandText);
 
             foreach (Match match in cteMatches)
             {
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private static string RemoveCtePair(string commandText, ReferenceSearchInformation cteInfo)
         {
-            var removeCteMatch = s_removeCteMatchBase
+            var removeCteMatch = RemoveCteMatchBase
                 .Replace("<CteNumber>", cteInfo.CteNumber.ToString(), StringComparison.Ordinal)
                 .Replace("<SearchParamId>", cteInfo.SearchParamId.ToString(), StringComparison.Ordinal)
                 .Replace("<ResourceTypeId>", cteInfo.ResourceTypeId.ToString(), StringComparison.Ordinal)
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             commandText = commandText.Remove(commandText.IndexOf(matches[0].Value, StringComparison.Ordinal), matches[0].Value.Length);
 
-            var removeUnionSegmentMatch = s_removeUnionSegmentMatchBase
+            var removeUnionSegmentMatch = RemoveUnionSegmentMatchBase
                 .Replace("<CteNextNumber>", (cteInfo.CteNumber + 1).ToString(), StringComparison.Ordinal);
             var removeUnionSegmentRegex = new Regex(removeUnionSegmentMatch);
             var unionSegmentMatches = removeUnionSegmentRegex.Matches(commandText);
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private static string UnionCtes(string commandText, (ReferenceSearchInformation can1, ReferenceSearchInformation can2) unionCanidate)
         {
-            var unionCteMatch = s_removeCteMatchBase
+            var unionCteMatch = RemoveCteMatchBase
                 .Replace("<CteNumber>", unionCanidate.can2.CteNumber.ToString(), StringComparison.Ordinal)
                 .Replace("<SearchParamId>", unionCanidate.can2.SearchParamId.ToString(), StringComparison.Ordinal)
                 .Replace("<ResourceTypeId>", unionCanidate.can2.ResourceTypeId.ToString(), StringComparison.Ordinal)
@@ -159,8 +159,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 throw new ArgumentException("No matches found for union cte");
             }
 
-            var existsSelectStatement = s_existsSelectStatement.Replace("<SourceCte>", unionCanidate.can2.SourceCte.ToString(), StringComparison.Ordinal);
-            var newExistsSelectStatement = s_unionExistsSelectStatment
+            var existsSelectStatement = ExistsSelectStatement.Replace("<SourceCte>", unionCanidate.can2.SourceCte.ToString(), StringComparison.Ordinal);
+            var newExistsSelectStatement = UnionExistsSelectStatment
                 .Replace("<SourceCte>", unionCanidate.can2.SourceCte.ToString(), StringComparison.Ordinal)
                 .Replace("<OtherSourceCte>", unionCanidate.can1.SourceCte.ToString(), StringComparison.Ordinal);
             var newCte = matches[0].Value.Replace(existsSelectStatement, newExistsSelectStatement, StringComparison.Ordinal);
