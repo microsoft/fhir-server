@@ -29,13 +29,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.CompartmentSearch)]
     public class PartitionEliminationRewriterTests
     {
-        private const short AllergyIntolerance = 1;
-        private const short Claim = 2;
-        private const short Condition = 3;
-        private const short Device = 4;
-        private const short DiagnosticReport = 5;
+        private const byte AllergyIntolerance = 1;
+        private const byte Claim = 2;
+        private const byte Condition = 3;
+        private const byte Device = 4;
+        private const byte DiagnosticReport = 5;
 
-        private static readonly short[] AllTypes = Enumerable.Range(AllergyIntolerance, DiagnosticReport - AllergyIntolerance + 1).Select(i => (short)i).ToArray();
+        private static readonly byte[] AllTypes = Enumerable.Range(AllergyIntolerance, DiagnosticReport - AllergyIntolerance + 1).Select(i => (byte)i).ToArray();
         private static readonly SearchParameterInfo TypeParameter = new(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType);
         private static readonly SearchParameterInfo IdParameter = new(SearchParameterNames.Id, SearchParameterNames.Id);
 
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             foreach (FieldInfo fieldInfo in typeof(TypeConstraintVisitorTests).GetFields(BindingFlags.NonPublic | BindingFlags.Static).Where(fi => fi.IsLiteral && !fi.IsInitOnly))
             {
-                short id = (short)fieldInfo.GetValue(null);
+                var id = (byte)fieldInfo.GetValue(null);
                 _fhirModel.GetResourceTypeId(fieldInfo.Name).Returns(id);
                 _fhirModel.GetResourceTypeName(id).Returns(fieldInfo.Name);
             }

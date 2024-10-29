@@ -2,7 +2,7 @@
 GO
 CREATE TYPE dbo.DateTimeSearchParamList AS TABLE
 (
-    ResourceTypeId           smallint NOT NULL
+    ResourceTypeId           tinyint NOT NULL
    ,ResourceSurrogateId      bigint   NOT NULL
    ,SearchParamId            smallint NOT NULL
    ,StartDateTime            datetimeoffset(7) NOT NULL

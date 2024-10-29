@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, TokenSearchValue searchValue, HashSet<TokenSearchParamListRow> results, out TokenSearchParamListRow row)
+        internal override bool TryGenerateRow(byte resourceTypeId, long resourceSurrogateId, short searchParamId, TokenSearchValue searchValue, HashSet<TokenSearchParamListRow> results, out TokenSearchParamListRow row)
         {
             // For composite generator contains BulkTokenSearchParameterV1RowGenerator, it is possible to call TryGenerateRow before GenerateRow on this Generator.
             EnsureInitialized();

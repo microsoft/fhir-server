@@ -1,6 +1,6 @@
 ﻿CREATE TABLE dbo.ResourceIdIntMap
 (
-    ResourceTypeId  smallint    NOT NULL
+    ResourceTypeId  tinyint    NOT NULL
    ,ResourceIdInt   bigint      NOT NULL
    ,ResourceId      varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
     
@@ -12,7 +12,7 @@ ALTER TABLE dbo.ResourceIdIntMap SET ( LOCK_ESCALATION = AUTO )
 GO
 CREATE TABLE dbo.RawResources
 (
-    ResourceTypeId              smallint                NOT NULL
+    ResourceTypeId              tinyint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,RawResource                 varbinary(max)          NULL
 
@@ -23,7 +23,7 @@ ALTER TABLE dbo.RawResources SET ( LOCK_ESCALATION = AUTO )
 GO
 CREATE TABLE dbo.Resource
 (
-    ResourceTypeId              smallint                NOT NULL
+    ResourceTypeId              tinyint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
    ,Version                     int                     NOT NULL
@@ -42,7 +42,7 @@ DROP TABLE dbo.Resource
 GO
 CREATE TABLE dbo.CurrentResources
 (
-    ResourceTypeId              smallint                NOT NULL
+    ResourceTypeId              tinyint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
    ,Version                     int                     NOT NULL
@@ -67,7 +67,7 @@ CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_N
 GO
 CREATE TABLE dbo.HistoryResources
 (
-    ResourceTypeId              smallint                NOT NULL
+    ResourceTypeId              tinyint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
    ,Version                     int                     NOT NULL

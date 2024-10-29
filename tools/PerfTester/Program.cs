@@ -185,7 +185,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
         private static void ExecuteParallelHttpPuts()
         {
-            var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
+            var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(byte ResourceTypeId, string ResourceId)>();
             var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
             for (var repeat = 0; repeat < _repeat; repeat++)
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             return resourceIdsPerCall;
         }
 
-        private static void ExecuteParallelCalls(ReadOnlyList<(short ResourceTypeId, string ResourceId)> resourceIds)
+        private static void ExecuteParallelCalls(ReadOnlyList<(byte ResourceTypeId, string ResourceId)> resourceIds)
         {
             var tableOrView = GetResourceObjectType();
             var sw = Stopwatch.StartNew();
@@ -441,11 +441,11 @@ END
             Console.WriteLine("Switched to resource view");
         }
 
-        private static ReadOnlyList<(short ResourceTypeId, string ResourceId)> GetRandomIds()
+        private static ReadOnlyList<(byte ResourceTypeId, string ResourceId)> GetRandomIds()
         {
             var sw = Stopwatch.StartNew();
 
-            var results = new HashSet<(short ResourceTypeId, string ResourceId)>();
+            var results = new HashSet<(byte ResourceTypeId, string ResourceId)>();
 
             var container = GetContainer();
             var size = container.GetBlockBlobClient(_storageBlobName).GetProperties().Value.ContentLength;
@@ -468,7 +468,7 @@ END
             return output;
         }
 
-        private static ReadOnlyList<(short ResourceTypeId, string ResourceId)> GetRandomIdsBySingleOffset(BlobContainerClient container, long size)
+        private static ReadOnlyList<(byte ResourceTypeId, string ResourceId)> GetRandomIdsBySingleOffset(BlobContainerClient container, long size)
         {
             var bucketSize = 100000L;
             var buckets = (int)(size / bucketSize);
@@ -486,7 +486,7 @@ END
 
             using var reader = new StreamReader(container.GetBlockBlobClient(_storageBlobName).OpenRead(offset));
             int lines = 0;
-            var results = new List<(short ResourceTypeId, string ResourceId)>();
+            var results = new List<(byte ResourceTypeId, string ResourceId)>();
             while (!reader.EndOfStream && lines < 10)
             {
                 reader.ReadLine(); // skip first line as it might be imcomplete
@@ -498,7 +498,7 @@ END
                     throw new ArgumentOutOfRangeException("incorrect length");
                 }
 
-                results.Add((short.Parse(split[0]), split[1]));
+                results.Add((byte.Parse(split[0]), split[1]));
             }
 
             return results;

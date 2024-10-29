@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDateKey : IEquatable<ResourceDateKey>
     {
-        public ResourceDateKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
+        public ResourceDateKey(byte resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IsDeleted = isDeleted;
         }
 
-        public short ResourceTypeId { get; }
+        public byte ResourceTypeId { get; }
 
         public string Id { get; }
 

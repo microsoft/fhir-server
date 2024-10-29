@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         }
 
         internal override bool TryGenerateRow(
-            short resourceTypeId,
+            byte resourceTypeId,
             long resourceSurrogateId,
             short searchParamId,
             (TokenSearchValue component1, DateTimeSearchValue component2) searchValue,

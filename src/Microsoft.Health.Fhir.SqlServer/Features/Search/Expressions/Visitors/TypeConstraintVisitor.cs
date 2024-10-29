@@ -29,15 +29,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// <param name="model">The model instance.</param>
         /// <returns>A tuple with the single allowed resource type id if there is exactly one (otherwise null) and
         /// a <see cref="BitArray"/> with bits set for each resource type that is allowed, or null if no types are allowed.</returns>
-        public (short? singleAllowedResourceTypeId, BitArray allAllowedTypes) Visit(Expression expression, ISqlServerFhirModel model)
+        public (byte? singleAllowedResourceTypeId, BitArray allAllowedTypes) Visit(Expression expression, ISqlServerFhirModel model)
         {
             var allowedTypes = new BitArray(model.ResourceTypeIdRange.highestId + 1, true);
-            for (int i = 0; i < model.ResourceTypeIdRange.lowestId; i++)
+            for (byte i = 0; i < model.ResourceTypeIdRange.lowestId; i++)
             {
                 allowedTypes[i] = false;
             }
 
-            short? singleResourceTypeId = expression?.AcceptVisitor(this, (allowedTypes, model));
+            var singleResourceTypeId = (byte?)expression?.AcceptVisitor(this, (allowedTypes, model)); // TODO check type
             return singleResourceTypeId == NoTypes ? (null, null) : (singleResourceTypeId, allowedTypes);
         }
 

@@ -33,7 +33,7 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
-       ,@RT smallint
+       ,@RT tinyint
        ,@NewIdsCount int
        ,@FirstIdInt bigint
 
@@ -44,14 +44,14 @@ SET @AffectedRows = 0
 
 RetryResourceIdIntMapInsert:
 BEGIN TRY
-  DECLARE @RTs AS TABLE (ResourceTypeId smallint NOT NULL PRIMARY KEY)
-  DECLARE @InputIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
-  DECLARE @ExistingIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @RTs AS TABLE (ResourceTypeId tinyint NOT NULL PRIMARY KEY)
+  DECLARE @InputIds AS TABLE (ResourceTypeId tinyint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @ExistingIds AS TABLE (ResourceTypeId tinyint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
   DECLARE @InsertIds AS TABLE (ResourceIndex int NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL)
-  DECLARE @InsertedIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @InsertedIds AS TABLE (ResourceTypeId tinyint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
   DECLARE @ResourcesWithIds AS TABLE 
     (
-        ResourceTypeId       smallint            NOT NULL
+        ResourceTypeId       tinyint            NOT NULL
        ,ResourceSurrogateId  bigint              NOT NULL
        ,ResourceIdInt        bigint              NOT NULL
        ,Version              int                 NOT NULL
@@ -70,11 +70,11 @@ BEGIN TRY
     )
   DECLARE @ReferenceSearchParamsWithIds AS TABLE
     (
-        ResourceTypeId           smallint NOT NULL
+        ResourceTypeId           tinyint NOT NULL
        ,ResourceSurrogateId      bigint   NOT NULL
        ,SearchParamId            smallint NOT NULL
        ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-       ,ReferenceResourceTypeId  smallint NULL
+       ,ReferenceResourceTypeId  tinyint NULL
        ,ReferenceResourceIdInt   bigint   NOT NULL
        ,ReferenceResourceVersion int      NULL
 
@@ -203,11 +203,11 @@ END CATCH
 
 BEGIN TRY
 
-  DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
+  DECLARE @Existing AS TABLE (ResourceTypeId tinyint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
   DECLARE @ResourceInfos AS TABLE
     (
-       ResourceTypeId       smallint       NOT NULL
+       ResourceTypeId       tinyint       NOT NULL
       ,SurrogateId          bigint         NOT NULL
       ,Version              int            NOT NULL
       ,KeepHistory          bit            NOT NULL
@@ -217,7 +217,7 @@ BEGIN TRY
       PRIMARY KEY (ResourceTypeId, SurrogateId)
     )
 
-  DECLARE @PreviousSurrogateIds AS TABLE (TypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
+  DECLARE @PreviousSurrogateIds AS TABLE (TypeId tinyint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
 
   IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'),0) = 0
     SET @SingleTransaction = 1

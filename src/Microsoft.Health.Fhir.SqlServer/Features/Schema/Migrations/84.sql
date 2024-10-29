@@ -17,7 +17,7 @@ GO
 INSERT  INTO dbo.SchemaVersion
 VALUES (84, 'started');
 
-CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
+CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(TINYINT)
     AS RANGE RIGHT
     FOR VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150);
 
@@ -76,7 +76,7 @@ CREATE TYPE dbo.BigintList AS TABLE (
     Id BIGINT NOT NULL PRIMARY KEY);
 
 CREATE TYPE dbo.DateTimeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT           NOT NULL,
+    ResourceTypeId      TINYINT            NOT NULL,
     ResourceSurrogateId BIGINT             NOT NULL,
     SearchParamId       SMALLINT           NOT NULL,
     StartDateTime       DATETIMEOFFSET (7) NOT NULL,
@@ -86,7 +86,7 @@ CREATE TYPE dbo.DateTimeSearchParamList AS TABLE (
     IsMax               BIT                NOT NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax));
 
 CREATE TYPE dbo.NumberSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SingleValue         DECIMAL (36, 18) NULL,
@@ -94,7 +94,7 @@ CREATE TYPE dbo.NumberSearchParamList AS TABLE (
     HighValue           DECIMAL (36, 18) NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue));
 
 CREATE TYPE dbo.QuantitySearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId            INT              NULL,
@@ -104,20 +104,20 @@ CREATE TYPE dbo.QuantitySearchParamList AS TABLE (
     HighValue           DECIMAL (36, 18) NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue));
 
 CREATE TYPE dbo.ReferenceSearchParamList AS TABLE (
-    ResourceTypeId           SMALLINT      NOT NULL,
+    ResourceTypeId           TINYINT       NOT NULL,
     ResourceSurrogateId      BIGINT        NOT NULL,
     SearchParamId            SMALLINT      NOT NULL,
     BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId  SMALLINT      NULL,
+    ReferenceResourceTypeId  TINYINT       NULL,
     ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion INT           NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId));
 
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE (
-    ResourceTypeId            SMALLINT      NOT NULL,
+    ResourceTypeId            TINYINT       NOT NULL,
     ResourceSurrogateId       BIGINT        NOT NULL,
     SearchParamId             SMALLINT      NOT NULL,
     BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId1  SMALLINT      NULL,
+    ReferenceResourceTypeId1  TINYINT       NULL,
     ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 INT           NULL,
     SystemId2                 INT           NULL,
@@ -125,17 +125,17 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE (
     CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.ResourceDateKeyList AS TABLE (
-    ResourceTypeId      SMALLINT     NOT NULL,
+    ResourceTypeId      TINYINT      NOT NULL,
     ResourceId          VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ResourceSurrogateId BIGINT       NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId));
 
 CREATE TYPE dbo.ResourceKeyList AS TABLE (
-    ResourceTypeId SMALLINT     NOT NULL,
+    ResourceTypeId TINYINT      NOT NULL,
     ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version        INT          NULL UNIQUE (ResourceTypeId, ResourceId, Version));
 
 CREATE TYPE dbo.ResourceList AS TABLE (
-    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceTypeId       TINYINT         NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
     ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version              INT             NOT NULL,
@@ -159,7 +159,7 @@ CREATE TYPE dbo.StringList AS TABLE (
     String VARCHAR (MAX));
 
 CREATE TYPE dbo.StringSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
@@ -168,7 +168,7 @@ CREATE TYPE dbo.StringSearchParamList AS TABLE (
     IsMax               BIT            NOT NULL);
 
 CREATE TYPE dbo.TokenDateTimeCompositeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT           NOT NULL,
+    ResourceTypeId      TINYINT            NOT NULL,
     ResourceSurrogateId BIGINT             NOT NULL,
     SearchParamId       SMALLINT           NOT NULL,
     SystemId1           INT                NULL,
@@ -179,7 +179,7 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamList AS TABLE (
     IsLongerThanADay2   BIT                NOT NULL);
 
 CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId1           INT              NULL,
@@ -194,7 +194,7 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamList AS TABLE (
     HasRange            BIT              NOT NULL);
 
 CREATE TYPE dbo.TokenQuantityCompositeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId1           INT              NULL,
@@ -207,7 +207,7 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamList AS TABLE (
     HighValue2          DECIMAL (36, 18) NULL);
 
 CREATE TYPE dbo.TokenSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId            INT           NULL,
@@ -215,7 +215,7 @@ CREATE TYPE dbo.TokenSearchParamList AS TABLE (
     CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.TokenStringCompositeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
@@ -225,13 +225,13 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamList AS TABLE (
     TextOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
 
 CREATE TYPE dbo.TokenTextList AS TABLE (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL);
 
 CREATE TYPE dbo.TokenTokenCompositeSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId1           INT           NULL,
@@ -248,13 +248,13 @@ CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
 
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE (
     Offset          INT          NOT NULL,
-    ResourceTypeId  SMALLINT     NOT NULL,
+    ResourceTypeId  TINYINT      NOT NULL,
     ResourceId      VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ETag            INT          NULL,
     SearchParamHash VARCHAR (64) NOT NULL);
 
 CREATE TYPE dbo.UriSearchParamList AS TABLE (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri));
@@ -298,7 +298,7 @@ CREATE TABLE dbo.CompartmentType (
 );
 
 CREATE TABLE dbo.DateTimeSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     StartDateTime       DATETIME2 (7) NOT NULL,
@@ -449,7 +449,7 @@ CREATE INDEX IX_QueueType_DefinitionHash
     ON TinyintPartitionScheme (QueueType);
 
 CREATE TABLE dbo.NumberSearchParam (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SingleValue         DECIMAL (36, 18) NULL,
@@ -508,7 +508,7 @@ CREATE TABLE dbo.QuantityCode (
 );
 
 CREATE TABLE dbo.QuantitySearchParam (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId            INT              NULL,
@@ -540,11 +540,11 @@ CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceSearchParam (
-    ResourceTypeId           SMALLINT      NOT NULL,
+    ResourceTypeId           TINYINT       NOT NULL,
     ResourceSurrogateId      BIGINT        NOT NULL,
     SearchParamId            SMALLINT      NOT NULL,
     BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId  SMALLINT      NOT NULL,
+    ReferenceResourceTypeId  TINYINT       NOT NULL,
     ReferenceResourceIdInt   BIGINT        CONSTRAINT DF_ReferenceSearchParam_ResourceIdInt DEFAULT 0 NOT NULL,
     ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS CONSTRAINT DF_ReferenceSearchParam_ResourceId DEFAULT '' NOT NULL,
     ReferenceResourceVersion INT           NULL,
@@ -561,11 +561,11 @@ DROP TABLE dbo.ReferenceSearchParam;
 
 GO
 CREATE TABLE dbo.ReferenceSearchParams (
-    ResourceTypeId           SMALLINT      NOT NULL,
+    ResourceTypeId           TINYINT       NOT NULL,
     ResourceSurrogateId      BIGINT        NOT NULL,
     SearchParamId            SMALLINT      NOT NULL,
     BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId  SMALLINT      NOT NULL,
+    ReferenceResourceTypeId  TINYINT       NOT NULL,
     ReferenceResourceIdInt   BIGINT        NOT NULL,
     ReferenceResourceVersion INT           NULL
 );
@@ -581,11 +581,11 @@ CREATE UNIQUE INDEX IXU_ReferenceResourceIdInt_ReferenceResourceTypeId_SearchPar
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
-    ResourceTypeId            SMALLINT      NOT NULL,
+    ResourceTypeId            TINYINT       NOT NULL,
     ResourceSurrogateId       BIGINT        NOT NULL,
     SearchParamId             SMALLINT      NOT NULL,
     BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId1  SMALLINT      NULL,
+    ReferenceResourceTypeId1  TINYINT       NULL,
     ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 INT           NULL,
     SystemId2                 INT           NULL,
@@ -618,7 +618,7 @@ CREATE TABLE dbo.ReindexJob (
 );
 
 CREATE TABLE dbo.ResourceIdIntMap (
-    ResourceTypeId SMALLINT     NOT NULL,
+    ResourceTypeId TINYINT      NOT NULL,
     ResourceIdInt  BIGINT       NOT NULL,
     ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -629,7 +629,7 @@ ALTER TABLE dbo.ResourceIdIntMap SET (LOCK_ESCALATION = AUTO);
 
 GO
 CREATE TABLE dbo.RawResources (
-    ResourceTypeId      SMALLINT        NOT NULL,
+    ResourceTypeId      TINYINT         NOT NULL,
     ResourceSurrogateId BIGINT          NOT NULL,
     RawResource         VARBINARY (MAX) NULL CONSTRAINT PKC_RawResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
@@ -639,7 +639,7 @@ ALTER TABLE dbo.RawResources SET (LOCK_ESCALATION = AUTO);
 
 GO
 CREATE TABLE dbo.Resource (
-    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceTypeId       TINYINT         NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
     ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version              INT             NOT NULL,
@@ -661,7 +661,7 @@ DROP TABLE dbo.Resource;
 
 GO
 CREATE TABLE dbo.CurrentResources (
-    ResourceTypeId       SMALLINT     NOT NULL,
+    ResourceTypeId       TINYINT      NOT NULL,
     ResourceSurrogateId  BIGINT       NOT NULL,
     ResourceIdInt        BIGINT       NOT NULL,
     Version              INT          NOT NULL,
@@ -690,7 +690,7 @@ CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_N
 
 GO
 CREATE TABLE dbo.HistoryResources (
-    ResourceTypeId       SMALLINT     NOT NULL,
+    ResourceTypeId       TINYINT      NOT NULL,
     ResourceSurrogateId  BIGINT       NOT NULL,
     ResourceIdInt        BIGINT       NOT NULL,
     Version              INT          NOT NULL,
@@ -720,7 +720,7 @@ CREATE TABLE dbo.ResourceChangeData (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
     Timestamp            DATETIME2 (7) CONSTRAINT DF_ResourceChangeData_Timestamp DEFAULT sysutcdatetime() NOT NULL,
     ResourceId           VARCHAR (64)  NOT NULL,
-    ResourceTypeId       SMALLINT      NOT NULL,
+    ResourceTypeId       TINYINT       NOT NULL,
     ResourceVersion      INT           NOT NULL,
     ResourceChangeTypeId TINYINT       NOT NULL
 ) ON PartitionScheme_ResourceChangeData_Timestamp (Timestamp);
@@ -733,7 +733,7 @@ CREATE TABLE dbo.ResourceChangeDataStaging (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
     Timestamp            DATETIME2 (7) CONSTRAINT DF_ResourceChangeDataStaging_Timestamp DEFAULT sysutcdatetime() NOT NULL,
     ResourceId           VARCHAR (64)  NOT NULL,
-    ResourceTypeId       SMALLINT      NOT NULL,
+    ResourceTypeId       TINYINT       NOT NULL,
     ResourceVersion      INT           NOT NULL,
     ResourceChangeTypeId TINYINT       NOT NULL
 ) ON [PRIMARY];
@@ -766,7 +766,7 @@ INSERT  dbo.ResourceChangeType (ResourceChangeTypeId, Name)
 VALUES                        (2, N'Deletion');
 
 CREATE TABLE dbo.ResourceType (
-    ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
+    ResourceTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId),
     CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
@@ -798,7 +798,7 @@ CREATE TABLE dbo.SearchParam (
 );
 
 CREATE TABLE dbo.StringSearchParam (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
@@ -863,7 +863,7 @@ CREATE NONCLUSTERED INDEX IX_QueueId_ParentTaskId
     ON dbo.TaskInfo(QueueId, ParentTaskId);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId1           INT           NULL,
@@ -905,7 +905,7 @@ CREATE INDEX IX_SearchParamId_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId1           INT              NULL,
@@ -941,7 +941,7 @@ CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3_IN
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
-    ResourceTypeId      SMALLINT         NOT NULL,
+    ResourceTypeId      TINYINT          NOT NULL,
     ResourceSurrogateId BIGINT           NOT NULL,
     SearchParamId       SMALLINT         NOT NULL,
     SystemId1           INT              NULL,
@@ -980,7 +980,7 @@ CREATE INDEX IX_SearchParamId_Code1_HighValue2_LowValue2_INCLUDE_QuantityCodeId2
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId            INT           NULL,
@@ -1004,7 +1004,7 @@ CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
@@ -1035,7 +1035,7 @@ CREATE INDEX IX_SearchParamId_Code1_Text2_INCLUDE_SystemId1_WHERE_TextOverflow2_
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenText (
-    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceTypeId      TINYINT        NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL,
@@ -1056,7 +1056,7 @@ CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenTokenCompositeSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId1           INT           NULL,
@@ -1108,7 +1108,7 @@ CREATE INDEX IX_IsVisible
     ON dbo.Transactions(IsVisible);
 
 CREATE TABLE dbo.UriSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceTypeId      TINYINT       NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL
@@ -1651,11 +1651,11 @@ BEGIN TRY
                     FROM   sys.indexes
                     WHERE  object_id = object_id(@TableName)
                            AND name = @IndexName);
-    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' ' + @Operation + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + CONVERT (VARCHAR, @PartitionNumber) ELSE '' END + CASE WHEN @Operation = 'REBUILD' THEN ' WITH (ONLINE = ON ' + CASE WHEN EXISTS (SELECT *
-                                                                                                                                                                                                                                                                                                      FROM   sys.partitions
-                                                                                                                                                                                                                                                                                                      WHERE  object_id = object_id(@TableName)
-                                                                                                                                                                                                                                                                                                             AND index_id = @IndexId
-                                                                                                                                                                                                                                                                                                             AND data_compression_desc = 'PAGE') THEN ', DATA_COMPRESSION = PAGE' ELSE ')' END ELSE '' END;
+    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' ' + @Operation + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + CONVERT (VARCHAR, @PartitionNumber) ELSE '' END + CASE WHEN @Operation = 'REBUILD' THEN ' WITH (ONLINE = ON' + CASE WHEN EXISTS (SELECT *
+                                                                                                                                                                                                                                                                                                     FROM   sys.partitions
+                                                                                                                                                                                                                                                                                                     WHERE  object_id = object_id(@TableName)
+                                                                                                                                                                                                                                                                                                            AND index_id = @IndexId
+                                                                                                                                                                                                                                                                                                            AND data_compression_desc = 'PAGE') THEN ', DATA_COMPRESSION = PAGE' ELSE '' END + ')' ELSE '' END;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @Sql;
     SET @SizeBefore = (SELECT sum(reserved_page_count)
                        FROM   sys.dm_db_partition_stats
@@ -1718,7 +1718,7 @@ DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @st AS DATETIME = getUTCda
                                                                                                                                                          WHERE  Id = 'Defrag.MinFragPct'), 10), @MinSizeGB AS FLOAT = isnull((SELECT Number
                                                                                                                                                                                                                               FROM   dbo.Parameters
                                                                                                                                                                                                                               WHERE  Id = 'Defrag.MinSizeGB'), 0.1), @PreviousGroupId AS BIGINT, @IndexId AS INT;
-DECLARE @Mode AS VARCHAR (200) = 'T=' + @TableName + ' I=' + isnull(@IndexName, 'NULL') + ' P=' + CONVERT (VARCHAR, @PartitionNumber) + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB);
+DECLARE @Mode AS VARCHAR (200) = 'T=' + @TableName + ' I=' + isnull(@IndexName, 'NULL') + ' P=' + isnull(CONVERT (VARCHAR, @PartitionNumber), 'NULL') + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB);
 BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
     IF object_id(@TableName) IS NULL
@@ -3531,7 +3531,7 @@ CREATE PROCEDURE dbo.MergeResources
 @AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0, @RT AS SMALLINT, @NewIdsCount AS INT, @FirstIdInt AS BIGINT;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0, @RT AS TINYINT, @NewIdsCount AS INT, @FirstIdInt AS BIGINT;
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
 SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
@@ -3539,23 +3539,23 @@ SET @AffectedRows = 0;
 RetryResourceIdIntMapInsert:
 BEGIN TRY
     DECLARE @RTs AS TABLE (
-        ResourceTypeId SMALLINT NOT NULL PRIMARY KEY);
+        ResourceTypeId TINYINT NOT NULL PRIMARY KEY);
     DECLARE @InputIds AS TABLE (
-        ResourceTypeId SMALLINT     NOT NULL,
+        ResourceTypeId TINYINT      NOT NULL,
         ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
     DECLARE @ExistingIds AS TABLE (
-        ResourceTypeId SMALLINT     NOT NULL,
+        ResourceTypeId TINYINT      NOT NULL,
         ResourceIdInt  BIGINT       NOT NULL,
         ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
     DECLARE @InsertIds AS TABLE (
         ResourceIndex INT          NOT NULL,
         ResourceId    VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL);
     DECLARE @InsertedIds AS TABLE (
-        ResourceTypeId SMALLINT     NOT NULL,
+        ResourceTypeId TINYINT      NOT NULL,
         ResourceIdInt  BIGINT       NOT NULL,
         ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
     DECLARE @ResourcesWithIds AS TABLE (
-        ResourceTypeId       SMALLINT        NOT NULL,
+        ResourceTypeId       TINYINT         NOT NULL,
         ResourceSurrogateId  BIGINT          NOT NULL,
         ResourceIdInt        BIGINT          NOT NULL,
         Version              INT             NOT NULL,
@@ -3570,11 +3570,11 @@ BEGIN TRY
         OffsetInFile         INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
         UNIQUE (ResourceTypeId, ResourceIdInt, Version));
     DECLARE @ReferenceSearchParamsWithIds AS TABLE (
-        ResourceTypeId           SMALLINT      NOT NULL,
+        ResourceTypeId           TINYINT       NOT NULL,
         ResourceSurrogateId      BIGINT        NOT NULL,
         SearchParamId            SMALLINT      NOT NULL,
         BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
-        ReferenceResourceTypeId  SMALLINT      NULL,
+        ReferenceResourceTypeId  TINYINT       NULL,
         ReferenceResourceIdInt   BIGINT        NOT NULL,
         ReferenceResourceVersion INT           NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt));
     INSERT INTO @InputIds
@@ -3747,19 +3747,19 @@ BEGIN CATCH
 END CATCH
 BEGIN TRY
     DECLARE @Existing AS TABLE (
-        ResourceTypeId SMALLINT NOT NULL,
-        SurrogateId    BIGINT   NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
+        ResourceTypeId TINYINT NOT NULL,
+        SurrogateId    BIGINT  NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
     DECLARE @ResourceInfos AS TABLE (
-        ResourceTypeId      SMALLINT NOT NULL,
-        SurrogateId         BIGINT   NOT NULL,
-        Version             INT      NOT NULL,
-        KeepHistory         BIT      NOT NULL,
-        PreviousVersion     INT      NULL,
-        PreviousSurrogateId BIGINT   NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
+        ResourceTypeId      TINYINT NOT NULL,
+        SurrogateId         BIGINT  NOT NULL,
+        Version             INT     NOT NULL,
+        KeepHistory         BIT     NOT NULL,
+        PreviousVersion     INT     NULL,
+        PreviousSurrogateId BIGINT  NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
     DECLARE @PreviousSurrogateIds AS TABLE (
-        TypeId      SMALLINT NOT NULL,
-        SurrogateId BIGINT   NOT NULL PRIMARY KEY (TypeId, SurrogateId),
-        KeepHistory BIT     );
+        TypeId      TINYINT NOT NULL,
+        SurrogateId BIGINT  NOT NULL PRIMARY KEY (TypeId, SurrogateId),
+        KeepHistory BIT    );
     IF @SingleTransaction = 0
        AND isnull((SELECT Number
                    FROM   dbo.Parameters

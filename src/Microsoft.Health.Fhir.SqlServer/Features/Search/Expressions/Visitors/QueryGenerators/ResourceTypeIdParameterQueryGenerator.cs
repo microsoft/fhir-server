@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             foreach (T resourceType in expression.Values)
             {
                 string resourceTypeName = resourceType.ToString();
-                if (context.Model.TryGetResourceTypeId(resourceTypeName, out short resourceTypeId))
+                if (context.Model.TryGetResourceTypeId(resourceTypeName, out var resourceTypeId))
                 {
                     resolvedResourceTypeIds.Add(resourceTypeId);
                 }

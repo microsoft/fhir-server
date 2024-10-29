@@ -4,7 +4,7 @@ CREATE TABLE dbo.ResourceChangeDataStaging
     Id bigint IDENTITY(1,1) NOT NULL,
     Timestamp datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeDataStaging_Timestamp DEFAULT sysutcdatetime(),
     ResourceId varchar(64) NOT NULL,
-    ResourceTypeId smallint NOT NULL,
+    ResourceTypeId tinyint NOT NULL,
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL
 ) ON [PRIMARY];

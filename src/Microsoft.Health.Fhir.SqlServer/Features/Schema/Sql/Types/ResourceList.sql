@@ -2,7 +2,7 @@
 GO
 CREATE TYPE dbo.ResourceList AS TABLE
 (
-    ResourceTypeId       smallint            NOT NULL
+    ResourceTypeId       tinyint            NOT NULL
    ,ResourceSurrogateId  bigint              NOT NULL
    ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
    ,Version              int                 NOT NULL

@@ -1,6 +1,6 @@
 ﻿CREATE TABLE dbo.StringSearchParam
 (
-    ResourceTypeId              smallint            NOT NULL,
+    ResourceTypeId              tinyint            NOT NULL,
     ResourceSurrogateId         bigint              NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,

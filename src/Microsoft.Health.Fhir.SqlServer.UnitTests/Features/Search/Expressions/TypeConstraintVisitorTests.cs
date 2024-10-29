@@ -25,23 +25,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class TypeConstraintVisitorTests
     {
-        private const short AllergyIntolerance = 1;
-        private const short Claim = 2;
-        private const short Condition = 3;
-        private const short Device = 4;
-        private const short DiagnosticReport = 5;
-        private const short Encounter = 6;
-        private const short Immunization = 7;
-        private const short Observation = 8;
-        private const short Patient = 9;
-        private const short Procedure = 10;
+        private const byte AllergyIntolerance = 1;
+        private const byte Claim = 2;
+        private const byte Condition = 3;
+        private const byte Device = 4;
+        private const byte DiagnosticReport = 5;
+        private const byte Encounter = 6;
+        private const byte Immunization = 7;
+        private const byte Observation = 8;
+        private const byte Patient = 9;
+        private const byte Procedure = 10;
 
-        private static readonly short[] AllTypes = Enumerable.Range(AllergyIntolerance, Procedure - AllergyIntolerance + 1).Select(i => (short)i).ToArray();
+        private static readonly byte[] AllTypes = Enumerable.Range(AllergyIntolerance, Procedure - AllergyIntolerance + 1).Select(i => (byte)i).ToArray();
         private static readonly ISqlServerFhirModel FhirModel = CreateFhirModel();
         private static readonly SearchParameterInfo TypeParameter = new(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType);
         private static readonly SearchParameterInfo IdParameter = new(SearchParameterNames.Id, SearchParameterNames.Id);
 
-        public static readonly TheoryData<Expression, short[]> Data = new()
+        public static readonly TheoryData<Expression, byte[]> Data = new()
         {
             { null, AllTypes },
             { SearchParameter(IdParameter, Token("foo")), AllTypes },
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(Data))]
-        public void GivenAnExpression_WhenVisited_DeterminesTheCorrectAllowedTypes(Expression expression, short[] expectedTypeIds)
+        public void GivenAnExpression_WhenVisited_DeterminesTheCorrectAllowedTypes(Expression expression, byte[] expectedTypeIds)
         {
             var visitor = new TypeConstraintVisitor();
 
@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertAllowed(result, expectedTypeIds);
         }
 
-        private static void AssertAllowed((short? singleAllowedResourceTypeId, BitArray allAllowedTypes) result, params short[] expectedIds)
+        private static void AssertAllowed((byte? singleAllowedResourceTypeId, BitArray allAllowedTypes) result, params byte[] expectedIds)
         {
-            expectedIds ??= Array.Empty<short>();
+            expectedIds ??= Array.Empty<byte>();
 
             switch (expectedIds.Length)
             {
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     break;
             }
 
-            for (short i = FhirModel.ResourceTypeIdRange.lowestId; i <= FhirModel.ResourceTypeIdRange.highestId; i++)
+            for (var i = FhirModel.ResourceTypeIdRange.lowestId; i <= FhirModel.ResourceTypeIdRange.highestId; i++)
             {
                 Assert.Equal(expectedIds.Contains(i), result.allAllowedTypes[i]);
             }
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             foreach (FieldInfo fieldInfo in typeof(TypeConstraintVisitorTests).GetFields(BindingFlags.NonPublic | BindingFlags.Static).Where(fi => fi.IsLiteral && !fi.IsInitOnly))
             {
-                sqlServerFhirModel.GetResourceTypeId(fieldInfo.Name).Returns((short)fieldInfo.GetValue(null));
+                sqlServerFhirModel.GetResourceTypeId(fieldInfo.Name).Returns((byte)fieldInfo.GetValue(null));
             }
 
             return sqlServerFhirModel;

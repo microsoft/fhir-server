@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, StringSearchValue searchValue, HashSet<StringSearchParamListRow> results, out StringSearchParamListRow row)
+        internal override bool TryGenerateRow(byte resourceTypeId, long resourceSurrogateId, short searchParamId, StringSearchValue searchValue, HashSet<StringSearchParamListRow> results, out StringSearchParamListRow row)
         {
             string indexedPrefix;
             string overflow;

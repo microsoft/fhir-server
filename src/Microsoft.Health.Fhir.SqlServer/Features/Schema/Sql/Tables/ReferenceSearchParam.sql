@@ -1,10 +1,10 @@
 ﻿CREATE TABLE dbo.ReferenceSearchParam
 (
-    ResourceTypeId            smallint     NOT NULL
+    ResourceTypeId            tinyint     NOT NULL
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceTypeId   smallint     NOT NULL
+   ,ReferenceResourceTypeId   tinyint     NOT NULL
    ,ReferenceResourceIdInt    bigint       NOT NULL CONSTRAINT DF_ReferenceSearchParam_ResourceIdInt DEFAULT 0
    ,ReferenceResourceId       varchar(64)  COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT DF_ReferenceSearchParam_ResourceId DEFAULT ''
    ,ReferenceResourceVersion  int          NULL
@@ -16,11 +16,11 @@ DROP TABLE dbo.ReferenceSearchParam
 GO
 CREATE TABLE dbo.ReferenceSearchParams
 (
-    ResourceTypeId            smallint     NOT NULL
+    ResourceTypeId            tinyint     NOT NULL
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceTypeId   smallint     NOT NULL
+   ,ReferenceResourceTypeId   tinyint     NOT NULL
    ,ReferenceResourceIdInt    bigint       NOT NULL
    ,ReferenceResourceVersion  int          NULL
 )

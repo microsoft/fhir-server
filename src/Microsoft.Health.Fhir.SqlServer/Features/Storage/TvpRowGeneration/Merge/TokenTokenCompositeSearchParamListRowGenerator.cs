@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, HashSet<TokenTokenCompositeSearchParamListRow> results, out TokenTokenCompositeSearchParamListRow row)
+        internal override bool TryGenerateRow(byte resourceTypeId, long resourceSurrogateId, short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, HashSet<TokenTokenCompositeSearchParamListRow> results, out TokenTokenCompositeSearchParamListRow row)
         {
             if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, null, out var token1Row) &&
                 _tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var token2Row))

@@ -1,6 +1,6 @@
 ﻿CREATE TABLE dbo.DateTimeSearchParam
 (
-    ResourceTypeId smallint NOT NULL,
+    ResourceTypeId tinyint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     StartDateTime datetime2(7) NOT NULL,

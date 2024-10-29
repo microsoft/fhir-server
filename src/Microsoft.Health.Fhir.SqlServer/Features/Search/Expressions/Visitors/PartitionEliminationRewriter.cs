@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             string[] resourceTypes = new string[_model.ResourceTypeIdRange.highestId - _model.ResourceTypeIdRange.lowestId + 1];
-            for (short i = 0, typeId = _model.ResourceTypeIdRange.lowestId; typeId <= _model.ResourceTypeIdRange.highestId; typeId++, i++)
+            for (byte i = 0, typeId = _model.ResourceTypeIdRange.lowestId; typeId <= _model.ResourceTypeIdRange.highestId; typeId++, i++)
             {
                 resourceTypes[i] = _model.GetResourceTypeName(typeId);
             }

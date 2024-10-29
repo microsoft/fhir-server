@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, DateTimeSearchValue searchValue, HashSet<DateTimeSearchParamListRow> results, out DateTimeSearchParamListRow row)
+        internal override bool TryGenerateRow(byte resourceTypeId, long resourceSurrogateId, short searchParamId, DateTimeSearchValue searchValue, HashSet<DateTimeSearchParamListRow> results, out DateTimeSearchParamListRow row)
         {
             if (searchParamId == _lastUpdatedSearchParamId)
             {

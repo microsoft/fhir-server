@@ -424,7 +424,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 ReadWrapper(
                                     reader,
-                                    out short resourceTypeId,
+                                    out var resourceTypeId,
                                     out string resourceId,
                                     out int version,
                                     out bool isDeleted,
@@ -638,7 +638,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         ReadWrapper(
                             reader,
-                            out short _,
+                            out var _,
                             out string resourceId,
                             out int version,
                             out bool isDeleted,
@@ -826,7 +826,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void ReadWrapper(
             SqlDataReader reader,
-            out short resourceTypeId,
+            out byte resourceTypeId,
             out string resourceId,
             out int version,
             out bool isDeleted,
@@ -936,7 +936,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             string resourceType = GetForceReindexResourceType(searchOptions);
             if (searchOptions.CountOnly)
             {
-                _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
+                _model.TryGetResourceTypeId(resourceType, out var resourceTypeId);
                 return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchParameterHash);
             }
 

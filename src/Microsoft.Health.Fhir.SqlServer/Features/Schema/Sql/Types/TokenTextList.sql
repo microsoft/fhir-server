@@ -2,7 +2,7 @@
 GO
 CREATE TYPE dbo.TokenTextList AS TABLE
 (
-    ResourceTypeId           smallint NOT NULL
+    ResourceTypeId           tinyint NOT NULL
    ,ResourceSurrogateId      bigint   NOT NULL
    ,SearchParamId            smallint NOT NULL
    ,Text                     nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL

@@ -9,13 +9,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public interface ISqlServerFhirModel
     {
-        (short lowestId, short highestId) ResourceTypeIdRange { get; }
+        (byte lowestId, byte highestId) ResourceTypeIdRange { get; }
 
-        short GetResourceTypeId(string resourceTypeName);
+        byte GetResourceTypeId(string resourceTypeName);
 
-        bool TryGetResourceTypeId(string resourceTypeName, out short id);
+        bool TryGetResourceTypeId(string resourceTypeName, out byte id);
 
-        string GetResourceTypeName(short resourceTypeId);
+        string GetResourceTypeName(byte resourceTypeId);
 
         byte GetClaimTypeId(string claimTypeName);
 
