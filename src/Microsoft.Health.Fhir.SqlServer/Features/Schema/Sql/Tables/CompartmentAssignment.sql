@@ -1,6 +1,6 @@
 ﻿CREATE TABLE dbo.CompartmentAssignment
 (
-    ResourceTypeId              smallint            NOT NULL,
+    ResourceTypeId              tinyint            NOT NULL,
     ResourceSurrogateId         bigint              NOT NULL,
     CompartmentTypeId           tinyint             NOT NULL,
     ReferenceResourceId         varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL,

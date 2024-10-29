@@ -267,7 +267,7 @@ CREATE TABLE dbo.ClaimType (
 );
 
 CREATE TABLE dbo.CompartmentAssignment (
-    ResourceTypeId      SMALLINT     NOT NULL,
+    ResourceTypeId      TINYINT      NOT NULL,
     ResourceSurrogateId BIGINT       NOT NULL,
     CompartmentTypeId   TINYINT      NOT NULL,
     ReferenceResourceId VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
