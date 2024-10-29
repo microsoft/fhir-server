@@ -1542,7 +1542,8 @@ BEGIN TRY
     SET @SizeBefore = (SELECT sum(reserved_page_count)
                        FROM   sys.dm_db_partition_stats
                        WHERE  object_id = object_id(@TableName)
-                              AND index_id = @IndexId) * 8.0 / 1024 / 1024;
+                              AND index_id = @IndexId
+                              AND partition_number = @PartitionNumber) * 8.0 / 1024 / 1024;
     SET @msg = 'Size[GB] before=' + CONVERT (VARCHAR, @SizeBefore);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Text = @msg;
     BEGIN TRY
@@ -1550,7 +1551,8 @@ BEGIN TRY
         SET @SizeAfter = (SELECT sum(reserved_page_count)
                           FROM   sys.dm_db_partition_stats
                           WHERE  object_id = object_id(@TableName)
-                                 AND index_id = @IndexId) * 8.0 / 1024 / 1024;
+                                 AND index_id = @IndexId
+                                 AND partition_number = @PartitionNumber) * 8.0 / 1024 / 1024;
         SET @msg = 'Size[GB] before=' + CONVERT (VARCHAR, @SizeBefore) + ', after=' + CONVERT (VARCHAR, @SizeAfter) + ', reduced by=' + CONVERT (VARCHAR, @SizeBefore - @SizeAfter);
         EXECUTE dbo.LogEvent @Process = @SP, @Status = 'End', @Mode = @Mode, @Action = @Operation, @Start = @st, @Text = @msg;
     END TRY
