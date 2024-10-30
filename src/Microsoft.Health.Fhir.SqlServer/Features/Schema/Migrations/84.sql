@@ -1651,16 +1651,17 @@ BEGIN TRY
                     FROM   sys.indexes
                     WHERE  object_id = object_id(@TableName)
                            AND name = @IndexName);
-    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' ' + @Operation + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + CONVERT (VARCHAR, @PartitionNumber) ELSE '' END + CASE WHEN @Operation = 'REBUILD' THEN ' WITH (ONLINE = ON ' + CASE WHEN EXISTS (SELECT *
-                                                                                                                                                                                                                                                                                                      FROM   sys.partitions
-                                                                                                                                                                                                                                                                                                      WHERE  object_id = object_id(@TableName)
-                                                                                                                                                                                                                                                                                                             AND index_id = @IndexId
-                                                                                                                                                                                                                                                                                                             AND data_compression_desc = 'PAGE') THEN ', DATA_COMPRESSION = PAGE' ELSE ')' END ELSE '' END;
+    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' ' + @Operation + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + CONVERT (VARCHAR, @PartitionNumber) ELSE '' END + CASE WHEN @Operation = 'REBUILD' THEN ' WITH (ONLINE = ON' + CASE WHEN EXISTS (SELECT *
+                                                                                                                                                                                                                                                                                                     FROM   sys.partitions
+                                                                                                                                                                                                                                                                                                     WHERE  object_id = object_id(@TableName)
+                                                                                                                                                                                                                                                                                                            AND index_id = @IndexId
+                                                                                                                                                                                                                                                                                                            AND data_compression_desc = 'PAGE') THEN ', DATA_COMPRESSION = PAGE' ELSE '' END + ')' ELSE '' END;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @Sql;
     SET @SizeBefore = (SELECT sum(reserved_page_count)
                        FROM   sys.dm_db_partition_stats
                        WHERE  object_id = object_id(@TableName)
-                              AND index_id = @IndexId) * 8.0 / 1024 / 1024;
+                              AND index_id = @IndexId
+                              AND partition_number = @PartitionNumber) * 8.0 / 1024 / 1024;
     SET @msg = 'Size[GB] before=' + CONVERT (VARCHAR, @SizeBefore);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Text = @msg;
     BEGIN TRY
@@ -1668,7 +1669,8 @@ BEGIN TRY
         SET @SizeAfter = (SELECT sum(reserved_page_count)
                           FROM   sys.dm_db_partition_stats
                           WHERE  object_id = object_id(@TableName)
-                                 AND index_id = @IndexId) * 8.0 / 1024 / 1024;
+                                 AND index_id = @IndexId
+                                 AND partition_number = @PartitionNumber) * 8.0 / 1024 / 1024;
         SET @msg = 'Size[GB] before=' + CONVERT (VARCHAR, @SizeBefore) + ', after=' + CONVERT (VARCHAR, @SizeAfter) + ', reduced by=' + CONVERT (VARCHAR, @SizeBefore - @SizeAfter);
         EXECUTE dbo.LogEvent @Process = @SP, @Status = 'End', @Mode = @Mode, @Action = @Operation, @Start = @st, @Text = @msg;
     END TRY
@@ -1718,7 +1720,7 @@ DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @st AS DATETIME = getUTCda
                                                                                                                                                          WHERE  Id = 'Defrag.MinFragPct'), 10), @MinSizeGB AS FLOAT = isnull((SELECT Number
                                                                                                                                                                                                                               FROM   dbo.Parameters
                                                                                                                                                                                                                               WHERE  Id = 'Defrag.MinSizeGB'), 0.1), @PreviousGroupId AS BIGINT, @IndexId AS INT;
-DECLARE @Mode AS VARCHAR (200) = 'T=' + @TableName + ' I=' + isnull(@IndexName, 'NULL') + ' P=' + CONVERT (VARCHAR, @PartitionNumber) + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB);
+DECLARE @Mode AS VARCHAR (200) = 'T=' + @TableName + ' I=' + isnull(@IndexName, 'NULL') + ' P=' + isnull(CONVERT (VARCHAR, @PartitionNumber), 'NULL') + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB);
 BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
     IF object_id(@TableName) IS NULL
