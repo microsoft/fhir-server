@@ -1494,12 +1494,12 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var respone = await _client.CancelImport(checkLocation);
+            var response = await _client.CancelImport(checkLocation);
 
-            // wait task completed
-            while (respone.StatusCode != HttpStatusCode.Conflict)
+            // This test makes sure that if the jobs already completed, it will return Conflict but it never cancelled the task
+            while (response.StatusCode != HttpStatusCode.Conflict)
             {
-                respone = await _client.CancelImport(checkLocation);
+                response = await _client.CancelImport(checkLocation);
                 await Task.Delay(TimeSpan.FromSeconds(0.30));
             }
 
