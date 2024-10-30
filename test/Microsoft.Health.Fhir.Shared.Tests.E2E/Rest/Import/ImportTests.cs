@@ -1500,7 +1500,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             while (respone.StatusCode != HttpStatusCode.Conflict)
             {
                 respone = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                await Task.Delay(TimeSpan.FromSeconds(0.30));
             }
 
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
@@ -1515,7 +1515,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
             var patients = new List<InputResource>();
 
-            for (int i = 0; i <= 100; i++)
+            for (int i = 0; i < 60; i++)
             {
                 string resourceId = Guid.NewGuid().ToString("N");
                 string patientNdJsonResourceN = patientNdJsonResource.Replace("##PatientID##", resourceId);
@@ -1542,24 +1542,21 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
-            await Task.Delay(TimeSpan.FromMinutes(1));
-
             var response = await _client.CancelImport(checkLocation);
 
-            // wait task completed
+            // The first response should be accepted as the task is still running
+            // Accepted means that the server did cancel the import task
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // Second time we try to Cancel Import Job, it will try to cancel the job again
+            // but this time, the task was already cancell, so it will return Conflict as expected
             while (response.StatusCode != HttpStatusCode.Conflict)
             {
-                // We know that this test will fail, so I added this break to avoid to loop forever
-                if (response.StatusCode == HttpStatusCode.OK)
-                {
-                    break;
-                }
-
                 response = await _client.CancelImport(checkLocation);
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
 
-            // Right now, this exception will not thrown because the import job was never cancelled
+            // Make sure we return Bad request
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }

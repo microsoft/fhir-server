@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,19 +45,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            JobInfo jobInfo = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
+            // We need to check all Jobs status
+            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
 
-            if (jobInfo == null)
+            if (jobs == null || jobs.Count == 0)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
 
-            if (jobInfo.Status == JobManagement.JobStatus.Completed || jobInfo.Status == JobManagement.JobStatus.Cancelled || jobInfo.Status == JobManagement.JobStatus.Failed)
+            var conflict = false;
+            var allComplete = true;
+
+            // Check each job status
+            foreach (var job in jobs)
+            {
+                if (job.Status == JobStatus.Failed || job.Status == JobStatus.Cancelled)
+                {
+                    conflict = true;
+                }
+
+                if (job.Status != JobStatus.Completed)
+                {
+                    allComplete = false;
+                }
+            }
+
+            // If the job is already completed, failed or cancelled, return conflict status.
+            if (conflict || allComplete)
             {
                 throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
             }
 
-            await _queueClient.CancelJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, cancellationToken);
+            // Try to cancel the job
+            _logger.LogInformation("Attempting to cancel import job {JobId}", request.JobId);
+            await _queueClient.CancelJobByGroupIdAsync(QueueType.Import, request.JobId, cancellationToken);
+
             return new CancelImportResponse(HttpStatusCode.Accepted);
         }
     }
