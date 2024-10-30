@@ -74,7 +74,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             List<JobInfo> jobs = await SetupAndExecuteCancelImportAsync(jobStatus, HttpStatusCode.Accepted);
 
-            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, jobs[0].Id, _cancellationToken);
+            var groupJobId = jobs[0].GroupId;
+            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, groupJobId, _cancellationToken);
         }
 
         [Fact]
