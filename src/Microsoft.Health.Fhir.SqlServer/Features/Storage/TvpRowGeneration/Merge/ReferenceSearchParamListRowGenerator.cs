@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class ReferenceSearchParamListRowGenerator : MergeSearchParameterRowGenerator<ReferenceSearchValue, ReferenceSearchParamListRow>
     {
-        private int _maxLength = (int)VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.MaxLength;
+        private readonly int _maxLength = (int)VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.MaxLength;
 
         public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
