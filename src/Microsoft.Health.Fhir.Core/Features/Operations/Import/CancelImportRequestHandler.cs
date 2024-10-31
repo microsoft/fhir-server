@@ -53,25 +53,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
 
-            var conflict = false;
+            var anyFailed = false;
             var allComplete = true;
 
             // Check each job status
             foreach (var job in jobs)
             {
-                if (job.Status == JobStatus.Failed || job.Status == JobStatus.Cancelled)
+                if (job.Status == JobStatus.Failed)
                 {
-                    conflict = true;
+                    anyFailed = true;
+                    break;
                 }
 
                 if (job.Status != JobStatus.Completed)
                 {
                     allComplete = false;
+                    break;
                 }
             }
 
-            // If the job is already completed, failed or cancelled, return conflict status.
-            if (conflict || allComplete)
+            // If the job is already completed or failed, return conflict status.
+            if (anyFailed || allComplete)
             {
                 throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
             }

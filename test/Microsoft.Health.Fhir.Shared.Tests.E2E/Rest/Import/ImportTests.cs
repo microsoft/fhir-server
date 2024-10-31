@@ -1494,71 +1494,68 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            // Then we cancel import job
             var response = await _client.CancelImport(checkLocation);
 
-            // This test makes sure that if the jobs already completed, it will return Conflict but it never cancelled the task
-            while (response.StatusCode != HttpStatusCode.Conflict)
-            {
-                response = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.30));
-            }
+            // The service should accept the cancel request
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
+            // We try to cancel the same job again, it should return Accepted
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // We get the Import status
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Contains("User requested cancellation", fhirException.Message);
         }
 
         [Fact]
-        public async Task GivenImportTriggeredWithMultipleFilesWithCancel_ThenTaskShouldBeCanceled()
+        public async Task GivenImportHasCompleted_WhenCancel_ThenTaskShouldReturnConflict()
         {
             _metricHandler?.ResetCount();
-
-            string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
-            var patients = new List<InputResource>();
-
-            for (int i = 0; i < 60; i++)
-            {
-                string resourceId = Guid.NewGuid().ToString("N");
-                string patientNdJsonResourceN = patientNdJsonResource.Replace("##PatientID##", resourceId);
-
-                (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResourceN, _fixture.StorageAccount);
-
-                var inputResource = new InputResource()
-                {
-                    Url = location,
-                    Type = "Patient",
-                };
-
-                patients.Add(inputResource);
-            }
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = patients,
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
                 Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
+            // Wait for import job to complete
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // Then we cancel import job
             var response = await _client.CancelImport(checkLocation);
 
-            // The first response should be accepted as the task is still running
-            // Accepted means that the server did cancel the import task
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            // The service should  return conflict because Import has already completed
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
-            // Second time we try to Cancel Import Job, it will try to cancel the job again
-            // but this time, the task was already cancell, so it will return Conflict as expected
-            while (response.StatusCode != HttpStatusCode.Conflict)
-            {
-                response = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
-            }
+            // We try to cancel the same job again, it should return Conflict
+            // We add this retry, in case customer send multiple cancel requests
+            // We need to make sure the server returns Conflict
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
-            // Make sure we return Bad request
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            // We get the Import status and it should return OK because Import completed
+            var importStatus = await _client.CheckImportAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, importStatus.StatusCode);
         }
 
         [Fact(Skip = "long running tests for invalid url")]

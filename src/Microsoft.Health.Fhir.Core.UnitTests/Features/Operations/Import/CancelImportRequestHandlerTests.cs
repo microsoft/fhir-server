@@ -58,13 +58,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         [Theory]
         [InlineData(JobStatus.Completed)]
-        [InlineData(JobStatus.Cancelled)]
         [InlineData(JobStatus.Failed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(JobStatus taskStatus)
         {
             OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));
 
             Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
+        }
+
+        [Theory]
+        [InlineData(JobStatus.Cancelled)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyBeenCanceled_ThenAcceptedStatusCodeShouldBeReturned(JobStatus taskStatus)
+        {
+            List<JobInfo> jobs = SetupBulkImportJob(taskStatus, true);
+            CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         }
 
         [Theory]
