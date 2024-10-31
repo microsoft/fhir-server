@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData(JobStatus.Cancelled)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyBeenCanceled_ThenAcceptedStatusCodeShouldBeReturned(JobStatus taskStatus)
         {
-            List<JobInfo> jobs = SetupBulkImportJob(taskStatus, true);
+            SetupBulkImportJob(taskStatus, true);
             CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
 
             Assert.NotNull(response);
