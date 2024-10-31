@@ -74,9 +74,8 @@ BEGIN TRY
        ,ResourceSurrogateId      bigint   NOT NULL
        ,SearchParamId            smallint NOT NULL
        ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-       ,ReferenceResourceTypeId  smallint NULL
+       ,ReferenceResourceTypeId  smallint NOT NULL
        ,ReferenceResourceIdInt   bigint   NOT NULL
-       ,ReferenceResourceVersion int      NULL
 
        UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt) 
     )
@@ -119,8 +118,8 @@ BEGIN TRY
   END
   
   INSERT INTO @ReferenceSearchParamsWithIds
-         (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,                  ReferenceResourceIdInt, ReferenceResourceVersion )
-    SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), ReferenceResourceVersion
+         (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,                  ReferenceResourceIdInt )
+    SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt)
       FROM (SELECT * FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NOT NULL) A
            LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
            LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ReferenceResourceTypeId AND C.ResourceId = A.ReferenceResourceId
@@ -292,7 +291,9 @@ BEGIN TRY
 
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.ReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE FROM dbo.ResourceReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      SET @AffectedRows += @@rowcount
+      DELETE FROM dbo.StringReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.TokenSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
@@ -336,10 +337,17 @@ BEGIN TRY
         FROM @ResourceWriteClaims
     SET @AffectedRows += @@rowcount
 
-    INSERT INTO dbo.ReferenceSearchParams 
-           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion )
-      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion
+    INSERT INTO dbo.ResourceReferenceSearchParams 
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt
         FROM @ReferenceSearchParamsWithIds
+    SET @AffectedRows += @@rowcount
+
+    INSERT INTO dbo.StringReferenceSearchParams 
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId
+        FROM @ReferenceSearchParams
+        WHERE ReferenceResourceTypeId IS NULL
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.TokenSearchParam 
@@ -431,12 +439,21 @@ BEGIN TRY
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
 
-    INSERT INTO dbo.ReferenceSearchParams 
-           (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion )
-      SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt, ReferenceResourceVersion
+    INSERT INTO dbo.ResourceReferenceSearchParams 
+           (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt )
+      SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt
         FROM (SELECT TOP (@DummyTop) * FROM @ReferenceSearchParamsWithIds) A
         WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
-          AND NOT EXISTS (SELECT * FROM dbo.ReferenceSearchParams C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+          AND NOT EXISTS (SELECT * FROM dbo.ResourceReferenceSearchParams C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    SET @AffectedRows += @@rowcount
+
+    INSERT INTO dbo.StringReferenceSearchParams 
+           (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId )
+      SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId
+        FROM (SELECT TOP (@DummyTop) * FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NULL) A
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
+          AND NOT EXISTS (SELECT * FROM dbo.StringReferenceSearchParams C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
 

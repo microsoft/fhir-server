@@ -6,15 +6,28 @@ SELECT A.ResourceTypeId
       ,BaseUri
       ,ReferenceResourceTypeId
       ,ReferenceResourceId = B.ResourceId
-      ,ReferenceResourceVersion
-  FROM dbo.ReferenceSearchParams A
+      ,IsResourceRef
+  FROM dbo.ResourceReferenceSearchParams A
        LEFT OUTER JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceIdInt = A.ReferenceResourceIdInt
+UNION ALL
+SELECT ResourceTypeId
+      ,ResourceSurrogateId
+      ,SearchParamId
+      ,BaseUri
+      ,NULL
+      ,ReferenceResourceId
+      ,IsResourceRef
+  FROM dbo.StringReferenceSearchParams
 GO
 CREATE TRIGGER dbo.ReferenceSearchParamDel ON dbo.ReferenceSearchParam INSTEAD OF DELETE
 AS
 BEGIN
   DELETE FROM A
-    FROM dbo.ReferenceSearchParams A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+    FROM dbo.ResourceReferenceSearchParams A
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.IsResourceRef = 1 AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+
+  DELETE FROM A
+    FROM dbo.StringReferenceSearchParams A
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.IsResourceRef = 0 AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
 END
 GO
