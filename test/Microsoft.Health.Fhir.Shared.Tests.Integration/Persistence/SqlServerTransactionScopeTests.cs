@@ -43,9 +43,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateRetrySqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
-                        INSERT INTO Resource
-                          (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
-                        VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
+INSERT INTO dbo.ResourceIdIntMap
+    (ResourceTypeId,      ResourceIdInt,ResourceId)
+  SELECT         97,5095719085917680000,    @newId 
+INSERT INTO dbo.Resource
+    (ResourceTypeId,      ResourceIdInt,Version,IsHistory,ResourceSurrogateId,IsDeleted,IsRawResourceMetaSet,                   RawResource,  SearchParamHash)
+  SELECT         97,5095719085917680000,      1,        0,5095719085917680000,        0,                   0,CAST('test' AS varbinary(max)), @searchParamHash
+                     ";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "searchParamHash", Value = searchParamHash });
@@ -97,9 +101,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateRetrySqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
-                        INSERT INTO Resource
-                          (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
-                        VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
+INSERT INTO dbo.ResourceIdIntMap
+    (ResourceTypeId,      ResourceIdInt,ResourceId)
+  SELECT         97,5095719085917680001,    @newId 
+INSERT INTO Resource
+    (ResourceTypeId,      ResourceIdInt,Version,IsHistory,ResourceSurrogateId,IsDeleted,                   RawResource,IsRawResourceMetaSet, SearchParamHash)
+  SELECT         97,5095719085917680001,      1,        0,5095719085917680001,        0,CAST('test' AS varbinary(max)),                   0,@searchParamHash";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "searchParamHash", Value = searchParamHash });

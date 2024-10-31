@@ -164,7 +164,7 @@ END
         public async Task RollTransactionForward()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("DELETE FROM dbo.Resource");
             ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");
 
             using var cts = new CancellationTokenSource();
@@ -353,7 +353,7 @@ END
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand($"SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('{table}') AND index_id IN (0,1)", conn);
+            using var cmd = new SqlCommand($"SELECT count_big(*) FROM {table}", conn);
             var res = cmd.ExecuteScalar();
             return (long)res;
         }
