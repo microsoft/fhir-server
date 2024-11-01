@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             // We need to check the status of all jobs
             IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
 
-            if (jobs == null || jobs.Count == 0)
+            if (jobs.Count == 0)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
