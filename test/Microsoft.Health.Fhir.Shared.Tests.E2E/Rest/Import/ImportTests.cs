@@ -1539,7 +1539,20 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             // Wait for import job to complete
-            await Task.Delay(TimeSpan.FromSeconds(10));
+            var importStatus = await _client.CheckImportAsync(checkLocation);
+
+            // To avoid an infinite loop, we will try 5 times to get the completed status
+            // Which we expect to finish because we are importing a single job
+            for (int i = 0; i < 5; i++)
+            {
+                if (importStatus.StatusCode == HttpStatusCode.OK)
+                {
+                    break;
+                }
+
+                importStatus = await _client.CheckImportAsync(checkLocation);
+                await Task.Delay(TimeSpan.FromSeconds(0.5));
+            }
 
             // Then we cancel import job
             var response = await _client.CancelImport(checkLocation);
@@ -1554,7 +1567,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
             // We get the Import status and it should return OK because Import completed
-            var importStatus = await _client.CheckImportAsync(checkLocation);
+            importStatus = await _client.CheckImportAsync(checkLocation);
             Assert.Equal(HttpStatusCode.OK, importStatus.StatusCode);
         }
 
