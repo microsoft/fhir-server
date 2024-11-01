@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var bytes = reader.GetSqlBytes(6);
             var fileId = reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9);
             var offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10);
-            var rawResource = ReadRawResource(bytes, decompress, fileId.Value, offsetInFile);
+            var rawResource = ReadRawResource(bytes, decompress, fileId, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
