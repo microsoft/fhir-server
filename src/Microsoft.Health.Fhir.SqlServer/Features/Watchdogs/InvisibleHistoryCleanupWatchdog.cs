@@ -51,8 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
             _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");
 
-            IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)> transToClean =
-                await _store.GetTransactionsAsync(lastTranId, visibility, cancellationToken, DateTime.UtcNow.AddDays(-1 * RetentionPeriodDays));
+            var transToClean = await _store.GetTransactionsAsync(lastTranId, visibility, cancellationToken, DateTime.UtcNow.AddDays(-1 * RetentionPeriodDays));
 
             _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
 
@@ -63,8 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             var totalRows = 0;
-            foreach ((long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate) tran in
-                     transToClean.Where(x => !x.InvisibleHistoryRemovedDate.HasValue).OrderBy(x => x.TransactionId))
+            foreach (var tran in transToClean.Where(x => !x.InvisibleHistoryRemovedDate.HasValue).OrderBy(x => x.TransactionId))
             {
                 var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, cancellationToken);
                 _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");

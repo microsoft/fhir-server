@@ -1,4 +1,24 @@
-﻿CREATE TABLE dbo.ResourceIdIntMap
+﻿CREATE TABLE dbo.Resource
+(
+    ResourceTypeId              smallint                NOT NULL
+   ,ResourceSurrogateId         bigint                  NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version                     int                     NOT NULL
+   ,IsHistory                   bit                     NOT NULL
+   ,IsDeleted                   bit                     NOT NULL
+   ,RequestMethod               varchar(10)             NULL
+   ,RawResource                 varbinary(max)          NULL
+   ,IsRawResourceMetaSet        bit                     NOT NULL
+   ,SearchParamHash             varchar(64)             NULL
+   ,TransactionId               bigint                  NULL
+   ,HistoryTransactionId        bigint                  NULL
+   ,FileId                      bigint                  NULL
+   ,OffsetInFile                int                     NULL
+)
+GO
+DROP TABLE dbo.Resource
+GO
+CREATE TABLE dbo.ResourceIdIntMap
 (
     ResourceTypeId  smallint    NOT NULL
    ,ResourceIdInt   bigint      NOT NULL
@@ -21,25 +41,6 @@ CREATE TABLE dbo.RawResources
 
 ALTER TABLE dbo.RawResources SET ( LOCK_ESCALATION = AUTO )
 GO
-CREATE TABLE dbo.Resource
-(
-    ResourceTypeId              smallint                NOT NULL
-   ,ResourceSurrogateId         bigint                  NOT NULL
-   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,Version                     int                     NOT NULL
-   ,IsHistory                   bit                     NOT NULL
-   ,IsDeleted                   bit                     NOT NULL
-   ,RequestMethod               varchar(10)             NULL
-   ,RawResource                 varbinary(max)          NULL
-   ,IsRawResourceMetaSet        bit                     NOT NULL
-   ,SearchParamHash             varchar(64)             NULL
-   ,TransactionId               bigint                  NULL
-   ,HistoryTransactionId        bigint                  NULL
-   ,OffsetInFile                int                     NULL
-)
-GO
-DROP TABLE dbo.Resource
-GO
 CREATE TABLE dbo.CurrentResources
 (
     ResourceTypeId              smallint                NOT NULL
@@ -53,11 +54,11 @@ CREATE TABLE dbo.CurrentResources
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL
    ,HistoryTransactionId        bigint                  NULL
+   ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
 
     CONSTRAINT PKC_CurrentResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-   --,CONSTRAINT CH_CurrentResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.CurrentResources SET ( LOCK_ESCALATION = AUTO )
@@ -78,11 +79,11 @@ CREATE TABLE dbo.HistoryResources
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL
    ,HistoryTransactionId        bigint                  NULL
+   ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
 
     CONSTRAINT PKC_HistoryResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-   --,CONSTRAINT CH_HistoryResources_RawResource_OffsetInFile CHECK (RawResource IS NOT NULL OR OffsetInFile IS NOT NULL)
 )
 
 ALTER TABLE dbo.HistoryResources SET ( LOCK_ESCALATION = AUTO )

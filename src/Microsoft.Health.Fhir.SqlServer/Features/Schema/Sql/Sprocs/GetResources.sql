@@ -27,7 +27,7 @@ BEGIN TRY
             ,RawResource
             ,IsRawResourceMetaSet
             ,SearchParamHash
-            ,TransactionId
+            ,FileId
             ,OffsetInFile
         FROM (SELECT * FROM @ResourceKeys) A
              INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
@@ -44,7 +44,7 @@ BEGIN TRY
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
-                    ,TransactionId
+                    ,FileId
                     ,OffsetInFile
                 FROM (SELECT * FROM @ResourceKeys WHERE Version IS NOT NULL) A
                      INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
@@ -59,7 +59,7 @@ BEGIN TRY
                     ,RawResource
                     ,IsRawResourceMetaSet
                     ,SearchParamHash
-                    ,TransactionId
+                    ,FileId
                     ,OffsetInFile
                 FROM (SELECT * FROM @ResourceKeys WHERE Version IS NULL) A
                      INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
@@ -77,7 +77,7 @@ BEGIN TRY
           ,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
-          ,TransactionId
+          ,FileId
           ,OffsetInFile
       FROM (SELECT * FROM @ResourceKeys) A
            INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId

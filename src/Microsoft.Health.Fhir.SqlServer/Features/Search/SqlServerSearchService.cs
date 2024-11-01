@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
                                     out SqlBytes rawResourceSqlBytes,
-                                    out long? transactionId,
+                                    out long? fileId,
                                     out int? offsetInFile,
                                     out bool isInvisible);
 
@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     rawResource = new Lazy<string>(() =>
                                     {
-                                        var decompressedResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
+                                        var decompressedResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, fileId, offsetInFile);
 
                                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
@@ -649,7 +649,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
                             out SqlBytes rawResourceSqlBytes,
-                            out long? transactionId,
+                            out long? fileId,
                             out int? offsetInFile,
                             out bool isInvisible);
 
@@ -664,7 +664,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        var rawResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, transactionId, offsetInFile);
+                        var rawResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, fileId, offsetInFile);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
@@ -837,7 +837,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
             out SqlBytes rawResourceSqlBytes,
-            out long? transactionId,
+            out long? fileId,
             out int? offsetInFile,
             out bool isInvisible)
         {
@@ -852,7 +852,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceSqlBytes = reader.GetSqlBytes(10);
-            transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
+            fileId = reader.Read(VLatest.Resource.FileId, 11);
             offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
             isInvisible = false;
             if (!rawResourceSqlBytes.IsNull)

@@ -94,11 +94,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public static Lazy<string> GetRawResourceFromAdls(long transactionId, int offsetInFile)
+        public static Lazy<string> GetRawResourceFromAdls(long fileId, int offsetInFile)
         {
             return new Lazy<string>(() =>
             {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(transactionId);
+                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(fileId);
                 using var reader = new StreamReader(SqlAdlsStore.AdlsClient.GetBlobClient(blobName).OpenRead(offsetInFile));
                 var line = reader.ReadLine();
                 return line;
@@ -130,9 +130,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         matchedVersion = reader.Read(table.Version, 4).ToString();
                         var bytes = reader.GetSqlBytes(5);
-                        var matchedTransactionId = reader.Read(table.TransactionId, 6);
+                        var matchedFileId = reader.Read(table.FileId, 6);
                         var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
-                        matchedRawResource = new RawResource(ReadRawResource(bytes, decompress, matchedTransactionId, matchedOffsetInFile), FhirResourceFormat.Json, true);
+                        matchedRawResource = new RawResource(ReadRawResource(bytes, decompress, matchedFileId, matchedOffsetInFile), FhirResourceFormat.Json, true);
                     }
 
                     return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedRawResource));
@@ -142,13 +142,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return resources;
         }
 
-        internal static string ReadRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress, long? transactionId, int? offsetInFile)
+        internal static string ReadRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress, long? fileId, int? offsetInFile)
         {
             var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             string rawResource;
             if (rawResourceBytes == null && offsetInFile.HasValue) // raw in adls
             {
-                rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value).Value;
+                rawResource = GetRawResourceFromAdls(fileId.Value, offsetInFile.Value).Value;
             }
             else if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
@@ -180,9 +180,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var bytes = reader.GetSqlBytes(6);
-            var transactionId = reader.Read(VLatest.Resource.TransactionId, readRequestMethod ? 10 : 9);
+            var fileId = reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9);
             var offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10);
-            var rawResource = ReadRawResource(bytes, decompress, transactionId.Value, offsetInFile);
+            var rawResource = ReadRawResource(bytes, decompress, fileId.Value, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;

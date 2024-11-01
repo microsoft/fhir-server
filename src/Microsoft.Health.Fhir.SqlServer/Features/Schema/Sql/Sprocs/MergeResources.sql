@@ -326,8 +326,8 @@ BEGIN TRY
     END
 
     INSERT INTO dbo.Resource 
-           ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, OffsetInFile )
-      SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, OffsetInFile
+           ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId,         FileId, OffsetInFile )
+      SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, @TransactionId, OffsetInFile
         FROM @ResourcesWithIds
     SET @AffectedRows += @@rowcount
 

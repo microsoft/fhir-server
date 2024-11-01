@@ -13,6 +13,7 @@ SELECT A.ResourceTypeId
       ,SearchParamHash
       ,TransactionId 
       ,HistoryTransactionId
+      ,FileId
       ,OffsetInFile
   FROM dbo.CurrentResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -31,6 +32,7 @@ SELECT A.ResourceTypeId
       ,SearchParamHash
       ,TransactionId 
       ,HistoryTransactionId
+      ,FileId
       ,OffsetInFile
   FROM dbo.HistoryResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -46,14 +48,14 @@ BEGIN
       WHERE RawResource IS NOT NULL
 
   INSERT INTO dbo.CurrentResources
-         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
       FROM Inserted
       WHERE IsHistory = 0
 
   INSERT INTO dbo.HistoryResources
-         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
       FROM Inserted
       WHERE IsHistory = 1
 END

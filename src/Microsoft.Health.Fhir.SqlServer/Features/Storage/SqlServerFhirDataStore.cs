@@ -169,9 +169,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} Resources={resources.Count}", start, cancellationToken);
         }
 
-        internal static string GetBlobNameForRaw(long transactionId)
+        internal static string GetBlobNameForRaw(long fileId)
         {
-            return $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson";
+            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}.ndjson";
         }
 
         private static string GetPermanentHashCode(long tr)
