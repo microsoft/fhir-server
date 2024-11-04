@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CosmosDataStoreConfiguration _dataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IAccessTokenProvider _accessTokenProvider;
+        private readonly ICosmosDBAccessTokenProvider _accessTokenProvider;
         private readonly ILogger<CosmosDbCollectionPhysicalPartitionInfo> _logger;
         private readonly CancellationTokenSource _backgroundLoopCancellationTokenSource = new();
         private Task _backgroundLoopTask;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosDataStoreConfiguration dataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             IHttpClientFactory httpClientFactory,
-            IAccessTokenProvider accessTokenProvider,
+            ICosmosDBAccessTokenProvider accessTokenProvider,
             ILogger<CosmosDbCollectionPhysicalPartitionInfo> logger)
         {
             EnsureArg.IsNotNull(dataStoreConfiguration, nameof(dataStoreConfiguration));

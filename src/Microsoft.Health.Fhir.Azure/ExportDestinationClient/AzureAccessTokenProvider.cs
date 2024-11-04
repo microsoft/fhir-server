@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
-    public class AzureAccessTokenProvider : IAccessTokenProvider
+    public class AzureAccessTokenProvider : IAccessTokenProvider, ICosmosDBAccessTokenProvider
     {
         private readonly DefaultAzureCredential _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
