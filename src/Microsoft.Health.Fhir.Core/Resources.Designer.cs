@@ -980,6 +980,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} operation failed for reason: {1} ErrorFile: {2}.
+        /// </summary>
+        internal static string OperationFailedWithErrorFile {
+            get {
+                return ResourceManager.GetString("OperationFailedWithErrorFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to OperationOutcome.Location is deprecated, please use OperationOutcome.Expression.
         /// </summary>
         internal static string OperationOutcomeLocationDeprication {
