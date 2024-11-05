@@ -24,6 +24,7 @@ jobs:
       inlineScript: |
         TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
+        docker pull mcr.microsoft.com/moby/buildkit:latest
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
         docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
