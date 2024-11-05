@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -22,10 +23,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -54,7 +52,6 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using SharpCompress.Common;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -100,6 +97,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
         private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
+
+        /// <summary>
+        /// Status codes that do not require additional logging for troubleshooting.
+        /// </summary>
+        private static readonly string[] SuccessfullStatusCodeToAvoidAdditionalLogging = new[]
+        {
+            ((int)HttpStatusCode.OK).ToString(),
+            ((int)HttpStatusCode.Created).ToString(),
+            ((int)HttpStatusCode.Accepted).ToString(),
+        };
 
         /// <summary>
         /// Properties to propagate from the outer HTTP requests to the inner actions.
@@ -676,6 +683,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
+                LogFinalOperationOutcomeForFailedRecords(resourceContext.Index, entryComponent);
+
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
                     var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
@@ -845,6 +854,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
+        private void LogFinalOperationOutcomeForFailedRecords(int index, EntryComponent entryComponent)
+        {
+            if (entryComponent?.Response?.Outcome == null)
+            {
+                return;
+            }
+
+            // If the result is a successful, no need to log the outcome for potential troubleshooting.
+            if (SuccessfullStatusCodeToAvoidAdditionalLogging.Contains(entryComponent.Response.Status))
+            {
+                return;
+            }
+
+            try
+            {
+                StringBuilder reason = new StringBuilder();
+                if (entryComponent.Response.Outcome is OperationOutcome operationOutcome && operationOutcome.Issue.Any())
+                {
+                    foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
+                    {
+                        reason.AppendLine($"{issue.Severity} / {issue.Code} / {SanitizeString(issue.Diagnostics)}");
+                    }
+                }
+                else
+                {
+                    reason.Append("Reason is not defined.");
+                }
+
+                _logger.LogInformation(
+                    "Throubleshoot Outcome {Index}: {HttpStatus}. Reason: {Reason}",
+                    index,
+                    entryComponent.Response.Status,
+                    reason.ToString());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Throubleshoot Outcome {index}: Error while logging the final operation outcome for failed records. This error will not block the bundle processing.");
+            }
+        }
+
         private void PopulateReferenceIdDictionary(IReadOnlyCollection<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
@@ -886,6 +935,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 },
             };
+        }
+
+        private static string SanitizeString(string input)
+        {
+            return input
+                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)
+                .Replace("\n", " ", StringComparison.OrdinalIgnoreCase);
         }
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)

@@ -34,8 +34,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Cors = nameof(Cors);
 
-        public const string Crucible = nameof(Crucible);
-
         public const string CustomConvertData = nameof(CustomConvertData);
 
         public const string CustomHeaders = nameof(CustomHeaders);

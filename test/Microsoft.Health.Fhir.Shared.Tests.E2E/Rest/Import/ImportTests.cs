@@ -165,6 +165,55 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_1001ResourcesWithSameLastUpdatedAndSequenceRollOver()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            var st = DateTime.UtcNow;
+            ExecuteSql("DELETE FROM Resource WHERE ResourceTypeId = 103 AND ResourceSurrogateId BETWEEN 4794128640080000000 AND 4794128640080000000 + 79999");
+            ExecuteSql("ALTER SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence RESTART WITH 0");
+            ExecuteSql("IF 0 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 0', 18, 127)");
+
+            var ndJson = new StringBuilder();
+            for (var i = 0; i < 1000; i++)
+            {
+                ndJson.Append(CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00:01"))); // make sure this date is not used by other tests.
+            }
+
+            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            await ImportWaitAsync(checkLocation, true);
+
+            ExecuteSql("IF 999 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 999', 18, 127)");
+
+            // similate load which rolls sequence over to 0
+            ExecuteSql(@"
+DECLARE @TransactionId bigint
+EXECUTE dbo.MergeResourcesBeginTransaction 79000, @TransactionId OUT
+EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+            ");
+
+            ExecuteSql("IF 79999 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 79999', 18, 127)");
+
+            ndJson = new StringBuilder();
+            for (var i = 0; i < 10; i++)
+            {
+                ndJson.Append(CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00:01"))); // make sure this date is not used by other tests.
+            }
+
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            //// This import was failing after 30 retries before changing retries to be dependent on the batch size
+            //// Now it suceedes after 100 retries
+            await ImportWaitAsync(checkLocation, true);
+
+            ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             var ndJson = new StringBuilder();

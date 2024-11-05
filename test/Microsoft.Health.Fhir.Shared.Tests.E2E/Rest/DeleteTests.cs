@@ -11,6 +11,7 @@ using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -86,9 +87,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(searchResults.Resource.Entry == null || searchResults.Resource.Entry.Count == 0);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(KnownQueryParameterNames.BulkHardDelete)]
+        [InlineData(KnownQueryParameterNames.HardDelete)]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully()
+        public async Task GivenAResource_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully(string hardDeleteKey)
         {
             List<string> versionIds = new List<string>();
 
@@ -118,7 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             versionIds.Add(response3.Resource.Meta.VersionId);
 
             // Hard-delete the resource.
-            await _client.HardDeleteAsync(observation);
+            string url = $"{observation.TypeName}/{observation.Id}?{hardDeleteKey}=true";
+            await _client.DeleteAsync(url);
 
             // Getting the resource should result in NotFound.
             await ExecuteAndValidateNotFoundStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));

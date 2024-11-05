@@ -157,12 +157,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
-                //
-                // When order is descending, what would make DidWeSearchForSortValue false?
-                // Right now if no results are found that have the sort value and the order is descending this won't run.
-                // What is the point of DidweSearchForSortValue at all???
                 if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier))
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
@@ -552,6 +548,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 clonedSearchOptions.Sort.Count > 0 &&
                                 clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                             {
+                                // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
                                 sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
                             }
 
@@ -929,16 +926,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var queryHints = searchOptions.QueryHints;
-            long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long globalStartId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            long globalEndId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long queryStartId = globalStartId;
 
             SearchResult results = null;
-            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 50, true, cancellationToken);
+            IReadOnlyList<(long StartId, long EndId)> ranges;
 
-            if (ranges?.Count > 0)
+            do
             {
+                // Get surrogate ID ranges
+                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 10, true, cancellationToken);
+
+                // Order the ranges by start id as they come back unordered. This ensures records aren't skipped during reindex.
+                ranges = ranges.OrderBy(x => x.StartId).ToList();
+
                 foreach (var range in ranges)
                 {
+                    // Search within the surrogate ID range
                     results = await SearchBySurrogateIdRange(
                         resourceType,
                         range.StartId,
@@ -951,20 +956,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (results.Results.Any())
                     {
                         results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
-                        break;
+                        _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
+                        return results;
                     }
 
                     _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
                 }
-            }
-            else
-            {
-                _logger.LogInformation("For Reindex, no data pages found. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
-                results = new SearchResult(0, []);
-            }
 
-            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
-            return results;
+                // If no resources are found in the group of surrogate id ranges, move forward the starting point.
+                if (ranges.Any())
+                {
+                    queryStartId = ranges.Max(x => x.EndId) + 1;
+                }
+            }
+            while (ranges.Any()); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
+
+            // Return empty result when no resources are found in the given range provided by queryHints.
+            _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
+            return new SearchResult(0, []);
         }
 
         /// <summary>

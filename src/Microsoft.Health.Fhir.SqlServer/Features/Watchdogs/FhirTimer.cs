@@ -7,109 +7,76 @@ using System;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public abstract class FhirTimer<T> : IDisposable
+    public class FhirTimer(ILogger logger = null)
     {
-        private Timer _timer;
-        private bool _disposed = false;
-        private bool _isRunning;
+        private bool _active;
+
         private bool _isFailing;
-        private bool _isStarted;
-        private string _lastException;
-        private readonly ILogger<T> _logger;
-        private CancellationToken _cancellationToken;
 
-        protected FhirTimer(ILogger<T> logger = null)
+        public double PeriodSec { get; private set; }
+
+        public DateTimeOffset LastRunDateTime { get; private set; } = DateTimeOffset.Parse("2017-12-01");
+
+        public bool IsFailing => _isFailing;
+
+        public bool IsRunning { get; private set; }
+
+        /// <summary>
+        /// Runs the execution of the timer until the <see cref="CancellationToken"/> is cancelled.
+        /// </summary>
+        public async Task ExecuteAsync(double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken)
         {
-            _logger = logger;
-            _isFailing = false;
-            _lastException = null;
-            LastRunDateTime = DateTime.Parse("2017-12-01");
-        }
-
-        internal double PeriodSec { get; set; }
-
-        internal DateTime LastRunDateTime { get; private set; }
-
-        internal bool IsRunning => _isRunning;
-
-        internal bool IsFailing => _isFailing;
-
-        internal bool IsStarted => _isStarted;
-
-        internal string LastException => _lastException;
-
-        protected async Task StartAsync(double periodSec, CancellationToken cancellationToken)
-        {
+            EnsureArg.IsNotNull(onNextTick, nameof(onNextTick));
             PeriodSec = periodSec;
-            _cancellationToken = cancellationToken;
 
-            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
-            _timer = new Timer(async _ => await RunInternalAsync(), null, TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), TimeSpan.FromSeconds(PeriodSec));
-
-            _isStarted = true;
-            await Task.CompletedTask;
-        }
-
-        protected abstract Task RunAsync();
-
-        private async Task RunInternalAsync()
-        {
-            if (_isRunning || _cancellationToken.IsCancellationRequested)
+            if (_active)
             {
-                return;
+                throw new InvalidOperationException("Timer is already running");
             }
+
+            _active = true;
+            await Task.Delay(TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), cancellationToken);
+            using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec));
 
             try
             {
-                _isRunning = true;
-                await RunAsync();
-                _isFailing = false;
-                _lastException = null;
-                LastRunDateTime = DateTime.UtcNow;
-            }
-            catch (Exception e)
-            {
-                try
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogWarning(e, "Error executing FHIR Timer"); // exceptions in logger should never bubble up
-                }
-                catch
-                {
-                    // ignored
-                }
+                    try
+                    {
+                        await periodicTimer.WaitForNextTickAsync(cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
 
-                _isFailing = true;
-                _lastException = e.ToString();
+                    try
+                    {
+                        IsRunning = true;
+                        await onNextTick(cancellationToken);
+                        LastRunDateTime = Clock.UtcNow;
+                        _isFailing = false;
+                    }
+                    catch (Exception e)
+                    {
+                        logger?.LogWarning(e, "Error executing timer");
+                        _isFailing = true;
+                    }
+                }
             }
             finally
             {
-                _isRunning = false;
+                _active = false;
+                IsRunning = false;
             }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _timer?.Dispose();
-            }
-
-            _disposed = true;
         }
     }
 }
