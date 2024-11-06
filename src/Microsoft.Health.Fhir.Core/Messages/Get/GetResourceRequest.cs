@@ -8,11 +8,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
-    public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability
+    public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability, IBundleInnerRequest
     {
         public GetResourceRequest(ResourceKey resourceKey, BundleResourceContext bundleResourceContext = null)
         {

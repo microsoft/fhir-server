@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -280,6 +281,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         request,
                         httpVerb,
                         httpContext,
+                        BundleProcessingLogic.Parallel,
                         bundleOperation,
                         originalFhirRequestContext,
                         auditEventTypeMapping,

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
@@ -37,21 +38,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         }
 
         public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.ResourceKey.ResourceType, next, cancellationToken);
+            => await GenericHandle(request.ResourceKey.ResourceType, request.BundleResourceContext, next, cancellationToken);
 
-        private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+        private async Task<TResponse> GenericHandle<TResponse>(
+            string resourceType,
+            BundleResourceContext bundleResourceContext,
+            RequestHandlerDelegate<TResponse> next,
+            CancellationToken cancellationToken)
         {
             var resources = _profilesResolver.GetProfilesTypes();
             if (resources.Contains(resourceType))
@@ -62,7 +67,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                 }
 
                 var result = await next();
-                _profilesResolver.Refresh();
+
+                // If the requests is part of a bundle, as an inner request, then profiles are not refreshed.
+                // This is because the bundle can contain multiple profile changes and the refresh should only happen once, at the end of the bundle, to avoid performance degradation.
+                if (bundleResourceContext == null)
+                {
+                    _profilesResolver.Refresh();
+                }
+
                 return result;
             }
             else
