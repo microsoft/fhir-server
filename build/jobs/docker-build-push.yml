@@ -15,17 +15,22 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-    - task: Docker@2
-      displayName: 'Build FHIR ${{parameters.version}} Server Image'
-      inputs:
-        containerRegistry: $(azureContainerRegistryName)
-        repository: '${{parameters.version}}_fhir-server'
-        command: 'buildAndPush'
-        Dockerfile: './build/docker/Dockerfile'
-        tags: |
-          ${{parameters.tag}}
-        buildContext: .
-        arguments: |
-          --platform ${{parameters.buildPlatform}} \
-          --build-arg FHIR_VERSION=${{parameters.version}} \
-          --build-arg ASSEMBLY_VER=$(assemblySemFileVer)
+  - task:  - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+  - task: AzureCLI@2
+    displayName: 'Build FHIR ${{parameters.version}} Server Image'
+    inputs:
+      azureSubscription: $(azureSubscriptionEndpoint)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        docker pull mirror.gcr.io/moby/buildkit:buildx-stable-1
+        TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
+        az acr login --name $(azureContainerRegistryName)
+        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
+        docker buildx build --tag ${TAG,,} \
+                      --file ./build/docker/Dockerfile \
+                      --platform ${{parameters.buildPlatform}} \
+                      --build-arg FHIR_VERSION=${{parameters.version}} \
+                      --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
+                      --push .
