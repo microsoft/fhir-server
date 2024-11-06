@@ -15,8 +15,6 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task:  - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
