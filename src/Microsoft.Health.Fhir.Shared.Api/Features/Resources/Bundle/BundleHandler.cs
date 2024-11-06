@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private int _requestCount;
         private BundleType? _bundleType;
         private bool _bundleProcessingTypeIsInvalid = false;
+        private bool _forceProfilesRefresh = false;
 
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
@@ -387,6 +388,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             finally
             {
                 FinishCollectingBundleStatistics(statistics);
+
+                RefreshProfilesIfApplicable();
             }
 
             AddFinalOperationOutcomesIfApplicable(responseBundle);
@@ -591,7 +594,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -652,6 +655,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         _resourceIdProvider.Create = originalResourceIdProvider;
 
                         entryComponent = CreateEntryComponent(_fhirJsonParser, httpContext);
+
+                        DetectNeedToRefreshProfiles(resourceContext.ResourceType);
 
                         foreach (string headerName in HeadersToAccumulate)
                         {
@@ -933,6 +938,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Given a resource type, detect if it should trigger a profile refresh.
+        /// </summary>
+        private void DetectNeedToRefreshProfiles(string resourceType)
+        {
+            if (string.IsNullOrWhiteSpace(resourceType))
+            {
+                return;
+            }
+
+            if (_profilesResolver.GetProfilesTypes().Contains(resourceType))
+            {
+                _forceProfilesRefresh = true;
+            }
+        }
+
+        /// <summary>
+        /// If the profile refresh is needed, then execute it.
+        /// </summary>
+        private void RefreshProfilesIfApplicable()
+        {
+            if (_forceProfilesRefresh)
+            {
+                _profilesResolver.Refresh();
             }
         }
 

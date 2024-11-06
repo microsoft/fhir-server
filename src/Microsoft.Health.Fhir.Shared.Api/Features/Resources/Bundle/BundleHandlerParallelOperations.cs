@@ -113,6 +113,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
 
+                        DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
+
                         await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
                         watch.Stop();
@@ -367,15 +369,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
             {
                 HttpVerb = httpVerb;
+                ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
+
+            public string ResourceType { get; private set; }
 
             public RouteContext Context { get; private set; }
 
