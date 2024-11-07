@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
             _profilesResolver = Substitute.For<IProvideProfilesForValidation>();
+            _profilesResolver.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
 
             _mediator = Substitute.For<IMediator>();
 
@@ -250,6 +251,96 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Fact]
+        [Trait(Traits.Category, Categories.Profiles)]
+        public async Task GivenABundle_WithMultipleProfileChanges_OnlyExecuteProfileRefreshOnce()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/StructureDefinition",
+                        },
+                        Resource = new StructureDefinition(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/ValueSet",
+                        },
+                        Resource = new ValueSet(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/ValueSet",
+                        },
+                        Resource = new ValueSet(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/ValueSet",
+                        },
+                        Resource = new ValueSet(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/CodeSystem",
+                        },
+                        Resource = new CodeSystem(),
+                    },
+                },
+            };
+
+            var localAsyncFunction = (CallInfo callInfo) =>
+            {
+                var routeContext = callInfo.Arg<RouteContext>();
+                routeContext.Handler = context =>
+                {
+                    switch (context.Request.Method)
+                    {
+                        case "POST":
+                            context.Response.StatusCode = 200;
+                            break;
+                        default:
+                            context.Response.StatusCode = 404;
+                            break;
+                    }
+
+                    return Task.CompletedTask;
+                };
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(localAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
+            Assert.Equal(5, bundleResource.Entry.Count);
+
+            // As the bundle contains multiple profile changes (with ValueSet, StructureDefinition and CodeSystem), the profile resolver should be refreshed once.
+            _profilesResolver.Received(1).Refresh();
         }
 
         [Fact]
