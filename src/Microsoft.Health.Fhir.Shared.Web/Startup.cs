@@ -121,6 +121,7 @@ namespace Microsoft.Health.Fhir.Web
             if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
             {
                 fhirServerBuilder.AddCosmosDb();
+                fhirServerBuilder.AddCosmosdbMI();
             }
             else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
             {

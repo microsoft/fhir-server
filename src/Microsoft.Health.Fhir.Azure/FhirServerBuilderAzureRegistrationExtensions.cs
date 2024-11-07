@@ -126,5 +126,16 @@ namespace Microsoft.Health.Fhir.Azure
 
             return fhirServerBuilder;
         }
+
+        public static IFhirServerBuilder AddCosmosdbMI(this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
+                .Transient()
+                .AsService<ICosmosDBAccessTokenProvider>();
+
+            return fhirServerBuilder;
+        }
     }
 }
