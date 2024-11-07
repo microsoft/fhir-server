@@ -16,15 +16,20 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider, ICosmosDBAccessTokenProvider
     {
-        private readonly DefaultAzureCredential _azureServiceTokenProvider;
+        private readonly TokenCredential _credential;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
-        public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
+        public AzureAccessTokenProvider(TokenCredential credential, ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = new DefaultAzureCredential();
+            _credential = credential;
             _logger = logger;
+        }
+
+        public TokenCredential GetToken()
+        {
+            return _credential;
         }
 
         public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
@@ -37,7 +42,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             AccessToken accessToken;
             try
             {
-                accessToken = await _azureServiceTokenProvider.GetTokenAsync(accessTokenContext, cancellationToken: cancellationToken);
+                accessToken = await _credential.GetTokenAsync(accessTokenContext, cancellationToken: cancellationToken);
             }
             catch (CredentialUnavailableException ex)
             {

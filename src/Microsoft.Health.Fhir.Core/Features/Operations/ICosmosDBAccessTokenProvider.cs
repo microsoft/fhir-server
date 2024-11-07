@@ -6,6 +6,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -19,5 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <returns>Access token.</returns>
         /// <exception cref="AccessTokenProviderException">Thrown when unable to get access token.</exception>
         Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets the default token credential.
+        /// </summary>
+        /// <returns>Returns tokencredential.</returns>
+        TokenCredential GetToken();
     }
 }

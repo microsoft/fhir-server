@@ -14,6 +14,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.IO;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private readonly Lazy<TokenCredential> _tokenCredential;
+        private readonly Lazy<ICosmosDBAccessTokenProvider> _cosmosDBAccessTokenProvider;
         private readonly object _lockObject;
 
         private CosmosClient _cosmosClient;
@@ -40,19 +41,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosClientTestProvider testProvider,
             Func<IEnumerable<RequestHandler>> requestHandlerFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            Lazy<TokenCredential> tokenCredential,
+            Lazy<ICosmosDBAccessTokenProvider> cosmosDBAccessTokenProvider,
             ILogger<FhirCosmosClientInitializer> logger)
         {
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(requestHandlerFactory, nameof(requestHandlerFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
-            EnsureArg.IsNotNull(tokenCredential, nameof(tokenCredential));
+            EnsureArg.IsNotNull(cosmosDBAccessTokenProvider, nameof(cosmosDBAccessTokenProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
             _requestHandlerFactory = requestHandlerFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
-            _tokenCredential = tokenCredential;
+            _cosmosDBAccessTokenProvider = cosmosDBAccessTokenProvider;
             _logger = logger;
             _lockObject = new object();
 
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosClientBuilder builder;
 
             builder = configuration.UseManagedIdentity ?
-                new CosmosClientBuilder(host, _tokenCredential.Value) :
+                new CosmosClientBuilder(host, _cosmosDBAccessTokenProvider.Value.GetToken()) :
                 new CosmosClientBuilder(host, key);
 
             builder

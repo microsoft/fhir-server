@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 testProvider,
                 () => new[] { handler },
                 retryExceptionPolicyFactory,
-                new Lazy<TokenCredential>(GetTokenCredential),
+                new Lazy<ICosmosDBAccessTokenProvider>(() => new AzureAccessTokenProvider(GetTokenCredential(), NullLogger<AzureAccessTokenProvider>.Instance)),
                 NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
