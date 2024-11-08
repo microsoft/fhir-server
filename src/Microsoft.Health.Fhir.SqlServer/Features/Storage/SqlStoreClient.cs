@@ -148,7 +148,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             string rawResource;
             if (rawResourceBytes == null && offsetInFile.HasValue) // raw in adls
             {
-                rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value).Value;
+                // -1 is a temp fix. Remove !!!!!
+                rawResource = offsetInFile.Value == -1 ? InvisibleResource : GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value).Value;
             }
             else if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
