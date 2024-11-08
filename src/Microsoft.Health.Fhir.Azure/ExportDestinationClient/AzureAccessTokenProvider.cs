@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
+        public TokenCredential TokenCredential => _azureServiceTokenProvider;
+
         public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
