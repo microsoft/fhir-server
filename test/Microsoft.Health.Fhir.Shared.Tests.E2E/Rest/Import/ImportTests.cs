@@ -1551,7 +1551,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 }
 
                 importStatus = await _client.CheckImportAsync(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.5));
+                await Task.Delay(TimeSpan.FromSeconds(5));
             }
 
             // Then we cancel import job
