@@ -721,8 +721,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
-            if (isBundleOperation)
+            bool isBundleParallelOperation =
+                _bundleOrchestrator.IsEnabled &&
+                resource.BundleResourceContext != null &&
+                resource.BundleResourceContext.IsParallelBundle;
+
+            if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);

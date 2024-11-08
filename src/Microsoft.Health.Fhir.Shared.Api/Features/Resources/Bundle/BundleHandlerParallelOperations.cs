@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -111,6 +112,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             ct);
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
+
+                        DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
 
                         await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
@@ -280,6 +283,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         request,
                         httpVerb,
                         httpContext,
+                        BundleProcessingLogic.Parallel,
                         bundleOperation,
                         originalFhirRequestContext,
                         auditEventTypeMapping,
@@ -365,15 +369,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
             {
                 HttpVerb = httpVerb;
+                ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
+
+            public string ResourceType { get; private set; }
 
             public RouteContext Context { get; private set; }
 

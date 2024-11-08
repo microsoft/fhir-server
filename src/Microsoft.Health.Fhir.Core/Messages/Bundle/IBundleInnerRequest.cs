@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
+using Microsoft.Health.Fhir.Core.Models;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
-    public enum BundleProcessingLogic
+    public interface IBundleInnerRequest
     {
-        Sequential = 0,
-        Parallel = 1,
+        BundleResourceContext BundleResourceContext { get; }
     }
 }

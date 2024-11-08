@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string PatientEverything = nameof(PatientEverything);
 
+        public const string Profiles = nameof(Profiles);
+
         public const string Schema = nameof(Schema);
 
         public const string Search = nameof(Search);
