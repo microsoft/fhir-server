@@ -201,12 +201,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ValidateTypeFilters(IList<ExportJobFilter> filters)
         {
-            if (!_contextAccessor.GetIsStrictHandlingEnabled())
-            {
-                _logger.LogInformation("Validation skipped due to strict handling disabled.");
-                return;
-            }
-
             if (filters == null || filters.Count == 0)
             {
                 _logger.LogInformation("No type filters to validate.");

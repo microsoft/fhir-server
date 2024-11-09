@@ -206,7 +206,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                                 }
                             },
                         },
-                        SearchParameterHandling.Lenient.ToString(),
                     },
                     new object[]
                     {
@@ -226,7 +225,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                         new Dictionary<string, ISet<string>>
                         {
                         },
-                        string.Empty,
                     },
                     new object[]
                     {
@@ -271,7 +269,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                                 }
                             },
                         },
-                        string.Empty,
                     },
                     new object[]
                     {
@@ -291,7 +288,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                         new Dictionary<string, ISet<string>>
                         {
                         },
-                        SearchParameterHandling.Lenient.ToString(),
                     },
                 };
             }
@@ -460,10 +456,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingEnabled_ThenABadRequestIsReturned(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
-            IDictionary<string, ISet<string>> invalidParameters,
-#pragma warning disable xUnit1026 // Theory methods should use all of their parameters
-            string searchParameterHandling)
-#pragma warning restore xUnit1026 // Theory methods should use all of their parameters
+            IDictionary<string, ISet<string>> invalidParameters)
         {
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
@@ -472,14 +465,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                     actualRecord = record;
                 }),
                 Arg.Any<CancellationToken>());
-
-            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
-            fhirRequestContext.RequestHeaders.Returns(
-                new Dictionary<string, StringValues>
-                {
-                    { KnownHeaders.Prefer, new StringValues($"handling={SearchParameterHandling.Strict}") },
-                });
-            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
             var filterString = new StringBuilder();
             foreach (var kv in filters)
@@ -545,8 +530,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingDisabled_ThenValidateTypeFiltersShouldBeSkipped(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
-            IDictionary<string, ISet<string>> invalidParameters,
-            string searchParameterHandling)
+            IDictionary<string, ISet<string>> invalidParameters)
         {
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
@@ -557,10 +541,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var requestContextHeaders = new Dictionary<string, StringValues>();
-            if (!string.IsNullOrEmpty(searchParameterHandling))
-            {
-                requestContextHeaders.Add(KnownHeaders.Prefer, new StringValues($"handling={searchParameterHandling}"));
-            }
 
             var fhirRequestContext = Substitute.For<IFhirRequestContext>();
             fhirRequestContext.RequestHeaders.Returns(requestContextHeaders);
