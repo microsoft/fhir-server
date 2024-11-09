@@ -18,7 +18,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -143,6 +142,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
+            var cosmosAccessor = Substitute.For<IAccessTokenProvider>();
+            cosmosAccessor.TokenCredential.Returns(GetTokenCredential());
+
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
@@ -150,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 testProvider,
                 () => new[] { handler },
                 retryExceptionPolicyFactory,
-                new Lazy<ICosmosDBAccessTokenProvider>(() => new AzureAccessTokenProvider(GetTokenCredential(), NullLogger<AzureAccessTokenProvider>.Instance)),
+                () => cosmosAccessor,
                 NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 

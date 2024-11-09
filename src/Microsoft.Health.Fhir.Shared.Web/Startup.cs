@@ -70,8 +70,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddContainerRegistryAccessValidator()
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
-                .AddMemberMatch()
-                .AddCosmosdbMI();
+                .AddMemberMatch();
 
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);

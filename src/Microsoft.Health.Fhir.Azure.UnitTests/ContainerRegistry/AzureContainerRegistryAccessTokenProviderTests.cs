@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
         [Fact]
         public async Task GivenARegistry_WithoutMIEnabled_WhenGetToken_TokenException_ShouldBeThrown()
         {
-            IAccessTokenProvider tokenProvider = new AzureAccessTokenProvider(new DefaultAzureCredential(), new NullLogger<AzureAccessTokenProvider>());
+            IAccessTokenProvider tokenProvider = new AzureAccessTokenProvider(new NullLogger<AzureAccessTokenProvider>());
             IHttpClientFactory httpClientFactory = Substitute.For<IHttpClientFactory>();
             var httpClient = new HttpClient();
             httpClientFactory.CreateClient().ReturnsForAnyArgs(httpClient);
