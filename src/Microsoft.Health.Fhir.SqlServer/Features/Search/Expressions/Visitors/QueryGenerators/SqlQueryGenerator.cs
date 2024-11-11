@@ -464,6 +464,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
                         .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+
+                    if (searchParamTableExpression.QueryGenerator.Table == VLatest.ReferenceSearchParam.TableName)
+                    {
+                        // append hint to use the index on ReferenceSearchParam
+                        StringBuilder.AppendLine("WITH (INDEX (IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId))");
+                    }
                 }
                 else
                 {
