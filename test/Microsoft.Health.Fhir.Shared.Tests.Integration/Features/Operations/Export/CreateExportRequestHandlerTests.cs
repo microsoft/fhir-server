@@ -9,15 +9,12 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -454,7 +451,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [Theory]
         [MemberData(nameof(ValidateTypeFilters))]
-        public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingEnabled_ThenABadRequestIsReturned(
+        public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
             IDictionary<string, ISet<string>> invalidParameters)
         {
@@ -524,64 +521,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 var expectedErrors = invalidParameters.SelectMany(x => x.Value, (x, v) => $"{x.Key}.{v}").OrderBy(x => x);
                 Assert.Equal(expectedErrors, actualErrors);
             }
-        }
-
-        [Theory]
-        [MemberData(nameof(ValidateTypeFilters))]
-        public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingDisabled_ThenValidateTypeFiltersShouldBeSkipped(
-            IDictionary<string, IList<KeyValuePair<string, string>>> filters,
-            IDictionary<string, ISet<string>> invalidParameters)
-        {
-            ExportJobRecord actualRecord = null;
-            await _fhirOperationDataStore.CreateExportJobAsync(
-                Arg.Do<ExportJobRecord>(record =>
-                {
-                    actualRecord = record;
-                }),
-                Arg.Any<CancellationToken>());
-
-            var requestContextHeaders = new Dictionary<string, StringValues>();
-
-            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
-            fhirRequestContext.RequestHeaders.Returns(requestContextHeaders);
-            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
-
-            var filterString = new StringBuilder();
-            foreach (var kv in filters)
-            {
-                filterString.Append($"{kv.Key}?");
-                foreach (var p in kv.Value)
-                {
-                    filterString.Append($"{p.Key}={p.Value}&");
-                }
-
-                filterString[filterString.Length - 1] = ',';
-            }
-
-            if (filterString.Length > 0)
-            {
-                filterString.Remove(filterString.Length - 1, 1);
-            }
-
-            foreach (var kv in invalidParameters)
-            {
-                SearchOptions searchOptions = new SearchOptions
-                {
-                    UnsupportedSearchParams = kv.Value.Select(x => new Tuple<string, string>(x, x)).ToList().AsReadOnly(),
-                };
-
-                _searchOptionsFactory.Create(
-                    Arg.Is<string>(x => x == kv.Key),
-                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                    Arg.Any<bool>(),
-                    Arg.Any<ResourceVersionType>(),
-                    Arg.Any<bool>())
-                    .Returns(searchOptions);
-            }
-
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
-            _ = await _createExportRequestHandler.Handle(request, _cancellationToken);
-            _searchOptionsFactory.DidNotReceiveWithAnyArgs();
         }
 
         /// <summary>
