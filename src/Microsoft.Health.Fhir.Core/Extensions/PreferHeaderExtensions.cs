@@ -21,7 +21,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
-            bool isStrictHandlingEnabled = false;
+            return GetHandlingHeader(contextAccessor) == SearchParameterHandling.Strict;
+        }
+
+        internal static SearchParameterHandling? GetHandlingHeader(this RequestContextAccessor<IFhirRequestContext> contextAccessor)
+        {
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             if (contextAccessor.RequestContext?.RequestHeaders != null &&
                 contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out StringValues values))
@@ -40,14 +45,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                             string.Join(",", Enum.GetNames<SearchParameterHandling>())));
                     }
 
-                    if (handling == SearchParameterHandling.Strict)
-                    {
-                        isStrictHandlingEnabled = true;
-                    }
+                    return handling;
                 }
             }
 
-            return isStrictHandlingEnabled;
+            return null;
         }
     }
 }
