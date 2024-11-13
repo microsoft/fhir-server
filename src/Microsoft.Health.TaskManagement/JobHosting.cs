@@ -137,14 +137,6 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
 
-            using IScoped<IJob> job = _jobFactory.Create(jobInfo);
-
-            if (job?.Value == null)
-            {
-                _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
-                return;
-            }
-
             try
             {
                 _logger.LogJobInformation(jobInfo, "Job {JobId} of type {JobType} starting.", jobInfo.Id, jobInfo.QueueType);
@@ -164,7 +156,18 @@ namespace Microsoft.Health.JobManagement
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
+                                    cancellationSource =>
+                                    {
+                                        using IScoped<IJob> job = _jobFactory.Create(jobInfo);
+
+                                        if (job?.Value == null)
+                                        {
+                                            _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
+                                            return null;
+                                        }
+
+                                        return job.Value.ExecuteAsync(jobInfo, cancellationSource.Token);
+                                    },
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 
