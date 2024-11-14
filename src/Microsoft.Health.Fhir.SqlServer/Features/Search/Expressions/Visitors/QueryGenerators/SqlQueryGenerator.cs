@@ -766,7 +766,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        // TODO: Investigate here
         private void HandleTableKindInclude(
             SearchParamTableExpression searchParamTableExpression,
             SearchOptions context,
@@ -897,7 +896,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
                 }
 
-                // Use _includeFromCteIds and union all tables here, remove section below
                 var scope = delimited.BeginDelimitedElement();
                 scope.Append("EXISTS (");
                 for (var index = 0; index < fromCte.Count; index++)
