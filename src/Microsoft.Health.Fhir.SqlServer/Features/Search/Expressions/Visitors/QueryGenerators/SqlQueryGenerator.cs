@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         // Include:iterate may be applied on results from multiple ctes
         private List<string> _includeFromCteIds;
 
-        private int _curFromCteIndex = -1;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
@@ -767,6 +766,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
+        // TODO: Investigate here
         private void HandleTableKindInclude(
             SearchParamTableExpression searchParamTableExpression,
             SearchOptions context,
@@ -848,7 +848,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(")");
 
                 // Get FROM ctes
-                string fromCte = _cteMainSelect;
+                List<string> fromCte = new List<string>();
+                fromCte.Add(_cteMainSelect);
+
                 if (includeExpression.Iterate)
                 {
                     // Include Iterate
@@ -858,7 +860,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         // On that case, the fromCte is _cteMainSelect
                         if (TryGetIncludeCtes(includeExpression.SourceResourceType, out _includeFromCteIds))
                         {
-                            fromCte = _includeFromCteIds[++_curFromCteIndex];
+                            fromCte = _includeFromCteIds;
                         }
                     }
 
@@ -869,7 +871,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             if (TryGetIncludeCtes(includeExpression.TargetResourceType, out _includeFromCteIds))
                             {
-                                fromCte = _includeFromCteIds[++_curFromCteIndex];
+                                fromCte = _includeFromCteIds;
                             }
                         }
                         else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes != null)
@@ -884,7 +886,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             }
 
                             _includeFromCteIds = _includeFromCteIds.Distinct().ToList();
-                            fromCte = _includeFromCteIds.Count > 0 ? _includeFromCteIds[++_curFromCteIndex] : fromCte;
+                            fromCte = _includeFromCteIds.Count > 0 ? _includeFromCteIds : fromCte;
                         }
                     }
                 }
@@ -895,19 +897,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
                 }
 
-                delimited.BeginDelimitedElement().Append("EXISTS (SELECT * FROM ").Append(fromCte)
-                    .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, table).Append(" = T1 AND ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, table).Append(" = Sid1");
-
-                if (!includeExpression.Iterate)
+                // Use _includeFromCteIds and union all tables here, remove section below
+                var scope = delimited.BeginDelimitedElement();
+                scope.Append("EXISTS (");
+                for (var index = 0; index < fromCte.Count; index++)
                 {
-                    // Limit the join to the main select CTE.
-                    // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
+                    var cte = fromCte[index];
+                    scope.Append("SELECT * FROM ").Append(cte)
+                        .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, table).Append(" = T1 AND ")
+                        .Append(VLatest.Resource.ResourceSurrogateId, table).Append(" = Sid1");
 
-                    StringBuilder.Append(" AND Row < ").Append(Parameters.AddParameter(context.MaxItemCount + 1, true));
+                    if (!includeExpression.Iterate)
+                    {
+                        // Limit the join to the main select CTE.
+                        // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
+
+                        scope.Append(" AND Row < ").Append(Parameters.AddParameter(context.MaxItemCount + 1, true));
+                    }
+
+                    if (index < fromCte.Count - 1)
+                    {
+                        scope.AppendLine(" UNION ALL ");
+                    }
                 }
 
-                StringBuilder.Append(")");
+                scope.Append(")");
             }
 
             if (includeExpression.Reversed)
@@ -941,30 +955,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            // Handle Multiple Results sets to include from
-            if (count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < count - 1)
+            if (includeExpression.WildCard)
             {
-                StringBuilder.AppendLine(")").Append(",");
-
-                // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
-                if (_curFromCteIndex < count - 1)
-                {
-                    var cteToLimit = TableExpressionName(_tableExpressionCounter);
-                    WriteIncludeLimitCte(cteToLimit, context);
-                }
-
-                // Generate CTE to include from the additional result sets
-                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-                searchParamTableExpression.AcceptVisitor(this, context);
-            }
-            else
-            {
-                _curFromCteIndex = -1;
-
-                if (includeExpression.WildCard)
-                {
-                    includeExpression.ReferencedTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
-                }
+                includeExpression.ReferencedTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
             }
         }
 

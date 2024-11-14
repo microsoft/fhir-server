@@ -671,7 +671,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
-            string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             await SearchAndValidateBundleAsync(
                 ResourceType.CareTeam,
@@ -682,7 +682,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
-                Fixture.TaylorPractitioner);
+                Fixture.TaylorPractitioner,
+                Fixture.Organization,
+                Fixture.Practitioner);
         }
 
         [Fact]
