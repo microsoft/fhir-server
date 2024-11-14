@@ -744,4 +744,7 @@
     <value>The FHIR Server ran out of memory while processing an export job. Please use the _maxCount parameter when requesting an export job to reduce the number of resources exported at one time. The count used in this job was {0}</value>
     <comment>'{0}' the value of _maxCount used for this export job.</comment>
   </data>
+  <data name="CannotGetAccessToken" xml:space="preserve">
+    <value>Unable to get an access token for '{0}'.</value>
+  </data>
 </root>
