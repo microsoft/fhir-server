@@ -88,14 +88,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
                     var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(failed.Definition);
                     if (errorResult.HttpStatusCode == 0)
                     {
                         errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
                     }
 
+                    var resourceLocation = new Uri(definition.ResourceLocation);
+
                     // hide error message for InternalServerError
                     var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString), errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {
