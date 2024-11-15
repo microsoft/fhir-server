@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return context;
             }
 
-            return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
+            return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.ResourceCurrent.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
         }
 
         public override SearchParameterQueryGeneratorContext VisitIn<T>(InExpression<T> expression, SearchParameterQueryGeneratorContext context)
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            return VisitSimpleIn(context, VLatest.Resource.ResourceTypeId, resolvedResourceTypeIds);
+            return VisitSimpleIn(context, VLatest.ResourceCurrent.ResourceTypeId, resolvedResourceTypeIds);
         }
     }
 }
