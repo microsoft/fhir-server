@@ -1494,17 +1494,81 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var respone = await _client.CancelImport(checkLocation);
 
-            // wait task completed
-            while (respone.StatusCode != HttpStatusCode.Conflict)
-            {
-                respone = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
-            }
+            // Then we cancel import job
+            var response = await _client.CancelImport(checkLocation);
 
+            // The service should accept the cancel request
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // We try to cancel the same job again, it should return Accepted
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // We get the Import status
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Contains("User requested cancellation", fhirException.Message);
+        }
+
+        [Fact]
+        public async Task GivenImportHasCompleted_WhenCancel_ThenTaskShouldReturnConflict()
+        {
+            _metricHandler?.ResetCount();
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            // Wait for import job to complete
+            var importStatus = await _client.CheckImportAsync(checkLocation);
+
+            // To avoid an infinite loop, we will try 5 times to get the completed status
+            // Which we expect to finish because we are importing a single job
+            for (int i = 0; i < 5; i++)
+            {
+                if (importStatus.StatusCode == HttpStatusCode.OK)
+                {
+                    break;
+                }
+
+                importStatus = await _client.CheckImportAsync(checkLocation);
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            // Then we cancel import job
+            var response = await _client.CancelImport(checkLocation);
+
+            // The service should  return conflict because Import has already completed
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+            // We try to cancel the same job again, it should return Conflict
+            // We add this retry, in case customer send multiple cancel requests
+            // We need to make sure the server returns Conflict
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+            // We get the Import status and it should return OK because Import completed
+            importStatus = await _client.CheckImportAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, importStatus.StatusCode);
         }
 
         [Fact(Skip = "long running tests for invalid url")]

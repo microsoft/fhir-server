@@ -89,12 +89,14 @@ steps:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
 
-- task: Trivy@1
-  displayName: 'Run Trivy'
-  inputs:
-    Target: '$(Build.SourcesDirectory)/build/docker'
-    Severities: all
-    VulTypes: all
+## Currently removed due to too many requests issue: https://github.com/aquasecurity/trivy-action/issues/430
+## User story to address restoring this: 132160
+#- task: Trivy@1
+#  displayName: 'Run Trivy'
+#  inputs:
+#    Target: '$(Build.SourcesDirectory)/build/docker'
+#    Severities: all
+#    VulTypes: all
 
 - task: PSScriptAnalyzer@1
   displayName: 'Run PSScriptAnalyzer'

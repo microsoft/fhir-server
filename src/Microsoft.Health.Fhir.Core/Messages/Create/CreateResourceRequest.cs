@@ -7,12 +7,13 @@ using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
-    public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
+    public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability, IBundleInnerRequest
     {
         public CreateResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null)
         {

@@ -4,15 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 
-namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
@@ -27,12 +27,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
+        public TokenCredential TokenCredential => _azureServiceTokenProvider;
+
         public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
             // https://learn.microsoft.com/en-us/dotnet/api/overview/azure/app-auth-migration?view=azure-dotnet
-            var accessTokenContext = new TokenRequestContext(scopes: new[] { resourceUri + "/.default" });
+            var accessTokenContext = new TokenRequestContext(scopes: [resourceUri + "/.default"]);
 
             AccessToken accessToken;
             try
@@ -42,14 +44,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             catch (CredentialUnavailableException ex)
             {
                 _logger.LogWarning(ex, "Failed to retrieve access token");
-                throw new AccessTokenProviderException(Resources.CannotGetAccessToken);
+                throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
             }
 
             if (string.IsNullOrEmpty(accessToken.Token))
             {
                 _logger.LogWarning("Failed to retrieve access token");
 
-                throw new AccessTokenProviderException(Resources.CannotGetAccessToken);
+                throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
             }
             else
             {

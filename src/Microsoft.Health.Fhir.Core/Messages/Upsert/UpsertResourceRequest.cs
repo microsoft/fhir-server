@@ -8,11 +8,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
-    public class UpsertResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
+    public class UpsertResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability, IBundleInnerRequest
     {
         public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null)
         {

@@ -6,6 +6,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json.Linq;

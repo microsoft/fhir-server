@@ -10,6 +10,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -88,6 +89,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add<AzureAccessTokenProvider>()
+                .Transient()
+                .AsService<IAccessTokenProvider>();
         }
     }
 }
