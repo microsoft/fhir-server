@@ -131,14 +131,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "xmlns",
         };
 
-        private static readonly ISet<string> Src = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "#",
-            "data:",
-            "http:",
-            "https:",
-        };
-
         // Obvious invalid structural parsing errors to report
         private static readonly HashSet<HtmlParseError> RaiseErrorTypes = new HashSet<HtmlParseError>
         {
@@ -180,9 +172,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 var dom = parser.ParseDocument(string.Format(HtmlTemplate, html));
 
                 // Report parsing errors
-                if (errors.Any())
+                var htmlParseErrors = errors.Where(x => RaiseErrorTypes.Contains((HtmlParseError)x.Code)).ToList();
+
+                if (htmlParseErrors.Any())
                 {
-                    foreach (var error in errors.Where(x => RaiseErrorTypes.Contains((HtmlParseError)x.Code)))
+                    foreach (var error in htmlParseErrors)
                     {
                         yield return string.Format(Core.Resources.IllegalHtmlParsingError, error.Message, error.Position.Line, error.Position.Column);
                     }
@@ -288,14 +282,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 if (!AllowedAttributes.Contains(attr.Name))
                 {
                     onInvalidAttr(element, attr);
-                }
-
-                if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        onInvalidAttr(element, attr);
-                    }
                 }
             }
         }
