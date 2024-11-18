@@ -5768,7 +5768,7 @@ CREATE TRIGGER dbo.ResourceUpd
                           WHERE  B.ResourceTypeId = A.ResourceTypeId
                                  AND B.ResourceSurrogateId = A.ResourceSurrogateId
                                  AND B.IsHistory = 1);
-           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, OffsetInFile)
+           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile)
            SELECT ResourceTypeId,
                   ResourceSurrogateId,
                   ResourceIdInt,
@@ -5779,6 +5779,7 @@ CREATE TRIGGER dbo.ResourceUpd
                   SearchParamHash,
                   TransactionId,
                   HistoryTransactionId,
+                  FileId,
                   OffsetInFile
            FROM   Inserted
            WHERE  IsHistory = 1;
