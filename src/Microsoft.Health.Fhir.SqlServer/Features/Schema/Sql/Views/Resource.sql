@@ -63,7 +63,7 @@ GO
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
-  IF UPDATE(IsDeleted) AND UPDATE(RawResource) AND UPDATE(SearchParamHash) AND UPDATE(HistoryTransactionId) AND NOT UPDATE(IsHistory) -- HardDeleteResource
+  IF UPDATE(IsDeleted) AND UPDATE(RawResource) AND UPDATE(SearchParamHash) AND UPDATE(HistoryTransactionId) AND NOT UPDATE(IsHistory) -- hard delete resource
   BEGIN
     UPDATE B
       SET RawResource = A.RawResource
@@ -87,13 +87,28 @@ BEGIN
     RETURN
   END
 
-  IF UPDATE(SearchParamHash) AND NOT UPDATE(IsHistory)
+  IF UPDATE(SearchParamHash) AND NOT UPDATE(IsHistory) -- reindex
   BEGIN
     UPDATE B
       SET SearchParamHash = A.SearchParamHash
       FROM Inserted A
            JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
       WHERE A.IsHistory = 0
+    
+    RETURN
+  END
+
+  IF UPDATE(TransactionId) AND NOT UPDATE(IsHistory) -- cleanup trans
+  BEGIN
+    UPDATE B
+      SET TransactionId = A.TransactionId
+      FROM Inserted A
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0
+
+    UPDATE B
+      SET TransactionId = A.TransactionId
+      FROM Inserted A
+           JOIN dbo.HistoryResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1
     
     RETURN
   END

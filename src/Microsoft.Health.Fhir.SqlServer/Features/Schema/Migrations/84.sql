@@ -5728,6 +5728,27 @@ CREATE TRIGGER dbo.ResourceUpd
                    WHERE  A.IsHistory = 0;
                    RETURN;
                END
+           IF UPDATE (TransactionId)
+              AND NOT UPDATE (IsHistory)
+               BEGIN
+                   UPDATE B
+                   SET    TransactionId = A.TransactionId
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.CurrentResources AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                             AND B.IsHistory = 0;
+                   UPDATE B
+                   SET    TransactionId = A.TransactionId
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.HistoryResources AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                             AND B.IsHistory = 1;
+                   RETURN;
+               END
            IF UPDATE (RawResource)
                BEGIN
                    UPDATE B
