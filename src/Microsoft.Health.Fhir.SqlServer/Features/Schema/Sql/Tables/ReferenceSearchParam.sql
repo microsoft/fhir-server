@@ -1,4 +1,5 @@
-﻿CREATE TABLE dbo.ReferenceSearchParam
+﻿-- Our code generator does not understand views (in the end ReferenceSearchParam is a view), so we create a table that looks like a view and immediately drop it.
+CREATE TABLE dbo.ReferenceSearchParam
 (
     ResourceTypeId            smallint     NOT NULL
    ,ResourceSurrogateId       bigint       NOT NULL

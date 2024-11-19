@@ -1,4 +1,6 @@
-﻿CREATE TABLE dbo.Resource
+﻿-- 0 in this script name is needed to ensure that this script is executed first, so FK constraints can be created in other scripts
+-- Our code generator does not understand views (in the end Resource is a view), so we create a table that looks like a view and immediately drop it.
+CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
