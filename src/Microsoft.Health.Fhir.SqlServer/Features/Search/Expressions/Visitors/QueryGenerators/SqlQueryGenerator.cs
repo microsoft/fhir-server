@@ -1132,27 +1132,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _sortVisited = true;
         }
 
-        private void WriteIncludeLimitCte(string cteToLimit, SearchOptions context)
-        {
-            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
-            // the related cte is a reverse include, limit the number of returned items and count to
-            // see if we are over the threshold (to produce a warning to the client)
-            StringBuilder.Append("SELECT DISTINCT ");
-            StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount, true)).Append(") ");
-
-            StringBuilder.Append("T1, Sid1, IsMatch, ");
-            StringBuilder.Append("CASE WHEN count_big(*) over() > ")
-                .Append(Parameters.AddParameter(context.IncludeCount, true))
-                .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
-
-            StringBuilder.Append("FROM ").AppendLine(cteToLimit);
-            StringBuilder.AppendLine(")").Append(",");
-
-            // the 'original' include cte is not in the union, but this new layer is instead
-            _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
-        }
-
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
