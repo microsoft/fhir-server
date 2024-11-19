@@ -61,6 +61,8 @@ CREATE TABLE dbo.CurrentResources
    ,CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 )
 
+ALTER TABLE dbo.CurrentResources ADD CONSTRAINT FK_CurrentResources_ResourceIdInt_ResourceTypeId_ResourceIdIntMap FOREIGN KEY (ResourceIdInt, ResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId)
+
 ALTER TABLE dbo.CurrentResources SET ( LOCK_ESCALATION = AUTO )
 
 CREATE INDEX IX_TransactionId_ResourceTypeId_WHERE_TransactionId_NOT_NULL ON dbo.CurrentResources (TransactionId, ResourceTypeId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -85,6 +87,8 @@ CREATE TABLE dbo.HistoryResources
     CONSTRAINT PKC_HistoryResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 )
+
+ALTER TABLE dbo.HistoryResources ADD CONSTRAINT FK_HistoryResources_ResourceIdInt_ResourceTypeId_ResourceIdIntMap FOREIGN KEY (ResourceIdInt, ResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId)
 
 ALTER TABLE dbo.HistoryResources SET ( LOCK_ESCALATION = AUTO )
 

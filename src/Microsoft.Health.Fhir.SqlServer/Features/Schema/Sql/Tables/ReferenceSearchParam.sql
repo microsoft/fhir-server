@@ -22,6 +22,8 @@ CREATE TABLE dbo.ResourceReferenceSearchParams
    ,IsResourceRef             bit          NOT NULL CONSTRAINT DF_ResourceReferenceSearchParams_IsResourceRef DEFAULT 1, CONSTRAINT CH_ResourceReferenceSearchParams_IsResourceRef CHECK (IsResourceRef = 1)
 )
 
+ALTER TABLE dbo.ResourceReferenceSearchParams ADD CONSTRAINT FK_ResourceReferenceSearchParams_ReferenceResourceIdInt_ReferenceResourceTypeId_ResourceIdIntMap FOREIGN KEY (ReferenceResourceIdInt, ReferenceResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId)
+
 ALTER TABLE dbo.ResourceReferenceSearchParams SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId_ResourceTypeId 

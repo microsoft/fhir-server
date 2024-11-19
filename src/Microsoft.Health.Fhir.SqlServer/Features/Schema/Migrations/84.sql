@@ -259,6 +259,114 @@ CREATE TYPE dbo.UriSearchParamList AS TABLE (
     SearchParamId       SMALLINT      NOT NULL,
     Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri));
 
+CREATE TABLE dbo.Resource (
+    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceSurrogateId  BIGINT          NOT NULL,
+    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Version              INT             NOT NULL,
+    IsHistory            BIT             NOT NULL,
+    IsDeleted            BIT             NOT NULL,
+    RequestMethod        VARCHAR (10)    NULL,
+    RawResource          VARBINARY (MAX) NULL,
+    IsRawResourceMetaSet BIT             NOT NULL,
+    SearchParamHash      VARCHAR (64)    NULL,
+    TransactionId        BIGINT          NULL,
+    HistoryTransactionId BIGINT          NULL,
+    FileId               BIGINT          NULL,
+    OffsetInFile         INT             NULL
+);
+
+
+GO
+DROP TABLE dbo.Resource;
+
+
+GO
+CREATE TABLE dbo.ResourceIdIntMap (
+    ResourceTypeId SMALLINT     NOT NULL,
+    ResourceIdInt  BIGINT       NOT NULL,
+    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+);
+
+ALTER TABLE dbo.ResourceIdIntMap SET (LOCK_ESCALATION = AUTO);
+
+
+GO
+CREATE TABLE dbo.RawResources (
+    ResourceTypeId      SMALLINT        NOT NULL,
+    ResourceSurrogateId BIGINT          NOT NULL,
+    RawResource         VARBINARY (MAX) NULL CONSTRAINT PKC_RawResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+);
+
+ALTER TABLE dbo.RawResources SET (LOCK_ESCALATION = AUTO);
+
+
+GO
+CREATE TABLE dbo.CurrentResources (
+    ResourceTypeId       SMALLINT     NOT NULL,
+    ResourceSurrogateId  BIGINT       NOT NULL,
+    ResourceIdInt        BIGINT       NOT NULL,
+    Version              INT          NOT NULL,
+    IsHistory            BIT          CONSTRAINT DF_CurrentResources_IsHistory DEFAULT 0 NOT NULL,
+    IsDeleted            BIT          NOT NULL,
+    RequestMethod        VARCHAR (10) NULL,
+    IsRawResourceMetaSet BIT          CONSTRAINT DF_CurrentResources_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
+    SearchParamHash      VARCHAR (64) NULL,
+    TransactionId        BIGINT       NULL,
+    HistoryTransactionId BIGINT       NULL,
+    FileId               BIGINT       NULL,
+    OffsetInFile         INT          NULL CONSTRAINT PKC_CurrentResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
+    CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+);
+
+ALTER TABLE dbo.CurrentResources
+    ADD CONSTRAINT FK_CurrentResources_ResourceIdInt_ResourceTypeId_ResourceIdIntMap FOREIGN KEY (ResourceIdInt, ResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId);
+
+ALTER TABLE dbo.CurrentResources SET (LOCK_ESCALATION = AUTO);
+
+CREATE INDEX IX_TransactionId_ResourceTypeId_WHERE_TransactionId_NOT_NULL
+    ON dbo.CurrentResources(TransactionId, ResourceTypeId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_NOT_NULL
+    ON dbo.CurrentResources(HistoryTransactionId, ResourceTypeId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+
+GO
+CREATE TABLE dbo.HistoryResources (
+    ResourceTypeId       SMALLINT     NOT NULL,
+    ResourceSurrogateId  BIGINT       NOT NULL,
+    ResourceIdInt        BIGINT       NOT NULL,
+    Version              INT          NOT NULL,
+    IsHistory            BIT          CONSTRAINT DF_HistoryResources_IsHistory DEFAULT 1 NOT NULL,
+    IsDeleted            BIT          NOT NULL,
+    RequestMethod        VARCHAR (10) NULL,
+    IsRawResourceMetaSet BIT          CONSTRAINT DF_HistoryResources_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
+    SearchParamHash      VARCHAR (64) NULL,
+    TransactionId        BIGINT       NULL,
+    HistoryTransactionId BIGINT       NULL,
+    FileId               BIGINT       NULL,
+    OffsetInFile         INT          NULL CONSTRAINT PKC_HistoryResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT CH_HistoryResources_IsHistory CHECK (IsHistory = 1),
+    CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+);
+
+ALTER TABLE dbo.HistoryResources
+    ADD CONSTRAINT FK_HistoryResources_ResourceIdInt_ResourceTypeId_ResourceIdIntMap FOREIGN KEY (ResourceIdInt, ResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId);
+
+ALTER TABLE dbo.HistoryResources SET (LOCK_ESCALATION = AUTO);
+
+CREATE INDEX IX_TransactionId_ResourceTypeId_WHERE_TransactionId_NOT_NULL
+    ON dbo.HistoryResources(TransactionId, ResourceTypeId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_NOT_NULL
+    ON dbo.HistoryResources(HistoryTransactionId, ResourceTypeId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
 CREATE TABLE dbo.ClaimType (
     ClaimTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -566,6 +674,9 @@ CREATE TABLE dbo.ResourceReferenceSearchParams (
     CONSTRAINT CH_ResourceReferenceSearchParams_IsResourceRef CHECK (IsResourceRef = 1)
 );
 
+ALTER TABLE dbo.ResourceReferenceSearchParams
+    ADD CONSTRAINT FK_ResourceReferenceSearchParams_ReferenceResourceIdInt_ReferenceResourceTypeId_ResourceIdIntMap FOREIGN KEY (ReferenceResourceIdInt, ReferenceResourceTypeId) REFERENCES dbo.ResourceIdIntMap (ResourceIdInt, ResourceTypeId);
+
 ALTER TABLE dbo.ResourceReferenceSearchParams SET (LOCK_ESCALATION = AUTO);
 
 CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId_ResourceTypeId
@@ -634,108 +745,6 @@ CREATE TABLE dbo.ReindexJob (
     JobVersion        ROWVERSION    NOT NULL,
     CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
 );
-
-CREATE TABLE dbo.Resource (
-    ResourceTypeId       SMALLINT        NOT NULL,
-    ResourceSurrogateId  BIGINT          NOT NULL,
-    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Version              INT             NOT NULL,
-    IsHistory            BIT             NOT NULL,
-    IsDeleted            BIT             NOT NULL,
-    RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NULL,
-    IsRawResourceMetaSet BIT             NOT NULL,
-    SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL,
-    HistoryTransactionId BIGINT          NULL,
-    FileId               BIGINT          NULL,
-    OffsetInFile         INT             NULL
-);
-
-
-GO
-DROP TABLE dbo.Resource;
-
-
-GO
-CREATE TABLE dbo.ResourceIdIntMap (
-    ResourceTypeId SMALLINT     NOT NULL,
-    ResourceIdInt  BIGINT       NOT NULL,
-    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL CONSTRAINT PKC_ResourceIdIntMap_ResourceIdInt_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT U_ResourceIdIntMap_ResourceId_ResourceTypeId UNIQUE (ResourceId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-);
-
-ALTER TABLE dbo.ResourceIdIntMap SET (LOCK_ESCALATION = AUTO);
-
-
-GO
-CREATE TABLE dbo.RawResources (
-    ResourceTypeId      SMALLINT        NOT NULL,
-    ResourceSurrogateId BIGINT          NOT NULL,
-    RawResource         VARBINARY (MAX) NULL CONSTRAINT PKC_RawResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-);
-
-ALTER TABLE dbo.RawResources SET (LOCK_ESCALATION = AUTO);
-
-
-GO
-CREATE TABLE dbo.CurrentResources (
-    ResourceTypeId       SMALLINT     NOT NULL,
-    ResourceSurrogateId  BIGINT       NOT NULL,
-    ResourceIdInt        BIGINT       NOT NULL,
-    Version              INT          NOT NULL,
-    IsHistory            BIT          CONSTRAINT DF_CurrentResources_IsHistory DEFAULT 0 NOT NULL,
-    IsDeleted            BIT          NOT NULL,
-    RequestMethod        VARCHAR (10) NULL,
-    IsRawResourceMetaSet BIT          CONSTRAINT DF_CurrentResources_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
-    SearchParamHash      VARCHAR (64) NULL,
-    TransactionId        BIGINT       NULL,
-    HistoryTransactionId BIGINT       NULL,
-    FileId               BIGINT       NULL,
-    OffsetInFile         INT          NULL CONSTRAINT PKC_CurrentResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
-    CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-);
-
-ALTER TABLE dbo.CurrentResources SET (LOCK_ESCALATION = AUTO);
-
-CREATE INDEX IX_TransactionId_ResourceTypeId_WHERE_TransactionId_NOT_NULL
-    ON dbo.CurrentResources(TransactionId, ResourceTypeId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_NOT_NULL
-    ON dbo.CurrentResources(HistoryTransactionId, ResourceTypeId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-
-GO
-CREATE TABLE dbo.HistoryResources (
-    ResourceTypeId       SMALLINT     NOT NULL,
-    ResourceSurrogateId  BIGINT       NOT NULL,
-    ResourceIdInt        BIGINT       NOT NULL,
-    Version              INT          NOT NULL,
-    IsHistory            BIT          CONSTRAINT DF_HistoryResources_IsHistory DEFAULT 1 NOT NULL,
-    IsDeleted            BIT          NOT NULL,
-    RequestMethod        VARCHAR (10) NULL,
-    IsRawResourceMetaSet BIT          CONSTRAINT DF_HistoryResources_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
-    SearchParamHash      VARCHAR (64) NULL,
-    TransactionId        BIGINT       NULL,
-    HistoryTransactionId BIGINT       NULL,
-    FileId               BIGINT       NULL,
-    OffsetInFile         INT          NULL CONSTRAINT PKC_HistoryResources_ResourceSurrogateId_ResourceTypeId PRIMARY KEY CLUSTERED (ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_HistoryResources_IsHistory CHECK (IsHistory = 1),
-    CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-);
-
-ALTER TABLE dbo.HistoryResources SET (LOCK_ESCALATION = AUTO);
-
-CREATE INDEX IX_TransactionId_ResourceTypeId_WHERE_TransactionId_NOT_NULL
-    ON dbo.HistoryResources(TransactionId, ResourceTypeId) WHERE TransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_HistoryTransactionId_ResourceTypeId_WHERE_HistoryTransactionId_NOT_NULL
-    ON dbo.HistoryResources(HistoryTransactionId, ResourceTypeId) WHERE HistoryTransactionId IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ResourceChangeData (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
