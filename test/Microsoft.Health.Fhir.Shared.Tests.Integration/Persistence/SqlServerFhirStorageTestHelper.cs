@@ -322,7 +322,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             {
                 outerCommand.CommandText = @"
 SELECT t.name 
-  FROM (SELECT name, object_id FROM sys.objects WHERE name NOT IN ('ResourceCurrent', 'ResourceHistory') AND type IN ('u','v')) t 
+  FROM (SELECT name, object_id FROM sys.objects WHERE name NOT IN ('CurrentResources', 'HistoryResources', 'RawResources') AND type IN ('u','v')) t 
        JOIN sys.columns c ON c.object_id = t.object_id
   WHERE c.name = 'ResourceSurrogateId'";
 
@@ -336,7 +336,8 @@ SELECT t.name
                         }
 
                         string tableName = reader.GetString(0);
-                        sb.AppendLine($"SELECT '{tableName}' as TableName, MAX(ResourceSurrogateId) as MaxResourceSurrogateId FROM dbo.{tableName}");
+                        var where = tableName == "Resource" ? "WHERE RawResource <> 0xF" : string.Empty;
+                        sb.AppendLine($"SELECT '{tableName}' as TableName, MAX(ResourceSurrogateId) as MaxResourceSurrogateId FROM dbo.{tableName} {where}");
                     }
                 }
             }
