@@ -332,6 +332,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
+
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -571,6 +572,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
+
             return searchResult;
         }
 
