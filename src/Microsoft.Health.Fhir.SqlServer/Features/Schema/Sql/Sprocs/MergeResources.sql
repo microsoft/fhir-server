@@ -10,7 +10,8 @@ CREATE PROCEDURE dbo.MergeResources
    ,@IsResourceChangeCaptureEnabled bit = 0
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
-   ,@Resources dbo.ResourceList READONLY
+   ,@Resources dbo.ResourceList READONLY -- before lake code. TODO: Remove after deployment
+   ,@ResourcesLake dbo.ResourceListLake READONLY -- Lake code
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
@@ -63,6 +64,7 @@ BEGIN TRY
        ,IsRawResourceMetaSet bit                 NOT NULL
        ,RequestMethod        varchar(10)         NULL
        ,SearchParamHash      varchar(64)         NULL
+       ,FileId               bigint              NULL
        ,OffsetInFile         int                 NULL
 
         PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
@@ -131,7 +133,12 @@ BEGIN TRY
   DELETE FROM @ExistingIds
   
 -- Prepare id map for resources Start ---------------------------------------------------------------------------
-  INSERT INTO @InputIds SELECT ResourceTypeId, ResourceId FROM @Resources GROUP BY ResourceTypeId, ResourceId
+  INSERT INTO @InputIds SELECT ResourceTypeId, ResourceId 
+    FROM (SELECT ResourceTypeId, ResourceId FROM @ResourcesLake
+          UNION ALL
+          SELECT ResourceTypeId, ResourceId FROM @Resources -- TODO: Remove after deployment
+         ) A
+    GROUP BY ResourceTypeId, ResourceId
   INSERT INTO @RTs SELECT DISTINCT ResourceTypeId FROM @InputIds
 
   WHILE EXISTS (SELECT * FROM @RTs)
@@ -168,9 +175,12 @@ BEGIN TRY
   END
   
   INSERT INTO @ResourcesWithIds
-         (   ResourceTypeId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile )
-    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, OffsetInFile
-      FROM @Resources A
+         (   ResourceTypeId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
+    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile
+      FROM (SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId = CASE WHEN OffsetInFile IS NOT NULL THEN @TransactionId END, OffsetInFile FROM @ResourcesLake
+            UNION ALL
+            SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash,                                                                NULL,         NULL FROM @Resources
+           ) A
            LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
            LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
   --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Action='Insert',@Target='@ResourcesWithIds',@Rows=@@rowcount,@Start=@st
@@ -326,8 +336,8 @@ BEGIN TRY
     END
 
     INSERT INTO dbo.Resource 
-           ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId,         FileId, OffsetInFile )
-      SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, @TransactionId, OffsetInFile
+           ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, FileId, OffsetInFile )
+      SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, FileId, OffsetInFile
         FROM @ResourcesWithIds
     SET @AffectedRows += @@rowcount
 

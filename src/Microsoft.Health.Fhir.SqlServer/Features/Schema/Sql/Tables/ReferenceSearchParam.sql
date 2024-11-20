@@ -7,7 +7,7 @@ CREATE TABLE dbo.ReferenceSearchParam
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
    ,ReferenceResourceTypeId   smallint     NULL
    ,ReferenceResourceIdInt    bigint       NOT NULL
-   ,ReferenceResourceId       varchar(64)  COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceId       varchar(768) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 GO
 DROP TABLE dbo.ReferenceSearchParam
@@ -41,7 +41,7 @@ CREATE TABLE dbo.StringReferenceSearchParams
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceId       varchar(64)  COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceId       varchar(768) COLLATE Latin1_General_100_CS_AS NOT NULL
    ,IsResourceRef             bit          NOT NULL CONSTRAINT DF_StringReferenceSearchParams_IsResourceRef DEFAULT 0, CONSTRAINT CH_StringReferenceSearchParams_IsResourceRef CHECK (IsResourceRef = 0)
 )
 

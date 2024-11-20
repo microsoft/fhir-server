@@ -13,20 +13,20 @@ using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ResourceListRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, ResourceListRow>
+    internal class ResourceListLakeRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, ResourceListLakeRow>
     {
         private readonly ISqlServerFhirModel _model;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
 
-        public ResourceListRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter)
+        public ResourceListLakeRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public IEnumerable<ResourceListRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
+        public IEnumerable<ResourceListLakeRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
         {
             foreach (var merge in mergeWrappers)
             {
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
 
-                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, merge.OffsetInFile.HasValue ? null : stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash);
+                yield return new ResourceListLakeRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, merge.OffsetInFile.HasValue ? null : stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash, merge.OffsetInFile);
             }
         }
     }
