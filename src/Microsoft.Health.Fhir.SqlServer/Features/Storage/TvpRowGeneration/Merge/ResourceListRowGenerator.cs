@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
 
-                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, merge.OffsetInFile.HasValue ? null : stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash);
+                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash);
             }
         }
     }
