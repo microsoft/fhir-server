@@ -211,7 +211,6 @@ END CATCH
 --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Text='ResourceIdIntMap populated'
 
 BEGIN TRY
-
   DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
   DECLARE @ResourceInfos AS TABLE
@@ -270,7 +269,7 @@ BEGIN TRY
       SELECT A.ResourceTypeId, A.ResourceSurrogateId, A.Version, A.KeepHistory,       B.Version, B.ResourceSurrogateId
         FROM (SELECT TOP (@DummyTop) * FROM @ResourcesWithIds WHERE HasVersionToCompare = 1) A
              LEFT OUTER JOIN dbo.CurrentResources B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
-               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.IsHistory = 0
+               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <= PreviousVersion)
@@ -301,9 +300,7 @@ BEGIN TRY
 
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.ResourceReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
-      SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.StringReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.TokenSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
