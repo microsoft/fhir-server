@@ -124,6 +124,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request?.Url;
+            var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
+            if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, requestVerb));
+            }
+
             HTTPVerb? requestMethod = entry.Request?.Method;
 
             if (string.IsNullOrWhiteSpace(requestUrl))

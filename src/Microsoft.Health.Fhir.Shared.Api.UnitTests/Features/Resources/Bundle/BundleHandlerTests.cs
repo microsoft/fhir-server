@@ -372,6 +372,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenATransactionBundleRequestWithNullRequestMethod_WhenProcessing_ReturnsABadRequest()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = null,
+                            Url = "/Patient",
+                        },
+                        Resource = new Basic { Id = "test"},
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+        }
+
+        [Fact]
         public async Task GivenABundle_WhenProcessed_CertainResponseHeadersArePropagatedToOuterResponse()
         {
             var bundle = new Hl7.Fhir.Model.Bundle

@@ -426,4 +426,7 @@
   <data name="MissingInputParams" xml:space="preserve">
     <value>inputParams not found, request body must be a valid Parameters resource.</value>
   </data>
+  <data name="InvalidBundleEntryRequest" xml:space="preserve">
+    <value>Requested operation '{0}' is invalid using the request method {1}.</value>
+  </data>
 </root>
