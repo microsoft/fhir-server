@@ -3968,7 +3968,6 @@ BEGIN TRY
                    dbo.CurrentResources AS B
                    ON B.ResourceTypeId = A.ResourceTypeId
                       AND B.ResourceIdInt = A.ResourceIdInt
-                      AND B.IsHistory = 0
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             IF @RaiseExceptionOnConflict = 1
                AND EXISTS (SELECT *
@@ -4020,13 +4019,7 @@ BEGIN TRY
                                    FROM   @PreviousSurrogateIds
                                    WHERE  SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
-                    DELETE dbo.ResourceReferenceSearchParams
-                    WHERE  EXISTS (SELECT *
-                                   FROM   @PreviousSurrogateIds
-                                   WHERE  TypeId = ResourceTypeId
-                                          AND SurrogateId = ResourceSurrogateId);
-                    SET @AffectedRows += @@rowcount;
-                    DELETE dbo.StringReferenceSearchParams
+                    DELETE dbo.ReferenceSearchParam
                     WHERE  EXISTS (SELECT *
                                    FROM   @PreviousSurrogateIds
                                    WHERE  TypeId = ResourceTypeId
