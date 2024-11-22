@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -204,8 +205,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
 
-                StringBuilder.Append(", ").Append(VLatest.Resource.TransactionId, resourceTableAlias);
-                StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
+                if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+                {
+                    StringBuilder.Append(", ").Append(VLatest.Resource.FileId, resourceTableAlias);
+                    StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
+                }
 
                 if (IsSortValueNeeded(context))
                 {

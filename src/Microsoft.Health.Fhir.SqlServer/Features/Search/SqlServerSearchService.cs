@@ -852,8 +852,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceSqlBytes = reader.GetSqlBytes(10);
-            fileId = reader.Read(VLatest.Resource.FileId, 11);
-            offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
+            fileId = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.FileId, 11) : null;
+            offsetInFile = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.OffsetInFile, 12) : null;
             isInvisible = false;
             if (!rawResourceSqlBytes.IsNull)
             {

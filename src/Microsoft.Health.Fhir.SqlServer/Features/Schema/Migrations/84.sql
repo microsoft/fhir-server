@@ -2995,7 +2995,7 @@ BEGIN TRY
             SELECT B.ResourceTypeId,
                    B.ResourceId,
                    ResourceSurrogateId,
-                   C.Version,
+                   B.Version,
                    IsDeleted,
                    IsHistory,
                    RawResource,
@@ -3006,21 +3006,17 @@ BEGIN TRY
             FROM   (SELECT *
                     FROM   @ResourceKeys) AS A
                    INNER LOOP JOIN
-                   dbo.ResourceIdIntMap AS B WITH (INDEX (U_ResourceIdIntMap_ResourceId_ResourceTypeId))
+                   dbo.Resource AS B
                    ON B.ResourceTypeId = A.ResourceTypeId
                       AND B.ResourceId = A.ResourceId
-                   INNER LOOP JOIN
-                   dbo.Resource AS C
-                   ON C.ResourceTypeId = A.ResourceTypeId
-                      AND C.ResourceIdInt = B.ResourceIdInt
-                      AND C.Version = A.Version
+                      AND B.Version = A.Version
             OPTION (MAXDOP 1);
         ELSE
             SELECT *
             FROM   (SELECT B.ResourceTypeId,
                            B.ResourceId,
                            ResourceSurrogateId,
-                           C.Version,
+                           B.Version,
                            IsDeleted,
                            IsHistory,
                            RawResource,
@@ -3032,19 +3028,15 @@ BEGIN TRY
                             FROM   @ResourceKeys
                             WHERE  Version IS NOT NULL) AS A
                            INNER LOOP JOIN
-                           dbo.ResourceIdIntMap AS B WITH (INDEX (U_ResourceIdIntMap_ResourceId_ResourceTypeId))
+                           dbo.Resource AS B
                            ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                           INNER LOOP JOIN
-                           dbo.Resource AS C
-                           ON C.ResourceTypeId = A.ResourceTypeId
-                              AND C.ResourceIdInt = B.ResourceIdInt
-                              AND C.Version = A.Version
+                              AND B.ResourceId = B.ResourceId
+                              AND B.Version = A.Version
                     UNION ALL
                     SELECT B.ResourceTypeId,
                            B.ResourceId,
-                           C.ResourceSurrogateId,
-                           C.Version,
+                           ResourceSurrogateId,
+                           B.Version,
                            IsDeleted,
                            IsHistory,
                            RawResource,
@@ -3056,24 +3048,16 @@ BEGIN TRY
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
                            INNER LOOP JOIN
-                           dbo.ResourceIdIntMap AS B WITH (INDEX (U_ResourceIdIntMap_ResourceId_ResourceTypeId))
+                           dbo.Resource AS B
                            ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                           INNER LOOP JOIN
-                           dbo.CurrentResources AS C
-                           ON C.ResourceTypeId = A.ResourceTypeId
-                              AND C.ResourceIdInt = B.ResourceIdInt
-                              AND C.IsHistory = 0
-                           LEFT OUTER JOIN
-                           dbo.RawResources AS D
-                           ON D.ResourceTypeId = A.ResourceTypeId
-                              AND D.ResourceSurrogateId = C.ResourceSurrogateId) AS A
+                              AND B.ResourceId = B.ResourceId
+                              AND B.IsHistory = 0) AS A
             OPTION (MAXDOP 1);
     ELSE
         SELECT B.ResourceTypeId,
                B.ResourceId,
-               C.ResourceSurrogateId,
-               C.Version,
+               ResourceSurrogateId,
+               B.Version,
                IsDeleted,
                IsHistory,
                RawResource,
@@ -3084,17 +3068,10 @@ BEGIN TRY
         FROM   (SELECT *
                 FROM   @ResourceKeys) AS A
                INNER LOOP JOIN
-               dbo.ResourceIdIntMap AS B WITH (INDEX (U_ResourceIdIntMap_ResourceId_ResourceTypeId))
+               dbo.Resource AS B
                ON B.ResourceTypeId = A.ResourceTypeId
                   AND B.ResourceId = A.ResourceId
-               INNER LOOP JOIN
-               dbo.CurrentResources AS C
-               ON C.ResourceTypeId = A.ResourceTypeId
-                  AND C.ResourceIdInt = B.ResourceIdInt
-               LEFT OUTER JOIN
-               dbo.RawResources AS D
-               ON D.ResourceTypeId = A.ResourceTypeId
-                  AND D.ResourceSurrogateId = C.ResourceSurrogateId
+                  AND B.IsHistory = 0
         OPTION (MAXDOP 1);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
@@ -3333,7 +3310,7 @@ BEGIN TRY
            CASE WHEN D.Version IS NOT NULL THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex ELSE isnull(M.Version, 0) - ResourceIndex END AS Version,
            isnull(D.Version, 0) AS MatchedVersion,
            D.RawResource AS MatchedRawResource,
-           D.TransactionId AS MatchedTransactionId,
+           D.FileId AS MatchedFileId,
            D.OffsetInFile AS MatchedOffsetInFile
     FROM   (SELECT TOP (@DummyTop) A.*,
                                    M.ResourceIdInt,

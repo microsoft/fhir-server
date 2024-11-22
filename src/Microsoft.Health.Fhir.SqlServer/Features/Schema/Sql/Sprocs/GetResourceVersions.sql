@@ -22,7 +22,7 @@ BEGIN TRY
                    END
         ,MatchedVersion = isnull(D.Version,0)
         ,MatchedRawResource = D.RawResource
-        ,MatchedTransactionId = D.TransactionId
+        ,MatchedFileId = D.FileId
         ,MatchedOffsetInFile = D.OffsetInFile
         -- ResourceIndex allows to deal with more than one late arrival per resource 
     FROM (SELECT TOP (@DummyTop) A.*, M.ResourceIdInt, ResourceIndex = convert(int,row_number() OVER (PARTITION BY A.ResourceTypeId, A.ResourceId ORDER BY ResourceSurrogateId DESC)) 

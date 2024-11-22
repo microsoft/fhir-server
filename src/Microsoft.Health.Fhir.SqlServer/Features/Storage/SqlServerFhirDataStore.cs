@@ -762,7 +762,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (SqlAdlsStore.AdlsClient != null)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsStore.AdlsClient != null)
             {
                 await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
@@ -849,7 +849,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
-                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+                {
+                    new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                }
+                else
+                {
+                    new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                }
+
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));

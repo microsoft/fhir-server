@@ -130,8 +130,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         matchedVersion = reader.Read(table.Version, 4).ToString();
                         var bytes = reader.GetSqlBytes(5);
-                        var matchedFileId = reader.Read(table.FileId, 6);
-                        var matchedOffsetInFile = reader.Read(table.OffsetInFile, 7);
+                        var matchedFileId = reader.FieldCount > 6 ? reader.Read(table.FileId, 6) : null; // TODO: Remove field count check after deployment
+                        var matchedOffsetInFile = reader.FieldCount > 6 ? reader.Read(table.OffsetInFile, 7) : null;
                         matchedRawResource = new RawResource(ReadRawResource(bytes, decompress, matchedFileId, matchedOffsetInFile), FhirResourceFormat.Json, true);
                     }
 
@@ -180,8 +180,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var bytes = reader.GetSqlBytes(6);
-            var fileId = reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9);
-            var offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10);
+            var fileId = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9) : null; // TODO: Remove field count check after deployment
+            var offsetInFile = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10) : null;
             var rawResource = ReadRawResource(bytes, decompress, fileId, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
