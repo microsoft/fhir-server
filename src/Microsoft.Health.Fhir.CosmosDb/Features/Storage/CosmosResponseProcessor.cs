@@ -88,6 +88,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     exception = new Microsoft.Health.Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
                 }
             }
+            else if (statusCode == HttpStatusCode.RequestTimeout)
+            {
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestTimeoutException("The execution timeout expired while interacting with CosmosDB.", exception);
+            }
 
             if (exception != null)
             {
