@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             // I don't think UnsupportedSearchParams is needed as it isn't used in the actual search
             var expressionHash = default(HashCode);
-            Expression.AddValueInsensitiveHashCode(ref expressionHash);
+            Expression?.AddValueInsensitiveHashCode(ref expressionHash);
 
             var sort = Sort?.Aggregate(string.Empty, (string result, (SearchParameterInfo param, SortOrder order) input) =>
             {

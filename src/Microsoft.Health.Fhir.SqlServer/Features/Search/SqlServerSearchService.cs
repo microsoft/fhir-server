@@ -70,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
-        private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IParameterStore _parameterStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
@@ -92,7 +91,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
-            ISqlQueryHashCalculator queryHashCalculator,
             IParameterStore parameterStore,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
@@ -117,7 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
-            _queryHashCalculator = queryHashCalculator;
             _parameterStore = parameterStore;
             _logger = logger;
 
