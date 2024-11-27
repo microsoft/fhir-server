@@ -45,9 +45,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         public SqlSearchOptions CloneSqlSearchOptions() => (SqlSearchOptions)MemberwiseClone();
 
+        /// <summary>
+        /// Hashes the search option to indicate if two search options will return the same results.
+        /// UnsupportedSearchParams isn't inlcuded in the has because it isn't used in the actual search
+        /// </summary>
+        /// <returns>A hash of the search options</returns>
         public string GetHash()
         {
-            // I don't think UnsupportedSearchParams is needed as it isn't used in the actual search
             var expressionHash = default(HashCode);
             Expression?.AddValueInsensitiveHashCode(ref expressionHash);
 
