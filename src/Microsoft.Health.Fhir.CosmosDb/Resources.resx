@@ -159,6 +159,9 @@
   <data name="CmkDefaultError" xml:space="preserve">
     <value>There was an error using the customer-managed key.</value>
   </data>
+   <data name="CosmosDBRequestTimeout" xml:space="preserve">
+    <value>The execution timeout expired while interacting with CosmosDB.</value>
+  </data>
   <data name="IncludeIterateNotSupported" xml:space="preserve">
     <value>_include:iterate and _revinclude:iterate are not supported.</value>
   </data>
@@ -173,5 +176,9 @@
   </data>
   <data name="NotAbleToExecuteQuery" xml:space="preserve">
     <value>Not able to execute a query. Retry the operation.</value>
+  </data>
+  <data name="CosmosDBRequestTimeout" xml:space="preserve">
+    <value>The execution timeout expired while interacting with CosmosDB.</value>
+    <comment>The execution timeout expired while interacting with CosmosDB.</comment>
   </data>
 </root>

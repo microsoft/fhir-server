@@ -535,6 +535,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenSearchServiceThrowsRequestTimeoutException_WhenExecuted_ThenExceptionIsCaughtAndHandled()
+        {
+            // Arrange
+            string errorMessage = "The execution timeout expired while interacting with CosmosDB.";
+            _searchService.SearchAsync(
+               Arg.Any<string>(),
+               Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+               _cancellationToken,
+               true)
+               .Returns<SearchResult>(x =>
+               {
+                   throw new RequestTimeoutException(errorMessage);
+               });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Contains(errorMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureDetails);
+            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
         public async Task GivenNumberOfSearch_WhenExecuted_ThenItShouldCommitOneLastTime()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(

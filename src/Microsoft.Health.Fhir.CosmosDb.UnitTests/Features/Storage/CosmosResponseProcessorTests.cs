@@ -95,6 +95,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task GivenARequestTimeoutStatusCode_WhenProcessErrorResponseAsyncCalled_ThenRequestTimeoutExceptionShouldBeThrown()
+        {
+            ResponseMessage response = CreateResponseException("The execution timeout expired while interacting with CosmosDB.", HttpStatusCode.RequestTimeout);
+
+            await Assert.ThrowsAsync<RequestTimeoutException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
+        }
+
+        [Fact]
         public async Task GivenAnExceptionWithSpecificMessage_WhenProcessing_ThenExceptionShouldThrow()
         {
             ResponseMessage response = CreateResponseException("invalid continuation token", HttpStatusCode.BadRequest);

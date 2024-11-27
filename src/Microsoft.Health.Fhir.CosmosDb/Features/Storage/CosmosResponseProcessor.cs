@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else if (statusCode == HttpStatusCode.RequestTimeout)
             {
-                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestTimeoutException("The execution timeout expired while interacting with CosmosDB.", exception);
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestTimeoutException(Resources.CosmosDBRequestTimeout, exception);
             }
 
             if (exception != null)
