@@ -908,6 +908,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The provided search parameter type {0} is not supported for the given expression {1}..
+        /// </summary>
+        internal static string NoConverterForSearchParamType {
+            get {
+                return ResourceManager.GetString("NoConverterForSearchParamType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob marked completed..
         /// </summary>
         internal static string NoResourcesNeedToBeReindexed {
