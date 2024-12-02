@@ -750,4 +750,8 @@
   <data name="OperationFailedWithErrorFile" xml:space="preserve">
     <value>{0} operation failed for reason: {1} ErrorFile: {2}</value>
   </data>
+  <data name="NoConverterForSearchParamType" xml:space="preserve">
+    <value>The provided search parameter type {0} is not supported for the given expression {1}.</value>
+    <comment>{0}: The type field in the search parameter. {1}: The expression field in the search parameter.</comment>
+  </data>
 </root>
