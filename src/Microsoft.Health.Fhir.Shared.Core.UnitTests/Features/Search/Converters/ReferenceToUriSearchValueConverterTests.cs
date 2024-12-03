@@ -44,5 +44,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 ValidateUri,
                 value);
         }
+
+        [Fact]
+        public async Task GivenAFhirReferenceWithInvalidURL_WhenConverted_ThenSearchValueShouldBeCreated()
+        {
+            const string value = "this is not a valid url";
+
+            await Test(
+                uri => uri.Reference = value,
+                ValidateUri,
+                value);
+        }
     }
 }
