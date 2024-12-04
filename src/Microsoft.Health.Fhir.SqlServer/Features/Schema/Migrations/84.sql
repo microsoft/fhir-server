@@ -1536,7 +1536,7 @@ END
 
 GO
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges
-@Resources dbo.ResourceList READONLY
+@Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListLake READONLY
 AS
 SET NOCOUNT ON;
 INSERT INTO dbo.ResourceChangeData (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
@@ -1544,7 +1544,19 @@ SELECT ResourceId,
        ResourceTypeId,
        Version,
        CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
-FROM   @Resources
+FROM   (SELECT ResourceId,
+               ResourceTypeId,
+               Version,
+               IsHistory,
+               IsDeleted
+        FROM   @Resources
+        UNION ALL
+        SELECT ResourceId,
+               ResourceTypeId,
+               Version,
+               IsHistory,
+               IsDeleted
+        FROM   @ResourcesLake) AS A
 WHERE  IsHistory = 0;
 
 GO
@@ -3648,7 +3660,15 @@ AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0, @RT AS SMALLINT, @NewIdsCount AS INT, @FirstIdInt AS BIGINT;
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
-                                         FROM   @Resources), 'Input=Empty');
+                                         FROM   (SELECT ResourceTypeId,
+                                                        ResourceSurrogateId,
+                                                        Version
+                                                 FROM   @Resources
+                                                 UNION ALL
+                                                 SELECT ResourceTypeId,
+                                                        ResourceSurrogateId,
+                                                        Version
+                                                 FROM   @ResourcesLake) AS A), 'Input=Empty');
 SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
 SET @AffectedRows = 0;
 RetryResourceIdIntMapInsert:
@@ -3672,6 +3692,7 @@ BEGIN TRY
     DECLARE @ResourcesWithIds AS TABLE (
         ResourceTypeId       SMALLINT        NOT NULL,
         ResourceSurrogateId  BIGINT          NOT NULL,
+        ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
         ResourceIdInt        BIGINT          NOT NULL,
         Version              INT             NOT NULL,
         HasVersionToCompare  BIT             NOT NULL,
@@ -3820,8 +3841,9 @@ BEGIN TRY
             DELETE @RTs
             WHERE  ResourceTypeId = @RT;
         END
-    INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile)
+    INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile)
     SELECT A.ResourceTypeId,
+           A.ResourceId,
            isnull(C.ResourceIdInt, B.ResourceIdInt),
            Version,
            HasVersionToCompare,
@@ -3920,7 +3942,7 @@ BEGIN TRY
     IF @InitialTranCount = 0
         BEGIN
             IF EXISTS (SELECT *
-                       FROM   @Resources AS A
+                       FROM   @ResourcesWithIds AS A
                               INNER JOIN
                               dbo.Resource AS B
                               ON B.ResourceTypeId = A.ResourceTypeId
@@ -3932,7 +3954,7 @@ BEGIN TRY
                     SELECT B.ResourceTypeId,
                            B.ResourceSurrogateId
                     FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @Resources) AS A
+                            FROM   @ResourcesWithIds) AS A
                            INNER JOIN
                            dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
                            ON B.ResourceTypeId = A.ResourceTypeId
@@ -3942,7 +3964,7 @@ BEGIN TRY
                            AND B.Version = A.Version
                     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
                     IF @@rowcount = (SELECT count(*)
-                                     FROM   @Resources)
+                                     FROM   @ResourcesWithIds)
                         SET @IsRetry = 1;
                     IF @IsRetry = 0
                         COMMIT TRANSACTION;
@@ -4615,7 +4637,7 @@ BEGIN TRY
             SET @AffectedRows += @@rowcount;
         END
     IF @IsResourceChangeCaptureEnabled = 1
-        EXECUTE dbo.CaptureResourceIdsForChanges @Resources;
+        EXECUTE dbo.CaptureResourceIdsForChanges @Resources, @ResourcesLake;
     IF @TransactionId IS NOT NULL
         EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     IF @InitialTranCount = 0

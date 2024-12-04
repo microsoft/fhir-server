@@ -582,9 +582,9 @@ END
   COMMIT TRANSACTION
 END
 GO
-GO
 BEGIN TRANSACTION
 GO
+DROP PROCEDURE CaptureResourceIdsForChanges
 DROP PROCEDURE MergeResources
 DROP PROCEDURE UpdateResourceSearchParams
 DROP TYPE ReferenceSearchParamList
@@ -601,6 +601,16 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
 
    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
+GO
+CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListLake READONLY
+AS
+set nocount on
+-- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
+INSERT INTO dbo.ResourceChangeData 
+       ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
+  SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
+    FROM (SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @Resources UNION ALL SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @ResourcesLake) A
+    WHERE IsHistory = 0
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
@@ -794,7 +804,7 @@ DECLARE @st datetime = getUTCdate()
        ,@NewIdsCount int
        ,@FirstIdInt bigint
 
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
 
 SET @AffectedRows = 0
@@ -810,6 +820,7 @@ BEGIN TRY
     (
         ResourceTypeId       smallint            NOT NULL
        ,ResourceSurrogateId  bigint              NOT NULL
+       ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
        ,ResourceIdInt        bigint              NOT NULL
        ,Version              int                 NOT NULL
        ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
@@ -931,8 +942,8 @@ BEGIN TRY
   END
   
   INSERT INTO @ResourcesWithIds
-         (   ResourceTypeId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
-    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile
+         (   ResourceTypeId,   ResourceId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
+    SELECT A.ResourceTypeId, A.ResourceId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile
       FROM (SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId = CASE WHEN OffsetInFile IS NOT NULL THEN @TransactionId END, OffsetInFile FROM @ResourcesLake
             UNION ALL
             SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash,                                                                NULL,         NULL FROM @Resources
@@ -992,7 +1003,7 @@ BEGIN TRY
   IF @InitialTranCount = 0
   BEGIN
     IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
-                 FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                 FROM @ResourcesWithIds A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  WHERE B.IsHistory = 0
               )
     BEGIN
@@ -1001,14 +1012,14 @@ BEGIN TRY
       INSERT INTO @Existing
               (  ResourceTypeId,           SurrogateId )
         SELECT B.ResourceTypeId, B.ResourceSurrogateId
-          FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+          FROM (SELECT TOP (@DummyTop) * FROM @ResourcesWithIds) A
                JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
           WHERE B.IsHistory = 0
             AND B.ResourceId = A.ResourceId
             AND B.Version = A.Version
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
-      IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
+      IF @@rowcount = (SELECT count(*) FROM @ResourcesWithIds) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
     END
@@ -1339,7 +1350,7 @@ BEGIN TRY
   END
 
   IF @IsResourceChangeCaptureEnabled = 1 --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
-    EXECUTE dbo.CaptureResourceIdsForChanges @Resources
+    EXECUTE dbo.CaptureResourceIdsForChanges @Resources, @ResourcesLake
 
   IF @TransactionId IS NOT NULL
     EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
