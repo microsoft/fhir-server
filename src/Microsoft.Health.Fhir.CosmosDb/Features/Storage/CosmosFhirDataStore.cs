@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     var exceptionWithNoTechnicalDetails = new PreconditionFailedException("Partition reached maximum size.");
                     var exceptionForLogging = new PreconditionFailedException(exceptionWithNoTechnicalDetails.Message, cme);
 
-                    _logger.LogWarning(exceptionForLogging, "Cosmos DB partition reached max size of 20GB");
+                    _logger.LogWarning(exceptionForLogging, "PreconditionFailed: Cosmos DB partition reached max size of 20GB.");
 
                     results.TryAdd(identifier, new DataStoreOperationOutcome(exceptionWithNoTechnicalDetails));
                 }
