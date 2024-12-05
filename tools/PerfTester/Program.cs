@@ -13,6 +13,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly string _storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
+        private static readonly string _storageUri = ConfigurationManager.AppSettings["StorageUri"];
+        private static readonly string _storageUAMI = ConfigurationManager.AppSettings["StorageUAMI"];
         private static readonly string _storageContainerName = ConfigurationManager.AppSettings["StorageContainerName"];
         private static readonly string _storageBlobName = ConfigurationManager.AppSettings["StorageBlobName"];
         private static readonly int _reportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
@@ -40,6 +43,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly string _endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
         private static readonly HttpClient _httpClient = new HttpClient();
         private static readonly string _ndjsonStorageConnectionString = ConfigurationManager.AppSettings["NDJsonStorageConnectionString"];
+        private static readonly string _ndjsonStorageUri = ConfigurationManager.AppSettings["NDJsonStorageUri"];
+        private static readonly string _ndjsonStorageUAMI = ConfigurationManager.AppSettings["NDJsonStorageUAMI"];
         private static readonly string _ndjsonStorageContainerName = ConfigurationManager.AppSettings["NDJsonStorageContainerName"];
         private static readonly int _takeBlobs = int.Parse(ConfigurationManager.AppSettings["TakeBlobs"]);
         private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
@@ -181,56 +186,64 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static void ExecuteParallelHttpPuts()
         {
             var resourceIds = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
-            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageContainerName);
+            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
-            var sw = Stopwatch.StartNew();
-            var swReport = Stopwatch.StartNew();
-            var calls = 0L;
-            var resources = 0;
-            long sumLatency = 0;
-            var singleId = Guid.NewGuid().ToString();
-            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
+            for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                if (Interlocked.Read(ref calls) >= _calls)
+                var sw = Stopwatch.StartNew();
+                var swReport = Stopwatch.StartNew();
+                var calls = 0L;
+                var errors = 0L;
+                var resources = 0;
+                long sumLatency = 0;
+                var singleId = Guid.NewGuid().ToString();
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
                 {
-                    return;
-                }
-
-                var callId = (int)Interlocked.Increment(ref calls) - 1;
-                if ((_callType == "HttpUpdate" || _callType == "BundleUpdate") && callId >= resourceIds.Count)
-                {
-                    return;
-                }
-
-                var resourceIdInput = _callType == "SingleId"
-                                    ? singleId
-                                    : _callType == "HttpUpdate" || _callType == "BundleUpdate"
-                                          ? resourceIds[callId].ResourceId
-                                          : Guid.NewGuid().ToString();
-
-                var swLatency = Stopwatch.StartNew();
-                var json = lineItem.Item2.First();
-                var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
-                var status = _callType == "BundleUpdate" ? PostBundle(json, resourceType, resourceId) : PutResource(json, resourceType, resourceId);
-                Interlocked.Increment(ref resources);
-                var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
-                Interlocked.Add(ref sumLatency, mcsec);
-                _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
-
-                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
-                {
-                    lock (swReport)
+                    if (Interlocked.Read(ref calls) >= _calls)
                     {
-                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        return;
+                    }
+
+                    var callId = (int)Interlocked.Increment(ref calls) - 1;
+                    if ((_callType == "HttpUpdate" || _callType == "BundleUpdate") && callId >= resourceIds.Count)
+                    {
+                        return;
+                    }
+
+                    var resourceIdInput = _callType == "SingleId"
+                                        ? singleId
+                                        : _callType == "HttpUpdate" || _callType == "BundleUpdate"
+                                              ? resourceIds[callId].ResourceId
+                                              : Guid.NewGuid().ToString();
+
+                    var swLatency = Stopwatch.StartNew();
+                    var json = lineItem.Item2.First();
+                    var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
+                    var status = _callType == "BundleUpdate" ? PostBundle(json, resourceType, resourceId) : PutResource(json, resourceType, resourceId);
+                    Interlocked.Increment(ref resources);
+                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                    Interlocked.Add(ref sumLatency, mcsec);
+                    _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                    if (_callType != "BundleUpdate" && status != "OK" && status != "Created")
+                    {
+                        Interlocked.Increment(ref errors);
+                    }
+
+                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                    {
+                        lock (swReport)
                         {
-                            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
-                            swReport.Restart();
+                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                                swReport.Restart();
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+            }
         }
 
         private static void ExecuteParallelCalls(ReadOnlyList<long> tranIds)
@@ -309,7 +322,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                     else if (_callType.StartsWith("SearchByIds"))
                     {
-                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId)?.ToList());
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId));
                         if (status != "OK")
                         {
                             Interlocked.Increment(ref errors);
@@ -341,7 +354,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                         throw new NotImplementedException();
                     }
 
-                    Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
+                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                    Interlocked.Add(ref sumLatency, mcsec);
+                    _store.TryLogEvent($"Threads={_threads}.{_callType}.{_nameFilter}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
 
                     if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                     {
@@ -566,14 +581,14 @@ END
 
         private static BlobContainerClient GetContainer()
         {
-            return GetContainer(_storageConnectionString, _storageContainerName);
+            return GetContainer(_storageConnectionString, _storageUri, _storageUAMI, _storageContainerName);
         }
 
-        private static BlobContainerClient GetContainer(string storageConnectionString, string storageContainerName)
+        private static BlobContainerClient GetContainer(string storageConnectionString, string storageUri, string storageUAMI, string storageContainerName)
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(storageConnectionString);
+                var blobServiceClient = string.IsNullOrEmpty(storageUri) ? new BlobServiceClient(storageConnectionString) : new BlobServiceClient(new Uri(storageUri), string.IsNullOrEmpty(storageUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(storageUAMI));
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(storageContainerName);
 
                 if (!blobContainerClient.Exists())
@@ -793,7 +808,7 @@ END
             return status;
         }
 
-        private static string GetResources(string resourceType, System.Collections.Generic.IReadOnlyCollection<string> resourceIds)
+        private static string GetResources(string resourceType, IEnumerable<string> resourceIds)
         {
             var maxRetries = 3;
             var retries = 0;

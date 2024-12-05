@@ -1,6 +1,7 @@
 ﻿CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
-   ,@Resources dbo.ResourceList READONLY
+   ,@Resources dbo.ResourceList READONLY -- TODO: Remove after deployment
+   ,@ResourcesLake dbo.ResourceListLake READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
@@ -20,7 +21,7 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources) A),'Input=Empty')
        ,@Rows int
 
 BEGIN TRY
@@ -29,16 +30,26 @@ BEGIN TRY
   BEGIN TRANSACTION
 
   -- Update the search parameter hash value in the main resource table
-  UPDATE B
-    SET SearchParamHash = A.SearchParamHash
-    OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
-    FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    WHERE B.IsHistory = 0
+  IF EXISTS (SELECT * FROM @ResourcesLake)
+    UPDATE B
+      SET SearchParamHash = (SELECT SearchParamHash FROM @ResourcesLake A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+      OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
+      FROM dbo.Resource B 
+      WHERE EXISTS (SELECT * FROM @ResourcesLake A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+        AND B.IsHistory = 0
+  ELSE
+    UPDATE B
+      SET SearchParamHash = (SELECT SearchParamHash FROM @Resources A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+      OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
+      FROM dbo.Resource B 
+      WHERE EXISTS (SELECT * FROM @Resources A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+        AND B.IsHistory = 0
   SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
   DELETE FROM B FROM @Ids A JOIN dbo.ResourceWriteClaim B ON B.ResourceSurrogateId = A.ResourceSurrogateId
-  DELETE FROM B FROM @Ids A JOIN dbo.ReferenceSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+  DELETE FROM B FROM dbo.ResourceReferenceSearchParams B WHERE EXISTS (SELECT * FROM @Ids A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+  DELETE FROM B FROM dbo.StringReferenceSearchParams B WHERE EXISTS (SELECT * FROM @Ids A WHERE A.ResourceTypeId = B.ResourceTypeId AND A.ResourceSurrogateId = B.ResourceSurrogateId)
   DELETE FROM B FROM @Ids A JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.TokenText B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.StringSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -59,10 +70,19 @@ BEGIN TRY
     SELECT ResourceSurrogateId, ClaimTypeId, ClaimValue
       FROM @ResourceWriteClaims
 
-  INSERT INTO dbo.ReferenceSearchParam 
-         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion )
-    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
+  -- TODO: Add insert into ResourceIdIntMap
+
+  INSERT INTO dbo.ResourceReferenceSearchParams 
+         (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt )
+    SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,        B.ResourceIdInt
+      FROM @ReferenceSearchParams A
+           JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
+
+  INSERT INTO dbo.StringReferenceSearchParams 
+         (  ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId )
+    SELECT  ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceId
       FROM @ReferenceSearchParams
+      WHERE ReferenceResourceTypeId IS NULL
 
   INSERT INTO dbo.TokenSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
@@ -131,7 +151,7 @@ BEGIN TRY
 
   COMMIT TRANSACTION
 
-  SET @FailedResources = (SELECT count(*) FROM @Resources) - @Rows
+  SET @FailedResources = (SELECT count(*) FROM @Resources) + (SELECT count(*) FROM @ResourcesLake) - @Rows
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
