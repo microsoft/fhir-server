@@ -204,12 +204,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-forbidden#partition-key-exceeding-storage
 
-                    var pkeseWithNoTechnicalDetails = new PartitionKeyExceededStorageException("Partition reached maximum size.");
-                    var pkeseForLogging = new PartitionKeyExceededStorageException(pkeseWithNoTechnicalDetails.Message, cme);
+                    var exceptionWithNoTechnicalDetails = new PreconditionFailedException("Partition reached maximum size.");
+                    var exceptionForLogging = new PreconditionFailedException(exceptionWithNoTechnicalDetails.Message, cme);
 
-                    _logger.LogWarning(pkeseForLogging, "Cosmos DB partition reached max size of 20GB");
+                    _logger.LogWarning(exceptionForLogging, "Cosmos DB partition reached max size of 20GB");
 
-                    results.TryAdd(identifier, new DataStoreOperationOutcome(pkeseWithNoTechnicalDetails));
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(exceptionWithNoTechnicalDetails));
                 }
                 catch (RequestRateExceededException rateExceededException)
                 {
