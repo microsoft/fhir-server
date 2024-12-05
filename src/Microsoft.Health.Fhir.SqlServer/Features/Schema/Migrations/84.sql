@@ -5410,28 +5410,51 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
-@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListLake READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
-                                                                                                                       FROM   @Resources), 'Input=Empty'), @Rows AS INT;
+                                                                                                                       FROM   (SELECT ResourceTypeId,
+                                                                                                                                      ResourceSurrogateId,
+                                                                                                                                      Version
+                                                                                                                               FROM   @ResourcesLake
+                                                                                                                               UNION ALL
+                                                                                                                               SELECT ResourceTypeId,
+                                                                                                                                      ResourceSurrogateId,
+                                                                                                                                      Version
+                                                                                                                               FROM   @Resources) AS A), 'Input=Empty'), @Rows AS INT;
 BEGIN TRY
     DECLARE @Ids TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
         ResourceSurrogateId BIGINT   NOT NULL);
     BEGIN TRANSACTION;
-    UPDATE B
-    SET    SearchParamHash = (SELECT SearchParamHash
-                              FROM   @Resources AS A
-                              WHERE  A.ResourceTypeId = B.ResourceTypeId
-                                     AND A.ResourceSurrogateId = B.ResourceSurrogateId)
-    OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
-    FROM   dbo.Resource AS B
-    WHERE  EXISTS (SELECT *
-                   FROM   @Resources AS A
-                   WHERE  A.ResourceTypeId = B.ResourceTypeId
-                          AND A.ResourceSurrogateId = B.ResourceSurrogateId)
-           AND B.IsHistory = 0;
+    IF EXISTS (SELECT *
+               FROM   @ResourcesLake)
+        UPDATE B
+        SET    SearchParamHash = (SELECT SearchParamHash
+                                  FROM   @ResourcesLake AS A
+                                  WHERE  A.ResourceTypeId = B.ResourceTypeId
+                                         AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+        OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
+        FROM   dbo.Resource AS B
+        WHERE  EXISTS (SELECT *
+                       FROM   @ResourcesLake AS A
+                       WHERE  A.ResourceTypeId = B.ResourceTypeId
+                              AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+               AND B.IsHistory = 0;
+    ELSE
+        UPDATE B
+        SET    SearchParamHash = (SELECT SearchParamHash
+                                  FROM   @Resources AS A
+                                  WHERE  A.ResourceTypeId = B.ResourceTypeId
+                                         AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+        OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
+        FROM   dbo.Resource AS B
+        WHERE  EXISTS (SELECT *
+                       FROM   @Resources AS A
+                       WHERE  A.ResourceTypeId = B.ResourceTypeId
+                              AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+               AND B.IsHistory = 0;
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
@@ -5684,7 +5707,8 @@ BEGIN TRY
     FROM   @TokenNumberNumberCompositeSearchParams;
     COMMIT TRANSACTION;
     SET @FailedResources = (SELECT count(*)
-                            FROM   @Resources) - @Rows;
+                            FROM   @Resources) + (SELECT count(*)
+                                                  FROM   @ResourcesLake) - @Rows;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
