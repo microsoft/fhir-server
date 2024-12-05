@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, CancellationToken cancellationToken)
+        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken)
         {
             try
             {
@@ -69,12 +69,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, cancellationToken);
+                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
                 }
 
-                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, cancellationToken);
+                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
 
@@ -86,12 +86,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, CancellationToken cancellationToken)
+        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
+            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, cancellationToken);
             errors.AddRange(newErrors);
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();

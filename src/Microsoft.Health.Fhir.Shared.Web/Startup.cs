@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
@@ -26,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
@@ -340,7 +342,8 @@ namespace Microsoft.Health.Fhir.Web
                         options.AddProcessor(sp =>
                         {
                             var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
-                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor);
+                            var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
+                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
                         });
                     });
             }
@@ -353,6 +356,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             var configuration = new TelemetryConfiguration();
             Configuration.GetSection("Telemetry").Bind(configuration);
+            services.AddTransient<IMeterFactory, DummyMeterFactory>();
 
             switch (configuration.Provider)
             {

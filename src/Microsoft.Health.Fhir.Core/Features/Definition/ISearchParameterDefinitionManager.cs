@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -50,6 +51,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
         /// <param name="code">The code of the search parameter.</param>
+        /// <param name="excludePendingDelete">The flag indicating whether the search parameter in PendingDelete status should be included.</param>
+        /// <param name="searchParameter">When this method returns, the search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/> if it exists; otherwise, the default value.</param>
+        /// <returns><c>true</c> if the search parameter exists; otherwise, <c>false</c>.</returns>
+        bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter);
+
+        /// <summary>
+        /// Retrieves the search parameter with <paramref name="code"/> associated with <paramref name="resourceType"/>.
+        /// </summary>
+        /// <param name="resourceType">The resource type.</param>
+        /// <param name="code">The code of the search parameter.</param>
         /// <returns>The search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/>.</returns>
         SearchParameterInfo GetSearchParameter(string resourceType, string code);
 
@@ -60,6 +71,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="value">The SearchParameterInfo pertaining to the specified <paramref name="definitionUri"/></param>
         /// <returns>True if the search parameter is found <paramref name="definitionUri"/>.</returns>
         public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value);
+
+        /// <summary>
+        /// Retrieves the search parameter with <paramref name="definitionUri"/>.
+        /// </summary>
+        /// <param name="definitionUri">The search parameter definition URL.</param>
+        /// <param name="excludePendingDelete">The flag indicating whether the search parameter in PendingDelete status should be included.</param>
+        /// <param name="value">The SearchParameterInfo pertaining to the specified <paramref name="definitionUri"/></param>
+        /// <returns>True if the search parameter is found <paramref name="definitionUri"/>.</returns>
+        public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value);
 
         /// <summary>
         /// Retrieves the search parameter with <paramref name="definitionUri"/>.
@@ -100,5 +120,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to remove.</param>
         /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
         void DeleteSearchParameter(string url, bool calculateHash = true);
+
+        /// <summary>
+        /// Allows update of a custom search parameter status.
+        /// </summary>
+        /// <param name="url">The url identifying the custom search parameter to update.</param>
+        /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
+        void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
     }
 }

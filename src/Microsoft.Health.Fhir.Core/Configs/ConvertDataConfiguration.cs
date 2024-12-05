@@ -22,10 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ICollection<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
-        /// ArmResourceManagerId to aquire AAD token for ACR access token since ACR is not an AAD resource.
+        /// AcrTargetResourceUri to acquire AAD token for ACR access token since ACR is not an AAD resource.
+        /// The value is "https://management.azure.com/" for AzureCloud and DogFood. Could be changed to "https://management.usgovcloudapi.net/" for Azure Government and "https://management.chinacloudapi.cn/ " for Azure China.
+        /// To enable Trusted Services scenarios, we must use the ACR-specific URI rather than the more generic ARM URI. https://dev.azure.com/msazure/AzureContainerRegistry/_wiki/wikis/ACR%20Specs/480000/TrustedServicesPatterns
+        /// The value is "https://containerregistry.azure.net/" for all cloud environments.
+        /// </summary>
+        public Uri AcrTargetResourceUri { get; set; } = new Uri("https://management.azure.com/");
+
+        /// <summary>
+        /// ArmResourceManagerId to acquire AAD token for ACR access token since ACR is not an AAD resource.
         /// The value is "https://management.azure.com/" for AzureCloud and DogFood.
         /// Could be changed to "https://management.usgovcloudapi.net/" for Azure Government and "https://management.chinacloudapi.cn/ " for Azure China.
         /// </summary>
+        [Obsolete("Use AcrTargetResourceUri instead.")]
         public string ArmResourceManagerId { get; set; } = "https://management.azure.com/";
 
         /// <summary>

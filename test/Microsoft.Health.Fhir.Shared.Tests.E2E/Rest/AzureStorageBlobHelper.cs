@@ -4,10 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
+using IdentityServer4.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
 {
@@ -15,77 +20,81 @@ namespace Microsoft.Health.Fhir.Tests.E2E
     {
         // Well-know storage emulator account info, not to be used in production (see https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&bc=%2Fazure%2Fstorage%2Fblobs%2Fbreadcrumb%2Ftoc.json#configure-a-connection-string-for-azurite)
         public const string StorageEmulatorConnectionString = "UseDevelopmentStorage=true";
-        private const string StorageEmulatorConnectionStringPrefix = "UseDevelopmentStorage";
-        private const string StorageEmulatorAccountName = "devstoreaccount1";
-        private const string StorageEmulatorAccountKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 
-        public static BlobServiceClient CreateBlobServiceClient(string storageUriEnvironmentName, string storageKeyEnvironmentName)
+        public static BlobClient GetBlobClient(Uri storageServiceUri, string blobContainerName, string blobName)
         {
-            (Uri storageUri, StorageSharedKeyCredential credential, string connectionString) = AzureStorageBlobHelper.GetStorageCredentialsFromEnvironmentVariables(
-                storageUriEnvironmentName,
-                storageKeyEnvironmentName);
-            return CreateBlobServiceClient(storageUri, credential, connectionString);
+            // Create the BlobServiceClient from the connection string
+            BlobServiceClient blobServiceClient = GetBlobServiceClient(storageServiceUri);
+
+            // Get a reference to the container
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+
+            // Get a reference to the blob
+            BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+            return blobClient;
         }
 
-        public static BlobServiceClient CreateBlobServiceClient(Uri storageServiceUri, StorageSharedKeyCredential credential, string connectionString)
+        public static BlobClient GetBlobClient(Uri blobUri)
         {
-            if (storageServiceUri != null && !IsLocalRun(storageServiceUri))
+            // Parse the blobUri to extract storage account name, container name, and blob name
+            string storageAccountName = blobUri.Host.Split('.')[0];
+            string[] segments = blobUri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            if (segments.Length < 2)
             {
-                return new BlobServiceClient(storageServiceUri, credential);
+                throw new Exception("Invalid blob URI");
             }
 
-            return new BlobServiceClient(connectionString);
-        }
-
-        public static BlobClient CreateBlobClient(Uri blobUri, StorageSharedKeyCredential credential, string connectionString)
-        {
-            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-
+            string storageServiceUri = string.Empty;
+            string blobContainerName = string.Empty;
+            string blobName = string.Empty;
             if (!IsLocalRun(blobUri))
             {
-                return new BlobClient(blobUri, credential);
+                storageServiceUri = $"https://{storageAccountName}.blob.core.windows.net";
+                blobContainerName = segments[0];
+                blobName = string.Join("/", segments.Skip(1));
+            }
+            else
+            {
+                if (segments.Length < 3)
+                {
+                    throw new Exception("Invalid blob URI for a local run.");
+                }
+
+                storageServiceUri = EnvironmentVariables.StorageEmulatorUri;
+                blobContainerName = segments[1];
+                blobName = string.Join("/", segments.Skip(2));
             }
 
-            return new BlobClient(blobUri, GetSharedKeyCredential(StorageEmulatorConnectionString));
+            // Use the other GetBlobClient method
+            return GetBlobClient(new Uri(storageServiceUri), blobContainerName, blobName);
         }
 
-        public static BlockBlobClient CreateBlockBlobClient(Uri blobUri, StorageSharedKeyCredential credential, string connectionString)
+        public static BlobServiceClient GetBlobServiceClient(Uri storageServiceUri)
         {
-            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-
-            if (!IsLocalRun(blobUri))
+            if (IsLocalRun(storageServiceUri))
             {
-                return new BlockBlobClient(blobUri, credential);
+                return new BlobServiceClient(StorageEmulatorConnectionString);
             }
 
-            return new BlockBlobClient(blobUri, GetSharedKeyCredential(StorageEmulatorConnectionString));
+            TokenCredential credential = IsAzurePipelinesRun()
+                ? new AzurePipelinesCredential(
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId),
+                    EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken))
+                : new DefaultAzureCredential();
+
+            var blobServiceClient = new BlobServiceClient(storageServiceUri, credential);
+            return blobServiceClient;
         }
 
-        public static (Uri storageServiceUri, StorageSharedKeyCredential credential, string connectionString) GetStorageCredentialsFromEnvironmentVariables(
-            string storageUriEnvironmentName,
-            string storageKeyEnvironmentName)
+        public static BlobContainerClient GetBlobContainerClient(Uri storageServiceUri, string blobContainerName)
         {
-            Uri serviceUri = null;
-            StorageSharedKeyCredential storageSharedKeyCredential = null;
-
-            string storageUriFromEnvironmentVariable = Environment.GetEnvironmentVariable(storageUriEnvironmentName);
-            string storageKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable(storageKeyEnvironmentName);
-            if (!string.IsNullOrEmpty(storageUriFromEnvironmentVariable) && !string.IsNullOrEmpty(storageKeyFromEnvironmentVariable))
-            {
-                try
-                {
-                    serviceUri = new Uri(storageUriFromEnvironmentVariable);
-                    storageSharedKeyCredential = new StorageSharedKeyCredential(serviceUri.Host.Split('.')[0], storageKeyFromEnvironmentVariable);
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(
-                        $"Unable to create a storage shared key credential. {storageUriFromEnvironmentVariable}",
-                        ex);
-                }
-            }
-
-            return (serviceUri, storageSharedKeyCredential, StorageEmulatorConnectionString);
+            BlobServiceClient blobServiceClient = GetBlobServiceClient(storageServiceUri);
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(blobContainerName);
+            return containerClient;
         }
 
         private static bool IsLocalRun(Uri uri)
@@ -95,40 +104,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return uri.Host.Split('.')[0].Equals("127", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static StorageSharedKeyCredential GetSharedKeyCredential(string connectionString)
+        private static bool IsAzurePipelinesRun()
         {
-            EnsureArg.IsNotEmptyOrWhiteSpace(connectionString, nameof(connectionString));
-            if (connectionString.StartsWith(StorageEmulatorConnectionStringPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return new StorageSharedKeyCredential(StorageEmulatorAccountName, StorageEmulatorAccountKey);
-            }
+            string[] variableNames = [
+                KnownEnvironmentVariableNames.AzureSubscriptionClientId,
+                KnownEnvironmentVariableNames.AzureSubscriptionTenantId,
+                KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId,
+                KnownEnvironmentVariableNames.SystemAccessToken,
+            ];
 
-            string[] segments = connectionString.Split(";");
-            string accountName = null;
-            string accountKey = null;
-            foreach (var segment in segments)
+            foreach (var variableName in variableNames)
             {
-                int index = segment.IndexOf('=', StringComparison.Ordinal);
-                if (index >= 0)
+                string variableValue = EnvironmentVariables.GetEnvironmentVariable(variableName);
+                if (string.IsNullOrEmpty(variableValue))
                 {
-                    string key = segment.Substring(0, index);
-                    if (key.Equals("AccountName", StringComparison.OrdinalIgnoreCase))
-                    {
-                        accountName = segment.Substring(index + 1);
-                    }
-                    else if (key.Equals("AccountKey", StringComparison.OrdinalIgnoreCase))
-                    {
-                        accountKey = segment.Substring(index + 1);
-                    }
+                    return false;
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(accountKey))
-            {
-                throw new ArgumentException("Invalid connection string.", nameof(connectionString));
-            }
-
-            return new StorageSharedKeyCredential(accountName, accountKey);
+            return true;
         }
     }
 }

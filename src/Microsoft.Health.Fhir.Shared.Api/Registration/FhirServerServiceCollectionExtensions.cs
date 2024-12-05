@@ -164,6 +164,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
             services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
             services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
+            services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

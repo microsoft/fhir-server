@@ -13,6 +13,8 @@ steps:
     ScriptType: inlineScript
     Inline: |
       Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
+      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Verbose -Scope CurrentUser
+
       $module = Get-Module -Name AzureAD
       Write-Host $module.version
 
@@ -36,25 +38,33 @@ steps:
           resource   = $resource
       }
 
-      # If a deleted keyvault exists, remove it first
+      # If a deleted keyvault with purge protection exists, try to restore it.
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
-      if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
-      {
-          Remove-AzKeyVault -VaultName "${environmentName}-ts" -InRemovedState -Location "westus" -Force
-      }
 
-      Write-Host "Cleaned up keyvaults"
+      $vaultName = "${environmentName}-ts"
+      $vaultLocation = "westus"
+      $vaultResourceGroupName = "$(ResourceGroupName)"
+      if (Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState)
+      {
+          Write-Host "Attempting to restore vault ${vaultName}"
+
+          Undo-AzKeyVaultRemoval -VaultName $vaultName -ResourceGroupName $vaultResourceGroupName -Location $vaultLocation
+          Write-Host "KeyVault $vaultName is restored"
+      }
+      Write-Host "Restored keyvaults"
+
       try 
       {
+          Write-Host "Getting access token"
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
       }
       catch 
       {
           Write-Error $_.ErrorDetails
       }
-
       Write-Host "Got access token"
+
       Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
 
       Write-Host "Connected to Azure AD"

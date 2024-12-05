@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
-                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
+                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, definition.AllowNegativeVersions, cancellationToken);
 
                 result.SucceededResources = importProgress.SucceededResources;
                 result.FailedResources = importProgress.FailedResources;
@@ -159,6 +159,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex);
+            }
+            catch (OverflowException ex)
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
             catch (Exception ex)

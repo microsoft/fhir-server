@@ -81,12 +81,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (p.IsSearchable != tempStatus.IsSearchable ||
                         p.IsSupported != tempStatus.IsSupported ||
                         p.IsPartiallySupported != tempStatus.IsPartiallySupported ||
-                        p.SortStatus != result.SortStatus)
+                        p.SortStatus != result.SortStatus ||
+                        p.SearchParameterStatus != result.Status)
                     {
                         p.IsSearchable = tempStatus.IsSearchable;
                         p.IsSupported = tempStatus.IsSupported;
                         p.IsPartiallySupported = tempStatus.IsPartiallySupported;
                         p.SortStatus = result.SortStatus;
+                        p.SearchParameterStatus = result.Status;
 
                         updated.Add(p);
                     }

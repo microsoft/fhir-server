@@ -352,7 +352,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR! {ex.Message}");
+                Console.WriteLine($"ERROR! {ex}");
 
                 // Console.WriteLine("Press enter to close application.");
                 // Console.ReadLine();

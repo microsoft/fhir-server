@@ -82,6 +82,18 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: 'net6.0'
+
+- stage: BuildArtifacts
+  displayName: 'Build artifacts'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
@@ -99,6 +111,7 @@ stages:
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
   - BuildUnitTests
+  - BuildArtifacts
   jobs:
   - job: Guardian
     pool:
@@ -147,7 +160,7 @@ stages:
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - redeployStu3
   - redeployStu3Sql
   jobs:
@@ -156,6 +169,7 @@ stages:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
       appServiceName: $(DeploymentEnvironmentName)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -185,7 +199,7 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - redeployR4
   - redeployR4Sql
   jobs:
@@ -194,6 +208,7 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4B ***********************
 - stage: redeployR4B
@@ -223,7 +238,7 @@ stages:
 - stage: testR4B
   displayName: 'Run R4B Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - redeployR4B
   - redeployR4BSql
   jobs:
@@ -232,6 +247,7 @@ stages:
       version: R4B
       keyVaultName: $(DeploymentEnvironmentNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R5 ***********************
 - stage: redeployR5
@@ -261,7 +277,7 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - redeployR5
   - redeployR5Sql
   jobs:
@@ -270,6 +286,7 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** Finalize ***********************
 - stage: DockerAddTag

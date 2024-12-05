@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             if (searchParametersToUpdate.Any())
             {
-                Parameters succeededResults = new Parameters();
+                Hl7.Fhir.Model.Parameters succeededResults = new Hl7.Fhir.Model.Parameters();
 
                 foreach (var searchParameterGroup in searchParametersToUpdate)
                 {
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                                 Value = new FhirString(searchParameterGroup.Key.ToString()),
                             },
                         };
-                        succeededResults.Parameter.Add(new Parameters.ParameterComponent()
+                        succeededResults.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent()
                         {
                             Name = SearchParameterStateProperties.Name,
                             Part = parts,

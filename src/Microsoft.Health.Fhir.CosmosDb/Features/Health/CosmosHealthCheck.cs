@@ -16,7 +16,8 @@ using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
@@ -70,12 +71,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    using (CancellationTokenSource timeBasedTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(maxExecutionTimeInSeconds)))
-                    using (CancellationTokenSource operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token))
-                    {
-                        await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, operationTokenSource.Token);
-                        return HealthCheckResult.Healthy("Successfully connected.");
-                    }
+                    using var timeBasedTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(maxExecutionTimeInSeconds));
+                    using var operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token);
+                    await _testProvider.PerformTestAsync(_container.Value, operationTokenSource.Token);
+                    return HealthCheckResult.Healthy("Successfully connected.");
                 }
                 catch (CosmosOperationCanceledException coce)
                 {

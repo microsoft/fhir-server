@@ -411,7 +411,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
             var searchSortErrors = new List<string>();
-            if (searchParams.Sort?.Count > 0)
+
+            // Sort is unneded for summary count
+            if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;
@@ -523,10 +525,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     includeResourceTypeList = new[] { includeResourceType };
                 }
 
-                IEnumerable<string> allowedResourceTypesByScope = null;
+                IReadOnlyCollection<string> allowedResourceTypesByScope = null;
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                 {
-                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource).ToList();
                 }
 
                 var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);

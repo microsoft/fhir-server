@@ -20,7 +20,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.JobManagement;
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, id));
                 }
 
                 _logger.LogError(dce, "Failed to get an export job by id.");
@@ -266,7 +267,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
                 else if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, jobRecord.Id));
                 }
 
                 _logger.LogError(dce, "Failed to update an export job.");

@@ -11,6 +11,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -36,10 +37,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchParameterValidatorTests()
         {
+            SearchParameterInfo searchParameterInfo = new SearchParameterInfo("USCoreRace", "race")
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
+
             _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Is<string>(uri => uri != "http://duplicate"), out _).Returns(false);
-            _searchParameterDefinitionManager.TryGetSearchParameter("http://duplicate", out _).Returns(true);
+            _searchParameterDefinitionManager.TryGetSearchParameter("http://duplicate", out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = searchParameterInfo;
+                    return true;
+                });
+
             _searchParameterDefinitionManager.TryGetSearchParameter("Patient", Arg.Is<string>(code => code != "duplicate"), out _).Returns(false);
-            _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "duplicate", out _).Returns(true);
+            _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "duplicate", out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = searchParameterInfo;
+                    return true;
+                });
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Is<string>(uri => uri != "http://duplicate"), Arg.Any<bool>(), out _).Returns(false);
+            _searchParameterDefinitionManager.TryGetSearchParameter("http://duplicate", Arg.Any<bool>(), out _).Returns(true);
+            _searchParameterDefinitionManager.TryGetSearchParameter("Patient", Arg.Is<string>(code => code != "duplicate"), Arg.Any<bool>(), out _).Returns(false);
+            _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "duplicate", Arg.Any<bool>(), out _).Returns(true);
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
         }
 
@@ -88,6 +110,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
+        [Theory]
+        [MemberData(nameof(DuplicateUrlData))]
+        public async Task GivenValidSearchParamWithDuplicateUrl_WhenValidatingSearchParamByStatus_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method, SearchParameterStatus searchParameterStatus)
+        {
+            _searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = new SearchParameterInfo("USCoreRace", "race")
+                    {
+                        SearchParameterStatus = searchParameterStatus,
+                    };
+
+                    return true;
+                });
+
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, NullLogger<SearchParameterValidator>.Instance);
+            if (searchParameterStatus == SearchParameterStatus.PendingDelete)
+            {
+                // Expecting no exception being thrown.
+                await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
+            }
+        }
+
         public static IEnumerable<object[]> InvalidSearchParamData()
         {
             var missingUrl = new SearchParameter();
@@ -132,6 +181,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { duplicateUrl, "DELETE" });
             data.Add(new object[] { uniqueCode, "POST" });
 
+            return data;
+        }
+
+        public static IEnumerable<object[]> DuplicateUrlData()
+        {
+            var searchParam = new SearchParameter { Url = "http://unique3" };
+
+            var data = new List<object[]>();
+            data.Add(new object[] { searchParam, "POST", SearchParameterStatus.Supported });
+            data.Add(new object[] { searchParam, "POST", SearchParameterStatus.PendingDelete });
             return data;
         }
     }

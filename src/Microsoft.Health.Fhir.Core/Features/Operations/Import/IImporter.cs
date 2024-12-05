@@ -20,7 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <param name="inputChannel">Input channel for resource.</param>
         /// <param name="importErrorStore">Import error store.</param>
         /// <param name="importMode">Import mode.</param>
+        /// <param name="allowNegativeVersions">Flag indicating how late arivals are handled.</param>
         /// <param name="cancellationToken">Cancellation Token.</param>
-        public Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, CancellationToken cancellationToken);
+        public Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken);
     }
 }

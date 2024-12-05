@@ -20,7 +20,7 @@ steps:
       Inline: |
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
-        
+
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -35,25 +35,16 @@ steps:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
-        $allStorageAccounts = ""
-        foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
-
-            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
-            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
-            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
-        }
-        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
-
         $appServiceName = "${{ parameters.appServiceName }}"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
         $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
-        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
-        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
-        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+
+        ## This needs to be moved to MI, WI #125246  
+        # $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
         $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
         $exportStoreUri = $exportStoreSettings[0].Value
@@ -62,21 +53,16 @@ steps:
         $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
-        Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
 
         $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
         $integrationStoreUri = $integrationStoreSettings[0].Value
         Write-Host "$integrationStoreUri"
         $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
-        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
-        
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
-        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
- 
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -94,6 +80,10 @@ steps:
 
         dotnet dev-certs https
 
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
@@ -108,12 +98,8 @@ steps:
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
-      'TestContainerRegistryServer': $(TestContainerRegistryServer)
-      'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
       'TestExportStoreUri': $(TestExportStoreUri)
-      'TestExportStoreKey': $(TestExportStoreKey)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
-      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -137,3 +123,7 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
+      'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)

@@ -77,8 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var results = GetProcessingResultAsync(jobs);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
-                var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
-                var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed);
+                var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
+                var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed && !x.CancelRequested);
 
                 if (cancelledJobsExist && !failedJobsExist)
                 {
@@ -86,16 +86,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 else if (failedJobsExist)
                 {
-                    var failed = jobs.First(x => x.Status == JobStatus.Failed);
+                    var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
                     var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(failed.Definition);
                     if (errorResult.HttpStatusCode == 0)
                     {
                         errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
                     }
 
+                    var resourceLocation = new Uri(definition.ResourceLocation);
+
                     // hide error message for InternalServerError
                     var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
+
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString), errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Logging;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 

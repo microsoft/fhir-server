@@ -7,11 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
@@ -66,7 +68,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
                 .ExecuteNextAsync()
                 .Returns(Substitute.ForPartsOf<FeedResponse<dynamic>>());
 
+            var feedResponse = Substitute.For<FeedResponse<CollectionVersion>>();
+
+            var feedIterator = Substitute.For<FeedIterator<CollectionVersion>>();
+            feedIterator.ReadNextAsync(Arg.Any<CancellationToken>())
+                .Returns(feedResponse);
+
             Container container = Substitute.For<Container>();
+            container
+                .GetItemQueryIterator<CollectionVersion>(
+                    queryDefinition: Arg.Any<QueryDefinition>(),
+                    continuationToken: Arg.Any<string>(),
+                    requestOptions: Arg.Any<QueryRequestOptions>())
+                .Returns(feedIterator);
 
             await _initializer.ExecuteAsync(container, CancellationToken.None);
 
@@ -90,7 +104,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
                 .ExecuteNextAsync()
                 .Returns(info => response);
 
+            var feedResponse = Substitute.For<FeedResponse<CollectionVersion>>();
+
+            var feedIterator = Substitute.For<FeedIterator<CollectionVersion>>();
+            feedIterator.ReadNextAsync(Arg.Any<CancellationToken>())
+                .Returns(feedResponse);
+
             Container container = Substitute.For<Container>();
+            container
+                .GetItemQueryIterator<CollectionVersion>(
+                    queryDefinition: Arg.Any<QueryDefinition>(),
+                    continuationToken: Arg.Any<string>(),
+                    requestOptions: Arg.Any<QueryRequestOptions>())
+                .Returns(feedIterator);
 
             await _initializer.ExecuteAsync(container, CancellationToken.None);
 

@@ -17,7 +17,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 return Task.CompletedTask;
             };
 
-            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Healthy, result.Status);

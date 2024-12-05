@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -26,14 +27,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
     {
         private readonly ISearchService _searchService;
         private readonly IQueryStringParser _queryStringParser;
+        private readonly ILogger<ResourceReferenceResolver> _logger;
 
-        public ResourceReferenceResolver(ISearchService searchService, IQueryStringParser queryStringParser)
+        public ResourceReferenceResolver(
+            ISearchService searchService,
+            IQueryStringParser queryStringParser,
+            ILogger<ResourceReferenceResolver> logger)
         {
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(queryStringParser, nameof(queryStringParser));
-
-            _searchService = searchService;
-            _queryStringParser = queryStringParser;
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _queryStringParser = EnsureArg.IsNotNull(queryStringParser, nameof(queryStringParser));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task ResolveReferencesAsync(Resource resource, IDictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
@@ -93,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken)).Results;
+            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger)).Results;
         }
     }
 }

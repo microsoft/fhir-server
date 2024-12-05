@@ -17,6 +17,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;
@@ -52,7 +53,6 @@ public class CosmosQueueClient : IQueueClient
         string[] definitions,
         long? groupId,
         bool forceOneActiveJobGroup,
-        bool isCompleted,
         CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(definitions, nameof(definitions));
@@ -120,18 +120,18 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, bool isCompleted, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -150,7 +150,7 @@ public class CosmosQueueClient : IQueueClient
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = isCompleted ? (byte)JobStatus.Completed : (byte)JobStatus.Created,
+                Status = (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
@@ -594,7 +594,7 @@ public class CosmosQueueClient : IQueueClient
 
     private static long GetLongId()
     {
-        return Clock.UtcNow.DateTime.DateToId() + RandomNumberGenerator.GetInt32(100, 999);
+        return Clock.UtcNow.ToId() + RandomNumberGenerator.GetInt32(100, 999);
     }
 
     /// <summary>

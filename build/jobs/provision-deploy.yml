@@ -22,9 +22,6 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'tool'
-- name: sqlServerAdminPassword
-  type: string
-  default: ''
 - name: sqlServerName
   type: string
   default: ''
@@ -90,24 +87,23 @@ jobs:
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 
+        $deploymentName = $webAppName
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+
         Write-Host "Check for keyvaults in removed state..."
         if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
         {
-            Remove-AzKeyVault -VaultName $webAppName -InRemovedState -Location $(ResourceGroupRegion) -Force
-            Write-Host "Deleted KeyVault in RemovedState."
+            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion)
+            Write-Host "KeyVault $webAppName is restored"
         }
 
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
-
-        $deploymentName = $webAppName
-        $resourceGroupName = "${{ parameters.resourceGroup }}"
 
         # Check if a deployment with the specified name already exists
         $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
@@ -131,6 +127,20 @@ jobs:
               New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
             }
           }
+        }
+
+        if("${{ parameters.sql }}" -eq "false"){
+            Write-Host "Add DevOps MI permission to Cosmos database"
+
+            $account = Get-AzContext
+            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
+
+            New-AzCosmosDBSqlRoleAssignment `
+              -AccountName $webAppName `
+              -ResourceGroupName $resourceGroupName `
+              -Scope "/" `
+              -PrincipalId $principalId `
+              -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
         }
 
   - template: ./provision-healthcheck.yml

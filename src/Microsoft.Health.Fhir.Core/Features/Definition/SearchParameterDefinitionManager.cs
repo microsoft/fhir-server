@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -144,6 +145,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters.TryGetValue(code, out searchParameter);
         }
 
+        public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
+        {
+            EnsureInitialized();
+            searchParameter = null;
+
+            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
+                searchParameters.TryGetValue(code, out searchParameter))
+            {
+                if (excludePendingDelete && searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                {
+                    searchParameter = null;
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
             EnsureInitialized();
@@ -159,6 +180,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureInitialized();
             return UrlLookup.TryGetValue(definitionUri, out value);
+        }
+
+        public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
+        {
+            EnsureInitialized();
+            if (UrlLookup.TryGetValue(definitionUri, out value))
+            {
+                if (excludePendingDelete && value.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                {
+                    value = null;
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         public string GetSearchParameterHashForResourceType(string resourceType)
@@ -239,6 +277,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             if (calculateHash)
             {
                 CalculateSearchParameterHash();
+            }
+        }
+
+        public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
+        {
+            if (UrlLookup.TryGetValue(url, out var searchParameterInfo))
+            {
+                searchParameterInfo.SearchParameterStatus = desiredStatus;
             }
         }
 

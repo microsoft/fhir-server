@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return jobInfo;
         }
 
-        public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
@@ -145,7 +145,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
-            sqlCommand.Parameters.AddWithValue("@IsCompleted", isCompleted);
 
             try
             {
@@ -155,6 +154,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 throw new JobConflictException(sqlEx.Message);
             }
+        }
+
+        public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+            new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, [new StringListRow(definition)]);
+            sqlCommand.Parameters.AddWithValue("@GroupId", groupId);
+            sqlCommand.Parameters.AddWithValue("@Status", jobStatus);
+            if (startDate.HasValue)
+            {
+                sqlCommand.Parameters.AddWithValue("@StartDate", startDate.Value);
+            }
+
+            sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", false);
+            if (result != null)
+            {
+                sqlCommand.Parameters.AddWithValue("@Result", result);
+            }
+
+            return (await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken))[0];
         }
 
         public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)

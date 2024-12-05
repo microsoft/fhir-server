@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {

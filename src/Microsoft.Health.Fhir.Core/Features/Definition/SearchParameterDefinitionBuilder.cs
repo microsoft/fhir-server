@@ -156,7 +156,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         searchParameterInfo.Type = SearchParamType.Uri;
                     }
 
-                    uriDictionary.Add(searchParameter.Url, searchParameterInfo);
+                    // TODO: We need a way to update the uri dictionary with one from the store when the dictionary already have the uri.
+                    if (!uriDictionary.TryGetValue(searchParameter.Url, out _))
+                    {
+                        uriDictionary.Add(searchParameter.Url, searchParameterInfo);
+                    }
                 }
                 catch (FormatException)
                 {

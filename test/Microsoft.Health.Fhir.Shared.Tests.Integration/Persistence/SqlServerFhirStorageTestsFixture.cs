@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Threading;
+using Azure.Identity;
 using MediatR;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
@@ -36,6 +38,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
@@ -76,14 +79,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SqlQueueClient _sqlQueueClient;
 
         public SqlServerFhirStorageTestsFixture()
-            : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
+            : this(SchemaVersionConstants.Max, GetDatabaseName())
         {
         }
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
-            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
@@ -124,6 +126,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SchemaInformation SchemaInformation { get; private set; }
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
+
+        internal static string GetDatabaseName(string test = null)
+        {
+            return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
+        }
 
         public async Task InitializeAsync()
         {
@@ -175,6 +182,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
 
+            // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
+            string federatedClientID = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string federatedTenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
+
+            if (!string.IsNullOrEmpty(federatedClientID) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
+            {
+                AzurePipelinesCredential azurePipelinesCredential = new(federatedTenantId, federatedClientID, serviceConnectionId, systemAccessToken);
+                SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity, new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(azurePipelinesCredential));
+            }
+
             _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
 
@@ -208,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
@@ -224,7 +243,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
-                importErrorSerializer);
+                importErrorSerializer,
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -275,6 +295,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
+                new SqlServerParameterStore(SqlConnectionBuilder, NullLogger<SqlServerParameterStore>.Instance),
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

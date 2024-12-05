@@ -22,6 +22,7 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
+        docker pull mirror.gcr.io/moby/buildkit:buildx-stable-1
         TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap

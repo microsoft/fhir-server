@@ -520,6 +520,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to inputParams not found, request body must be a valid Parameters resource..
+        /// </summary>
+        public static string MissingInputParams {
+            get {
+                return ResourceManager.GetString("MissingInputParams", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
@@ -790,7 +799,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
+        ///   Looks up a localized string similar to Value supplied, {0},  for the &quot;{1}&quot; header is not supported..
         /// </summary>
         public static string UnsupportedHeaderValue {
             get {

@@ -19,8 +19,10 @@ jobs:
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName ${{ parameters.environmentName }}
         foreach ($storageAccount in $storageAccounts) {
-
-            $storageContainers = Get-AzStorageContainer -Name * -Context $storageAccount.Context
+            # Create a storage context using Azure AD authentication
+            $ctx = New-AzStorageContext -StorageAccountName $storageAccount.StorageAccountName -UseConnectedAccount
+            
+            $storageContainers = Get-AzStorageContainer -Name * -Context $ctx
             foreach ($container in $storageContainers) {
                 $ageDiff = $currentUtcTime - $container.CloudBlobContainer.Properties.LastModified.UtcDateTime
                 if($ageDiff.TotalDays -ge 3) {

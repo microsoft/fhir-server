@@ -15,11 +15,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations;
 
 public static class QueueClientExtensions
 {
-    public static Task<IReadOnlyList<JobInfo>> EnqueueAsync<T>(this IQueueClient queueClient, QueueType queueType, CancellationToken cancellationToken, long? groupId = null, bool forceOneActiveJobGroup = false, bool isCompleted = false, params T[] definitions)
+    public static Task<IReadOnlyList<JobInfo>> EnqueueAsync<T>(this IQueueClient queueClient, QueueType queueType, CancellationToken cancellationToken, long? groupId = null, bool forceOneActiveJobGroup = false, params T[] definitions)
      where T : IJobData
     {
         EnsureArg.HasItems(definitions, nameof(definitions));
-        return queueClient.EnqueueAsync((byte)queueType, definitions.Select(x => JsonConvert.SerializeObject(x)).ToArray(), groupId, forceOneActiveJobGroup, isCompleted, cancellationToken);
+        return queueClient.EnqueueAsync((byte)queueType, definitions.Select(x => JsonConvert.SerializeObject(x)).ToArray(), groupId, forceOneActiveJobGroup, cancellationToken);
     }
 
     public static Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(this IQueueClient queueClient, QueueType queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)

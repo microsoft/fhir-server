@@ -209,12 +209,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private static BlobServiceClient GetBlobServiceClient(ImportTestStorageAccount storageAccount)
         {
-            return AzureStorageBlobHelper.CreateBlobServiceClient(storageAccount.StorageUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+            return AzureStorageBlobHelper.GetBlobServiceClient(storageAccount.StorageUri);
         }
 
         private static BlobClient GetBlobClient(Uri blobUri, ImportTestStorageAccount storageAccount)
         {
-            return AzureStorageBlobHelper.CreateBlobClient(blobUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+            return AzureStorageBlobHelper.GetBlobClient(blobUri);
         }
     }
 }
