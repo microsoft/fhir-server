@@ -12,7 +12,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -190,12 +189,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                            resource.Wrapper,
-                            resource.WeakETag,
-                            resource.AllowCreate,
-                            resource.KeepHistory,
-                            innerCt,
-                            resource.RequireETagOnUpdate);
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        innerCt,
+                        resource.RequireETagOnUpdate);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
@@ -220,9 +219,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
+            bool isBundleParallelOperation =
+                _bundleOrchestrator.IsEnabled &&
+                resource.BundleResourceContext != null &&
+                resource.BundleResourceContext.IsParallelBundle;
 
-            if (isBundleOperation)
+            if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 

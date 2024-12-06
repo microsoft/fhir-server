@@ -688,19 +688,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (HttpContext?.Request?.Headers != null)
             {
-                // Step 1 - Retrieve Bundle Operation ID.
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, out StringValues responseOperationId))
+                // Step 1 - Retrieve Bundle Processing Logic.
+                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestProcessingLogic, out StringValues rawBundleProcessingLogic))
                 {
-                    string rawId = responseOperationId.FirstOrDefault();
-                    if (Guid.TryParse(rawId, out Guid bundleOperationId))
+                    if (Enum.TryParse<BundleProcessingLogic>(rawBundleProcessingLogic, out BundleProcessingLogic bundleProcessingLogic))
                     {
-                        // Step 2 - Retrieve resource HTTP verb.
-                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
+                        // Step 2 - Retrieve Bundle Operation ID.
+                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, out StringValues responseOperationId))
                         {
-                            string rawHttpVerb = responseHttpVerb.FirstOrDefault();
-                            if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
+                            string rawId = responseOperationId.FirstOrDefault();
+                            if (Guid.TryParse(rawId, out Guid bundleOperationId))
                             {
-                                return new BundleResourceContext(httpVerb, bundleOperationId);
+                                // Step 3 - Retrieve resource HTTP verb.
+                                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
+                                {
+                                    string rawHttpVerb = responseHttpVerb.FirstOrDefault();
+                                    if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
+                                    {
+                                        return new BundleResourceContext(bundleProcessingLogic, httpVerb, bundleOperationId);
+                                    }
+                                }
                             }
                         }
                     }

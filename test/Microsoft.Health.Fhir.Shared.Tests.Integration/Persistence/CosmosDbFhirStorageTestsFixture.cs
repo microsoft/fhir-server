@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using NSubstitute;
@@ -82,13 +83,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
-                Host = Environment.GetEnvironmentVariable("CosmosDb__Host") ?? CosmosDbLocalEmulator.Host,
-                Key = Environment.GetEnvironmentVariable("CosmosDb__Key") ?? CosmosDbLocalEmulator.Key,
-                DatabaseId = Environment.GetEnvironmentVariable("CosmosDb__DatabaseId") ?? "FhirTests",
-                UseManagedIdentity = bool.TryParse(Environment.GetEnvironmentVariable("CosmosDb__UseManagedIdentity"), out bool useManagedIdentity) && useManagedIdentity,
+                Host = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbHost),
+                Key = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbKey),
+                DatabaseId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbDatabaseId),
+                UseManagedIdentity = bool.TryParse(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbUseManagedIdentity), out bool useManagedIdentity) && useManagedIdentity,
                 AllowDatabaseCreation = true,
                 AllowCollectionSetup = true,
-                PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb__PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+                PreferredLocations = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbPreferredLocations)?.Split(';', StringSplitOptions.RemoveEmptyEntries),
                 UseQueueClientJobs = true,
             };
 
@@ -141,6 +142,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
+            var cosmosAccessor = Substitute.For<IAccessTokenProvider>();
+            cosmosAccessor.TokenCredential.Returns(GetTokenCredential());
+
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
@@ -148,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 testProvider,
                 () => new[] { handler },
                 retryExceptionPolicyFactory,
-                new Lazy<TokenCredential>(GetTokenCredential),
+                () => cosmosAccessor,
                 NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
@@ -304,10 +308,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private TokenCredential GetTokenCredential()
         {
             // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
-            string federatedClientId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
-            string federatedTenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
-            string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
-            string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
+            string federatedClientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string federatedTenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
 
             if (!string.IsNullOrEmpty(federatedClientId) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
             {

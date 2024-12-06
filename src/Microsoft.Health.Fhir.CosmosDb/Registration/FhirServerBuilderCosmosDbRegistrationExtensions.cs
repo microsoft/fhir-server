@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -270,6 +271,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces()
                 .AsFactory<IScoped<IQueueClient>>();
+
+            services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
+               .Transient()
+               .AsSelf();
 
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<CosmosExportOrchestratorJob>()
                 .AssignableTo<IJob>()

@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to get an access token for &apos;{0}&apos;..
+        /// </summary>
+        internal static string CannotGetAccessToken {
+            get {
+                return ResourceManager.GetString("CannotGetAccessToken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Can&apos;t find &apos;{0}&apos; in type &apos;{1}&apos;.
         /// </summary>
         internal static string CantResolveExpressionForAType {
@@ -908,6 +917,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The provided search parameter type {0} is not supported for the given expression {1}..
+        /// </summary>
+        internal static string NoConverterForSearchParamType {
+            get {
+                return ResourceManager.GetString("NoConverterForSearchParamType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob marked completed..
         /// </summary>
         internal static string NoResourcesNeedToBeReindexed {
@@ -985,6 +1003,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OperationFailed {
             get {
                 return ResourceManager.GetString("OperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} operation failed for reason: {1} ErrorFile: {2}.
+        /// </summary>
+        internal static string OperationFailedWithErrorFile {
+            get {
+                return ResourceManager.GetString("OperationFailedWithErrorFile", resourceCulture);
             }
         }
         
