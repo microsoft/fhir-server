@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The execution timeout expired while interacting with CosmosDB..
+        /// </summary>
+        internal static string CosmosDBRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDBRequestTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to _include:iterate and _revinclude:iterate are not supported..
         /// </summary>
         internal static string IncludeIterateNotSupported {
