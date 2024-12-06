@@ -68,6 +68,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 return Expression.MissingSearchParameter(searchParameter, isMissing);
             }
 
+            if (modifier?.SearchModifierCode == SearchModifierCode.Identifier)
+            {
+                // :identifier modifier will search for the identifier value on a resource instead of the id.
+                // We can expand the expression into a chained search to do this.
+                if (searchParameter.Type != SearchParamType.Reference || !searchParameter.TargetResourceTypes.Contains(KnownResourceTypes.Patient))
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
+                }
+
+                Expression targetExpression = Parse(new SearchParameterInfo("identifier", "identifier", SearchParamType.Token), null, value);
+
+                ChainedExpression expression = Expression.Chained(
+                    searchParameter.BaseResourceTypes.Select(x => x.ToString()).ToArray(),
+                    searchParameter,
+                    [KnownResourceTypes.Patient], /* TODO: should this search for the identifier on ALL target types? */
+                    false,
+                    targetExpression);
+
+                return expression;
+            }
+
             if (modifier?.SearchModifierCode == SearchModifierCode.Text)
             {
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,

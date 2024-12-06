@@ -65,6 +65,10 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET {{hostname}}/Patient?general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state=WA
 Authorization: Bearer {{bearer.response.body.access_token}}
 
+### :identifier
+GET {{hostname}}/Observation?subject:identifier=test%202
+Authorization: Bearer {{bearer.response.body.access_token}}
+
 ### Reverse chained search 1
 GET {{hostname}}/Patient?_has:Observation:patient:code=527
 Authorization: Bearer {{bearer.response.body.access_token}}
