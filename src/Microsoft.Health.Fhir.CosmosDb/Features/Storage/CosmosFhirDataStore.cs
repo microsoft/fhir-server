@@ -444,7 +444,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             continue;
                         }
 
-                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                        throw new TransactionFailureException(transactionalBatchResponse.ErrorMessage);
                     }
                 }
                 else
