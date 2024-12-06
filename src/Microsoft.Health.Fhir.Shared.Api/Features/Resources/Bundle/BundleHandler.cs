@@ -894,7 +894,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
                     {
-                        reason.AppendLine($"{issue.Severity} / {issue.Code} / {SanitizeString(issue?.Diagnostics)}");
+                        reason.AppendLine($"{issue.Severity} / {issue.Code} / {SanitizeString(issue.Diagnostics)}");
                     }
                 }
                 else
