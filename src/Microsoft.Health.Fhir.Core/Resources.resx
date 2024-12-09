@@ -255,6 +255,10 @@
     <value>Given conditional reference '{0}' does not resolve to a resource.</value>
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
+  <data name="InvalidConditionalReferenceToMultipleResources" xml:space="preserve">
+    <value>Given conditional reference '{0}' resolved to multiple resources.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
     <value>Resource type and query parameter must be present in a given request '{0}'.</value>
     <comment>{0} is the request url.</comment>
