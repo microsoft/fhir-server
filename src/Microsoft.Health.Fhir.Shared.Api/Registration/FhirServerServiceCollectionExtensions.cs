@@ -71,6 +71,9 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
+            // Remove any job queues that are disables or don't have a storage account configured.
+            fhirServerConfiguration.Operations.RemoveDisabledQueues();
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));

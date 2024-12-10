@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -22,5 +24,27 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public IntegrationDataStoreConfiguration IntegrationDataStore { get; set; } = new IntegrationDataStoreConfiguration();
 
         public ImportTaskConfiguration Import { get; set; } = new ImportTaskConfiguration();
+
+        /// <summary>
+        /// Removes queues based on the enabled status of the operations.
+        /// </summary>
+        public void RemoveDisabledQueues()
+        {
+            if (!Export.Enabled || (string.IsNullOrEmpty(Export.StorageAccountConnection) && string.IsNullOrEmpty(Export.StorageAccountUri)))
+            {
+                HostingBackgroundServiceQueues
+                    .Where(q => q.Queue == QueueType.Export)
+                    .ToList()
+                    .ForEach(q => HostingBackgroundServiceQueues.Remove(q));
+            }
+
+            if (!Import.Enabled || (string.IsNullOrEmpty(IntegrationDataStore.StorageAccountConnection) && string.IsNullOrEmpty(IntegrationDataStore.StorageAccountUri)))
+            {
+                HostingBackgroundServiceQueues
+                    .Where(q => q.Queue == QueueType.Import)
+                    .ToList()
+                    .ForEach(q => HostingBackgroundServiceQueues.Remove(q));
+            }
+        }
     }
 }
