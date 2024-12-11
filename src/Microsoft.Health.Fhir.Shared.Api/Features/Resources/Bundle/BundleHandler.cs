@@ -964,7 +964,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (_forceProfilesRefresh)
             {
-                _profilesResolver.Refresh();
+                Stopwatch watch = Stopwatch.StartNew();
+                try
+                {
+                    _profilesResolver.Refresh();
+                    _logger.LogInformation("FHIR Profiles cache is refreshed. Elapsed time: {ElapsedMilliseconds}", watch.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "FHIR Profiles cache failed while refreshing. Elapsed time: {ElapsedMilliseconds}", watch.ElapsedMilliseconds);
+                }
             }
         }
 
