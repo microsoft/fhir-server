@@ -2093,7 +2093,6 @@ SELECT A.ResourceTypeId
       ,IsResourceRef
   FROM dbo.ResourceReferenceSearchParams A
        LEFT OUTER JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceIdInt = A.ReferenceResourceIdInt
-  WHERE HistoryTransactionId IS NULL
 UNION ALL
 SELECT ResourceTypeId
       ,ResourceSurrogateId
