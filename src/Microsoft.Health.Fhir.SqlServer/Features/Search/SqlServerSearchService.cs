@@ -70,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
-        private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IParameterStore _parameterStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
@@ -92,7 +91,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
-            ISqlQueryHashCalculator queryHashCalculator,
             IParameterStore parameterStore,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
@@ -117,7 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
-            _queryHashCalculator = queryHashCalculator;
             _parameterStore = parameterStore;
             _logger = logger;
 
@@ -146,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
-            int resultCount = searchResult.Results.Count();
+            int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
@@ -158,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
                 if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier))
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
@@ -332,6 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
+
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -364,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                            var queryHash = clonedSearchOptions.GetHash();
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
@@ -548,6 +546,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 clonedSearchOptions.Sort.Count > 0 &&
                                 clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                             {
+                                // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
                                 sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
                             }
 
@@ -570,6 +569,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
+
             return searchResult;
         }
 
@@ -925,34 +925,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var queryHints = searchOptions.QueryHints;
-            long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
+            long globalStartId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            long globalEndId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            long queryStartId = globalStartId;
 
             SearchResult results = null;
-            if (ranges?.Count > 0)
-            {
-                results = await SearchBySurrogateIdRange(
-                    resourceType,
-                    ranges[0].StartId,
-                    ranges[0].EndId,
-                    null,
-                    null,
-                    cancellationToken,
-                    searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+            IReadOnlyList<(long StartId, long EndId)> ranges;
 
-                if (results.Results.Any())
+            do
+            {
+                // Get surrogate ID ranges
+                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 10, true, cancellationToken);
+
+                // Order the ranges by start id as they come back unordered. This ensures records aren't skipped during reindex.
+                ranges = ranges.OrderBy(x => x.StartId).ToList();
+
+                foreach (var range in ranges)
                 {
-                    results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                    // Search within the surrogate ID range
+                    results = await SearchBySurrogateIdRange(
+                        resourceType,
+                        range.StartId,
+                        range.EndId,
+                        null,
+                        null,
+                        cancellationToken,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+
+                    if (results.Results.Any())
+                    {
+                        results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                        _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
+                        return results;
+                    }
+
+                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
+                }
+
+                // If no resources are found in the group of surrogate id ranges, move forward the starting point.
+                if (ranges.Any())
+                {
+                    queryStartId = ranges.Max(x => x.EndId) + 1;
                 }
             }
-            else
-            {
-                results = new SearchResult(0, new List<Tuple<string, string>>());
-            }
+            while (ranges.Any()); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
-            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
-            return results;
+            // Return empty result when no resources are found in the given range provided by queryHints.
+            _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
+            return new SearchResult(0, []);
         }
 
         /// <summary>
@@ -1309,7 +1329,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
                 catch (SqlException ex)
                 {
-                    logger.LogWarning("ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
+                    logger.LogWarning(ex, "ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
                 }
             }
 
@@ -1328,7 +1348,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
                 catch (SqlException ex)
                 {
-                    logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
+                    logger.LogWarning(ex, "ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
             }
         }

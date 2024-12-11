@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -175,6 +176,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<INotificationHandler<ImproperBehaviorNotification>>();
 
             services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
+
+            // Registers a health check to ensure storage gets initialized
+            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<StorageInitializedNotification>>()
+                .Add<StorageInitializedHealthCheck>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHealthCheck>()
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
+
+            services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 
             services.AddLazy();
             services.AddScoped();

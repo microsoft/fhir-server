@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -32,17 +33,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchService _searchService;
+        private readonly ILogger<CreateBulkDeleteHandler> _logger;
 
         public CreateBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ISearchService searchService)
+            ISearchService searchService,
+            ILogger<CreateBulkDeleteHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<CreateBulkDeleteResponse> Handle(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
@@ -65,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
-            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1);
+            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0)
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());

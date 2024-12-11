@@ -342,7 +342,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 dataSize,
                 isAnonymizedExport);
 
-            await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
+            try
+            {
+                await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
+            }
+            catch (ObjectDisposedException ode)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ode, $"{nameof(ObjectDisposedException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}. Cancellation was requested.");
+                }
+                else
+                {
+                    _logger.LogCritical(ode, $"{nameof(ObjectDisposedException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}.");
+                    throw;
+                }
+            }
+            catch (OperationCanceledException oce)
+            {
+                _logger.LogWarning(oce, $"{nameof(OperationCanceledException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}. Cancellation was requested.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, $"Unable to publish {nameof(ExportTaskMetricsNotification)}.");
+                throw;
+            }
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)

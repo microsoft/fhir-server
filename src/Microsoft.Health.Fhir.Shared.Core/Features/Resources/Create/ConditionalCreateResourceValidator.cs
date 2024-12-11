@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
@@ -12,13 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class ConditionalCreateResourceValidator : AbstractValidator<ConditionalCreateResourceRequest>
     {
-        public ConditionalCreateResourceValidator()
+        public ConditionalCreateResourceValidator(ILogger<ConditionalCreateResourceValidator> logger)
         {
             RuleFor(x => x.ConditionalParameters)
                 .Custom((conditionalParameters, context) =>
                 {
                     if (conditionalParameters.Count == 0)
                     {
+                        logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
                         context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, context.InstanceToValidate.ResourceType));
                     }
                 });

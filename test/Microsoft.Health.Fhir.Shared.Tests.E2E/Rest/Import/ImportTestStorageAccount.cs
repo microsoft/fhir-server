@@ -5,13 +5,12 @@
 
 using System;
 using Azure.Storage.Blobs;
+using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
     public class ImportTestStorageAccount
     {
-        private const string TestImportStoreUriEnvironmentVariableName = "TestIntegrationStoreUri";
-
         public ImportTestStorageAccount()
         {
             InitializeFromEnvironmentVariables();
@@ -23,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private void InitializeFromEnvironmentVariables()
         {
-            StorageUri = new Uri(Environment.GetEnvironmentVariable(TestImportStoreUriEnvironmentVariableName));
+            StorageUri = new Uri(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestIntegrationStoreUri));
             BlobServiceClient = AzureStorageBlobHelper.GetBlobServiceClient(StorageUri);
         }
     }

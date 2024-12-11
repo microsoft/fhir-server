@@ -395,19 +395,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
+        /// <param name="hardDeleteModel">The model for hard-delete indicating whether to hard-delete the resource or not.</param>
         /// <param name="allowPartialSuccess">Allows for partial success of delete operation. Only applicable for hard delete on Cosmos services</param>
         [HttpDelete]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete, [FromQuery] bool allowPartialSuccess)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
                 new DeleteResourceRequest(
                     new ResourceKey(typeParameter, idParameter),
-                    hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
+                    hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     GetBundleResourceContext(),
                     allowPartialSuccess),
                 HttpContext.RequestAborted);
@@ -442,12 +442,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Deletes the specified resource
         /// </summary>
         /// <param name="typeParameter">The type.</param>
-        /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
+        /// <param name="hardDeleteModel">The model for hard-delete indicating whether to hard-delete the resource or not.</param>
         /// <param name="maxDeleteCount">Specifies the maximum number of resources that can be deleted.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalDelete)]
-        public async Task<IActionResult> ConditionalDelete(string typeParameter, [FromQuery] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
+        public async Task<IActionResult> ConditionalDelete(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
                     conditionalParameters,
-                    hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
+                    hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
@@ -688,19 +688,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (HttpContext?.Request?.Headers != null)
             {
-                // Step 1 - Retrieve Bundle Operation ID.
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, out StringValues responseOperationId))
+                // Step 1 - Retrieve Bundle Processing Logic.
+                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestProcessingLogic, out StringValues rawBundleProcessingLogic))
                 {
-                    string rawId = responseOperationId.FirstOrDefault();
-                    if (Guid.TryParse(rawId, out Guid bundleOperationId))
+                    if (Enum.TryParse<BundleProcessingLogic>(rawBundleProcessingLogic, out BundleProcessingLogic bundleProcessingLogic))
                     {
-                        // Step 2 - Retrieve resource HTTP verb.
-                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
+                        // Step 2 - Retrieve Bundle Operation ID.
+                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, out StringValues responseOperationId))
                         {
-                            string rawHttpVerb = responseHttpVerb.FirstOrDefault();
-                            if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
+                            string rawId = responseOperationId.FirstOrDefault();
+                            if (Guid.TryParse(rawId, out Guid bundleOperationId))
                             {
-                                return new BundleResourceContext(httpVerb, bundleOperationId);
+                                // Step 3 - Retrieve resource HTTP verb.
+                                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
+                                {
+                                    string rawHttpVerb = responseHttpVerb.FirstOrDefault();
+                                    if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
+                                    {
+                                        return new BundleResourceContext(bundleProcessingLogic, httpVerb, bundleOperationId);
+                                    }
+                                }
                             }
                         }
                     }

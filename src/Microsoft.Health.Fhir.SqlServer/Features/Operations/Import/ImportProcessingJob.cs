@@ -161,6 +161,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
+            catch (OverflowException ex)
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex);
+            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");

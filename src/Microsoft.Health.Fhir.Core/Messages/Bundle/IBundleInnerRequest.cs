@@ -3,15 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search
+namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
-    internal class SqlQueryHashCalculator : ISqlQueryHashCalculator
+    public interface IBundleInnerRequest
     {
-        public string CalculateHash(string query)
-        {
-            return query.ComputeHash();
-        }
+        BundleResourceContext BundleResourceContext { get; }
     }
 }

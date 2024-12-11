@@ -105,8 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
                     await connection.OpenAsync(cancellationToken);
                     await using SqlCommand sqlCommand = connection.CreateCommand();
-                    sqlCommand.CommandText = "SELECT 1";
-                    await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                    sqlCommand.CommandText = "IF object_id('sp_changedbowner') IS NOT NULL EXECUTE sp_changedbowner 'sa'";
+                    await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
                     await connection.CloseAsync();
                 });
 
@@ -231,7 +231,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             }
             catch (Exception ex)
             {
-                Trace.TraceError("Failed to delete database: " + ex.Message);
+                Trace.TraceError($"Failed to delete database: {ex.Message}. Stack Trace: {ex.StackTrace}. Inner Exception: {ex.InnerException?.Message}");
             }
         }
 

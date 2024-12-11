@@ -139,7 +139,7 @@ namespace ResourceProcessorNamespace
             }
             catch (Exception ex)
             {
-                LogError($"Exception: {ex.Message}");
+                LogError($"Exception: {ex}");
             }
         }
     }

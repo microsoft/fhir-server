@@ -73,10 +73,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlQueryHashCalculator>()
-                .Singleton()
-                .AsImplementedInterfaces();
-
             services.Add<SqlServerSearchService>()
                 .Scoped()
                 .AsSelf()
@@ -162,7 +158,9 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services.Add<SqlStoreClient<InvisibleHistoryCleanupWatchdog>>().Singleton().AsSelf();
+            services.Add<SqlStoreClient>()
+                .Singleton()
+                .AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 

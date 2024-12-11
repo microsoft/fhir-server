@@ -30,6 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         Smart = 1 << 30, // Do not include Smart in the '*' case.  We only want smart for a user if explicitly added to the role or user
 
         [EnumMember(Value = "*")]
-        All = (Import << 1) - 1,
+        All = (SearchParameter << 1) - 1,
     }
 }

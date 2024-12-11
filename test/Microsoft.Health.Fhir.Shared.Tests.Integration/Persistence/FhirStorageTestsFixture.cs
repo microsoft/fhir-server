@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -47,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -124,11 +126,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 
-        public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
-
         public GetResourceHandler GetResourceHandler { get; set; }
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
+
+        internal ReadableLogger<SqlServerSearchService> ReadableLogger => _fixture.GetRequiredService<ReadableLogger<SqlServerSearchService>>();
 
         public void Dispose()
         {
@@ -160,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
             ConformanceProvider = Substitute.For<ConformanceProviderBase>();
-            ConformanceProvider.GetCapabilityStatementOnStartup().Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
+            ConformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
@@ -194,8 +196,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));

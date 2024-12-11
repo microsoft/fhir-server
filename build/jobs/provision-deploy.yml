@@ -128,6 +128,21 @@ jobs:
             }
           }
         }
+
+        if("${{ parameters.sql }}" -eq "false"){
+            Write-Host "Add DevOps MI permission to Cosmos database"
+
+            $account = Get-AzContext
+            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
+
+            New-AzCosmosDBSqlRoleAssignment `
+              -AccountName $webAppName `
+              -ResourceGroupName $resourceGroupName `
+              -Scope "/" `
+              -PrincipalId $principalId `
+              -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
+        }
+
   - template: ./provision-healthcheck.yml
     parameters: 
       webAppName: ${{ parameters.webAppName }}

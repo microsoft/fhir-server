@@ -165,6 +165,55 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_1001ResourcesWithSameLastUpdatedAndSequenceRollOver()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            var st = DateTime.UtcNow;
+            ExecuteSql("DELETE FROM Resource WHERE ResourceTypeId = 103 AND ResourceSurrogateId BETWEEN 4794128640080000000 AND 4794128640080000000 + 79999");
+            ExecuteSql("ALTER SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence RESTART WITH 0");
+            ExecuteSql("IF 0 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 0', 18, 127)");
+
+            var ndJson = new StringBuilder();
+            for (var i = 0; i < 1000; i++)
+            {
+                ndJson.Append(CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00:01"))); // make sure this date is not used by other tests.
+            }
+
+            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            await ImportWaitAsync(checkLocation, true);
+
+            ExecuteSql("IF 999 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 999', 18, 127)");
+
+            // similate load which rolls sequence over to 0
+            ExecuteSql(@"
+DECLARE @TransactionId bigint
+EXECUTE dbo.MergeResourcesBeginTransaction 79000, @TransactionId OUT
+EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+            ");
+
+            ExecuteSql("IF 79999 <> (SELECT current_value FROM sys.sequences WHERE name = 'ResourceSurrogateIdUniquifierSequence') RAISERROR('sequence is not at 79999', 18, 127)");
+
+            ndJson = new StringBuilder();
+            for (var i = 0; i < 10; i++)
+            {
+                ndJson.Append(CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00:01"))); // make sure this date is not used by other tests.
+            }
+
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            //// This import was failing after 30 retries before changing retries to be dependent on the batch size
+            //// Now it suceedes after 100 retries
+            await ImportWaitAsync(checkLocation, true);
+
+            ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             var ndJson = new StringBuilder();
@@ -1445,17 +1494,81 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var respone = await _client.CancelImport(checkLocation);
 
-            // wait task completed
-            while (respone.StatusCode != HttpStatusCode.Conflict)
-            {
-                respone = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
-            }
+            // Then we cancel import job
+            var response = await _client.CancelImport(checkLocation);
 
+            // The service should accept the cancel request
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // We try to cancel the same job again, it should return Accepted
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // We get the Import status
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Contains("User requested cancellation", fhirException.Message);
+        }
+
+        [Fact]
+        public async Task GivenImportHasCompleted_WhenCancel_ThenTaskShouldReturnConflict()
+        {
+            _metricHandler?.ResetCount();
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            // Wait for import job to complete
+            var importStatus = await _client.CheckImportAsync(checkLocation);
+
+            // To avoid an infinite loop, we will try 5 times to get the completed status
+            // Which we expect to finish because we are importing a single job
+            for (int i = 0; i < 5; i++)
+            {
+                if (importStatus.StatusCode == HttpStatusCode.OK)
+                {
+                    break;
+                }
+
+                importStatus = await _client.CheckImportAsync(checkLocation);
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            // Then we cancel import job
+            var response = await _client.CancelImport(checkLocation);
+
+            // The service should  return conflict because Import has already completed
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+            // We try to cancel the same job again, it should return Conflict
+            // We add this retry, in case customer send multiple cancel requests
+            // We need to make sure the server returns Conflict
+            response = await _client.CancelImport(checkLocation);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+            // We get the Import status and it should return OK because Import completed
+            importStatus = await _client.CheckImportAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, importStatus.StatusCode);
         }
 
         [Fact(Skip = "long running tests for invalid url")]

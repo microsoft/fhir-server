@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            var aadResourceUri = new Uri(_convertDataConfiguration.ArmResourceManagerId);
+            var aadResourceUri = _convertDataConfiguration.AcrTargetResourceUri;
             string aadToken;
             try
             {

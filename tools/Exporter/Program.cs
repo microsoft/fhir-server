@@ -209,7 +209,7 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             return strings.Count;
         }
 
-        private static void WriteBatchOfLines(BlobContainerClient container, IEnumerable<string> batch, string blobName)
+        private static void WriteBatchOfLines(BlobContainerClient container, IReadOnlyCollection<string> batch, string blobName)
         {
         retry:
             try

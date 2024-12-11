@@ -48,14 +48,14 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
 
         private static SqlRetryService _sqlRetryService;
-        private static SqlStoreClient<SqlServerFhirDataStore> _store;
+        private static SqlStoreClient _store;
 
         public static void Main()
         {
             Console.WriteLine("!!!See App.config for the details!!!");
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance);
 
             DumpResourceIds();
 
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                     else if (_callType.StartsWith("SearchByIds"))
                     {
-                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId));
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId)?.ToList());
                         if (status != "OK")
                         {
                             Interlocked.Increment(ref errors);
@@ -793,7 +793,7 @@ END
             return status;
         }
 
-        private static string GetResources(string resourceType, IEnumerable<string> resourceIds)
+        private static string GetResources(string resourceType, System.Collections.Generic.IReadOnlyCollection<string> resourceIds)
         {
             var maxRetries = 3;
             var retries = 0;

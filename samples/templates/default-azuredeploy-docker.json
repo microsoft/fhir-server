@@ -445,7 +445,7 @@
         },
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "apiVersion": "2019-12-12",
+            "apiVersion": "2021-06-15",
             "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
@@ -455,6 +455,7 @@
             "properties": {
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
+                "disableLocalAuth": true,
                 "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
                 "keyVaultKeyUri": "[parameters('cosmosDbCmkUrl')]",
                 "locations": [
@@ -686,20 +687,6 @@
             "properties": {
                 "contentType": "text/plain",
                 "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint, '')]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
-            ]
-        },
-        {
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey, '')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",

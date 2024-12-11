@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -286,15 +287,15 @@ END
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionNoPooling)
             {
-                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
             else if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
             else
             {
-                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
         }
 
@@ -380,7 +381,7 @@ END
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
-                var result = await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
+                var result = await sqlRetryService.ExecuteReaderAsync<long>(
                     sqlCommand,
                     testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                     logger,
@@ -420,7 +421,7 @@ END
                 try
                 {
                     _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
-                    await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
+                    await sqlRetryService.ExecuteReaderAsync<long>(
                         sqlCommand,
                         testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                         logger,

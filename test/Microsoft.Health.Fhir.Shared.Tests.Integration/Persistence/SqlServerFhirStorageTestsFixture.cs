@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
@@ -76,6 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
+        private ReadableLogger<SqlServerSearchService> _readableLogger;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -84,8 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
-            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
@@ -124,8 +125,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
 
         internal SchemaInformation SchemaInformation { get; private set; }
-
-        internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
         internal static string GetDatabaseName(string test = null)
         {
@@ -183,10 +182,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queueClient = new TestQueueClient();
 
             // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
-            string federatedClientID = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_CLIENT_ID");
-            string federatedTenantId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_TENANT_ID");
-            string serviceConnectionId = Environment.GetEnvironmentVariable("AZURESUBSCRIPTION_SERVICE_CONNECTION_ID");
-            string systemAccessToken = Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN");
+            string federatedClientID = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string federatedTenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
 
             if (!string.IsNullOrEmpty(federatedClientID) && !string.IsNullOrEmpty(federatedTenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
             {
@@ -228,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
@@ -244,7 +243,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
-                importErrorSerializer);
+                importErrorSerializer,
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
-            SqlQueryHashCalculator = new TestSqlHashCalculator();
+            _readableLogger = new ReadableLogger<SqlServerSearchService>();
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -294,9 +294,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
-                SqlQueryHashCalculator,
                 new SqlServerParameterStore(SqlConnectionBuilder, NullLogger<SqlServerParameterStore>.Instance),
-                NullLogger<SqlServerSearchService>.Instance);
+                _readableLogger);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
@@ -412,9 +411,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _sqlQueueClient;
             }
 
-            if (serviceType == typeof(TestSqlHashCalculator))
+            if (serviceType == typeof(ReadableLogger<SqlServerSearchService>))
             {
-                return SqlQueryHashCalculator as TestSqlHashCalculator;
+                return _readableLogger;
             }
 
             return null;

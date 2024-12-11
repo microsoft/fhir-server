@@ -149,6 +149,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity cannot access storage account.", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
+            catch (AuthenticationFailedException ex)
+            {
+                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.-AuthenticationFailedException");
+                errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity Credential authentication failed", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
+                await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
@@ -257,7 +263,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IReadOnlyCollection<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, CancellationToken cancellationToken)
         {
             var definitions = new List<ImportProcessingJobDefinition>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
