@@ -12,12 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class PreconditionFailedException : FhirException
     {
         public PreconditionFailedException(string message)
-            : this(message, exception: null)
-        {
-        }
-
-        public PreconditionFailedException(string message, Exception exception)
-            : base(message, exception)
+            : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
 
