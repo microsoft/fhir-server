@@ -543,7 +543,7 @@ END
             var ret = cmd.ExecuteScalar();
             if (ret == DBNull.Value)
             {
-                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0 ORDER BY ResourceTypeId, ResourceId OPTION (MAXDOP 1)", conn);
+                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0", conn); // no need to sort to simulate random access
                 cmd2.CommandTimeout = 0;
                 using var reader = cmd2.ExecuteReader();
                 while (reader.Read())
