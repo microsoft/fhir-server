@@ -143,8 +143,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-            var duplicateCode = new SearchParameter { Url = "http://unique", Code = "duplicate", Base = new[] { ResourceType.Patient as ResourceType? } };
-            var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = new[] { ResourceType.Patient as ResourceType? } };
+#if R5
+            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
+#else
+            var baseArray = new[] { ResourceType.Patient as ResourceType? };
+#endif
+            var duplicateCode = new SearchParameter { Url = "http://unique", Code = "duplicate", Base = baseArray };
+            var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = baseArray };
 
             var data = new List<object[]>();
             data.Add(new object[] { missingUrl, "POST" });
@@ -161,7 +166,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> DuplicateCodeAtBaseResourceData()
         {
+#if R5
+            var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { VersionIndependentResourceTypesAll.Resource as VersionIndependentResourceTypesAll? } };
+#else
             var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { ResourceType.Resource as ResourceType? } };
+#endif
 
             var data = new List<object[]>();
             data.Add(new object[] { duplicateCode1, "POST" });
@@ -173,7 +182,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-            var uniqueCode = new SearchParameter { Url = "http://unique", Code = "unique", Base = new[] { ResourceType.Patient as ResourceType? } };
+#if R5
+            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
+#else
+            var baseArray = new[] { ResourceType.Patient as ResourceType? };
+#endif
+            var uniqueCode = new SearchParameter { Url = "http://unique", Code = "unique", Base = baseArray };
 
             var data = new List<object[]>();
             data.Add(new object[] { uniqueUrl, "POST" });
