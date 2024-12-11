@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var offset = 0;
                 foreach (var resource in resources)
                 {
+                    resource.FileId = transactionId;
                     resource.OffsetInFile = offset;
                     var line = resource.ResourceWrapper.RawResource.Data;
                     offset += Encoding.UTF8.GetByteCount(line) + eol;
@@ -837,7 +838,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
+            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, cancellationToken);
         }
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)

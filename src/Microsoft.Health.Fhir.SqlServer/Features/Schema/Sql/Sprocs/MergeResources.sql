@@ -37,19 +37,24 @@ DECLARE @st datetime = getUTCdate()
        ,@RT smallint
        ,@NewIdsCount int
        ,@FirstIdInt bigint
+       ,@CurrentRows int
+       ,@DeletedIdMap int
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
 
 SET @AffectedRows = 0
 
-RetryResourceIdIntMapInsert:
+RetryResourceIdIntMapLogic:
 BEGIN TRY
-  DECLARE @RTs AS TABLE (ResourceTypeId smallint NOT NULL PRIMARY KEY)
   DECLARE @InputIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
-  DECLARE @ExistingIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
-  DECLARE @InsertIds AS TABLE (ResourceIndex int NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL)
-  DECLARE @InsertedIds AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @CurrentRefIdsRaw TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL)
+  DECLARE @CurrentRefIds TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL PRIMARY KEY (ResourceTypeId, ResourceIdInt))
+  DECLARE @ExistingIdsReference AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @ExistingIdsResource AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @InsertIds AS TABLE (ResourceTypeId smallint NOT NULL, IdIndex int NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @InsertedIdsReference AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
+  DECLARE @InsertedIdsResource AS TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL, ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId))
   DECLARE @ResourcesWithIds AS TABLE 
     (
         ResourceTypeId       smallint            NOT NULL
@@ -83,135 +88,89 @@ BEGIN TRY
        UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceIdInt) 
     )
   
+  -- Prepare id map for reference search params Start ---------------------------------------------------------------------------
   INSERT INTO @InputIds SELECT DISTINCT ReferenceResourceTypeId, ReferenceResourceId FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NOT NULL
-  INSERT INTO @RTs SELECT DISTINCT ResourceTypeId FROM @InputIds
 
--- Prepare id map for reference search params Start ---------------------------------------------------------------------------
-  WHILE EXISTS (SELECT * FROM @RTs)
-  BEGIN
-    SET @RT = (SELECT TOP 1 ResourceTypeId FROM @RTs)
-
-    INSERT INTO @ExistingIds 
-         ( ResourceTypeId, ResourceIdInt,   ResourceId )
-      SELECT          @RT, ResourceIdInt, A.ResourceId
-        FROM (SELECT * FROM @InputIds WHERE ResourceTypeId = @RT) A
-             JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId
+  INSERT INTO @ExistingIdsReference 
+       (     ResourceTypeId, ResourceIdInt,   ResourceId )
+    SELECT A.ResourceTypeId, ResourceIdInt, A.ResourceId
+      FROM @InputIds A
+           JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
     
-    DELETE FROM @InsertIds
+  INSERT INTO @InsertIds 
+         ( ResourceTypeId,                                                     IdIndex, ResourceId ) 
+    SELECT ResourceTypeId, row_number() OVER (ORDER BY ResourceTypeId, ResourceId) - 1, ResourceId
+      FROM @InputIds A
+      WHERE NOT EXISTS (SELECT * FROM @ExistingIdsReference B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
 
-    INSERT INTO @InsertIds 
-           (                                       ResourceIndex, ResourceId ) 
-      SELECT RowId = row_number() OVER (ORDER BY ResourceId) - 1, ResourceId
-        FROM (SELECT ResourceId FROM @InputIds WHERE ResourceTypeId = @RT) A
-        WHERE NOT EXISTS (SELECT * FROM @ExistingIds B WHERE B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId)
+  SET @NewIdsCount = (SELECT count(*) FROM @InsertIds)
+  IF @NewIdsCount > 0
+  BEGIN
+    EXECUTE dbo.AssignResourceIdInts @NewIdsCount, @FirstIdInt OUT
 
-    SET @NewIdsCount = (SELECT count(*) FROM @InsertIds)
-    IF @NewIdsCount > 0
-    BEGIN
-      EXECUTE dbo.AssignResourceIdInts @NewIdsCount, @FirstIdInt OUT
-
-      INSERT INTO dbo.ResourceIdIntMap 
-           (   ResourceTypeId,               ResourceIdInt,          ResourceId ) 
-        OUTPUT            @RT,      inserted.ResourceIdInt, inserted.ResourceId INTO @InsertedIds
-        SELECT            @RT, ResourceIndex + @FirstIdInt,          ResourceId
-          FROM @InsertIds
-    END
-
-    DELETE FROM @RTs WHERE ResourceTypeId = @RT
+    INSERT INTO @InsertedIdsReference 
+         (   ResourceTypeId,         ResourceIdInt, ResourceId ) 
+      SELECT ResourceTypeId, IdIndex + @FirstIdInt, ResourceId
+        FROM @InsertIds
   END
   
   INSERT INTO @ReferenceSearchParamsWithIds
          (   ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId,                  ReferenceResourceIdInt )
     SELECT A.ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt)
-      FROM (SELECT * FROM @ReferenceSearchParams WHERE ReferenceResourceTypeId IS NOT NULL) A
-           LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
-           LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ReferenceResourceTypeId AND C.ResourceId = A.ReferenceResourceId
--- Prepare id map for reference search params End ---------------------------------------------------------------------------
+      FROM @ReferenceSearchParams A
+           LEFT OUTER JOIN @InsertedIdsReference B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
+           LEFT OUTER JOIN @ExistingIdsReference C ON C.ResourceTypeId = A.ReferenceResourceTypeId AND C.ResourceId = A.ReferenceResourceId
+  -- Prepare id map for reference search params End ---------------------------------------------------------------------------
 
+  -- Prepare id map for resources Start ---------------------------------------------------------------------------
   DELETE FROM @InputIds
-  DELETE FROM @RTs
-  DELETE FROM @InsertedIds
-  DELETE FROM @ExistingIds
-  
--- Prepare id map for resources Start ---------------------------------------------------------------------------
-  INSERT INTO @InputIds SELECT ResourceTypeId, ResourceId 
-    FROM (SELECT ResourceTypeId, ResourceId FROM @ResourcesLake
-          UNION ALL
-          SELECT ResourceTypeId, ResourceId FROM @Resources -- TODO: Remove after deployment
-         ) A
-    GROUP BY ResourceTypeId, ResourceId
-  INSERT INTO @RTs SELECT DISTINCT ResourceTypeId FROM @InputIds
-
-  WHILE EXISTS (SELECT * FROM @RTs)
-  BEGIN
-    SET @RT = (SELECT TOP 1 ResourceTypeId FROM @RTs)
-
-    INSERT INTO @ExistingIds 
-         ( ResourceTypeId, ResourceIdInt,   ResourceId )
-      SELECT          @RT, ResourceIdInt, A.ResourceId
-        FROM (SELECT * FROM @InputIds WHERE ResourceTypeId = @RT) A
-             JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId
-    
-    DELETE FROM @InsertIds
-
-    INSERT INTO @InsertIds 
-           (                                       ResourceIndex, ResourceId ) 
-      SELECT RowId = row_number() OVER (ORDER BY ResourceId) - 1, ResourceId
-        FROM (SELECT ResourceId FROM @InputIds WHERE ResourceTypeId = @RT) A
-        WHERE NOT EXISTS (SELECT * FROM @ExistingIds B WHERE B.ResourceTypeId = @RT AND B.ResourceId = A.ResourceId)
-
-    SET @NewIdsCount = (SELECT count(*) FROM @InsertIds)
-    IF @NewIdsCount > 0
-    BEGIN
-      EXECUTE dbo.AssignResourceIdInts @NewIdsCount, @FirstIdInt OUT
-
-      INSERT INTO dbo.ResourceIdIntMap 
-           (   ResourceTypeId,               ResourceIdInt,          ResourceId ) 
-        OUTPUT            @RT,      inserted.ResourceIdInt, inserted.ResourceId INTO @InsertedIds
-        SELECT            @RT, ResourceIndex + @FirstIdInt,          ResourceId
-          FROM @InsertIds
-    END
-
-    DELETE FROM @RTs WHERE ResourceTypeId = @RT
-  END
-  
-  INSERT INTO @ResourcesWithIds
-         (   ResourceTypeId,   ResourceId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
-    SELECT A.ResourceTypeId, A.ResourceId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile
-      FROM (SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId = CASE WHEN OffsetInFile IS NOT NULL THEN @TransactionId END, OffsetInFile FROM @ResourcesLake
-            UNION ALL
-            SELECT ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash,                                                                NULL,         NULL FROM @Resources
-           ) A
-           LEFT OUTER JOIN @InsertedIds B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
-           LEFT OUTER JOIN @ExistingIds C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
-  --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Action='Insert',@Target='@ResourcesWithIds',@Rows=@@rowcount,@Start=@st
-
--- Prepare id map for resources End ---------------------------------------------------------------------------
-END TRY
-BEGIN CATCH
-  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
-
-  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%'
-  BEGIN
-    DELETE FROM @ResourcesWithIds
-    DELETE FROM @ReferenceSearchParamsWithIds
-    DELETE FROM @InputIds
-    DELETE FROM @RTs
-    DELETE FROM @InsertedIds
-    DELETE FROM @ExistingIds
-
-    GOTO RetryResourceIdIntMapInsert
-  END
+  IF EXISTS (SELECT * FROM @ResourcesLake)
+    INSERT INTO @InputIds SELECT ResourceTypeId, ResourceId FROM @ResourcesLake GROUP BY ResourceTypeId, ResourceId
   ELSE
-    THROW
-END CATCH
+    INSERT INTO @InputIds SELECT ResourceTypeId, ResourceId FROM @Resources GROUP BY ResourceTypeId, ResourceId
 
---EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Text='ResourceIdIntMap populated'
+  INSERT INTO @ExistingIdsResource 
+       (     ResourceTypeId, ResourceIdInt,   ResourceId )
+    SELECT A.ResourceTypeId, isnull(C.ResourceIdInt,B.ResourceIdInt), A.ResourceId
+      FROM @InputIds A
+           LEFT OUTER JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+           LEFT OUTER JOIN @InsertedIdsReference C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
+      WHERE C.ResourceIdInt IS NOT NULL OR B.ResourceIdInt IS NOT NULL
 
-BEGIN TRY
+  DELETE FROM @InsertIds
+  INSERT INTO @InsertIds 
+         ( ResourceTypeId,                                                     IdIndex, ResourceId ) 
+    SELECT ResourceTypeId, row_number() OVER (ORDER BY ResourceTypeId, ResourceId) - 1, ResourceId
+      FROM @InputIds A
+      WHERE NOT EXISTS (SELECT * FROM @ExistingIdsResource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
+
+  SET @NewIdsCount = (SELECT count(*) FROM @InsertIds)
+  IF @NewIdsCount > 0
+  BEGIN
+    EXECUTE dbo.AssignResourceIdInts @NewIdsCount, @FirstIdInt OUT
+
+    INSERT INTO @InsertedIdsResource 
+         (   ResourceTypeId,         ResourceIdInt, ResourceId ) 
+      SELECT ResourceTypeId, IdIndex + @FirstIdInt, ResourceId
+        FROM @InsertIds
+  END
+  
+  IF EXISTS (SELECT * FROM @ResourcesLake)
+    INSERT INTO @ResourcesWithIds
+           (   ResourceTypeId,   ResourceId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
+      SELECT A.ResourceTypeId, A.ResourceId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile
+        FROM @ResourcesLake A
+             LEFT OUTER JOIN @InsertedIdsResource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+             LEFT OUTER JOIN @ExistingIdsResource C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
+  ELSE
+    INSERT INTO @ResourcesWithIds
+           (   ResourceTypeId,   ResourceId,                           ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile )
+      SELECT A.ResourceTypeId, A.ResourceId, isnull(C.ResourceIdInt,B.ResourceIdInt), Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash,   NULL,         NULL
+        FROM @Resources A
+             LEFT OUTER JOIN @InsertedIdsResource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+             LEFT OUTER JOIN @ExistingIdsResource C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceId = A.ResourceId
+  -- Prepare id map for resources End ---------------------------------------------------------------------------
+
   DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
   DECLARE @ResourceInfos AS TABLE
@@ -301,7 +260,39 @@ BEGIN TRY
 
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE FROM dbo.ResourceReferenceSearchParams
+        OUTPUT deleted.ReferenceResourceTypeId, deleted.ReferenceResourceIdInt INTO @CurrentRefIdsRaw
+        WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      SET @CurrentRows = @@rowcount
+      SET @AffectedRows += @CurrentRows
+      -- start deleting from ResourceIdIntMap
+      INSERT INTO @CurrentRefIds SELECT DISTINCT ResourceTypeId, ResourceIdInt FROM @CurrentRefIdsRaw
+      SET @CurrentRows = @@rowcount
+      IF @CurrentRows > 0
+      BEGIN
+        -- remove not reused
+        DELETE FROM A FROM @CurrentRefIds A WHERE EXISTS (SELECT * FROM @ReferenceSearchParamsWithIds B WHERE B.ReferenceResourceTypeId = A.ResourceTypeId AND B.ReferenceResourceIdInt = A.ResourceIdInt)
+        SET @CurrentRows -= @@rowcount 
+        IF @CurrentRows > 0
+        BEGIN
+          -- remove referenced in Resources
+          DELETE FROM A FROM @CurrentRefIds A WHERE EXISTS (SELECT * FROM dbo.CurrentResources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt)
+          SET @CurrentRows -= @@rowcount
+          IF @CurrentRows > 0
+          BEGIN
+            -- remove still referenced in ResourceReferenceSearchParams
+            DELETE FROM A FROM @CurrentRefIds A WHERE EXISTS (SELECT * FROM dbo.ResourceReferenceSearchParams B WHERE B.ReferenceResourceTypeId = A.ResourceTypeId AND B.ReferenceResourceIdInt = A.ResourceIdInt)
+            SET @CurrentRows -= @@rowcount
+            IF @CurrentRows > 0
+            BEGIN
+              -- delete from id map
+              DELETE FROM B FROM @CurrentRefIds A INNER LOOP JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt
+              SET @DeletedIdMap = @@rowcount
+            END
+          END
+        END
+      END
+      DELETE FROM dbo.StringReferenceSearchParams WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.TokenSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
@@ -333,6 +324,16 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
+    INSERT INTO dbo.ResourceIdIntMap 
+        (    ResourceTypeId, ResourceIdInt, ResourceId ) 
+      SELECT ResourceTypeId, ResourceIdInt, ResourceId
+        FROM @InsertedIdsResource
+
+    INSERT INTO dbo.ResourceIdIntMap 
+        (    ResourceTypeId, ResourceIdInt, ResourceId ) 
+      SELECT ResourceTypeId, ResourceIdInt, ResourceId
+        FROM @InsertedIdsReference
+    
     INSERT INTO dbo.Resource 
            ( ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, FileId, OffsetInFile )
       SELECT ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, FileId, OffsetInFile
@@ -591,17 +592,37 @@ BEGIN TRY
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.Resource%' OR error_message() LIKE '%''dbo.CurrentResources%' OR error_message() LIKE '%''dbo.HistoryResources%' OR error_message() LIKE '%''dbo.RawResources''%') -- handles old and separated tables
-    THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
-  ELSE
-    THROW
+  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%' -- pk violation
+     OR error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  BEGIN
+    DELETE FROM @ResourcesWithIds
+    DELETE FROM @ReferenceSearchParamsWithIds
+    DELETE FROM @CurrentRefIdsRaw
+    DELETE FROM @CurrentRefIds
+    DELETE FROM @InputIds
+    DELETE FROM @InsertIds
+    DELETE FROM @InsertedIdsReference
+    DELETE FROM @ExistingIdsReference
+    DELETE FROM @InsertedIdsResource
+    DELETE FROM @ExistingIdsResource
+    DELETE FROM @Existing
+    DELETE FROM @ResourceInfos
+    DELETE FROM @PreviousSurrogateIds 
+
+    GOTO RetryResourceIdIntMapLogic
+  END
+  ELSE 
+    IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.Resource%' OR error_message() LIKE '%''dbo.CurrentResources%' OR error_message() LIKE '%''dbo.HistoryResources%' OR error_message() LIKE '%''dbo.RawResources''%')
+      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+    ELSE
+      THROW
 END CATCH
 GO

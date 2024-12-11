@@ -14,6 +14,7 @@ CREATE TYPE dbo.ResourceListLake AS TABLE
    ,IsRawResourceMetaSet bit                 NOT NULL
    ,RequestMethod        varchar(10)         NULL
    ,SearchParamHash      varchar(64)         NULL
+   ,FileId               bigint              NULL
    ,OffsetInFile         int                 NULL
 
     PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)

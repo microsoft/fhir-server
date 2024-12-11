@@ -19,15 +19,3 @@ SELECT ResourceTypeId
       ,IsResourceRef
   FROM dbo.StringReferenceSearchParams
 GO
-CREATE TRIGGER dbo.ReferenceSearchParamDel ON dbo.ReferenceSearchParam INSTEAD OF DELETE
-AS
-BEGIN
-  DELETE FROM A
-    FROM dbo.ResourceReferenceSearchParams A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.IsResourceRef = 1 AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
-
-  DELETE FROM A
-    FROM dbo.StringReferenceSearchParams A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.IsResourceRef = 0 AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
-END
-GO

@@ -337,17 +337,11 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                             Interlocked.Increment(ref errors);
                         }
                     }
-                    else if (_callType == "HardDeleteNoChangeCapture")
+                    else if (_callType == "HardDelete")
                     {
                         var typeId = resourceIds.Item2.First().ResourceTypeId;
                         var id = resourceIds.Item2.First().ResourceId;
-                        _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
-                    }
-                    else if (_callType == "HardDeleteWithChangeCapture")
-                    {
-                        var typeId = resourceIds.Item2.First().ResourceTypeId;
-                        var id = resourceIds.Item2.First().ResourceId;
-                        _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
+                        _store.HardDeleteAsync(typeId, id, false, CancellationToken.None).Wait();
                     }
                     else
                     {
