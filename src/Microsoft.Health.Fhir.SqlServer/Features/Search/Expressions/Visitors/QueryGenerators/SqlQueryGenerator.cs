@@ -294,7 +294,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        // TODO: Remove when code starts using TokenSearchParamHighCard table
+        // TODO: Remove. This is not needed as we use precise statistics.
         private void AddOptionClause()
         {
             // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
@@ -687,8 +687,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                 .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
-                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
-                .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+            if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                             .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
+            }
+            else
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+            }
 
             // For reverse chaining, if there is a parameter on the _id search parameter, we need another join to get the resource ID of the reference source (all we have is the surrogate ID at this point)
             bool expressionOnTargetHandledBySecondJoin = chainedExpression.ExpressionOnTarget != null && chainedExpression.Reversed && chainedExpression.ExpressionOnTarget.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id);
@@ -784,8 +792,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
-                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
-                .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+            if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                             .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
+            }
+            else
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+            }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {

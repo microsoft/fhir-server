@@ -6,8 +6,9 @@ CREATE TABLE dbo.ReferenceSearchParam
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
    ,ReferenceResourceTypeId   smallint     NULL
-   ,ReferenceResourceIdInt    bigint       NOT NULL
    ,ReferenceResourceId       varchar(768) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceIdInt    bigint       NOT NULL
+   ,IsResourceRef             bit          NOT NULL
 )
 GO
 DROP TABLE dbo.ReferenceSearchParam

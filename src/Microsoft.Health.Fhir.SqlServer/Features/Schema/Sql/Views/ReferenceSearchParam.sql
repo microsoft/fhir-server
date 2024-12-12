@@ -6,6 +6,7 @@ SELECT A.ResourceTypeId
       ,BaseUri
       ,ReferenceResourceTypeId
       ,ReferenceResourceId = B.ResourceId
+      ,ReferenceResourceIdInt
       ,IsResourceRef
   FROM dbo.ResourceReferenceSearchParams A
        LEFT OUTER JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceIdInt = A.ReferenceResourceIdInt
@@ -16,6 +17,7 @@ SELECT ResourceTypeId
       ,BaseUri
       ,NULL
       ,ReferenceResourceId
+      ,NULL
       ,IsResourceRef
   FROM dbo.StringReferenceSearchParams
 GO

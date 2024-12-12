@@ -669,8 +669,9 @@ CREATE TABLE dbo.ReferenceSearchParam (
     SearchParamId           SMALLINT      NOT NULL,
     BaseUri                 VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId SMALLINT      NULL,
+    ReferenceResourceId     VARCHAR (768) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceIdInt  BIGINT        NOT NULL,
-    ReferenceResourceId     VARCHAR (768) COLLATE Latin1_General_100_CS_AS NOT NULL
+    IsResourceRef           BIT           NOT NULL
 );
 
 
@@ -6058,6 +6059,7 @@ SELECT A.ResourceTypeId,
        BaseUri,
        ReferenceResourceTypeId,
        B.ResourceId AS ReferenceResourceId,
+       ReferenceResourceIdInt,
        IsResourceRef
 FROM   dbo.ResourceReferenceSearchParams AS A
        LEFT OUTER JOIN
@@ -6071,6 +6073,7 @@ SELECT ResourceTypeId,
        BaseUri,
        NULL,
        ReferenceResourceId,
+       NULL,
        IsResourceRef
 FROM   dbo.StringReferenceSearchParams;
 
