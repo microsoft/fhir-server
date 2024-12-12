@@ -613,7 +613,7 @@ INSERT INTO dbo.ResourceChangeData
     FROM (SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @Resources UNION ALL SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @ResourcesLake) A
     WHERE IsHistory = 0
 GO
--- The following 2 procs are special for data movement
+-- The following 2 procs and trigger are special for data movement
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
@@ -1528,6 +1528,7 @@ BEGIN
     SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
       FROM Inserted
       WHERE IsHistory = 0
+        AND NOT EXISTS (SELECT * FROM dbo.CurrentResources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) -- Avoid dups caused by search params update
 
   INSERT INTO dbo.HistoryResources
          ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
@@ -2648,8 +2649,6 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
---DROP PROCEDURE dbo.MergeResources
 GO
 ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
