@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAnObservationDefinition_WhenCreating_ThenTheCorrectResponseShouldBeReturned()
         {
-            var resource = Samples.GetJsonSample<ObservationDefinition>("ObservationDefinition-example");
+            var resource = Samples.GetJsonSample<ObservationDefinition>("ObservationDefinition-example1");
 
             Resource actual = await _client.CreateAsync(resource);
 
