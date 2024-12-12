@@ -3836,7 +3836,8 @@ BEGIN TRY
            LEFT OUTER JOIN
            @ExistingIdsReference AS C
            ON C.ResourceTypeId = A.ReferenceResourceTypeId
-              AND C.ResourceId = A.ReferenceResourceId;
+              AND C.ResourceId = A.ReferenceResourceId
+    WHERE  ReferenceResourceTypeId IS NOT NULL;
     DELETE @InputIds;
     IF EXISTS (SELECT *
                FROM   @ResourcesLake)

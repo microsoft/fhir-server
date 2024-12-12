@@ -120,6 +120,7 @@ BEGIN TRY
       FROM @ReferenceSearchParams A
            LEFT OUTER JOIN @InsertedIdsReference B ON B.ResourceTypeId = A.ReferenceResourceTypeId AND B.ResourceId = A.ReferenceResourceId
            LEFT OUTER JOIN @ExistingIdsReference C ON C.ResourceTypeId = A.ReferenceResourceTypeId AND C.ResourceId = A.ReferenceResourceId
+      WHERE ReferenceResourceTypeId IS NOT NULL
   -- Prepare id map for reference search params End ---------------------------------------------------------------------------
 
   -- Prepare id map for resources Start ---------------------------------------------------------------------------
