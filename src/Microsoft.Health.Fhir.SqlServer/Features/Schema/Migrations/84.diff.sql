@@ -535,6 +535,8 @@ BEGIN
     WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
   EXECUTE('
+CREATE VIEW dbo.ReferenceSearchParam
+AS
 SELECT A.ResourceTypeId
       ,ResourceSurrogateId
       ,SearchParamId
