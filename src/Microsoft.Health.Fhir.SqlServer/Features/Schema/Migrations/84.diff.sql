@@ -2120,7 +2120,7 @@ SELECT A.ResourceTypeId
       ,IsHistory
       ,IsDeleted
       ,RequestMethod
-      ,B.RawResource
+      ,RawResource
       ,IsRawResourceMetaSet
       ,SearchParamHash
       ,TransactionId 
@@ -2139,7 +2139,7 @@ SELECT A.ResourceTypeId
       ,IsHistory
       ,IsDeleted
       ,RequestMethod
-      ,B.RawResource
+      ,RawResource
       ,IsRawResourceMetaSet
       ,SearchParamHash
       ,TransactionId 
