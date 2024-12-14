@@ -690,7 +690,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
             if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
             {
-                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").Append(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
                              .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
             }
             else
@@ -795,7 +795,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
             if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
             {
-                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").Append(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
                              .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
             }
             else
