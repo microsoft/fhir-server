@@ -1516,30 +1516,6 @@ BEGIN CATCH
       THROW
 END CATCH
 GO
-CREATE OR ALTER TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
-AS
-BEGIN
-  INSERT INTO dbo.RawResources
-         ( ResourceTypeId, ResourceSurrogateId, RawResource )
-    SELECT ResourceTypeId, ResourceSurrogateId, RawResource
-      FROM Inserted A
-      WHERE RawResource IS NOT NULL
-        AND NOT EXISTS (SELECT * FROM dbo.RawResources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) -- Avoid dups caused by hard deletes
-
-  INSERT INTO dbo.CurrentResources
-         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
-      FROM Inserted
-      WHERE IsHistory = 0
-        AND NOT EXISTS (SELECT * FROM dbo.CurrentResources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) -- Avoid dups caused by search params update
-
-  INSERT INTO dbo.HistoryResources
-         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
-    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
-      FROM Inserted
-      WHERE IsHistory = 1
-END
-GO
 COMMIT TRANSACTION
 GO
 ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
@@ -2149,6 +2125,28 @@ SELECT A.ResourceTypeId
   FROM dbo.HistoryResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
+GO
+ALTER TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
+AS
+BEGIN
+  INSERT INTO dbo.RawResources
+         ( ResourceTypeId, ResourceSurrogateId, RawResource )
+    SELECT ResourceTypeId, ResourceSurrogateId, RawResource
+      FROM Inserted
+      WHERE RawResource IS NOT NULL
+
+  INSERT INTO dbo.CurrentResources
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
+      FROM Inserted
+      WHERE IsHistory = 0
+
+  INSERT INTO dbo.HistoryResources
+         ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
+    SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
+      FROM Inserted
+      WHERE IsHistory = 1
+END
 GO
 ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
