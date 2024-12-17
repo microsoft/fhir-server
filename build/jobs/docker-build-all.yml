@@ -6,6 +6,8 @@ parameters:
   type: string
 - name: buildPlatform
   type: string
+- name: multiplePlatforms
+  type: boolean
 
 jobs:
 - template: docker-build-push.yml
