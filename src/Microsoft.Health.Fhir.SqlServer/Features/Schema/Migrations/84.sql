@@ -4997,8 +4997,8 @@ BEGIN TRY
                             SET @DeletedIdMap = @@rowcount;
                         END
                 END
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'ResourceIdIntMap', @Action = 'Delete', @Start = @st, @Rows = @DeletedIdMap;
         END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'ResourceIdIntMap', @Action = 'Delete', @Start = @st, @Rows = @DeletedIdMap;
     COMMIT TRANSACTION;
     SET @st = getUTCdate();
     UPDATE dbo.Resource

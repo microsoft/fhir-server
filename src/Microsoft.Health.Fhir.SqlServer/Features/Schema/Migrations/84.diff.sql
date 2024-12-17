@@ -595,7 +595,7 @@ END
   COMMIT TRANSACTION
 END
 GO
-BEGIN TRANSACTION
+BEGIN TRANSACTION -- update ReferenceSearchParamList
 GO
 DROP PROCEDURE CaptureResourceIdsForChanges
 DROP PROCEDURE MergeResources
@@ -1527,6 +1527,8 @@ END CATCH
 GO
 COMMIT TRANSACTION
 GO
+-- Special versions of procedures for data movement
+GO
 ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
 AS
 set nocount on
@@ -1535,20 +1537,34 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@st datetime
        ,@Rows int
        ,@DeletedIdMap int
+       ,@TypeId smallint
 
 SET @AffectedRows = 0
 
+DECLARE @Types TABLE (TypeId smallint PRIMARY KEY, Name varchar(100))
+INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+
+DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL)
+
 Retry:
 BEGIN TRY 
-  DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL)
-  
+  WHILE EXISTS (SELECT * FROM @Types)
+  BEGIN
+    SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
+
+    DELETE FROM dbo.ResourceTbl WHERE ResourceTypeId = @TypeId AND HistoryTransactionId = @TransactionId AND RawResource = 0xF
+    SET @AffectedRows += @@rowcount
+
+    DELETE FROM @Types WHERE TypeId = @TypeId
+  END
+
   BEGIN TRANSACTION
 
   SET @st = getUTCdate()
   DELETE FROM A
     OUTPUT deleted.ResourceTypeId, deleted.ResourceIdInt INTO @Ids 
     FROM dbo.Resource A
-    WHERE HistoryTransactionId = @TransactionId
+    WHERE HistoryTransactionId = @TransactionId -- requires statistics to reflect not null values
   SET @Rows = @@rowcount
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Start=@st,@Rows=@Rows
   SET @AffectedRows += @Rows
@@ -1571,8 +1587,8 @@ BEGIN TRY
         SET @DeletedIdMap = @@rowcount
       END
     END
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
   END
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
 
   COMMIT TRANSACTION
   
@@ -1592,8 +1608,6 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
--- Special versions of procedures for data movement
 GO
 ALTER PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0, @ReturnResourceKeysOnly bit = 0
 AS
@@ -3455,6 +3469,72 @@ BEGIN CATCH
       THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
       THROW
+END CATCH
+GO
+ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = 'T='+convert(varchar,@TransactionId)
+       ,@st datetime
+       ,@Rows int
+       ,@DeletedIdMap int
+
+SET @AffectedRows = 0
+
+Retry:
+BEGIN TRY 
+  DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL)
+  
+  BEGIN TRANSACTION
+
+  SET @st = getUTCdate()
+  DELETE FROM A
+    OUTPUT deleted.ResourceTypeId, deleted.ResourceIdInt INTO @Ids 
+    FROM dbo.Resource A
+    WHERE HistoryTransactionId = @TransactionId -- requires updated statistics
+  SET @Rows = @@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Start=@st,@Rows=@Rows
+  SET @AffectedRows += @Rows
+
+  SET @st = getUTCdate()
+  IF @Rows > 0
+  BEGIN
+    -- remove referenced in resources
+    DELETE FROM A FROM @Ids A WHERE EXISTS (SELECT * FROM dbo.CurrentResources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt)
+    SET @Rows -= @@rowcount
+    IF @Rows > 0
+    BEGIN
+      -- remove referenced in reference search params
+      DELETE FROM A FROM @Ids A WHERE EXISTS (SELECT * FROM dbo.ResourceReferenceSearchParams B WHERE B.ReferenceResourceTypeId = A.ResourceTypeId AND B.ReferenceResourceIdInt = A.ResourceIdInt)
+      SET @Rows -= @@rowcount
+      IF @Rows > 0
+      BEGIN
+        -- delete from id map
+        DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.ResourceIdIntMap B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt
+        SET @DeletedIdMap = @@rowcount
+      END
+    END
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
+  END
+
+  COMMIT TRANSACTION
+  
+  SET @st = getUTCdate()
+  UPDATE dbo.Resource SET TransactionId = NULL WHERE TransactionId = @TransactionId
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Update',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error'
+  IF error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  BEGIN
+    DELETE FROM @Ids
+    GOTO Retry
+  END
+  ELSE
+    THROW
 END CATCH
 GO
 --DROP TABLE IF EXISTS ResourceTbl -- TODO: Remove table after deployment

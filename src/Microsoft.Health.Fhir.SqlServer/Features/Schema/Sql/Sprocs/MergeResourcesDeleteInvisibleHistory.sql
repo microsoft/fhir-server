@@ -21,7 +21,7 @@ BEGIN TRY
   DELETE FROM A
     OUTPUT deleted.ResourceTypeId, deleted.ResourceIdInt INTO @Ids 
     FROM dbo.Resource A
-    WHERE HistoryTransactionId = @TransactionId
+    WHERE HistoryTransactionId = @TransactionId -- requires updated statistics
   SET @Rows = @@rowcount
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Start=@st,@Rows=@Rows
   SET @AffectedRows += @Rows
@@ -44,8 +44,8 @@ BEGIN TRY
         SET @DeletedIdMap = @@rowcount
       END
     END
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
   END
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
 
   COMMIT TRANSACTION
   
