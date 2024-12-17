@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    internal class SqlAdlsStore
+    internal class SqlDataLakeStore
     {
         private static readonly object _parameterLocker = new object();
         private static string _adlsContainer;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static BlobContainerClient _adlsClient;
         private static bool _adlsIsSet;
 
-        public SqlAdlsStore(ISqlRetryService sqlRetryService, ILogger logger)
+        public SqlDataLakeStore(ISqlRetryService sqlRetryService, ILogger logger)
         {
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
 

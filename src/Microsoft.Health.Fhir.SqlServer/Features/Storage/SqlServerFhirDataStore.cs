@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            _ = new SqlAdlsStore(_sqlRetryService, _logger);
+            _ = new SqlDataLakeStore(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         retry:
             try
             {
-                using var stream = await SqlAdlsStore.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                using var stream = await SqlDataLakeStore.AdlsClient.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
                 using var writer = new StreamWriter(stream);
                 var offset = 0;
                 foreach (var resource in resources)
@@ -763,7 +763,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsStore.AdlsClient != null)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlDataLakeStore.AdlsClient != null)
             {
                 await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
@@ -838,7 +838,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture; // TODO: For case when Raw in Lake are supported, this should be true.
+            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlDataLakeStore.AdlsClient != null;
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, makeResourceInvisible, cancellationToken);
         }
 
