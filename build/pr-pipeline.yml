@@ -103,6 +103,7 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
+      multiplePlatforms: false
 
 - stage: provisionEnvironment
   displayName: Provision Environment
