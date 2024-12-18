@@ -275,10 +275,11 @@ CREATE TYPE dbo.UriSearchParamList AS TABLE (
     SearchParamId       SMALLINT      NOT NULL,
     Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri));
 
-CREATE TABLE dbo.Resource (
+CREATE TABLE dbo.CurrentResource (
     ResourceTypeId       SMALLINT        NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
     ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceIdInt        BIGINT          NOT NULL,
     Version              INT             NOT NULL,
     IsHistory            BIT             NOT NULL,
     IsDeleted            BIT             NOT NULL,
@@ -291,6 +292,33 @@ CREATE TABLE dbo.Resource (
     FileId               BIGINT          NULL,
     OffsetInFile         INT             NULL
 );
+
+
+GO
+DROP TABLE dbo.CurrentResource;
+
+
+GO
+CREATE TABLE dbo.Resource (
+    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceSurrogateId  BIGINT          NOT NULL,
+    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceIdInt        BIGINT          NOT NULL,
+    Version              INT             NOT NULL,
+    IsHistory            BIT             NOT NULL,
+    IsDeleted            BIT             NOT NULL,
+    RequestMethod        VARCHAR (10)    NULL,
+    RawResource          VARBINARY (MAX) NULL,
+    IsRawResourceMetaSet BIT             NOT NULL,
+    SearchParamHash      VARCHAR (64)    NULL,
+    TransactionId        BIGINT          NULL,
+    HistoryTransactionId BIGINT          NULL,
+    FileId               BIGINT          NULL,
+    OffsetInFile         INT             NULL
+);
+
+CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
+    ON Resource(ResourceTypeId);
 
 
 GO
@@ -828,67 +856,6 @@ WITH (DATA_COMPRESSION = PAGE);
 
 CREATE CLUSTERED INDEX IXC_ResourceWriteClaim
     ON dbo.ResourceWriteClaim(ResourceSurrogateId, ClaimTypeId);
-
-CREATE TABLE dbo.CurrentResource (
-    ResourceTypeId       SMALLINT        NOT NULL,
-    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Version              INT             NOT NULL,
-    IsHistory            BIT             NOT NULL,
-    ResourceSurrogateId  BIGINT          NOT NULL,
-    IsDeleted            BIT             NOT NULL,
-    RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
-    IsRawResourceMetaSet BIT             NOT NULL,
-    SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL,
-    HistoryTransactionId BIGINT          NULL
-);
-
-
-GO
-DROP TABLE dbo.CurrentResource;
-
-
-GO
-CREATE TABLE dbo.Resource (
-    ResourceTypeId       SMALLINT        NOT NULL,
-    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Version              INT             NOT NULL,
-    IsHistory            BIT             NOT NULL,
-    ResourceSurrogateId  BIGINT          NOT NULL,
-    IsDeleted            BIT             NOT NULL,
-    RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
-    IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
-    SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL,
-    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
-);
-
-ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
-
-CREATE INDEX IX_ResourceTypeId_TransactionId
-    ON dbo.Resource(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_ResourceTypeId_HistoryTransactionId
-    ON dbo.Resource(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
-    ON dbo.Resource(ResourceTypeId, ResourceId, Version)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId
-    ON dbo.Resource(ResourceTypeId, ResourceId)
-    INCLUDE(Version, IsDeleted) WHERE IsHistory = 0
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
-    ON dbo.Resource(ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0
-                                                               AND IsDeleted = 0
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.SchemaMigrationProgress (
     Timestamp DATETIME2 (3)  DEFAULT CURRENT_TIMESTAMP,
@@ -6167,9 +6134,30 @@ COMMIT TRANSACTION;
 GO
 CREATE VIEW dbo.CurrentResource
 AS
-SELECT *
-FROM   dbo.Resource
-WHERE  IsHistory = 0;
+SELECT A.ResourceTypeId,
+       A.ResourceSurrogateId,
+       ResourceId,
+       A.ResourceIdInt,
+       Version,
+       IsHistory,
+       IsDeleted,
+       RequestMethod,
+       RawResource,
+       IsRawResourceMetaSet,
+       SearchParamHash,
+       TransactionId,
+       HistoryTransactionId,
+       FileId,
+       OffsetInFile
+FROM   dbo.CurrentResources AS A
+       LEFT OUTER JOIN
+       dbo.RawResources AS B
+       ON B.ResourceTypeId = A.ResourceTypeId
+          AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN
+       dbo.ResourceIdIntMap AS C
+       ON C.ResourceTypeId = A.ResourceTypeId
+          AND C.ResourceIdInt = A.ResourceIdInt;
 
 GO
 CREATE VIEW dbo.ReferenceSearchParam

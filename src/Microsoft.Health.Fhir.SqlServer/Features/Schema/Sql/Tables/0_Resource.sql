@@ -1,10 +1,11 @@
 ﻿-- 0 in this script name is needed to ensure that this script is executed first, so FK constraints can be created in other scripts
--- Our code generator does not understand views (in the end Resource is a view), so we create a table that looks like a view and immediately drop it.
-CREATE TABLE dbo.Resource
+-- Our code generator does not understand views, so we create tables which look like views and immediately drop them.
+CREATE TABLE dbo.CurrentResource
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceIdInt               bigint                  NOT NULL
    ,Version                     int                     NOT NULL
    ,IsHistory                   bit                     NOT NULL
    ,IsDeleted                   bit                     NOT NULL
@@ -17,6 +18,28 @@ CREATE TABLE dbo.Resource
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
 )
+GO
+DROP TABLE dbo.CurrentResource
+GO
+CREATE TABLE dbo.Resource
+(
+    ResourceTypeId              smallint                NOT NULL
+   ,ResourceSurrogateId         bigint                  NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceIdInt               bigint                  NOT NULL
+   ,Version                     int                     NOT NULL
+   ,IsHistory                   bit                     NOT NULL
+   ,IsDeleted                   bit                     NOT NULL
+   ,RequestMethod               varchar(10)             NULL
+   ,RawResource                 varbinary(max)          NULL
+   ,IsRawResourceMetaSet        bit                     NOT NULL
+   ,SearchParamHash             varchar(64)             NULL
+   ,TransactionId               bigint                  NULL
+   ,HistoryTransactionId        bigint                  NULL
+   ,FileId                      bigint                  NULL
+   ,OffsetInFile                int                     NULL
+)
+CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON Resource (ResourceTypeId) -- index definition does not matter as it is not used in new schema and left here just to generate same queries accessing old schema during upgrade.
 GO
 DROP TABLE dbo.Resource
 GO

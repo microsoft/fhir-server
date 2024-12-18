@@ -202,6 +202,47 @@ SELECT ResourceTypeId
   ')
 
   EXECUTE('
+ALTER VIEW dbo.CurrentResource
+AS
+SELECT A.ResourceTypeId
+      ,A.ResourceSurrogateId
+      ,ResourceId
+      ,A.ResourceIdInt
+      ,Version
+      ,IsHistory
+      ,IsDeleted
+      ,RequestMethod
+      ,RawResource
+      ,IsRawResourceMetaSet
+      ,SearchParamHash
+      ,TransactionId 
+      ,HistoryTransactionId
+      ,FileId
+      ,OffsetInFile
+  FROM dbo.CurrentResources A
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
+UNION ALL
+SELECT ResourceTypeId
+      ,ResourceSurrogateId
+      ,ResourceId
+      ,NULL
+      ,Version
+      ,IsHistory
+      ,IsDeleted
+      ,RequestMethod
+      ,RawResource
+      ,IsRawResourceMetaSet
+      ,SearchParamHash
+      ,TransactionId 
+      ,HistoryTransactionId
+      ,NULL
+      ,NULL
+  FROM dbo.ResourceTbl
+  WHERE IsHistory = 0
+  ')
+
+  EXECUTE('
 ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
 AS
 set nocount on
@@ -2181,6 +2222,27 @@ SELECT A.ResourceTypeId
       ,FileId
       ,OffsetInFile
   FROM dbo.HistoryResources A
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
+GO
+ALTER VIEW dbo.CurrentResource
+AS 
+SELECT A.ResourceTypeId
+      ,A.ResourceSurrogateId
+      ,ResourceId
+      ,A.ResourceIdInt
+      ,Version
+      ,IsHistory
+      ,IsDeleted
+      ,RequestMethod
+      ,RawResource
+      ,IsRawResourceMetaSet
+      ,SearchParamHash
+      ,TransactionId 
+      ,HistoryTransactionId
+      ,FileId
+      ,OffsetInFile
+  FROM dbo.CurrentResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
 GO
