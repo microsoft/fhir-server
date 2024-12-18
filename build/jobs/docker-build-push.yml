@@ -27,7 +27,11 @@ jobs:
         echo "Is build multiplePlatforms: ${{ parameters.multiplePlatforms }}"
         echo "Platform(s): ${{ parameters.buildPlatform }}"
 
-        if [ "${{ parameters.multiplePlatforms }}" = "true" ]; then
+        MULTIPLATFORM=${{ parameters.multiplePlatforms }}
+
+        echo "MULTIPLATFORM: $MULTIPLATFORM or lower ${MULTIPLATFORM,,}"
+
+        if [ "${MULTIPLATFORM,,}" = "true" ]; then
           echo "Running multi-platform build. Will pull buildx from dockerhub."
         else
           echo "Running single-platform build, pulling buildx from mirror to avoid throttling."
