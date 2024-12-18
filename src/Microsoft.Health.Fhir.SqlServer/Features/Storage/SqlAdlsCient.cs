@@ -16,13 +16,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SqlAdlsCient
     {
         private static readonly object _parameterLocker = new object();
-        private static string _adlsContainer;
+        private static string _adlsContainerName;
         private static string _adlsConnectionString;
         private static string _adlsAccountName;
         private static string _adlsAccountKey;
         private static Uri _adlsAccountUri;
         private static string _adlsAccountManagedIdentityClientId;
-        private static BlobContainerClient _adlsClient;
+        private static BlobContainerClient _adlsContainer;
         private static bool _adlsIsSet;
 
         public SqlAdlsCient(ISqlRetryService sqlRetryService, ILogger logger)
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var db = sqlRetryService.Database.Length < 50 ? sqlRetryService.Database : sqlRetryService.Database.Substring(0, 50);
-                        _adlsContainer = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
+                        _adlsContainerName = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
 
                         var uriStr = GetStorageParameter(sqlRetryService, logger, "MergeResources.AdlsAccountUri");
                         if (uriStr != null)
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (_adlsConnectionString != null || _adlsAccountUri != null)
                         {
-                            _adlsClient = GetContainer();
+                            _adlsContainer = GetContainer();
                         }
 
                         _adlsIsSet = true;
@@ -64,9 +64,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public static BlobContainerClient Container => _adlsIsSet ? _adlsClient : throw new ArgumentOutOfRangeException();
+        public static BlobContainerClient Container => _adlsIsSet ? _adlsContainer : throw new ArgumentOutOfRangeException();
 
-        public static string AdlsContainer => _adlsIsSet ? _adlsContainer : throw new ArgumentOutOfRangeException();
+        public static string AdlsContainerName => _adlsIsSet ? _adlsContainerName : throw new ArgumentOutOfRangeException();
 
         public static string AdlsAccountName => _adlsIsSet ? _adlsAccountName : throw new ArgumentOutOfRangeException();
 
@@ -94,10 +94,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static BlobContainerClient GetContainer() // creates if does not exist
         {
             var blobContainerClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
-                                    ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
+                                    ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainerName), new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
                                     : _adlsAccountUri != null
-                                        ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new InteractiveBrowserCredential())
-                                        : new BlobServiceClient(_adlsConnectionString).GetBlobContainerClient(_adlsContainer);
+                                        ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainerName), new InteractiveBrowserCredential())
+                                        : new BlobServiceClient(_adlsConnectionString).GetBlobContainerClient(_adlsContainerName);
 
             if (!blobContainerClient.Exists())
             {
