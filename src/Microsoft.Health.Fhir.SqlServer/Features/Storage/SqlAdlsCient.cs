@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    internal class SqlDataLakeStore
+    internal class SqlAdlsCient
     {
         private static readonly object _parameterLocker = new object();
         private static string _adlsContainer;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static BlobContainerClient _adlsClient;
         private static bool _adlsIsSet;
 
-        public SqlDataLakeStore(ISqlRetryService sqlRetryService, ILogger logger)
+        public SqlAdlsCient(ISqlRetryService sqlRetryService, ILogger logger)
         {
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
 
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (_adlsConnectionString != null || _adlsAccountUri != null)
                         {
-                            _adlsClient = GetAdlsContainer();
+                            _adlsClient = GetContainer();
                         }
 
                         _adlsIsSet = true;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public static BlobContainerClient AdlsClient => _adlsIsSet ? _adlsClient : throw new ArgumentOutOfRangeException();
+        public static BlobContainerClient Container => _adlsIsSet ? _adlsClient : throw new ArgumentOutOfRangeException();
 
         public static string AdlsContainer => _adlsIsSet ? _adlsContainer : throw new ArgumentOutOfRangeException();
 
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static BlobContainerClient GetAdlsContainer() // creates if does not exist
+        private static BlobContainerClient GetContainer() // creates if does not exist
         {
             var blobContainerClient = _adlsAccountUri != null && _adlsAccountManagedIdentityClientId != null
                                     ? new BlobContainerClient(new Uri(_adlsAccountUri, _adlsContainer), new ManagedIdentityCredential(_adlsAccountManagedIdentityClientId))
