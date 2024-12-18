@@ -24,7 +24,8 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        if [ "${{ parameters.multiplePlatforms }}" = "true" ]; then
+        MULTIPLATFORM=${{ parameters.multiplePlatforms }}
+        if [ "${MULTIPLATFORM,,}" = "true" ]; then
           echo "Running multi-platform build. Will pull buildx from dockerhub."
         else
           echo "Running single-platform build, pulling buildx from mirror to avoid throttling."
