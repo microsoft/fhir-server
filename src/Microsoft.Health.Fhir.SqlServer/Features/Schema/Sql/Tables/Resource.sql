@@ -1,4 +1,22 @@
-﻿CREATE TABLE dbo.Resource
+﻿CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
+(
+    ResourceTypeId              smallint                NOT NULL,
+    ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Version                     int                     NOT NULL,
+    IsHistory                   bit                     NOT NULL,
+    ResourceSurrogateId         bigint                  NOT NULL,
+    IsDeleted                   bit                     NOT NULL,
+    RequestMethod               varchar(10)             NULL,
+    RawResource                 varbinary(max)          NOT NULL,
+    IsRawResourceMetaSet        bit                     NOT NULL,
+    SearchParamHash             varchar(64)             NULL,
+    TransactionId               bigint                  NULL,
+    HistoryTransactionId        bigint                  NULL
+)
+GO
+DROP TABLE dbo.CurrentResource
+GO
+CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL,
     ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -50,3 +68,4 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
