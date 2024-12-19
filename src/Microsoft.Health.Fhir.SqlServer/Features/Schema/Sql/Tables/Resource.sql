@@ -1,4 +1,7 @@
-﻿CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
+﻿-- Our code generator, that creates class wrappers on database objects, is not able to deal with views, but we stil want to refer to view objects in the code.
+-- Workaround is to create table that looks like view, so code generator picks it up, and immediately drop it.
+-- This would not be needed at all, if we followed different class generation strategy.
+CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
 (
     ResourceTypeId              smallint                NOT NULL,
     ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
