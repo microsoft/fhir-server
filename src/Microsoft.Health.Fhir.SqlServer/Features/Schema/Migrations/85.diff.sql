@@ -1960,12 +1960,13 @@ BEGIN TRY
       BEGIN
         SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@CurrentMaxSurrogateId)
 
+        RetryResourceIdIntMapInsert:
+        
         DELETE FROM @InputIds
         DELETE FROM @RTs
         DELETE FROM @InsertedIds
         DELETE FROM @ExistingIds
 
-        RetryResourceIdIntMapInsert:
         BEGIN TRY
           SET @st = getUTCdate()
           INSERT INTO @InputIds SELECT DISTINCT ReferenceResourceTypeId, ReferenceResourceId 
