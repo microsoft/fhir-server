@@ -124,6 +124,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public ResourceVersionType ResourceVersionTypes { get; internal set; } = ResourceVersionType.Latest;
 
+        internal bool AddCurrentClause => ResourceVersionTypes.HasFlag(ResourceVersionType.Latest) && !ResourceVersionTypes.HasFlag(ResourceVersionType.History);
+
         /// <summary>
         /// Gets the search expression.
         /// </summary>

@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
         private CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly string _database;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -99,6 +100,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _database = sqlConnectionBuilder.DefaultDatabase;
+            EnsureArg.IsNotNull(_database, "DefaultDatabase");
+            if (_database == "master")
+            {
+                throw new ArgumentException("default database cannot be master");
+            }
+
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
 
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
@@ -137,6 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>Returns true if the exception <paramref name="ex"/> represent an retriable error.</returns>
         /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
+
+        public string Database => _database;
 
         /// <summary>
         /// Simplified class generator.
