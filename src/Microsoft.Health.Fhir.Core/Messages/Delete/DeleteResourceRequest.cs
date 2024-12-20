@@ -8,11 +8,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
-    public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
+    public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability, IBundleInnerRequest
     {
         public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
         {

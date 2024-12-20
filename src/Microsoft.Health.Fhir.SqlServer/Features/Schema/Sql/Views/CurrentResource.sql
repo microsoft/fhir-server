@@ -1,5 +1,5 @@
 ﻿CREATE VIEW dbo.CurrentResource
-AS 
+AS
 SELECT A.ResourceTypeId
       ,A.ResourceSurrogateId
       ,ResourceId

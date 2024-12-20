@@ -9,12 +9,13 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
+    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability, IBundleInnerRequest
     {
         public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, BundleResourceContext bundleResourceContext, WeakETag weakETag = null)
         {

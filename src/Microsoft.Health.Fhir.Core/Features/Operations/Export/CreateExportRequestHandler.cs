@@ -201,9 +201,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ValidateTypeFilters(IList<ExportJobFilter> filters)
         {
-            if (!_contextAccessor.GetIsStrictHandlingEnabled())
+            if (_contextAccessor.GetHandlingHeader() == SearchParameterHandling.Lenient)
             {
-                _logger.LogInformation("Validation skipped due to strict handling disabled.");
+                _logger.LogInformation("Validation skipped due to opting for Lenient error handling.");
                 return;
             }
 

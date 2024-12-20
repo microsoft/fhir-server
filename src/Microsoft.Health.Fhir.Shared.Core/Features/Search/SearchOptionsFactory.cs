@@ -411,7 +411,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
             var searchSortErrors = new List<string>();
-            if (searchParams.Sort?.Count > 0)
+
+            // Sort is unneded for summary count
+            if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;

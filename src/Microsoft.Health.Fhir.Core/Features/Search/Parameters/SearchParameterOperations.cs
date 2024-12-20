@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!supportedResult.Supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.NoConverterForSearchParamType, searchParameterInfo.Type, searchParameterInfo.Expression));
                 }
 
                 // check data store specific support for SearchParameter

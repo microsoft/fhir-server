@@ -190,15 +190,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                            resource.Wrapper,
-                            resource.WeakETag,
-                            resource.AllowCreate,
-                            resource.KeepHistory,
-                            innerCt,
-                            resource.RequireETagOnUpdate);
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        innerCt,
+                        resource.RequireETagOnUpdate);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (CosmosException cme) when (cme.StatusCode == HttpStatusCode.Forbidden && cme.SubStatusCode == 1014)
+                {
+                    // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-forbidden#partition-key-exceeding-storage
+
+                    _logger.LogWarning(cme, "PreconditionFailed: Partition reached maximum size.");
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(Resources.MaxPartitionSizeErrorMessage)));
                 }
                 catch (RequestRateExceededException rateExceededException)
                 {
@@ -220,9 +227,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
+            bool isBundleParallelOperation =
+                _bundleOrchestrator.IsEnabled &&
+                resource.BundleResourceContext != null &&
+                resource.BundleResourceContext.IsParallelBundle;
 
-            if (isBundleOperation)
+            if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 
@@ -430,7 +440,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             continue;
                         }
 
-                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                        throw new TransactionFailureException(transactionalBatchResponse.ErrorMessage);
                     }
                 }
                 else
