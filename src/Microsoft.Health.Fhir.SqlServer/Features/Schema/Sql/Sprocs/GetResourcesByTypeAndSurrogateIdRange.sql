@@ -12,11 +12,16 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
                            +' DE'+isnull(convert(varchar,@IncludeDeleted),'NULL')
        ,@st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
+       ,@Rows int
 
 BEGIN TRY
   DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
   DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
 
+  SET TRANSACTION ISOLATION LEVEL SNAPSHOT
+
+  BEGIN TRANSACTION
+  
   IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view
   BEGIN
     INSERT INTO @ResourceIds
@@ -42,21 +47,47 @@ BEGIN TRY
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
   END
 
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
-    FROM dbo.Resource
-    WHERE ResourceTypeId = @ResourceTypeId 
-      AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
-      AND (IsHistory = 0 OR @IncludeHistory = 1)
-      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-  UNION ALL
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
-    FROM @SurrogateIds
-         JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
-    WHERE IsHistory = 1
-      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+  IF @IncludeHistory = 0
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+      FROM dbo.Resource
+      WHERE ResourceTypeId = @ResourceTypeId 
+        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
+        AND IsHistory = 0 -- cannot use OR @IncludeHistory = 1 because SQL does not eliminate tables in the view
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+    UNION ALL
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+      FROM @SurrogateIds
+           JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
+      WHERE IsHistory = 1
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+      OPTION (MAXDOP 1)
+  ELSE -- @IncludeHistory = 1
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+      FROM dbo.Resource
+      WHERE ResourceTypeId = @ResourceTypeId 
+        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
+        AND IsHistory = 0
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+    UNION ALL
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+      FROM dbo.Resource
+      WHERE ResourceTypeId = @ResourceTypeId 
+        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
+        AND IsHistory = 1
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+    UNION ALL
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+      FROM @SurrogateIds
+           JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
+      WHERE IsHistory = 1
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
       OPTION (MAXDOP 1)
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+  SET @Rows = @@rowcount
+
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
