@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
+CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 1, @IncludeDeleted bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
@@ -9,23 +9,19 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
                            +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
                            +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
-                           +' DE'+isnull(convert(varchar,@IncludeDeleted),'NULL')
+                           +' DE='+isnull(convert(varchar,@IncludeDeleted),'NULL')
        ,@st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@Rows int
 
 BEGIN TRY
-  DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
+  DECLARE @ResourceIdInts TABLE (ResourceIdInt bigint PRIMARY KEY)
   DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
 
-  SET TRANSACTION ISOLATION LEVEL SNAPSHOT
-
-  BEGIN TRANSACTION
-  
   IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view
   BEGIN
-    INSERT INTO @ResourceIds
-      SELECT DISTINCT ResourceId
+    INSERT INTO @ResourceIdInts
+      SELECT DISTINCT ResourceIdInt
         FROM dbo.Resource 
         WHERE ResourceTypeId = @ResourceTypeId 
           AND ResourceSurrogateId BETWEEN @StartId AND @EndId
@@ -36,10 +32,10 @@ BEGIN TRY
     IF @@rowcount > 0
       INSERT INTO @SurrogateIds
         SELECT ResourceSurrogateId
-          FROM (SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC)
-                  FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) -- w/o hint access to Resource table is inefficient when many versions are present. Hint is ignored if Resource is a view.
+          FROM (SELECT ResourceIdInt, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceIdInt ORDER BY ResourceSurrogateId DESC)
+                  FROM dbo.Resource
                   WHERE ResourceTypeId = @ResourceTypeId
-                    AND ResourceId IN (SELECT TOP (@DummyTop) ResourceId FROM @ResourceIds)
+                    AND ResourceIdInt IN (SELECT TOP (@DummyTop) ResourceIdInt FROM @ResourceIdInts)
                     AND ResourceSurrogateId BETWEEN @StartId AND @GlobalEndId
                ) A
           WHERE RowId = 1
@@ -48,46 +44,34 @@ BEGIN TRY
   END
 
   IF @IncludeHistory = 0
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
-      FROM dbo.Resource
-      WHERE ResourceTypeId = @ResourceTypeId 
-        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
-        AND IsHistory = 0 -- cannot use OR @IncludeHistory = 1 because SQL does not eliminate tables in the view
-        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-    UNION ALL
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
-      FROM @SurrogateIds
-           JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
-      WHERE IsHistory = 1
-        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-      OPTION (MAXDOP 1)
-  ELSE -- @IncludeHistory = 1
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource--, FileId, OffsetInFile
       FROM dbo.Resource
       WHERE ResourceTypeId = @ResourceTypeId 
         AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
         AND IsHistory = 0
         AND (IsDeleted = 0 OR @IncludeDeleted = 1)
     UNION ALL
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
-      FROM dbo.Resource
-      WHERE ResourceTypeId = @ResourceTypeId 
-        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
-        AND IsHistory = 1
-        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-    UNION ALL
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, FileId, OffsetInFile
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource--, FileId, OffsetInFile
       FROM @SurrogateIds
            JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
       WHERE IsHistory = 1
         AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-      OPTION (MAXDOP 1)
+    OPTION (MAXDOP 1, LOOP JOIN)
+  ELSE -- @IncludeHistory = 1
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource--, FileId, OffsetInFile
+      FROM dbo.Resource
+      WHERE ResourceTypeId = @ResourceTypeId 
+        AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+    UNION ALL
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource--, FileId, OffsetInFile
+      FROM @SurrogateIds
+           JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
+      WHERE IsHistory = 1
+        AND (IsDeleted = 0 OR @IncludeDeleted = 1)
+    OPTION (MAXDOP 1, LOOP JOIN)
 
-  SET @Rows = @@rowcount
-
-  COMMIT TRANSACTION
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
