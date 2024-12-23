@@ -1364,7 +1364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
-        private bool IsSortValueNeeded(SearchOptions context)
+        internal bool IsSortValueNeeded(SearchOptions context)
         {
             if (context.Sort.Count == 0)
             {
