@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var bytes = reader.GetSqlBytes(6);
-            var fileId = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9) : null; // TODO: Remove field count check after deployment
+            var fileId = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9) : null; // TODO: Remove field count check after Lake schema deployment
             var offsetInFile = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10) : null;
             var rawResource = ReadRawResource(bytes, decompress, fileId, offsetInFile);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);

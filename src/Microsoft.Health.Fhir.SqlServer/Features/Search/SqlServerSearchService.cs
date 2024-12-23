@@ -848,8 +848,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceSqlBytes = reader.GetSqlBytes(10);
-            fileId = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.FileId, 11) : null;
-            offsetInFile = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.OffsetInFile, 12) : null;
+            //// TODO: Remove field count check when Lake schema is deployed
+            //// Number of fields in old schema is either 11 or 12 (12th is sort value). In new schema, it is either 13 or 14.
+            fileId = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.FileId, 11) : null;
+            offsetInFile = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.OffsetInFile, 12) : null;
             isInvisible = false;
             if (!rawResourceSqlBytes.IsNull)
             {
