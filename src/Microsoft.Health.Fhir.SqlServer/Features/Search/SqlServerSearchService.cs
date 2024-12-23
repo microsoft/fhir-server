@@ -336,7 +336,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
                         var isSortValueNeeded = false;
-                        var didWeReadSortValue = false;
 
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && ContainsGlobalEndSurrogateId(clonedSearchOptions);
                         if (exportTimeTravel)
@@ -417,7 +416,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             string sortValue = null;
                             var isResultPartial = false;
-                            int numberOfColumnsRead = 0;
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
@@ -440,8 +438,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     continue;
                                 }
-
-                                numberOfColumnsRead = reader.FieldCount;
 
                                 // If we get to this point, we know there are more results so we need a continuation token
                                 // Additionally, this resource shouldn't be included in the results
@@ -484,7 +480,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
                                     {
                                         var tempSortValue = reader.GetValue(SortValueColumnName);
-                                        didWeReadSortValue = true;
                                         if ((tempSortValue as DateTime?) != null)
                                         {
                                             sortValue = (tempSortValue as DateTime?).Value.ToString("o");
@@ -549,7 +544,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                             {
                                 // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
-                                sqlSearchOptions.DidWeSearchForSortValue = didWeReadSortValue;
+                                sqlSearchOptions.DidWeSearchForSortValue = isSortValueNeeded;
                             }
 
                             // This value is set inside the SortRewriter. If it is set, we need to pass
