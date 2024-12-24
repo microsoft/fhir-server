@@ -99,6 +99,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return new Lazy<string>(() =>
             {
                 var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(fileId);
+                if (SqlAdlsCient.Container == null)
+                {
+                    throw new InvalidOperationException("ADLS container is null.");
+                }
+
                 using var reader = new StreamReader(SqlAdlsCient.Container.GetBlobClient(blobName).OpenRead(offsetInFile));
                 var line = reader.ReadLine();
                 return line;
