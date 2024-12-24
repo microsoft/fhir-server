@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _adlsContainer = GetContainer();
                         }
 
+                        logger.LogInformation($"Storage container is set to {(_adlsContainer == null ? "NULL" : _adlsContainerName)}");
                         sqlRetryService.TryLogEvent("SqlAdlsClient", "Warn", $"Storage container is set to {(_adlsContainer == null ? "NULL" : _adlsContainerName)}", null, CancellationToken.None).Wait();
 
                         _adlsIsSet = true;
