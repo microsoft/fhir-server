@@ -94,6 +94,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+        {
+            var start = DateTime.UtcNow;
+            var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
+            var results = new Dictionary<(long FileId, int OffsetInFile), string>();
+            if (resourceRefs == null || resourceRefs.Count == 0)
+            {
+                return results;
+            }
+
+            foreach (var file in resourceRefsByFile)
+            {
+                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
+                var blobClient = SqlAdlsCient.Container.GetBlobClient(blobName);
+                foreach (var offset in file.Select(_ => _))
+                {
+                    using var reader = new StreamReader(blobClient.OpenRead(offset.OffsetInFile));
+                    var line = reader.ReadLine();
+                    results.Add((file.Key, offset.OffsetInFile), line);
+                }
+            }
+
+            return results;
+        }
+
         public static Lazy<string> GetRawResourceFromAdls(long fileId, int offsetInFile)
         {
             return new Lazy<string>(() =>
