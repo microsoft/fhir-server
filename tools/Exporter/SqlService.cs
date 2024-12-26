@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 using System.Threading;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -35,6 +35,12 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
 
         public SqlRetryService SqlRetryService => _sqlRetryService;
 
+        internal string ShowConnectionString()
+        {
+            var builder = new SqlConnectionStringBuilder(_connectionString);
+            return builder.DataSource + "." + builder.InitialCatalog;
+        }
+
         internal void DequeueJob(out long groupId, out long jobId, out long version, out short? resourceTypeId, out string minSurIdOrUrl, out string maxSurId)
         {
             var jobInfo = _queue.DequeueAsync(_queueType, "A", 600, CancellationToken.None).Result;
@@ -62,6 +68,21 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             _queue.CompleteJobAsync(jobInfo, false, CancellationToken.None).Wait();
         }
 
+        internal IEnumerable<(long FileId, int OffsetInFile)> GetRefs(short resourceTypeId, long minId, long maxId)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT FileId, OffsetInFile FROM dbo.Resource WHERE IsHistory = 0 AND ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @StartId AND @EndId", conn) { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", minId);
+            cmd.Parameters.AddWithValue("@EndId", maxId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                yield return (reader.GetInt64(0), reader.GetInt32(1));
+            }
+        }
+
         internal IEnumerable<byte[]> GetDataBytes(short resourceTypeId, long minId, long maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
@@ -77,7 +98,7 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             }
         }
 
-        internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize)
+        internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, int numberOfRanges)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -85,8 +106,8 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@StartId", startId);
             cmd.Parameters.AddWithValue("@EndId", endId);
-            cmd.Parameters.AddWithValue("@UnitSize", unitSize);
-            cmd.Parameters.AddWithValue("@NumberOfRanges", (int)(2e9 / unitSize));
+            cmd.Parameters.AddWithValue("@RangeSize", unitSize);
+            cmd.Parameters.AddWithValue("@NumberOfRanges", numberOfRanges);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -117,6 +138,11 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
                 using var mem = new MemoryStream(res);
                 yield return Health.Fhir.Store.Export.CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem);
             }
+        }
+
+        internal void LogEvent(string process, string status, string text, DateTime start)
+        {
+            _sqlRetryService.TryLogEvent(process, status, text, start, CancellationToken.None).Wait();
         }
     }
 }

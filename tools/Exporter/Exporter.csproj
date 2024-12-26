@@ -6,6 +6,7 @@
     <RootNamespace>Microsoft.Health.Internal.Fhir.Exporter</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>
+    <TargetFrameworks>net6.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,9 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="Azure.Storage.Files.DataLake" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
-    <PackageReference Include="System.Data.SqlClient" />
     <PackageReference Include="Microsoft.Health.SqlServer" />
   </ItemGroup>
 
