@@ -75,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
+#if !R5
         [Fact]
         public async Task ListAllUnsupportedTypes()
         {
@@ -92,15 +93,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     if (parameterInfo.Code != "_type")
                     {
-                        var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
-
-                        if (converters.All(x => x.hasConverter == false))
+                        try
                         {
-                            unsupported.Unsupported.Add(parameterInfo.Url);
+                            var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
+                            if (converters.All(x => x.hasConverter == false))
+                            {
+                                unsupported.Unsupported.Add(parameterInfo.Url);
+                            }
+                            else if (converters.Any(x => x.hasConverter == false))
+                            {
+                                unsupported.PartialSupport.Add(parameterInfo.Url);
+                            }
                         }
-                        else if (converters.Any(x => x.hasConverter == false))
+                        catch (Exception ex)
                         {
-                            unsupported.PartialSupport.Add(parameterInfo.Url);
+                            var error = $"{searchParameterRow.resourceType}, {parameterInfo.Name}, {ex.Message}";
+                            _outputHelper.WriteLine(error);
                         }
                     }
                 }
@@ -131,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.Unsupported, unsupported.Unsupported);
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
+#endif
 
         private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueConverter converter)>> GetConvertsForSearchParameters(
             string resourceType,

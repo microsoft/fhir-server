@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Observation, null);
-            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Observation);
+            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == KnownResourceTypes.Observation);
             observationResource.ReadHistory = false;
             observationResource.UpdateCreate = true;
             observationResource.ConditionalCreate = true;
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Patient, null);
-            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient);
+            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == KnownResourceTypes.Patient);
             patientResource.ReadHistory = true;
             patientResource.UpdateCreate = true;
             patientResource.ConditionalCreate = true;
