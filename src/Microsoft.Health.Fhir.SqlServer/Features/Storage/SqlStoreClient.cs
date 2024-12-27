@@ -96,7 +96,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
         {
-            var start = DateTime.UtcNow;
+            if (SqlAdlsCient.Container == null)
+            {
+                throw new InvalidOperationException("ADLS container is null.");
+            }
+
             var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
             var results = new Dictionary<(long FileId, int OffsetInFile), string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
@@ -108,9 +112,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
                 var blobClient = SqlAdlsCient.Container.GetBlobClient(blobName);
+                using var stream = blobClient.OpenRead();
+                using var reader = new StreamReader(stream);
                 foreach (var offset in file.Select(_ => _))
                 {
-                    using var reader = new StreamReader(blobClient.OpenRead(offset.OffsetInFile));
+                    reader.DiscardBufferedData();
+                    stream.Position = offset.OffsetInFile;
                     var line = reader.ReadLine();
                     results.Add((file.Key, offset.OffsetInFile), line);
                 }
@@ -119,20 +126,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
-        public static Lazy<string> GetRawResourceFromAdls(long fileId, int offsetInFile)
+        // TODO: Remove after changing get async code
+        public static string GetRawResourceFromAdls(long fileId, int offsetInFile)
         {
-            return new Lazy<string>(() =>
-            {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(fileId);
-                if (SqlAdlsCient.Container == null)
-                {
-                    throw new InvalidOperationException("ADLS container is null.");
-                }
-
-                using var reader = new StreamReader(SqlAdlsCient.Container.GetBlobClient(blobName).OpenRead(offsetInFile));
-                var line = reader.ReadLine();
-                return line;
-            });
+            var refs = new List<(long FileId, int OffsetInFile)> { (fileId, offsetInFile) };
+            var result = GetRawResourcesFromAdls(refs);
+            return result[(fileId, offsetInFile)];
         }
 
         public async Task<IReadOnlyList<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
@@ -172,13 +171,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return resources;
         }
 
+        // TODO: Remove file id and offset
         internal static string ReadRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress, long? fileId, int? offsetInFile)
         {
             var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             string rawResource;
             if (rawResourceBytes == null && offsetInFile.HasValue) // raw in adls
             {
-                rawResource = GetRawResourceFromAdls(fileId.Value, offsetInFile.Value).Value;
+                rawResource = GetRawResourceFromAdls(fileId.Value, offsetInFile.Value);
             }
             else if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {

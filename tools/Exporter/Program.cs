@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == "random")
+            if (args.Length > 0 && (args[0] == "random" || args[0] == "sorted"))
             {
                 var count = args.Length > 1 ? int.Parse(args[1]) : 100;
                 _blobContainer = GetContainer(AdlsUri, AdlsUAMI, AdlsContainerName);
@@ -71,7 +71,14 @@ namespace Microsoft.Health.Fhir.Store.Export
 
                 var parall = args.Length > 2 ? int.Parse(args[2]) : 8;
 
-                RandomReads(count, parall);
+                if (args[0] == "random")
+                {
+                    RandomReads(count, parall);
+                }
+                else
+                {
+                    SortedReads(count, parall);
+                }
             }
             else if (args.Length == 0 || args[0] == "storage")
             {
@@ -132,7 +139,55 @@ namespace Microsoft.Health.Fhir.Store.Export
             Console.WriteLine($"File.RandomRead.parall={parall}: total={fileDurations.Sum() / 10} msec");
         }
 
-        public static IReadOnlyList<string> GetRawResourceFromAdls(IReadOnlyList<(long TransactionId, int OffsetInFile)> resourceRefs, bool isBlob, int parall)
+        public static void SortedReads(int count, int parall)
+        {
+            var maxId = LastUpdatedToResourceSurrogateId(DateTime.UtcNow);
+            var ranges = Source.GetSurrogateIdRanges(96, 0, maxId, 10000, 10000);
+            var refs = new List<(long FileId, int OffsetInFile)>();
+            foreach (var range in ranges)
+            {
+                refs.AddRange(Source.GetRefs(96, range.StartId, range.EndId));
+            }
+
+            Console.WriteLine($"SortedRead: file/offsets = {refs.Count}");
+
+            var blobDurations = new List<double>();
+            var fileDurations = new List<double>();
+            var blobResources = 0L;
+            var fileResources = 0L;
+            var loop = 0;
+            foreach (var r in refs.GroupBy(_ => _.FileId))
+            {
+                var subSetRefs = r.Select(_ => _).ToList();
+
+                var sw = Stopwatch.StartNew();
+                var resources = GetRawResourceFromAdls(subSetRefs, true, parall);
+                Console.WriteLine($"Ignore BLOB.SortedRead.{resources.Count}.parall={parall}: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+
+                sw = Stopwatch.StartNew();
+                resources = GetRawResourceFromAdls(subSetRefs, false, parall);
+                fileDurations.Add(sw.Elapsed.TotalMilliseconds);
+                fileResources += resources.Sum(_ => _.Length);
+                Console.WriteLine($"File.SortedRead.{resources.Count}.parall={parall}: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+
+                sw = Stopwatch.StartNew();
+                resources = GetRawResourceFromAdls(subSetRefs, true, parall);
+                blobDurations.Add(sw.Elapsed.TotalMilliseconds);
+                blobResources += resources.Sum(_ => _.Length);
+                Console.WriteLine($"BLOB.SortedRead.{resources.Count}.parall={parall}: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+
+                loop++;
+                if (loop >= 10)
+                {
+                    break;
+                }
+            }
+
+            Console.WriteLine($"BLOB.SortedRead.parall={parall}: resources={blobResources} total={blobDurations.Sum()} msec");
+            Console.WriteLine($"File.SortedRead.parall={parall}: resources={fileResources} total={fileDurations.Sum()} msec");
+        }
+
+        public static IReadOnlyList<string> GetRawResourceFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs, bool isBlob, int parall)
         {
             var start = DateTime.UtcNow;
             var results = new List<string>();
@@ -143,21 +198,40 @@ namespace Microsoft.Health.Fhir.Store.Export
 
             if (isBlob)
             {
-                Parallel.ForEach(resourceRefs, new ParallelOptions { MaxDegreeOfParallelism = parall }, (resourceRef) =>
+                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.FileId);
+                Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = parall }, (group) =>
                 {
-                    var blobName = GetBlobName(resourceRef.TransactionId);
+                    var transactionId = group.Key;
+                    var blobName = GetBlobName(transactionId);
                     var blobClient = _blobContainer.GetBlobClient(blobName);
-                    using var reader = new StreamReader(blobClient.OpenRead(resourceRef.OffsetInFile));
-                    var line = reader.ReadLine();
-                    lock (results)
+                    using var stream = blobClient.OpenRead();
+                    using var reader = new StreamReader(stream);
+                    foreach (var resourceRef in group.Select(_ => _))
                     {
-                        results.Add(line);
+                        reader.DiscardBufferedData();
+                        stream.Position = resourceRef.OffsetInFile;
+                        var line = reader.ReadLine();
+                        lock (results)
+                        {
+                            results.Add(line);
+                        }
                     }
                 });
+                ////Parallel.ForEach(resourceRefs, new ParallelOptions { MaxDegreeOfParallelism = parall }, (resourceRef) =>
+                ////{
+                ////    var blobName = GetBlobName(resourceRef.FileId);
+                ////    var blobClient = _blobContainer.GetBlobClient(blobName);
+                ////    using var reader = new StreamReader(blobClient.OpenRead(resourceRef.OffsetInFile));
+                ////    var line = reader.ReadLine();
+                ////    lock (results)
+                ////    {
+                ////        results.Add(line);
+                ////    }
+                ////});
             }
             else
             {
-                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.TransactionId);
+                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.FileId);
                 Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = parall }, (group) =>
                 {
                     var transactionId = group.Key;

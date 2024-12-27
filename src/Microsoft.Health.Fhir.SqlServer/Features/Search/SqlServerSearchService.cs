@@ -409,7 +409,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 return;
                             }
 
-                            var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                            var tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.MaxItemCount);
                             short? newContinuationType = null;
                             long? newContinuationId = null;
                             bool moreResults = false;
@@ -451,26 +451,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     continue;
                                 }
 
-                                Lazy<string> rawResource = new Lazy<string>(() => string.Empty);
-
-                                if (!clonedSearchOptions.OnlyIds)
-                                {
-                                    rawResource = new Lazy<string>(() =>
-                                    {
-                                        var decompressedResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, fileId, offsetInFile);
-
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                        if (string.IsNullOrEmpty(decompressedResource))
-                                        {
-                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                        }
-
-                                        return decompressedResource;
-                                    });
-                                }
-
                                 // See if this resource is a continuation token candidate and increase the count
                                 if (isMatch)
                                 {
@@ -499,25 +479,57 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 // should be marked as partial
                                 isResultPartial = isResultPartial || isPartialEntry;
 
-                                resources.Add(new SearchResultEntry(
-                                    new ResourceWrapper(
-                                        resourceId,
-                                        version.ToString(CultureInfo.InvariantCulture),
-                                        _model.GetResourceTypeName(resourceTypeId),
-                                        clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                        new ResourceRequest(requestMethod),
-                                        resourceSurrogateId.ToLastUpdated(),
-                                        isDeleted,
-                                        null,
-                                        null,
-                                        null,
-                                        searchParameterHash,
-                                        resourceSurrogateId),
-                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                                tmpResources.Add((new SearchResultEntry(
+                                                    new ResourceWrapper(
+                                                        resourceId,
+                                                        version.ToString(CultureInfo.InvariantCulture),
+                                                        _model.GetResourceTypeName(resourceTypeId),
+                                                        null,
+                                                        new ResourceRequest(requestMethod),
+                                                        resourceSurrogateId.ToLastUpdated(),
+                                                        isDeleted,
+                                                        null,
+                                                        null,
+                                                        null,
+                                                        searchParameterHash,
+                                                        resourceSurrogateId),
+                                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                                                isRawResourceMetaSet,
+                                                rawResourceSqlBytes,
+                                                fileId,
+                                                offsetInFile));
                             }
 
                             // call NextResultAsync to get the info messages
                             await reader.NextResultAsync(cancellationToken);
+
+                            // add raw resource to search entry
+                            var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                            var rawReaources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes == null).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
+                            foreach (var tmpResource in tmpResources)
+                            {
+                                if (!clonedSearchOptions.OnlyIds)
+                                {
+                                    var rawResource = new Lazy<string>(() =>
+                                    {
+                                        var decompressed = tmpResource.SqlBytes.IsNull
+                                                            ? rawReaources[(tmpResource.FileId.Value, tmpResource.OffsetInFile.Value)]
+                                                            : SqlStoreClient.ReadRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, tmpResource.FileId, tmpResource.OffsetInFile);
+                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
+                                        if (string.IsNullOrEmpty(decompressed))
+                                        {
+                                            decompressed = MissingResourceFactory.CreateJson(tmpResource.Entry.Resource.ResourceId, tmpResource.Entry.Resource.ResourceTypeName, "warning", "incomplete");
+                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        }
+
+                                        return decompressed;
+                                    });
+
+                                    tmpResource.Entry.Resource.RawResource = new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: tmpResource.IsMetaSet);
+                                }
+
+                                resources.Add(tmpResource.Entry);
+                            }
 
                             ContinuationToken continuationToken = moreResults
                                     ? new ContinuationToken(
