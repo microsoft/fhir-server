@@ -45,6 +45,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using static System.Net.WebRequestMethods;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -559,8 +560,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 var rawResource = new Lazy<string>(() =>
                                 {
                                     var decompressed = tmpResource.SqlBytes.IsNull
-                                                        ? rawReaources[(tmpResource.FileId.Value, tmpResource.OffsetInFile.Value)]
-                                                        : SqlStoreClient.ReadRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, tmpResource.FileId, tmpResource.OffsetInFile);
+                                                     ? rawReaources[(tmpResource.FileId.Value, tmpResource.OffsetInFile.Value)]
+                                                     : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                                     _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                                     if (string.IsNullOrEmpty(decompressed))
                                     {
@@ -638,13 +639,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
             PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
-            List<SearchResultEntry> resources = null;
+            List<(SearchResultEntry Entry, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, bool IsMetaSet, string ResourceId)> resources = null;
             await _sqlRetryService.ExecuteSql(
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
                     using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
-                    resources = new List<SearchResultEntry>();
+                    resources = new List<(SearchResultEntry Entry, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, bool IsMetaSet, string ResourceId)>();
                     while (await reader.ReadAsync(cancel))
                     {
                         ReadWrapper(
@@ -675,29 +676,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        var rawResource = SqlStoreClient.ReadRawResource(rawResourceSqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource, fileId, offsetInFile);
-
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
-
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                resourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                resourceSurrogateId.ToLastUpdated(),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash,
-                                resourceSurrogateId),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                        resources.Add(
+                            (new SearchResultEntry(
+                                new ResourceWrapper(
+                                    resourceId,
+                                    version.ToString(CultureInfo.InvariantCulture),
+                                    resourceType,
+                                    null,
+                                    new ResourceRequest(requestMethod),
+                                    resourceSurrogateId.ToLastUpdated(),
+                                    isDeleted,
+                                    null,
+                                    null,
+                                    null,
+                                    searchParameterHash,
+                                    resourceSurrogateId),
+                                isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                            rawResourceSqlBytes,
+                            fileId,
+                            offsetInFile,
+                            isRawResourceMetaSet,
+                            resourceId));
                     }
 
                     return;
@@ -705,7 +704,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 null,
                 cancellationToken);
-            return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
+            var refs = resources.Where(_ => _.SqlBytes == null).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList();
+            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(refs);
+            foreach (var resource in resources)
+            {
+                var rawResource = resource.SqlBytes.IsNull
+                                ? rawResources[(resource.FileId.Value, resource.OffsetInFile.Value)]
+                                : SqlStoreClient.ReadCompressedRawResource(resource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
+
+                if (string.IsNullOrEmpty(rawResource))
+                {
+                    rawResource = MissingResourceFactory.CreateJson(resource.ResourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                }
+
+                resource.Entry.Resource.RawResource = new RawResource(rawResource, FhirResourceFormat.Json, resource.IsMetaSet);
+            }
+
+            return new SearchResult(resources.Select(_ => _.Entry), null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
         }
 
         private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
