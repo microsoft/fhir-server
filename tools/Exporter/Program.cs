@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Store.Export
                     var blobClient = _blobContainer.GetBlobClient(blobName);
                     using var stream = blobClient.OpenRead();
                     using var reader = new StreamReader(stream);
-                    foreach (var resourceRef in group.Select(_ => _))
+                    foreach (var resourceRef in group)
                     {
                         reader.DiscardBufferedData();
                         stream.Position = resourceRef.OffsetInFile;
@@ -217,17 +217,6 @@ namespace Microsoft.Health.Fhir.Store.Export
                         }
                     }
                 });
-                ////Parallel.ForEach(resourceRefs, new ParallelOptions { MaxDegreeOfParallelism = parall }, (resourceRef) =>
-                ////{
-                ////    var blobName = GetBlobName(resourceRef.FileId);
-                ////    var blobClient = _blobContainer.GetBlobClient(blobName);
-                ////    using var reader = new StreamReader(blobClient.OpenRead(resourceRef.OffsetInFile));
-                ////    var line = reader.ReadLine();
-                ////    lock (results)
-                ////    {
-                ////        results.Add(line);
-                ////    }
-                ////});
             }
             else
             {
@@ -237,9 +226,9 @@ namespace Microsoft.Health.Fhir.Store.Export
                     var transactionId = group.Key;
                     var blobName = GetBlobName(transactionId);
                     var fileClient = _fileSystem.GetFileClient(blobName);
-                    using var stream = fileClient.OpenRead(); //// bufferSize: 1024 * 20);
+                    using var stream = fileClient.OpenRead();
                     using var reader = new StreamReader(stream);
-                    foreach (var resourceRef in group.Select(_ => _))
+                    foreach (var resourceRef in group)
                     {
                         reader.DiscardBufferedData();
                         stream.Position = resourceRef.OffsetInFile;
