@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             var loop = 0;
             foreach (var r in refs.GroupBy(_ => _.FileId))
             {
-                var subSetRefs = r.Select(_ => _).ToList();
+                var subSetRefs = r.ToList();
 
                 var sw = Stopwatch.StartNew();
                 var resources = GetRawResourceFromAdls(subSetRefs, true, parall);
