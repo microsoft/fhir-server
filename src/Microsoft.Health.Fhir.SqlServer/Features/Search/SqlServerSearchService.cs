@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // add raw resource to search entry
                         var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                        var rawReaources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes == null).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
+                        var rawReaources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
                         foreach (var tmpResource in tmpResources)
                         {
                             if (!clonedSearchOptions.OnlyIds)
@@ -704,8 +704,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 null,
                 cancellationToken);
-            var refs = resources.Where(_ => _.SqlBytes == null).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList();
-            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(refs);
+            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
             foreach (var resource in resources)
             {
                 var rawResource = resource.SqlBytes.IsNull

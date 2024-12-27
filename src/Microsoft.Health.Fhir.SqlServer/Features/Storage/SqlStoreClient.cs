@@ -97,8 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappers(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var refs = wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList();
-            var rawResources = GetRawResourcesFromAdls(refs);
+            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
             foreach (var wrapper in wrappers)
             {
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[(wrapper.FileId.Value, wrapper.OffsetInFile.Value)] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
@@ -127,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var blobClient = SqlAdlsCient.Container.GetBlobClient(blobName);
                 using var stream = blobClient.OpenRead();
                 using var reader = new StreamReader(stream);
-                foreach (var offset in file.Select(_ => _))
+                foreach (var offset in file)
                 {
                     reader.DiscardBufferedData();
                     stream.Position = offset.OffsetInFile;
