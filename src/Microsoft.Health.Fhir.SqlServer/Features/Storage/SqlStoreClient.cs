@@ -108,18 +108,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
         {
-            if (SqlAdlsCient.Container == null)
-            {
-                throw new InvalidOperationException("ADLS container is null.");
-            }
-
-            var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
             var results = new Dictionary<(long FileId, int OffsetInFile), string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
             {
                 return results;
             }
 
+            if (SqlAdlsCient.Container == null)
+            {
+                throw new InvalidOperationException("ADLS container is null.");
+            }
+
+            var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
             foreach (var file in resourceRefsByFile)
             {
                 var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);

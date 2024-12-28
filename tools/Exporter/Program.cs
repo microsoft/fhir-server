@@ -65,8 +65,9 @@ namespace Microsoft.Health.Fhir.Store.Export
                 {
                     _fileSystem.GetFileClient("blobName").OpenRead();
                 }
-                catch
+                catch // Ignore
                 {
+                    return;
                 }
 
                 var parall = args.Length > 2 ? int.Parse(args[2]) : 8;
