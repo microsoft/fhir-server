@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-using Azure.Storage.Files.DataLake;
+////using Azure.Storage.Files.DataLake;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static Stopwatch _unzip = new Stopwatch();
         private static Stopwatch _blob = new Stopwatch();
         private static BlobContainerClient _blobContainer;
-        private static DataLakeFileSystemClient _fileSystem;
+        ////private static DataLakeFileSystemClient _fileSystem;
 
         public static void Main(string[] args)
         {
@@ -60,15 +60,15 @@ namespace Microsoft.Health.Fhir.Store.Export
             {
                 var count = args.Length > 1 ? int.Parse(args[1]) : 100;
                 _blobContainer = GetContainer(AdlsUri, AdlsUAMI, AdlsContainerName);
-                _fileSystem = new DataLakeFileSystemClient(new Uri($"{AdlsUri}/{AdlsContainerName}"), string.IsNullOrEmpty(AdlsUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(AdlsUAMI));
-                try
-                {
-                    _fileSystem.GetFileClient("blobName").OpenRead();
-                }
-                catch // Ignore
-                {
-                    return;
-                }
+                ////_fileSystem = new DataLakeFileSystemClient(new Uri($"{AdlsUri}/{AdlsContainerName}"), string.IsNullOrEmpty(AdlsUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(AdlsUAMI));
+                ////try
+                ////{
+                ////    _fileSystem.GetFileClient("blobName").OpenRead();
+                ////}
+                ////catch // Ignore
+                ////{
+                ////    return;
+                ////}
 
                 var parall = args.Length > 2 ? int.Parse(args[2]) : 8;
 
@@ -221,25 +221,25 @@ namespace Microsoft.Health.Fhir.Store.Export
             }
             else
             {
-                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.FileId);
-                Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = parall }, (group) =>
-                {
-                    var transactionId = group.Key;
-                    var blobName = GetBlobName(transactionId);
-                    var fileClient = _fileSystem.GetFileClient(blobName);
-                    using var stream = fileClient.OpenRead();
-                    using var reader = new StreamReader(stream);
-                    foreach (var resourceRef in group)
-                    {
-                        reader.DiscardBufferedData();
-                        stream.Position = resourceRef.OffsetInFile;
-                        var line = reader.ReadLine();
-                        lock (results)
-                        {
-                            results.Add(line);
-                        }
-                    }
-                });
+                ////var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.FileId);
+                ////Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = parall }, (group) =>
+                ////{
+                ////    var transactionId = group.Key;
+                ////    var blobName = GetBlobName(transactionId);
+                ////    var fileClient = _fileSystem.GetFileClient(blobName);
+                ////    using var stream = fileClient.OpenRead();
+                ////    using var reader = new StreamReader(stream);
+                ////    foreach (var resourceRef in group)
+                ////    {
+                ////        reader.DiscardBufferedData();
+                ////        stream.Position = resourceRef.OffsetInFile;
+                ////        var line = reader.ReadLine();
+                ////        lock (results)
+                ////        {
+                ////            results.Add(line);
+                ////        }
+                ////    }
+                ////});
             }
 
             Source.LogEvent("GetRawResourceFromAdls", "Warn", $"Resources={results.Count}", start);
@@ -267,47 +267,47 @@ namespace Microsoft.Health.Fhir.Store.Export
         {
             GetContainer(AdlsUri, AdlsUAMI, "fhir-hs-new-one-file");
 
-            var fileName = "transaction-353229202.ndjson";
+            ////var fileName = "transaction-353229202.ndjson";
 
-            var swGlobal = Stopwatch.StartNew();
+            ////var swGlobal = Stopwatch.StartNew();
 
-            var fileSystem = new DataLakeFileSystemClient(new Uri(AdlsUri), string.IsNullOrEmpty(AdlsUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(AdlsUAMI));
-            var fileClient = fileSystem.GetFileClient($"fhir-hs-new-one-file/{fileName}");
+            ////var fileSystem = new DataLakeFileSystemClient(new Uri(AdlsUri), string.IsNullOrEmpty(AdlsUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(AdlsUAMI));
+            ////var fileClient = fileSystem.GetFileClient($"fhir-hs-new-one-file/{fileName}");
 
-            var offests = new List<int>();
-            var offset = 0;
-            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            ////var offests = new List<int>();
+            ////var offset = 0;
+            ////var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
-            var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
+            ////var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
 
-            using var writeStream = fileClient.OpenWrite(true);
-            using var writer = new StreamWriter(writeStream);
-            for (var i = 0; i < count; i++)
-            {
-                offests.Add(offset);
-                var line = $"{offset}\t{baseLine}";
-                offset += Encoding.UTF8.GetByteCount(line) + eol;
-                writer.WriteLine(line);
-            }
+            ////using var writeStream = fileClient.OpenWrite(true);
+            ////using var writer = new StreamWriter(writeStream);
+            ////for (var i = 0; i < count; i++)
+            ////{
+            ////    offests.Add(offset);
+            ////    var line = $"{offset}\t{baseLine}";
+            ////    offset += Encoding.UTF8.GetByteCount(line) + eol;
+            ////    writer.WriteLine(line);
+            ////}
 
-            writer.Flush();
-            Console.WriteLine($"ADLS.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+            ////writer.Flush();
+            ////Console.WriteLine($"ADLS.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
 
-            swGlobal = Stopwatch.StartNew();
-            fileClient = fileSystem.GetFileClient($"testadls/{fileName}");
-            using var stream = fileClient.OpenRead(bufferSize: 1024 * bufferKB);
-            using var reader = new StreamReader(stream);
-            foreach (var pos in offests)
-            {
-                var sw = Stopwatch.StartNew();
-                reader.DiscardBufferedData();
-                stream.Position = pos;
-                var line = reader.ReadLine();
-                var readOffset = line.Split('\t')[0];
-                Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
-            }
+            ////swGlobal = Stopwatch.StartNew();
+            ////fileClient = fileSystem.GetFileClient($"testadls/{fileName}");
+            ////using var stream = fileClient.OpenRead(bufferSize: 1024 * bufferKB);
+            ////using var reader = new StreamReader(stream);
+            ////foreach (var pos in offests)
+            ////{
+            ////    var sw = Stopwatch.StartNew();
+            ////    reader.DiscardBufferedData();
+            ////    stream.Position = pos;
+            ////    var line = reader.ReadLine();
+            ////    var readOffset = line.Split('\t')[0];
+            ////    Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
+            ////}
 
-            Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+            ////Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
         }
 
         public static void WriteAndReadBlob(int count, int bufferKB, int parall)

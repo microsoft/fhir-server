@@ -6,7 +6,6 @@
     <RootNamespace>Microsoft.Health.Internal.Fhir.Exporter</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>
-    <TargetFrameworks>net6.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
