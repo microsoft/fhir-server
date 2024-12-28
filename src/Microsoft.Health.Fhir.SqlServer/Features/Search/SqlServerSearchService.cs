@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // add raw resource to search entry
                         var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                        var rawReaources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
+                        var rawResources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
                         foreach (var tmpResource in tmpResources)
                         {
                             if (!clonedSearchOptions.OnlyIds)
@@ -560,7 +560,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 var rawResource = new Lazy<string>(() =>
                                 {
                                     var decompressed = tmpResource.SqlBytes.IsNull
-                                                     ? rawReaources[(tmpResource.FileId.Value, tmpResource.OffsetInFile.Value)]
+                                                     ? rawResources[(tmpResource.FileId.Value, tmpResource.OffsetInFile.Value)]
                                                      : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                                     _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                                     if (string.IsNullOrEmpty(decompressed))
