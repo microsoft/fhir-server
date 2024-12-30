@@ -42,7 +42,9 @@ BEGIN TRY
       WHERE ResourceTypeId = @ResourceTypeId
         AND ResourceId = @ResourceId
         AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
-        --AND RawResource <> 0xF -- Cannot check this as resource can be stored in ADLS
+        AND (RawResource IS NULL -- stored in ADLS
+             OR RawResource <> 0xF -- stored in the database and not already invisible
+            )
   ELSE
   BEGIN
     DELETE dbo.Resource

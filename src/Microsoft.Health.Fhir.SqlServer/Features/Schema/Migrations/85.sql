@@ -3544,7 +3544,9 @@ BEGIN TRY
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceId = @ResourceId
                AND (@KeepCurrentVersion = 0
-                    OR IsHistory = 1);
+                    OR IsHistory = 1)
+               AND (RawResource IS NULL
+                    OR RawResource <> 0xF);
     ELSE
         BEGIN
             DELETE dbo.Resource
