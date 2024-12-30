@@ -103,6 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                     Actual = true,
 #else
                     Active = true,
+                    Membership = Group.GroupMembershipBasis.Definitional,
 #endif
                 };
 
@@ -199,6 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 Actual = true,
 #else
                 Active = true,
+                Membership = Group.GroupMembershipBasis.Definitional,
 #endif
                 Member = new List<FhirGroup.MemberComponent>()
                 {

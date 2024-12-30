@@ -7,7 +7,6 @@
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-predecessor",
         "http://hl7.org/fhir/SearchParameter/Bundle-message",
         "http://hl7.org/fhir/SearchParameter/Bundle-composition",
-        "http://hl7.org/fhir/SearchParameter/clinical-date",
         "http://hl7.org/fhir/SearchParameter/CapabilityStatement-guide",
         "http://hl7.org/fhir/SearchParameter/CapabilityStatement-supported-profile",
         "http://hl7.org/fhir/SearchParameter/CapabilityStatement-resource-profile",
