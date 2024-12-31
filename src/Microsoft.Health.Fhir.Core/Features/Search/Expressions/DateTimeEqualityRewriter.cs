@@ -33,12 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
             expression = (MultiaryExpression)base.VisitMultiary(expression, context);
+            bool checkDateTimeAgainstPeriod = false;
             if (expression.MultiaryOperation != MultiaryOperator.And)
             {
                 return expression;
             }
 
             List<Expression> newExpressions = null;
+            List<Expression> dateInPeriodExpression = null;
             int i = 0;
             for (; i < expression.Expressions.Count - 1; i++)
             {
@@ -46,11 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     case ({ } low, { } high):
                         EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
-
+                        EnsureAllocatedAndPopulated(ref dateInPeriodExpression, expression.Expressions, i);
                         newExpressions.Add(low);
                         newExpressions.Add(new BinaryExpression(high.BinaryOperator, low.FieldName, high.ComponentIndex, high.Value));
                         newExpressions.Add(high);
-
+                        checkDateTimeAgainstPeriod = true;
+                        dateInPeriodExpression.Add(new BinaryExpression(high.BinaryOperator, low.FieldName, low.ComponentIndex, low.Value));
+                        dateInPeriodExpression.Add(new BinaryExpression(low.BinaryOperator, high.FieldName, high.ComponentIndex, high.Value));
                         i++;
                         break;
                     default:
@@ -65,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 newExpressions.Add(expression.Expressions[^1]);
             }
 
-            return newExpressions == null ? expression : Expression.And(newExpressions);
+            return newExpressions == null ? expression : checkDateTimeAgainstPeriod ? Expression.Or(Expression.And(newExpressions), Expression.And(dateInPeriodExpression)) : Expression.And(newExpressions);
         }
 
         private static (BinaryExpression low, BinaryExpression high) MatchPattern(Expression e1, Expression e2)
