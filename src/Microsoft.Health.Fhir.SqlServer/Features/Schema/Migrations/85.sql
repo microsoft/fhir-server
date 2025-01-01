@@ -3648,7 +3648,8 @@ BEGIN TRY
             FROM   @Ids AS A
                    INNER LOOP JOIN
                    dbo.StringReferenceSearchParams AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceSurrogateId = A.ResourceSurrogateId
+                   ON B.ResourceTypeId = @ResourceTypeId
+                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
             OPTION (MAXDOP 1);
             DELETE B
             FROM   @Ids AS A
