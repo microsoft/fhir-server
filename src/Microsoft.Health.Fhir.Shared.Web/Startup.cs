@@ -42,6 +42,7 @@ using TelemetryConfiguration = Microsoft.Health.Fhir.Core.Configs.TelemetryConfi
 
 namespace Microsoft.Health.Fhir.Web
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Internal framework instantiation.")]
     public class Startup
     {
         private static string instanceId;

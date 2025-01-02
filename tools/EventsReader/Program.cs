@@ -12,7 +12,7 @@ using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Internal.Fhir.EventsReader
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static SqlRetryService _sqlRetryService;

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 try
                 {
                     IJob jobInstance = jobFunc.Instance.Invoke();
-                    if (jobInstance.GetType().GetCustomAttribute(typeof(JobTypeIdAttribute), false) is JobTypeIdAttribute jobTypeAttr)
+                    if (jobInstance.GetType().GetCustomAttribute<JobTypeIdAttribute>(false) is JobTypeIdAttribute jobTypeAttr)
                     {
                         _jobFactoryLookup.Add(jobTypeAttr.JobTypeId, jobFunc.Index);
                     }

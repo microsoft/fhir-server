@@ -1,5 +1,5 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.403-cbl-mariner2.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.101-azurelinux3.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
@@ -76,10 +76,10 @@ RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Hea
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net8.0 -a $TARGETARCH
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-cbl-mariner2.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.0-azurelinux3.0-distroless AS runtime
 
 ARG FHIR_VERSION
 

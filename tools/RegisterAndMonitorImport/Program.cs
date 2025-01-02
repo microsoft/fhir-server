@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
 {
-    public static class Program
+    internal static class Program
     {
         public static async Task Main()
         {

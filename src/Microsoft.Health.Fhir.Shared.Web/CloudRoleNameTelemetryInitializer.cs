@@ -8,7 +8,7 @@ using Microsoft.ApplicationInsights.Extensibility;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class CloudRoleNameTelemetryInitializer : ITelemetryInitializer
+    internal sealed class CloudRoleNameTelemetryInitializer : ITelemetryInitializer
     {
         public void Initialize(ITelemetry telemetry)
         {

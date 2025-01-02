@@ -75,7 +75,7 @@ namespace Microsoft.AspNetCore.Builder
                                         details = healthReport.Entries.Select(entry => new
                                         {
                                             name = entry.Key,
-                                            status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                                            status = Enum.GetName<HealthStatus>(entry.Value.Status),
                                             description = entry.Value.Description,
                                             data = entry.Value.Data,
                                         }),

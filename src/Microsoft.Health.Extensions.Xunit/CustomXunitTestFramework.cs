@@ -16,7 +16,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// Also allows an assembly to declare one or more <see cref="AssemblyFixtureAttribute"/>, which are created before any tests
     /// are executed and disposed at the end of the test run.
     /// </summary>
-    public class CustomXunitTestFramework : XunitTestFramework
+    public sealed class CustomXunitTestFramework : XunitTestFramework
     {
         /// <summary>
         /// This type's assembly name.
