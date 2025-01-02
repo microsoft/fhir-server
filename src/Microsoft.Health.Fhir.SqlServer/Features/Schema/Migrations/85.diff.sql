@@ -362,63 +362,6 @@ END CATCH
   COMMIT TRANSACTION
 END
 GO
-CREATE OR ALTER VIEW dbo.Resource
-AS
-SELECT A.ResourceTypeId
-      ,A.ResourceSurrogateId
-      ,ResourceId
-      ,A.ResourceIdInt
-      ,Version
-      ,IsHistory
-      ,IsDeleted
-      ,RequestMethod
-      ,RawResource
-      ,IsRawResourceMetaSet
-      ,SearchParamHash
-      ,TransactionId 
-      ,HistoryTransactionId
-      ,FileId
-      ,OffsetInFile
-  FROM dbo.CurrentResources A
-       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
-UNION ALL
-SELECT A.ResourceTypeId
-      ,A.ResourceSurrogateId
-      ,ResourceId
-      ,A.ResourceIdInt
-      ,Version
-      ,IsHistory
-      ,IsDeleted
-      ,RequestMethod
-      ,RawResource
-      ,IsRawResourceMetaSet
-      ,SearchParamHash
-      ,TransactionId 
-      ,HistoryTransactionId
-      ,FileId
-      ,OffsetInFile
-  FROM dbo.HistoryResources A
-       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-       LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
-UNION ALL
-SELECT ResourceTypeId
-      ,ResourceSurrogateId
-      ,ResourceId
-      ,NULL
-      ,Version
-      ,IsHistory
-      ,IsDeleted
-      ,RequestMethod
-      ,RawResource
-      ,IsRawResourceMetaSet
-      ,SearchParamHash
-      ,TransactionId 
-      ,HistoryTransactionId
-      ,NULL
-      ,NULL
-  FROM dbo.ResourceTbl
-GO
 CREATE OR ALTER VIEW dbo.CurrentResource
 AS
 SELECT A.ResourceTypeId
@@ -568,6 +511,7 @@ BEGIN
     SELECT ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile
       FROM Inserted
       WHERE IsHistory = 1
+        AND ResourceIdInt IS NOT NULL
 END
 GO
 CREATE OR ALTER TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
@@ -691,13 +635,15 @@ END
   COMMIT TRANSACTION
 END
 GO
-BEGIN TRANSACTION -- update ReferenceSearchParamList
-GO
-DROP PROCEDURE CaptureResourceIdsForChanges
-DROP PROCEDURE MergeResources
-DROP PROCEDURE UpdateResourceSearchParams
-DROP TYPE ReferenceSearchParamList
-GO
+BEGIN TRY
+  BEGIN TRANSACTION -- update ReferenceSearchParamList
+
+  DROP PROCEDURE CaptureResourceIdsForChanges
+  DROP PROCEDURE MergeResources
+  DROP PROCEDURE UpdateResourceSearchParams
+  DROP TYPE ReferenceSearchParamList
+
+  EXECUTE('
 CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
 (
     ResourceTypeId           smallint NOT NULL
@@ -710,7 +656,8 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
 
    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
-GO
+')
+  EXECUTE('
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListLake READONLY
 AS
 set nocount on
@@ -720,9 +667,9 @@ INSERT INTO dbo.ResourceChangeData
   SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
     FROM (SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @Resources UNION ALL SELECT ResourceId, ResourceTypeId, Version, IsHistory, IsDeleted FROM @ResourcesLake) A
     WHERE IsHistory = 0
-GO
--- The following 2 procs and trigger are special for data movement
-GO
+')
+  -- The following 2 procs and trigger are special for data movement
+  EXECUTE('
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY -- TODO: Remove after deployment
@@ -746,7 +693,7 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources) A),'Input=Empty')
+       ,@Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources) A),''Input=Empty'')
        ,@ResourceRows int
        ,@InsertRows int
        ,@DeletedIdMap int
@@ -967,15 +914,15 @@ BEGIN TRY
 
   SET @FailedResources = (SELECT count(*) FROM @Resources) + (SELECT count(*) FROM @ResourcesLake) - @ResourceRows
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@ResourceRows,@Text=@DeletedIdMap
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@ResourceRows,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st
 
-  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%' -- pk violation
-     OR error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  IF error_number() IN (2601, 2627) AND error_message() LIKE ''%''''dbo.ResourceIdIntMap''''%'' -- pk violation
+     OR error_number() = 547 AND error_message() LIKE ''%DELETE%'' -- reference violation on DELETE
   BEGIN
     DELETE FROM @Ids
     DELETE FROM @InputRefIds
@@ -991,7 +938,9 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
+')
+  
+  EXECUTE('
 CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
@@ -1032,8 +981,8 @@ DECLARE @st datetime = getUTCdate()
        ,@CurrentRows int
        ,@DeletedIdMap int
 
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),'Input=Empty')
-SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
+DECLARE @Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),''Input=Empty'')
+SET @Mode += '' E=''+convert(varchar,@RaiseExceptionOnConflict)+'' CC=''+convert(varchar,@IsResourceChangeCaptureEnabled)+'' IT=''+convert(varchar,@InitialTranCount)+'' T=''+isnull(convert(varchar,@TransactionId),''NULL'')
 
 SET @AffectedRows = 0
 
@@ -1180,15 +1129,15 @@ BEGIN TRY
 
   DECLARE @PreviousSurrogateIds AS TABLE (TypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
 
-  IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'),0) = 0
+  IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = ''MergeResources.NoTransaction.IsEnabled''),0) = 0
     SET @SingleTransaction = 1
   
-  SET @Mode += ' ST='+convert(varchar,@SingleTransaction)
+  SET @Mode += '' ST=''+convert(varchar,@SingleTransaction)
 
   -- perform retry check in transaction to hold locks
   IF @InitialTranCount = 0
   BEGIN
-    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
+    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don''t need them
                  FROM @ResourcesWithIds A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  WHERE B.IsHistory = 0
               )
@@ -1211,7 +1160,7 @@ BEGIN TRY
     END
   END
 
-  SET @Mode += ' R='+convert(varchar,@IsRetry)
+  SET @Mode += '' R=''+convert(varchar,@IsRetry)
 
   IF @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
   
@@ -1221,12 +1170,12 @@ BEGIN TRY
             (  ResourceTypeId,           SurrogateId,   Version,   KeepHistory, PreviousVersion,   PreviousSurrogateId )
       SELECT A.ResourceTypeId, A.ResourceSurrogateId, A.Version, A.KeepHistory,       B.Version, B.ResourceSurrogateId
         FROM (SELECT TOP (@DummyTop) * FROM @ResourcesWithIds WHERE HasVersionToCompare = 1) A
-             LEFT OUTER JOIN dbo.CurrentResources B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
-               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt
+             LEFT OUTER JOIN dbo.CurrentResource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
+               ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <= PreviousVersion)
-      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
+      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1
 
     INSERT INTO @PreviousSurrogateIds
       SELECT ResourceTypeId, PreviousSurrogateId, KeepHistory
@@ -1240,7 +1189,7 @@ BEGIN TRY
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
 
-      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = ''InvisibleHistory.IsEnabled'' AND Number = 0)
         UPDATE dbo.Resource
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value
@@ -1316,7 +1265,7 @@ BEGIN TRY
       DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
 
-      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
+      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Info'',@Start=@st,@Rows=@AffectedRows,@Text=''Old rows''
     END
 
     INSERT INTO dbo.ResourceIdIntMap 
@@ -1587,16 +1536,16 @@ BEGIN TRY
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows,@Text=@DeletedIdMap
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@AffectedRows,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st
 
-  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%' -- pk violation
-     OR error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  IF error_number() IN (2601, 2627) AND error_message() LIKE ''%''''dbo.ResourceIdIntMap''''%'' -- pk violation
+     OR error_number() = 547 AND error_message() LIKE ''%DELETE%'' -- reference violation on DELETE
   BEGIN
     DELETE FROM @ResourcesWithIds
     DELETE FROM @ReferenceSearchParamsWithIds
@@ -1615,13 +1564,19 @@ BEGIN CATCH
     GOTO RetryResourceIdIntMapLogic
   END
   ELSE 
-    IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.Resource%' OR error_message() LIKE '%''dbo.CurrentResources%' OR error_message() LIKE '%''dbo.HistoryResources%' OR error_message() LIKE '%''dbo.RawResources''%')
-      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+    IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE ''%''''dbo.Resource%'' OR error_message() LIKE ''%''''dbo.CurrentResources%'' OR error_message() LIKE ''%''''dbo.HistoryResources%'' OR error_message() LIKE ''%''''dbo.RawResources''''%'')
+      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1;
     ELSE
       THROW
 END CATCH
-GO
-COMMIT TRANSACTION
+')
+
+  COMMIT TRANSACTION
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  THROW
+END CATCH
 GO
 -- Special versions of procedures for data movement
 GO
@@ -2345,12 +2300,8 @@ BEGIN TRY
   END
 
   EXECUTE dbo.LogEvent @Process=@Process,@Status='End'
-END TRY
-BEGIN CATCH
-  EXECUTE dbo.LogEvent @Process=@Process,@Status='Error';
-  THROW
-END CATCH
-GO
+
+  EXECUTE('
 ALTER VIEW dbo.ReferenceSearchParam
 AS
 SELECT A.ResourceTypeId
@@ -2373,7 +2324,10 @@ SELECT ResourceTypeId
       ,NULL
       ,IsResourceRef
   FROM dbo.StringReferenceSearchParams
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='ReferenceSearchParam',@Action='Alter'
+
+  EXECUTE('
 ALTER VIEW dbo.Resource
 AS 
 SELECT A.ResourceTypeId
@@ -2413,7 +2367,10 @@ SELECT A.ResourceTypeId
   FROM dbo.HistoryResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='Resource',@Action='Alter'
+
+  EXECUTE('
 ALTER VIEW dbo.CurrentResource
 AS 
 SELECT A.ResourceTypeId
@@ -2434,7 +2391,10 @@ SELECT A.ResourceTypeId
   FROM dbo.CurrentResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='CurrentResource',@Action='Alter'
+
+  EXECUTE('
 ALTER TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
 BEGIN
@@ -2456,7 +2416,10 @@ BEGIN
       FROM Inserted
       WHERE IsHistory = 1
 END
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='ResourceIns',@Action='Alter'
+  
+  EXECUTE('
 ALTER TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
@@ -2526,7 +2489,7 @@ BEGIN
   END
 
   IF NOT UPDATE(IsHistory)
-    RAISERROR('Generic updates are not supported via Resource view',18,127)
+    RAISERROR(''Generic updates are not supported via Resource view'',18,127)
 
   DELETE FROM A
     FROM dbo.CurrentResources A
@@ -2538,7 +2501,10 @@ BEGIN
       FROM Inserted
       WHERE IsHistory = 1
 END
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='ResourceUpd',@Action='Alter'
+
+  EXECUTE('
 ALTER TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
 AS
 BEGIN
@@ -2554,14 +2520,17 @@ BEGIN
     FROM dbo.RawResources A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
 END
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='ResourceDel',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
 -- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = 'GetResourceVersions'
-       ,@Mode varchar(100) = 'Rows='+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
+       ,@SP varchar(100) = ''GetResourceVersions''
+       ,@Mode varchar(100) = ''Rows=''+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
        ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
@@ -2590,19 +2559,22 @@ BEGIN TRY
          OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceIdInt = A.ResourceIdInt AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
   THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='GetResourceVersions',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = 'GetResources'
+       ,@SP varchar(100) = ''GetResources''
        ,@InputRows int
        ,@NotNullVersionExists bit 
        ,@NullVersionExists bit
@@ -2611,7 +2583,7 @@ DECLARE @st datetime = getUTCdate()
 
 SELECT @MinRT = min(ResourceTypeId), @MaxRT = max(ResourceTypeId), @InputRows = count(*), @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END), @NullVersionExists = max(CASE WHEN Version IS NULL THEN 1 ELSE 0 END) FROM @ResourceKeys
 
-DECLARE @Mode varchar(100) = 'RT=['+convert(varchar,@MinRT)+','+convert(varchar,@MaxRT)+'] Cnt='+convert(varchar,@InputRows)+' NNVE='+convert(varchar,@NotNullVersionExists)+' NVE='+convert(varchar,@NullVersionExists)
+DECLARE @Mode varchar(100) = ''RT=[''+convert(varchar,@MinRT)+'',''+convert(varchar,@MaxRT)+''] Cnt=''+convert(varchar,@InputRows)+'' NNVE=''+convert(varchar,@NotNullVersionExists)+'' NVE=''+convert(varchar,@NullVersionExists)
 
 BEGIN TRY
   IF @NotNullVersionExists = 1
@@ -2683,14 +2655,17 @@ BEGIN TRY
            LEFT OUTER JOIN dbo.RawResources D ON D.ResourceTypeId = A.ResourceTypeId AND D.ResourceSurrogateId = C.ResourceSurrogateId
       OPTION (MAXDOP 1)
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
   THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='GetResources',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY -- TODO: Remove after deployment
@@ -2714,7 +2689,7 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources) A),'Input=Empty')
+       ,@Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources) A),''Input=Empty'')
        ,@ResourceRows int
        ,@InsertRows int
        ,@DeletedIdMap int
@@ -2934,15 +2909,15 @@ BEGIN TRY
 
   SET @FailedResources = (SELECT count(*) FROM @Resources) + (SELECT count(*) FROM @ResourcesLake) - @ResourceRows
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@ResourceRows,@Text=@DeletedIdMap
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@ResourceRows,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st
 
-  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%' -- pk violation
-     OR error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  IF error_number() IN (2601, 2627) AND error_message() LIKE ''%''''dbo.ResourceIdIntMap''''%'' -- pk violation
+     OR error_number() = 547 AND error_message() LIKE ''%DELETE%'' -- reference violation on DELETE
   BEGIN
     DELETE FROM @Ids
     DELETE FROM @InputRefIds
@@ -2958,7 +2933,10 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='UpdateResourceSearchParams',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
   ,@ResourceId varchar(64)
@@ -2968,7 +2946,7 @@ ALTER PROCEDURE dbo.HardDeleteResource
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'RT='+convert(varchar,@ResourceTypeId)+' R='+@ResourceId+' V='+convert(varchar,@KeepCurrentVersion)
+       ,@Mode varchar(200) = ''RT=''+convert(varchar,@ResourceTypeId)+'' R=''+@ResourceId+'' V=''+convert(varchar,@KeepCurrentVersion)
        ,@st datetime = getUTCdate()
        ,@TransactionId bigint
        ,@DeletedIdMap int = 0
@@ -2977,12 +2955,12 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 IF @IsResourceChangeCaptureEnabled = 1
   SET @MakeResourceInvisible = 1
 
-SET @Mode += ' I='+convert(varchar,@MakeResourceInvisible)
+SET @Mode += '' I=''+convert(varchar,@MakeResourceInvisible)
 
 IF @MakeResourceInvisible = 1
 BEGIN 
   EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUT
-  SET @Mode += ' T='+convert(varchar,@TransactionId)
+  SET @Mode += '' T=''+convert(varchar,@TransactionId)
 END
 
 DECLARE @Ids TABLE (ResourceSurrogateId bigint NOT NULL, ResourceIdInt bigint NOT NULL)
@@ -3080,13 +3058,13 @@ BEGIN TRY
   IF @MakeResourceInvisible = 1
     EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@DeletedIdMap
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st
   
-  IF error_number() = 547 AND error_message() LIKE '%DELETE%'-- reference violation on DELETE
+  IF error_number() = 547 AND error_message() LIKE ''%DELETE%''-- reference violation on DELETE
   BEGIN
     DELETE FROM @Ids
     DELETE FROM @RefIdsRaw
@@ -3096,7 +3074,10 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='HardDeleteResource',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
@@ -3137,8 +3118,8 @@ DECLARE @st datetime = getUTCdate()
        ,@CurrentRows int
        ,@DeletedIdMap int
 
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),'Input=Empty')
-SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
+DECLARE @Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM (SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @Resources UNION ALL SELECT ResourceTypeId, ResourceSurrogateId, Version FROM @ResourcesLake) A),''Input=Empty'')
+SET @Mode += '' E=''+convert(varchar,@RaiseExceptionOnConflict)+'' CC=''+convert(varchar,@IsResourceChangeCaptureEnabled)+'' IT=''+convert(varchar,@InitialTranCount)+'' T=''+isnull(convert(varchar,@TransactionId),''NULL'')
 
 SET @AffectedRows = 0
 
@@ -3285,15 +3266,15 @@ BEGIN TRY
 
   DECLARE @PreviousSurrogateIds AS TABLE (TypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
 
-  IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'),0) = 0
+  IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = ''MergeResources.NoTransaction.IsEnabled''),0) = 0
     SET @SingleTransaction = 1
   
-  SET @Mode += ' ST='+convert(varchar,@SingleTransaction)
+  SET @Mode += '' ST=''+convert(varchar,@SingleTransaction)
 
   -- perform retry check in transaction to hold locks
   IF @InitialTranCount = 0
   BEGIN
-    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
+    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don''t need them
                  FROM @ResourcesWithIds A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  WHERE B.IsHistory = 0
               )
@@ -3316,7 +3297,7 @@ BEGIN TRY
     END
   END
 
-  SET @Mode += ' R='+convert(varchar,@IsRetry)
+  SET @Mode += '' R=''+convert(varchar,@IsRetry)
 
   IF @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
   
@@ -3331,7 +3312,7 @@ BEGIN TRY
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <= PreviousVersion)
-      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
+      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1
 
     INSERT INTO @PreviousSurrogateIds
       SELECT ResourceTypeId, PreviousSurrogateId, KeepHistory
@@ -3345,7 +3326,7 @@ BEGIN TRY
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
 
-      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = ''InvisibleHistory.IsEnabled'' AND Number = 0)
         UPDATE dbo.Resource
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value
@@ -3419,7 +3400,7 @@ BEGIN TRY
       DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
 
-      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
+      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Info'',@Start=@st,@Rows=@AffectedRows,@Text=''Old rows''
     END
 
     INSERT INTO dbo.ResourceIdIntMap 
@@ -3690,16 +3671,16 @@ BEGIN TRY
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows,@Text=@DeletedIdMap
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@AffectedRows,@Text=@DeletedIdMap
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st
 
-  IF error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.ResourceIdIntMap''%' -- pk violation
-     OR error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  IF error_number() IN (2601, 2627) AND error_message() LIKE ''%''''dbo.ResourceIdIntMap''''%'' -- pk violation
+     OR error_number() = 547 AND error_message() LIKE ''%DELETE%'' -- reference violation on DELETE
   BEGIN
     DELETE FROM @ResourcesWithIds
     DELETE FROM @ReferenceSearchParamsWithIds
@@ -3718,17 +3699,20 @@ BEGIN CATCH
     GOTO RetryResourceIdIntMapLogic
   END
   ELSE 
-    IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.Resource%' OR error_message() LIKE '%''dbo.CurrentResources%' OR error_message() LIKE '%''dbo.HistoryResources%' OR error_message() LIKE '%''dbo.RawResources''%')
-      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+    IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE ''%''''dbo.Resource%'' OR error_message() LIKE ''%''''dbo.CurrentResources%'' OR error_message() LIKE ''%''''dbo.HistoryResources%'' OR error_message() LIKE ''%''''dbo.RawResources''''%'')
+      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1;
     ELSE
       THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='MergeResources',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(100) = 'T='+convert(varchar,@TransactionId)
+       ,@Mode varchar(100) = ''T=''+convert(varchar,@TransactionId)
        ,@st datetime
        ,@Rows int
        ,@DeletedIdMap int
@@ -3747,7 +3731,7 @@ BEGIN TRY
     FROM dbo.Resource A
     WHERE HistoryTransactionId = @TransactionId -- requires updated statistics
   SET @Rows = @@rowcount
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Start=@st,@Rows=@Rows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Run'',@Target=''Resource'',@Action=''Delete'',@Start=@st,@Rows=@Rows
   SET @AffectedRows += @Rows
 
   SET @st = getUTCdate()
@@ -3768,20 +3752,20 @@ BEGIN TRY
         SET @DeletedIdMap = @@rowcount
       END
     END
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='ResourceIdIntMap',@Action='Delete',@Start=@st,@Rows=@DeletedIdMap
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Run'',@Target=''ResourceIdIntMap'',@Action=''Delete'',@Start=@st,@Rows=@DeletedIdMap
   END
 
   COMMIT TRANSACTION
   
   SET @st = getUTCdate()
   UPDATE dbo.Resource SET TransactionId = NULL WHERE TransactionId = @TransactionId
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Update',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Target=''Resource'',@Action=''Update'',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   IF @@trancount > 0 ROLLBACK TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error'
-  IF error_number() = 547 AND error_message() LIKE '%DELETE%' -- reference violation on DELETE
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error''
+  IF error_number() = 547 AND error_message() LIKE ''%DELETE%'' -- reference violation on DELETE
   BEGIN
     DELETE FROM @Ids
     GOTO Retry
@@ -3789,17 +3773,20 @@ BEGIN CATCH
   ELSE
     THROW
 END CATCH
-GO
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='MergeResourcesDeleteInvisibleHistory',@Action='Alter'
+
+  EXECUTE('
 ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 1, @IncludeDeleted bit = 1
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
-       ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
-                           +' S='+isnull(convert(varchar,@StartId),'NULL')
-                           +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
-                           +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
-                           +' DE='+isnull(convert(varchar,@IncludeDeleted),'NULL')
+DECLARE @SP varchar(100) = ''GetResourcesByTypeAndSurrogateIdRange''
+       ,@Mode varchar(100) = ''RT=''+isnull(convert(varchar,@ResourceTypeId),''NULL'')
+                           +'' S=''+isnull(convert(varchar,@StartId),''NULL'')
+                           +'' E=''+isnull(convert(varchar,@EndId),''NULL'')
+                           +'' GE=''+isnull(convert(varchar,@GlobalEndId),''NULL'')
+                           +'' HI=''+isnull(convert(varchar,@IncludeHistory),''NULL'')
+                           +'' DE=''+isnull(convert(varchar,@IncludeDeleted),''NULL'')
        ,@st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@Rows int
@@ -3861,11 +3848,18 @@ BEGIN TRY
         AND (IsDeleted = 0 OR @IncludeDeleted = 1)
     OPTION (MAXDOP 1, LOOP JOIN)
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'';
+  THROW
+END CATCH
+  ')
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='GetResourcesByTypeAndSurrogateIdRange',@Action='Alter'
+END TRY
+BEGIN CATCH
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Error';
   THROW
 END CATCH
 GO
