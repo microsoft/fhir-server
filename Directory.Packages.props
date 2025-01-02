@@ -1,9 +1,47 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>7.1.183</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.18</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
+  <!-- SDK Packages -->
+  <Choose>
+    <When Condition="'$(TargetFramework)' == 'net6.0'">
+      <PropertyGroup>
+        <ConfigurationBinderVersion>8.0.2</ConfigurationBinderVersion>
+        <DependencyInjectionVersion>8.0.2</DependencyInjectionVersion>
+        <LoggingVersion>8.0.2</LoggingVersion>
+        <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
+        <MediatRVersion>12.4.1</MediatRVersion>
+        <OptionsVersion>8.0.2</OptionsVersion>
+        <SdkPackageVersion>8.0.0</SdkPackageVersion>
+        <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(TargetFramework)' == 'net8.0'">
+      <PropertyGroup>
+        <ConfigurationBinderVersion>8.0.2</ConfigurationBinderVersion>
+        <DependencyInjectionVersion>8.0.2</DependencyInjectionVersion>
+        <LoggingVersion>8.0.2</LoggingVersion>
+        <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
+        <MediatRVersion>12.4.1</MediatRVersion>
+        <OptionsVersion>8.0.2</OptionsVersion>
+        <SdkPackageVersion>8.0.0</SdkPackageVersion>
+        <AspNetPackageVersion>8.0.0</AspNetPackageVersion>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <ConfigurationBinderVersion>9.0.0</ConfigurationBinderVersion>
+        <DependencyInjectionVersion>9.0.0</DependencyInjectionVersion>
+        <LoggingVersion>9.0.0</LoggingVersion>
+        <MediatRVersion>12.4.1</MediatRVersion>
+        <OptionsVersion>9.0.0</OptionsVersion>
+        <SdkPackageVersion>9.0.0</SdkPackageVersion>
+        <AspNetPackageVersion>9.0.0</AspNetPackageVersion>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.2" />
@@ -16,24 +54,6 @@
     <!-- CVE-2022-26907 -->
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
-  <!-- SDK Packages -->
-  <Choose>
-    <When Condition="'$(TargetFramework)' == 'net9.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>9.0.0</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>8.0.0</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup>
-        <AspNetPackageVersion>6.0.23</AspNetPackageVersion>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.1.2" />
     <PackageVersion Include="Azure.Identity" Version="1.13.1" />
@@ -57,7 +77,7 @@
     <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="IdentityServer4" Version="4.1.2" />
-    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="MediatR" Version="$(MediatRVersion)" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
@@ -68,22 +88,23 @@
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.45.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="8.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.7" />
-    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(ConfigurationBinderVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(LoggingVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.22.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
-    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
@@ -102,8 +123,8 @@
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="171.30.0" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.5.57" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.52.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
@@ -115,9 +136,8 @@
     <PackageVersion Include="System.Collections.Immutable" Version="8.0.0" />
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
-    <PackageVersion Include="System.Data.SqlClient" Version="4.8.6" />
-    <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
