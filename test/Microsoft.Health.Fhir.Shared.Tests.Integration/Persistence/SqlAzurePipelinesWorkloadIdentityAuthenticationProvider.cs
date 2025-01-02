@@ -10,7 +10,6 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.Identity.Client;
-using Microsoft.SqlServer.Dac;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 

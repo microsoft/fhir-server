@@ -5,8 +5,9 @@
 
 using System;
 using System.Configuration;
-using System.Data.SqlClient;
 using System.Diagnostics;
+using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
 
 namespace Microsoft.Health.Internal.IndexRebuilder
 {
