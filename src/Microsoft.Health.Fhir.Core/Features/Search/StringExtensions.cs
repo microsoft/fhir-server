@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            results.Add(s.Substring(currentSubstringStartingIndex, s.Length - currentSubstringStartingIndex));
+            results.Add(s.Substring(currentSubstringStartingIndex));
 
             return results;
         }

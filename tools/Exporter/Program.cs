@@ -21,7 +21,7 @@ using Microsoft.Health.Internal.Fhir.Sql;
 
 namespace Microsoft.Health.Internal.Fhir.Exporter
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly SqlService Store = new SqlService(_connectionString);

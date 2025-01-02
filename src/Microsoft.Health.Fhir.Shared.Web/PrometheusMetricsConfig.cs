@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class PrometheusMetricsConfig
+    internal sealed class PrometheusMetricsConfig
     {
         public bool Enabled { get; set; } = false;
 

@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 namespace Microsoft.Health.Internal.IndexRebuilder
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string ConnectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
