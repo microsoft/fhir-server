@@ -5,9 +5,6 @@
   <Rules AnalyzerId="Microsoft.Analyzers.ManagedCodeAnalysis" RuleNamespace="Microsoft.Rules.Managed">
     <Rule Id="CA1852" Action="None" />
   </Rules>
-  <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp" RuleNamespace="Microsoft.CodeAnalysis.CSharp">
-    <Rule Id="CS1591" Action="None" />
-  </Rules>
   <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
     <Rule Id="IDE0003" Action="Warning" />
     <Rule Id="IDE0004" Action="Warning" />
@@ -17,9 +14,6 @@
   <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.NetAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.CSharp.NetAnalyzers">
     <Rule Id="CA1852" Action="None" />
   </Rules>
-  <Rules AnalyzerId="Microsoft.CodeAnalysis.ExternalAccess.FSharp" RuleNamespace="Microsoft.CodeAnalysis.ExternalAccess.FSharp">
-    <Rule Id="FS1812" Action="None" />
-  </Rules>
   <Rules AnalyzerId="Microsoft.CodeAnalysis.NetAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.NetAnalyzers">
     <Rule Id="CA1008" Action="Info" />
     <Rule Id="CA1014" Action="Info" />
@@ -28,7 +22,7 @@
     <Rule Id="CA1062" Action="Info" />
     <Rule Id="CA1508" Action="Info" />
     <Rule Id="CA1805" Action="Info" />
-    <Rule Id="CA1860" Action="None" />
+    <Rule Id="CA1860" Action="Info" />
     <Rule Id="CA1863" Action="Info" />
   </Rules>
   <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
