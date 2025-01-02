@@ -93,22 +93,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     if (parameterInfo.Code != "_type")
                     {
-                        try
+                        var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
+                        if (converters.All(x => x.hasConverter == false))
                         {
-                            var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
-                            if (converters.All(x => x.hasConverter == false))
-                            {
-                                unsupported.Unsupported.Add(parameterInfo.Url);
-                            }
-                            else if (converters.Any(x => x.hasConverter == false))
-                            {
-                                unsupported.PartialSupport.Add(parameterInfo.Url);
-                            }
+                            unsupported.Unsupported.Add(parameterInfo.Url);
                         }
-                        catch (Exception ex)
+                        else if (converters.Any(x => x.hasConverter == false))
                         {
-                            var error = $"{searchParameterRow.resourceType}, {parameterInfo.Name}, {ex.Message}";
-                            _outputHelper.WriteLine(error);
+                            unsupported.PartialSupport.Add(parameterInfo.Url);
                         }
                     }
                 }

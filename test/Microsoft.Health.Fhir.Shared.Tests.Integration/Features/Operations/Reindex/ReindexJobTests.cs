@@ -1008,13 +1008,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             SearchParameterInfo searchParamInfo = null;
 
-            if (ModelInfoProvider.Instance.Version == FhirSpecification.Stu3)
+            switch (ModelInfoProvider.Instance.Version)
             {
-                searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/SearchParameter-url"));
-            }
-            else
-            {
-                searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+                case FhirSpecification.Stu3:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/SearchParameter-url"));
+                    break;
+
+                case FhirSpecification.R5:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/CanonicalResource-url"));
+                    break;
+
+                default:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+                    break;
             }
 
             var searchParamValue = new UriSearchValue(searchParam.Url, false);

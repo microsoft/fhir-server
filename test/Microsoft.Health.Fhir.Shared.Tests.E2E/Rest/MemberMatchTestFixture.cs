@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
 #if R5
             coverage.Insurer = new ResourceReference($"Organization/{patient.Id}");
+            coverage.Kind = Coverage.CoverageKindCode.Insurance;
 #else
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
 #endif

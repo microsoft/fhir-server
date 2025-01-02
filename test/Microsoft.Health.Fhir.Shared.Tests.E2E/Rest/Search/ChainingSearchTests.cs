@@ -459,6 +459,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     Actual = true,
 #else
                     Active = true,
+                    Membership = Group.GroupMembershipBasis.Definitional,
 #endif
                     Member = new List<Group.MemberComponent>
                     {

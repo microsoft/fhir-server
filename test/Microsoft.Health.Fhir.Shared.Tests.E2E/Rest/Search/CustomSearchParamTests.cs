@@ -224,9 +224,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
+#if !R5
         [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterExpressionWrongProperty", "Can't find 'Encounter.diagnosis.foo' in type 'Encounter'")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
+#else
+        [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis-reference' already exists for base type 'Encounter'")]
+        [InlineData("SearchParameterExpressionWrongProperty", "Can't find 'Encounter.diagnosis-reference.foo' in type 'Encounter'")]
+        [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'VersionIndependentResourceTypesAll'")]
+#endif
         [InlineData("SearchParameterInvalidType", "Literal 'foo' is not a valid value for enumeration 'SearchParamType'")]
         [InlineData("SearchParameterMissingBase", "cardinality is 1")]
         [InlineData("SearchParameterMissingExpression", "not supported")]
