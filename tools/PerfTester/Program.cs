@@ -51,6 +51,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool _writesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
+        private static readonly int _diagSleepSec = int.Parse(ConfigurationManager.AppSettings["DiagSleepSec"]);
 
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient _store;
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                 }
 
-                Thread.Sleep(5000);
+                Thread.Sleep(_diagSleepSec * 1000);
 
                 loop++;
             }
