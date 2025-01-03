@@ -1072,7 +1072,7 @@ END
     DECLARE @Resources dbo.ResourceList
     INSERT INTO @Resources 
          (   ResourceTypeId, ResourceId, RawResource, ResourceSurrogateId, Version, HasVersionToCompare, IsDeleted, IsHistory, KeepHistory, IsRawResourceMetaSet, SearchParamHash) 
-      SELECT ResourceTypeId, ResourceId, RawResource, ResourceSurrogateId, Version,                   1,         0,         0,           1,                    1,          'Test'
+      SELECT ResourceTypeId, ResourceId,         0x0, ResourceSurrogateId, Version,                   1,         0,         0,           1,                    1,          'Test'
         FROM Resource
         WHERE ResourceTypeId = 96 AND ResourceId = @ResourceId
     EXECUTE UpdateResourceSearchParams @Resources = @Resources
