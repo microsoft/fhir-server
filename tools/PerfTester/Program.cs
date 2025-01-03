@@ -64,6 +64,12 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
             DumpResourceIds();
 
+            if (_callType == "Diag")
+            {
+                Diag();
+                return;
+            }
+
             if (_callType == "GetDate" || _callType == "LogEvent")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")}");
@@ -103,6 +109,76 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 ExecuteParallelCalls(resourceIds); // compare this
                 SwitchToResourceTable();
                 ExecuteParallelCalls(resourceIds);
+            }
+        }
+
+        private static void Diag()
+        {
+            Console.WriteLine($"Diag: start at {DateTime.UtcNow.ToString("s")}");
+            var container = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
+            var swTotal = Stopwatch.StartNew();
+            var patients = GetResourceIds("Patient").Select(_ => _.ResourceId).OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
+            Console.WriteLine($"Diag: read patient ids = {patients.Count} in {(int)swTotal.Elapsed.TotalSeconds} sec.");
+            swTotal = Stopwatch.StartNew();
+            var observations = GetResourceIds("Observation").Select(_ => _.ResourceId).OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).Take(100000).ToList();
+            Console.WriteLine($"Diag: read observation ids = {observations.Count} in {(int)swTotal.Elapsed.TotalSeconds} sec.");
+            var loop = 0;
+            var observationIndex = 0;
+            var patientIndex = 0;
+            var swReport = Stopwatch.StartNew();
+            swTotal = Stopwatch.StartNew();
+            var observationEnumerator = GetLinesInBlobs(container, "Observation").GetEnumerator();
+            while (true)
+            {
+                var id = observations[observationIndex++];
+                var sw = Stopwatch.StartNew();
+                var status = GetResource("Observation", id);
+                _store.TryLogEvent("Diag.Get.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} id={id}", null, CancellationToken.None).Wait();
+
+                id = observations[observationIndex++];
+                var json = observationEnumerator.MoveNext() ? observationEnumerator.Current : throw new ArgumentException("obervation list is too small");
+                ParseJson(ref json, id); // replace id in json
+                sw = Stopwatch.StartNew();
+                status = PutResource(json, "Observation", id);
+                _store.TryLogEvent("Diag.Update.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} id={id}", null, CancellationToken.None).Wait();
+
+                id = Guid.NewGuid().ToString();
+                json = observationEnumerator.MoveNext() ? observationEnumerator.Current : throw new ArgumentException("obervation list is too small");
+                ParseJson(ref json, id); // replace id in json
+                sw = Stopwatch.StartNew();
+                status = PutResource(json, "Observation", id);
+                _store.TryLogEvent("Diag.Create.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} id={id}", null, CancellationToken.None).Wait();
+
+                id = observations[observationIndex++];
+                DeleteResource("Observation", id, true);
+
+                id = observations[observationIndex++];
+                DeleteResource("Observation", id, false);
+
+                id = observations[observationIndex++];
+                UpdateSearchParam(id);
+
+                id = patients[patientIndex++];
+                GetObservationsForPatient(id);
+
+                id = patients[patientIndex++];
+                GetPatientRevIncludeObservations(id);
+
+                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                {
+                    lock (swReport)
+                    {
+                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        {
+                            Console.WriteLine($"Diag: loops={loop} elapsed={(int)swTotal.Elapsed.TotalSeconds} sec");
+                            swReport.Restart();
+                        }
+                    }
+                }
+
+                Thread.Sleep(5000);
+
+                loop++;
             }
         }
 
@@ -197,7 +273,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 var resources = 0;
                 long sumLatency = 0;
                 var singleId = Guid.NewGuid().ToString();
-                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer, _nameFilter), _threads, 1, (thread, lineItem) =>
                 {
                     if (Interlocked.Read(ref calls) >= _calls)
                     {
@@ -517,7 +593,7 @@ END
             var container = GetContainer();
             using var stream = container.GetBlockBlobClient(_storageBlobName).OpenWrite(true);
             using var writer = new StreamWriter(stream);
-            foreach (var resourceId in GetResourceIds())
+            foreach (var resourceId in GetResourceIds(_nameFilter))
             {
                 lines++;
                 writer.WriteLine($"{resourceId.ResourceTypeId}\t{resourceId.ResourceId}");
@@ -540,16 +616,16 @@ END
         }
 
         // cannot use sqlRetryService as I need IEnumerable
-        private static IEnumerable<(short ResourceTypeId, string ResourceId)> GetResourceIds()
+        private static IEnumerable<(short ResourceTypeId, string ResourceId)> GetResourceIds(string nameFilter)
         {
             using var conn = new SqlConnection(_connectionString);
             conn.Open();
             using var cmd = new SqlCommand("SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name = @Name", conn);
-            cmd.Parameters.AddWithValue("@Name", _nameFilter);
+            cmd.Parameters.AddWithValue("@Name", nameFilter);
             var ret = cmd.ExecuteScalar();
             if (ret == DBNull.Value)
             {
-                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0", conn); // no need to sort to simulate random access
+                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0 AND IsDeleted = 0", conn); // no need to sort to simulate random access
                 cmd2.CommandTimeout = 0;
                 using var reader = cmd2.ExecuteReader();
                 while (reader.Read())
@@ -560,7 +636,7 @@ END
             else
             {
                 var resourceTypeId = (short)ret;
-                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) WHERE IsHistory = 0 AND ResourceTypeId = @ResourceTypeId ORDER BY ResourceTypeId, ResourceId OPTION (MAXDOP 1)", conn);
+                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0 AND IsDeleted = 0 AND ResourceTypeId = @ResourceTypeId OPTION (LOOP JOIN)", conn); // no need to sort to simulate random access
                 cmd2.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
                 cmd2.CommandTimeout = 0;
                 using var reader = cmd2.ExecuteReader();
@@ -606,10 +682,10 @@ END
             }
         }
 
-        private static IEnumerable<string> GetLinesInBlobs(BlobContainerClient container)
+        private static IEnumerable<string> GetLinesInBlobs(BlobContainerClient container, string nameFilter)
         {
             var linesRead = 0;
-            var blobs = container.GetBlobs().Where(_ => _.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase)).Skip(_skipBlobs).Take(_takeBlobs);
+            var blobs = container.GetBlobs().Where(_ => _.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase)).Skip(_skipBlobs).Take(_takeBlobs);
             foreach (var blob in blobs)
             {
                 if (linesRead >= _calls)
@@ -936,6 +1012,140 @@ END
             }
 
             return status;
+        }
+
+        private static void GetObservationsForPatient(string patientId)
+        {
+            var sw = Stopwatch.StartNew();
+            var status = string.Empty;
+            var uri = new Uri(_endpoint + "/Observation?patient=" + patientId);
+            var count = 0;
+            try
+            {
+                var response = _httpClient.GetAsync(uri).Result;
+                status = response.StatusCode.ToString();
+                var content = response.Content.ReadAsStringAsync().Result;
+                var split = content.Split("fullUrl", StringSplitOptions.None);
+                count = split.Length - 1;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"uri={uri} error={e.Message}");
+                _store.TryLogEvent("Diag.GetObservationsForPatient", "Error", $"id={patientId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent("Diag.GetObservationsForPatient", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} count={count} id={patientId}", null, CancellationToken.None).Wait();
+        }
+
+        private static void GetPatientRevIncludeObservations(string patientId)
+        {
+            var sw = Stopwatch.StartNew();
+            var status = string.Empty;
+            var uri = new Uri(_endpoint + "/Patient?_revinclude=Observation:patient&_id=" + patientId);
+            var count = 0;
+            try
+            {
+                var response = _httpClient.GetAsync(uri).Result;
+                status = response.StatusCode.ToString();
+                var content = response.Content.ReadAsStringAsync().Result;
+                var split = content.Split("fullUrl", StringSplitOptions.None);
+                count = split.Length - 1;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"uri={uri} error={e.Message}");
+                _store.TryLogEvent("Diag.GetPatientRevIncludeObservations", "Error", $"id={patientId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent("Diag.GetPatientRevIncludeObservations", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} count={count} id={patientId}", null, CancellationToken.None).Wait();
+        }
+
+        private static void UpdateSearchParam(string resourceId)
+        {
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                using var conn = new SqlConnection(_connectionString);
+                conn.Open();
+                using var cmd = new SqlCommand(
+                    @"
+    DECLARE @Resources dbo.ResourceList
+    INSERT INTO @Resources 
+         (   ResourceTypeId, ResourceId, RawResource, ResourceSurrogateId, Version, HasVersionToCompare, IsDeleted, IsHistory, KeepHistory, IsRawResourceMetaSet, SearchParamHash) 
+      SELECT ResourceTypeId, ResourceId, RawResource, ResourceSurrogateId, Version,                   1,         0,         0,           1,                    1,          'Test'
+        FROM Resource
+        WHERE ResourceTypeId = 96 AND ResourceId = @ResourceId
+    EXECUTE UpdateResourceSearchParams @Resources = @Resources
+                    ",
+                    conn);
+                cmd.Parameters.AddWithValue("@ResourceId", resourceId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Diag.UpdateSearchParams.Observation: Id={resourceId} error={e.Message}");
+                _store.TryLogEvent($"Diag.UpdateSearchParams.Observation", "Error", $"id={resourceId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent($"Diag.UpdateSearchParams.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec id={resourceId}", null, CancellationToken.None).Wait();
+
+            // check
+            try
+            {
+                using var conn = new SqlConnection(_connectionString);
+                conn.Open();
+                using var cmd = new SqlCommand("SELECT SearchParamHash FROM Resource WHERE ResourceTypeId = 96 AND IsHistory = 0 AND ResourceId = @ResourceId", conn);
+                cmd.Parameters.AddWithValue("@ResourceId", resourceId);
+                var hash = (string)cmd.ExecuteScalar();
+                if (hash != "Test")
+                {
+                    throw new ArgumentException("Incorrect hash");
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Diag.Check.UpdateSearchParams.Observation: Id={resourceId} error={e.Message}");
+                _store.TryLogEvent($"Diag.Check.UpdateSearchParams.Observation", "Error", $"id={resourceId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+        }
+
+        private static void DeleteResource(string resourceType, string resourceId, bool isHard)
+        {
+            var sw = Stopwatch.StartNew();
+            var status = string.Empty;
+            var uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId + (isHard ? "?hardDelete=true" : string.Empty));
+            try
+            {
+                var response = _httpClient.DeleteAsync(uri).Result;
+                status = response.StatusCode.ToString();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"uri={uri} error={e.Message}");
+                _store.TryLogEvent($"Diag.{(isHard ? "Hard" : "Soft")}Delete.Observation", "Error", $"id={resourceId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent($"Diag.{(isHard ? "Hard" : "Soft")}Delete.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} id={resourceId}", null, CancellationToken.None).Wait();
+
+            // check
+            sw = Stopwatch.StartNew();
+            uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId + "/_history");
+            var count = 0;
+            try
+            {
+                var response = _httpClient.GetAsync(uri).Result;
+                status = response.StatusCode.ToString();
+                var content = response.Content.ReadAsStringAsync().Result;
+                var split = content.Split("fullUrl", StringSplitOptions.None);
+                count = split.Length - 1;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"uri={uri} error={e.Message}");
+                _store.TryLogEvent($"Diag.Check{(isHard ? "Hard" : "Soft")}Delete.Observation", "Error", $"id={resourceId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent($"Diag.Check{(isHard ? "Hard" : "Soft")}Delete.Observation", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec count={count} status={status} id={resourceId}", null, CancellationToken.None).Wait();
         }
 
         private static bool IsNetworkError(Exception e)
