@@ -2325,6 +2325,12 @@ BEGIN TRY
 
   EXECUTE dbo.LogEvent @Process=@Process,@Status='End'
 
+  IF 0 < (SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_Id = object_id('ResourceTbl') AND index_id IN (0,1))
+    RAISERROR('ResourceTbl is not empty', 18, 127)
+  
+  IF 0 < (SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_Id = object_id('ReferenceSearchParamTbl') AND index_id IN (0,1))
+    RAISERROR('ReferenceSearchParamTbl is not empty', 18, 127)
+
   EXECUTE('
 ALTER VIEW dbo.ReferenceSearchParam
 AS
@@ -3891,5 +3897,5 @@ GO
 GO
 --DROP TABLE IF EXISTS ReferenceSearchParamTbl -- TODO: Remove table after deployment
 GO
---DROP PROCEDURE IF EXISTS tmp_MoveResources -- TODO: Remove table after deployment
+DROP PROCEDURE IF EXISTS tmp_MoveResources
 GO
