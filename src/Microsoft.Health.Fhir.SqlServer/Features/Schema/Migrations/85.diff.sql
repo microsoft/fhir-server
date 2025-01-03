@@ -432,6 +432,14 @@ BEGIN
   IF UPDATE(IsDeleted) AND UPDATE(RawResource) AND UPDATE(SearchParamHash) AND UPDATE(HistoryTransactionId) AND NOT UPDATE(IsHistory) -- hard delete resource
   BEGIN
     UPDATE B
+      SET IsDeleted = A.IsDeleted
+         ,SearchParamHash = A.SearchParamHash
+         ,HistoryTransactionId = A.HistoryTransactionId
+         ,RawResource = A.RawResource
+      FROM Inserted A
+           JOIN dbo.ResourceTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+
+    UPDATE B
       SET RawResource = A.RawResource
       FROM Inserted A
            JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -458,6 +466,12 @@ BEGIN
     UPDATE B
       SET SearchParamHash = A.SearchParamHash
       FROM Inserted A
+           JOIN dbo.ResourceTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+      WHERE A.IsHistory = 0
+
+    UPDATE B
+      SET SearchParamHash = A.SearchParamHash
+      FROM Inserted A
            JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
       WHERE A.IsHistory = 0
     
@@ -466,6 +480,11 @@ BEGIN
 
   IF UPDATE(TransactionId) AND NOT UPDATE(IsHistory) -- cleanup trans
   BEGIN
+    UPDATE B
+      SET TransactionId = A.TransactionId
+      FROM Inserted A
+           JOIN dbo.ResourceTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+
     UPDATE B
       SET TransactionId = A.TransactionId
       FROM Inserted A
@@ -481,6 +500,11 @@ BEGIN
 
   IF UPDATE(RawResource) -- invisible records
   BEGIN
+    UPDATE B
+      SET RawResource = A.RawResource
+      FROM Inserted A
+           JOIN dbo.ResourceTbl B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+
     UPDATE B
       SET RawResource = A.RawResource
       FROM Inserted A
