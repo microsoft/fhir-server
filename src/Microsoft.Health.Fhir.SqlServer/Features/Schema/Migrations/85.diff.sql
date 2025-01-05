@@ -94,7 +94,7 @@ BEGIN
      ,ResourceSurrogateId         bigint                  NOT NULL
      ,ResourceIdInt               bigint                  NOT NULL
      ,Version                     int                     NOT NULL
-     ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_CurrentResources_IsHistory DEFAULT 0, CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0)
+     ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_CurrentResources_IsHistory DEFAULT 0, CONSTRAINT CH_CurrentResources_IsHistory CHECK (IsHistory = 0)
      ,IsDeleted                   bit                     NOT NULL
      ,RequestMethod               varchar(10)             NULL
      ,IsRawResourceMetaSet        bit                     NOT NULL CONSTRAINT DF_CurrentResources_IsRawResourceMetaSet DEFAULT 0

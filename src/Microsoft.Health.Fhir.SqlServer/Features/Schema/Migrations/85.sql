@@ -361,7 +361,7 @@ CREATE TABLE dbo.CurrentResources (
     HistoryTransactionId BIGINT       NULL,
     FileId               BIGINT       NULL,
     OffsetInFile         INT          NULL CONSTRAINT PKC_CurrentResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
+    CONSTRAINT CH_CurrentResources_IsHistory CHECK (IsHistory = 0),
     CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
