@@ -5,12 +5,24 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Azure.Cosmos.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {
     public static class ModelExtensions
     {
-        public static Resource AssignPatient(this Device device, ResourceReference patient)
+#if !R5
+        public static Device AssignPatient(this Device device, ResourceReference patient)
+        {
+#if Stu3 || R4
+            device.Patient = patient;
+#else
+            device.Subject = patient;
+#endif
+            return device;
+        }
+#else
+        public static Bundle AssignPatient(this Device device, ResourceReference patient, string associationId = null)
         {
             var deviceId = Guid.NewGuid().ToString();
 
@@ -30,10 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
                 },
             });
 
-#if Stu3 || R4
-            device.Patient = patient;
-#else
             DeviceAssociation resource = new DeviceAssociation();
+            resource.Id = associationId ?? Guid.NewGuid().ToString();
             resource.Subject = patient;
             resource.Device = new ResourceReference($"Device/{deviceId}");
 
@@ -46,8 +56,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
                     Url = $"DeviceAssociation",
                 },
             });
-#endif
+
             return bundle;
         }
+#endif
     }
 }

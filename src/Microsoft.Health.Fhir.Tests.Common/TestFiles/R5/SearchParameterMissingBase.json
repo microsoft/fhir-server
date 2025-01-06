@@ -36,7 +36,7 @@
     "code": "diagnosisBad5",
     "base": [],
     "type": "reference",
-    "expression": "Encounter.diagnosis-reference.condition",
+    "expression": "Encounter.diagnosis.condition",
     "target": [
         "Condition",
         "Procedure"

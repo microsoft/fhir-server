@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -91,8 +92,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create resources that references the Patient resource
             Device deviceToCreate = Samples.GetJsonSample<Device>("Device-d1");
 
+#if !R5
             deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             Device = await TestFhirClient.CreateAsync(deviceToCreate);
+#else
+            var bundleResponse = await TestFhirClient.CreateAsync(deviceToCreate.AssignPatient(new ResourceReference(patientReference)));
+            Device = (Device)bundleResponse.Resource.Entry.Where(x => x.Resource is Device).Select(x => x.Resource).FirstOrDefault();
+#endif
 
             // Create Patient compartment resources
             Observation observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
@@ -119,8 +125,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             NonExistentPatient = await TestFhirClient.CreateAsync(patientToCreate);
             patientReference = $"Patient/{NonExistentPatient.Id}";
 
+#if !R5
             deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             DeviceOfNonExistentPatient = await TestFhirClient.CreateAsync(deviceToCreate);
+#else
+            bundleResponse = await TestFhirClient.CreateAsync(deviceToCreate.AssignPatient(new ResourceReference(patientReference)));
+            DeviceOfNonExistentPatient = (Device)bundleResponse.Resource.Entry.Where(x => x.Resource is Device).Select(x => x.Resource).FirstOrDefault();
+#endif
 
             observationToCreate.Subject.Reference = patientReference;
             ObservationOfNonExistentPatient = await TestFhirClient.CreateAsync(observationToCreate);

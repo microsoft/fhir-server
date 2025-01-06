@@ -303,8 +303,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
+#if !R5
             string query = $"_tag={Fixture.Tag}&_revinclude=Device:patient";
-
+#else
+            string query = $"_tag={Fixture.Tag}&_revinclude=DeviceAssociation:patient";
+#endif
             await SearchAndValidateBundleAsync(
                 ResourceType.Patient,
                 query,

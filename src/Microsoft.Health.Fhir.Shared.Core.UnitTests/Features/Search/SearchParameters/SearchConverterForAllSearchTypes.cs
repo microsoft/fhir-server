@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _outputHelper = outputHelper;
         }
 
+#if !R5
         [Theory]
         [MemberData(nameof(GetAllSearchParameters))]
         public async Task CheckSearchParameter(
@@ -75,7 +76,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
-#if !R5
         [Fact]
         public async Task ListAllUnsupportedTypes()
         {

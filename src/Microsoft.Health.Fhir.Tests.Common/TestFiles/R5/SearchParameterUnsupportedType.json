@@ -1,15 +1,15 @@
 {
     "resourceType": "SearchParameter",
-    "id": "Encounter-diagnosisBad2",
+    "id": "Encounter-diagnosisBad8",
     "extension": [
         {
             "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
             "valueCode": "trial-use"
         }
     ],
-    "url": "http://hl7.org/fhir/SearchParameter/Encounter-diagnosisBad2",
+    "url": "http://hl7.org/fhir/SearchParameter/Encounter-diagnosisBad8",
     "version": "4.4.0",
-    "name": "diagnosisBad2",
+    "name": "diagnosisBad8",
     "status": "draft",
     "experimental": false,
     "date": "2020-05-03T08:43:35+10:00",
@@ -33,10 +33,10 @@
         }
     ],
     "description": "The diagnosis or procedure relevant to the encounter",
-    "code": "diagnosisBad2",
+    "code": "diagnosisBad8",
     "base": [ "Encounter" ],
-    "type": "reference",
-    "expression": "Encounter.diagnosis.foo",
+    "type": "quantity",
+    "expression": "Encounter.diagnosis.condition",
     "target": [
         "Condition",
         "Procedure"
