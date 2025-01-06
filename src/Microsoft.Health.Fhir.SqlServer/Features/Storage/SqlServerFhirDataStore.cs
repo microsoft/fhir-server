@@ -131,44 +131,76 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
+        private async Task DeleteBlobFromAdls(long transactionId, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
+            var blobName = GetBlobNameForRaw(transactionId);
+            while (true)
+            {
+                try
+                {
+                    await SqlAdlsCient.Container.GetBlockBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Error", $"blob={blobName} error={e.ToString()}", start, cancellationToken);
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
+
+            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
+            await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
+        }
+
         private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
             var blobName = GetBlobNameForRaw(transactionId);
-        retry:
-            try
+            while (true)
             {
-                using var stream = await SqlAdlsCient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
-                using var writer = new StreamWriter(stream);
-                var offset = 0;
-                foreach (var resource in resources)
+                try
                 {
-                    resource.FileId = transactionId;
-                    resource.OffsetInFile = offset;
-                    var line = resource.ResourceWrapper.RawResource.Data;
-                    offset += Encoding.UTF8.GetByteCount(line) + eol;
-                    await writer.WriteLineAsync(line);
-                }
+                    using var stream = await SqlAdlsCient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                    using var writer = new StreamWriter(stream);
+                    var offset = 0;
+                    foreach (var resource in resources)
+                    {
+                        resource.FileId = transactionId;
+                        resource.OffsetInFile = offset;
+                        var line = resource.ResourceWrapper.RawResource.Data;
+                        offset += Encoding.UTF8.GetByteCount(line) + eol;
+                        await writer.WriteLineAsync(line);
+                    }
 
-                #pragma warning disable CA2016
-                await writer.FlushAsync();
-            }
-            catch (Exception e)
-            {
-                await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", e.ToString(), start, cancellationToken);
-                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    #pragma warning disable CA2016
+                    await writer.FlushAsync();
+                    break;
+                }
+                catch (Exception e)
                 {
-                    await Task.Delay(1000, cancellationToken);
-                    goto retry;
-                }
+                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", $"blob={blobName} error={e.ToString()}", start, cancellationToken);
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                        continue;
+                    }
 
-                throw;
+                    throw;
+                }
             }
 
             var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} Resources={resources.Count}", start, cancellationToken);
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} blob={blobName}", start, cancellationToken);
         }
 
         internal static string GetBlobNameForRaw(long fileId)
@@ -443,7 +475,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            // In case of generic network error we do not know whether SQL transaction was committed or not.
+                            // Therefore, it is not safe to delete blob and/or commit transaction with failure here.
+                            // Let transaction watch dog deal with it.
                             throw;
                         }
                     }
