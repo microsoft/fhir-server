@@ -754,4 +754,7 @@
     <value>The provided search parameter type {0} is not supported for the given expression {1}.</value>
     <comment>{0}: The type field in the search parameter. {1}: The expression field in the search parameter.</comment>
   </data>
+  <data name="EnableWorkloadIdentityDescription" xml:space="preserve">
+    <value>Enables the use of workload identity over managed identity.</value>
+  </data>
 </root>

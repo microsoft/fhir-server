@@ -61,6 +61,8 @@ public static class CommandCollectionExtensions
             { OptionAliases.ManagedIdentityClientId, OptionAliases.ManagedIdentityClientId },
             { OptionAliases.AuthenticationType, OptionAliases.AuthenticationType },
             { OptionAliases.Version, OptionAliases.Version },
+            { OptionAliases.EnableWorkloadIdentityShort, OptionAliases.EnableWorkloadIdentity },
+            { OptionAliases.EnableWorkloadIdentity, OptionAliases.EnableWorkloadIdentity },
         };
 
         configurationBuilder.AddCommandLine(args, switchMappings);
