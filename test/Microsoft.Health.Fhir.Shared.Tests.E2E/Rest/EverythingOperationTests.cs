@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
 #if R5
-            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.DeviceAssociation);
 #else
             ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
             nextLink = secondBundle.Resource.NextLink.ToString();
@@ -59,10 +59,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.NonExistentPatient.Id}/$everything";
-#if R5
-            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
-#else
+#if !R5
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
+#else
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceAssociationOfNonExistentPatient);
 #endif
         }
 
@@ -110,7 +110,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
 
+#if !R5
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment, Fixture.Device);
+#else
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.DeviceAssociation, Fixture.Appointment);
+#endif
         }
 
         [Fact]

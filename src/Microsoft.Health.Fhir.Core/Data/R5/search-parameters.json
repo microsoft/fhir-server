@@ -59260,22 +59260,26 @@
                 "extension": [
                     {
                         "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-                        "valueCode": "trial-use"
+                        "valueCode": "normative"
+                    },
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-wg",
+                        "valueCode": "oo"
                     }
                 ],
                 "url": "http://hl7.org/fhir/SearchParameter/Observation-value-string",
-                "version": "4.0.1",
+                "version": "6.0.0-ballot2",
                 "name": "value-string",
-                "status": "draft",
+                "status": "active",
                 "experimental": false,
-                "date": "2019-11-01T09:29:23+11:00",
-                "publisher": "Health Level Seven International (Orders and Observations)",
+                "date": "2025-01-05T11:55:13+00:00",
+                "publisher": "HL7 International / Orders and Observations",
                 "contact": [
                     {
                         "telecom": [
                             {
                                 "system": "url",
-                                "value": "http://hl7.org/fhir"
+                                "value": "http://www.hl7.org/Special/committees/fiwg"
                             }
                         ]
                     },
@@ -59283,18 +59287,30 @@
                         "telecom": [
                             {
                                 "system": "url",
-                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                                "value": "http://www.hl7.org/Special/committees/orders"
                             }
                         ]
                     }
                 ],
-                "description": "The value of the observation, if the value is a string, and also searches in CodeableConcept.text",
+                "description": "String in valueString.",
+                "jurisdiction": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://unstats.un.org/unsd/methods/m49/m49.htm",
+                                "code": "001",
+                                "display": "World"
+                            }
+                        ]
+                    }
+                ],
                 "code": "value-string",
-                "base": [ "Observation" ],
+                "base": [
+                    "Observation"
+                ],
                 "type": "string",
-                "expression": "(Observation.value as string) | (Observation.value as CodeableConcept).text",
-                "xpath": "f:Observation/f:valueQuantity | f:Observation/f:valueCodeableConcept | f:Observation/f:valueString | f:Observation/f:valueBoolean | f:Observation/f:valueInteger | f:Observation/f:valueRange | f:Observation/f:valueRatio | f:Observation/f:valueSampledData | f:Observation/f:valueTime | f:Observation/f:valueDateTime | f:Observation/f:valuePeriod",
-                "xpathUsage": "normal"
+                "expression": "value.ofType(string)",
+                "processingMode": "normal"
             }
         },
         {

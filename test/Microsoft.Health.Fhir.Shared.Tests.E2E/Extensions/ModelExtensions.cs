@@ -22,42 +22,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
             return device;
         }
 #else
-        public static Bundle AssignPatient(this Device device, ResourceReference patient, string associationId = null)
+        public static DeviceAssociation AssignPatient(this Device device, ResourceReference patient)
         {
-            var deviceId = Guid.NewGuid().ToString();
-
-            device.Id = deviceId;
-            var bundle = new Bundle
+            return new DeviceAssociation
             {
-                Type = Bundle.BundleType.Batch,
+                Device = new ResourceReference($"Device/{device.Id}"),
+                Subject = patient,
+                Status = new CodeableConcept("http://hl7.org/fhir/deviceassociation-status", "implanted"),
             };
-
-            bundle.Entry.Add(new Bundle.EntryComponent
-            {
-                Resource = device,
-                Request = new Bundle.RequestComponent
-                {
-                    Method = Bundle.HTTPVerb.PUT,
-                    Url = $"Device/{deviceId}",
-                },
-            });
-
-            DeviceAssociation resource = new DeviceAssociation();
-            resource.Id = associationId ?? Guid.NewGuid().ToString();
-            resource.Subject = patient;
-            resource.Device = new ResourceReference($"Device/{deviceId}");
-
-            bundle.Entry.Add(new Bundle.EntryComponent
-            {
-                Resource = resource,
-                Request = new Bundle.RequestComponent
-                {
-                    Method = Bundle.HTTPVerb.POST,
-                    Url = $"DeviceAssociation",
-                },
-            });
-
-            return bundle;
         }
 #endif
     }
