@@ -11,6 +11,8 @@ public static class OptionAliases
     public const string AuthenticationTypeShort = "-at";
     public const string ConnectionString = "--connection-string";
     public const string ConnectionStringShort = "-cs";
+    public const string EnableWorkloadIdentity = "--enable-workload-identity";
+    public const string EnableWorkloadIdentityShort = "-wi";
     public const string Force = "--force";
     public const string ForceShort = "-f";
     public const string Latest = "--latest";
