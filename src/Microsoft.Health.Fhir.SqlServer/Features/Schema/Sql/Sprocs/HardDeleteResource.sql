@@ -24,7 +24,7 @@ BEGIN
   SET @Mode += ' T='+convert(varchar,@TransactionId)
 END
 
-DECLARE @Ids TABLE (ResourceSurrogateId bigint NOT NULL, ResourceIdInt bigint NOT NULL)
+DECLARE @Ids TABLE (PartId tinyint NOT NULL, ResourceSurrogateId bigint NOT NULL, ResourceIdInt bigint NOT NULL)
 DECLARE @IdsDistinct TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL PRIMARY KEY (ResourceTypeId, ResourceIdInt))
 DECLARE @RefIdsRaw TABLE (ResourceTypeId smallint NOT NULL, ResourceIdInt bigint NOT NULL)
 
@@ -38,7 +38,7 @@ BEGIN TRY
          ,RawResource = 0xF -- invisible value
          ,SearchParamHash = NULL
          ,HistoryTransactionId = @TransactionId
-      OUTPUT deleted.ResourceSurrogateId, deleted.ResourceIdInt INTO @Ids
+      OUTPUT deleted.PartId, deleted.ResourceSurrogateId, deleted.ResourceIdInt INTO @Ids
       WHERE ResourceTypeId = @ResourceTypeId
         AND ResourceId = @ResourceId
         AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
@@ -48,7 +48,7 @@ BEGIN TRY
   ELSE
   BEGIN
     DELETE dbo.Resource
-      OUTPUT deleted.ResourceSurrogateId, deleted.ResourceIdInt INTO @Ids
+      OUTPUT deleted.PartId, deleted.ResourceSurrogateId, deleted.ResourceIdInt INTO @Ids
       WHERE ResourceTypeId = @ResourceTypeId
         AND ResourceId = @ResourceId
         AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
@@ -79,7 +79,7 @@ BEGIN TRY
     DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.ResourceWriteClaim B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
     DELETE FROM B 
       OUTPUT deleted.ReferenceResourceTypeId, deleted.ReferenceResourceIdInt INTO @RefIdsRaw
-      FROM @Ids A INNER LOOP JOIN dbo.ResourceReferenceSearchParams B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+      FROM @Ids A INNER LOOP JOIN dbo.ResourceReferenceSearchParams B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.PartId = A.PartId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
     DELETE FROM @IdsDistinct -- is used above
     INSERT INTO @IdsDistinct SELECT DISTINCT ResourceTypeId, ResourceIdInt FROM @RefIdsRaw
     SET @Rows = @@rowcount
@@ -98,7 +98,7 @@ BEGIN TRY
         END
       END
     END
-    DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.StringReferenceSearchParams B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.StringReferenceSearchParams B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.PartId = A.PartId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
     DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.TokenSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
     DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.TokenText B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
     DELETE FROM B FROM @Ids A INNER LOOP JOIN dbo.StringSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)

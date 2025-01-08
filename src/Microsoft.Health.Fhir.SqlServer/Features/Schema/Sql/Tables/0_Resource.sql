@@ -3,6 +3,7 @@
 CREATE TABLE dbo.CurrentResource
 (
     ResourceTypeId              smallint                NOT NULL
+   ,PartId                      tinyint                 NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
@@ -24,6 +25,7 @@ GO
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL
+   ,PartId                      tinyint                 NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
@@ -58,10 +60,11 @@ GO
 CREATE TABLE dbo.RawResources
 (
     ResourceTypeId              smallint                NOT NULL
+   ,PartId AS isnull(convert(tinyint,ResourceSurrogateId%2),0) PERSISTED
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,RawResource                 varbinary(max)          NULL
 
-    CONSTRAINT PKC_RawResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT PKC_RawResources_ResourceTypeId_PartId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, PartId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 )
 
 ALTER TABLE dbo.RawResources SET ( LOCK_ESCALATION = AUTO )
@@ -69,6 +72,7 @@ GO
 CREATE TABLE dbo.CurrentResources
 (
     ResourceTypeId              smallint                NOT NULL
+   ,PartId AS isnull(convert(tinyint,ResourceSurrogateId%2),0) PERSISTED
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
    ,Version                     int                     NOT NULL
@@ -82,7 +86,7 @@ CREATE TABLE dbo.CurrentResources
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
 
-    CONSTRAINT PKC_CurrentResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT PKC_CurrentResources_ResourceTypeId_PartId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, PartId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 )
 
@@ -96,6 +100,7 @@ GO
 CREATE TABLE dbo.HistoryResources
 (
     ResourceTypeId              smallint                NOT NULL
+   ,PartId AS isnull(convert(tinyint,ResourceSurrogateId%2),0) PERSISTED
    ,ResourceSurrogateId         bigint                  NOT NULL
    ,ResourceIdInt               bigint                  NOT NULL
    ,Version                     int                     NOT NULL
@@ -109,7 +114,7 @@ CREATE TABLE dbo.HistoryResources
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
 
-    CONSTRAINT PKC_HistoryResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT PKC_HistoryResources_ResourceTypeId_PartId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, PartId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 )
 

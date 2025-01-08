@@ -2,6 +2,7 @@
 CREATE TABLE dbo.ReferenceSearchParam
 (
     ResourceTypeId            smallint     NOT NULL
+   ,PartId                    tinyint      NOT NULL
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
@@ -16,6 +17,7 @@ GO
 CREATE TABLE dbo.ResourceReferenceSearchParams
 (
     ResourceTypeId            smallint     NOT NULL
+   ,PartId AS isnull(convert(tinyint,ResourceSurrogateId%2),0) PERSISTED
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
@@ -28,8 +30,8 @@ ALTER TABLE dbo.ResourceReferenceSearchParams ADD CONSTRAINT FK_ResourceReferenc
 
 ALTER TABLE dbo.ResourceReferenceSearchParams SET ( LOCK_ESCALATION = AUTO )
 
-CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId_ResourceTypeId 
-  ON dbo.ResourceReferenceSearchParams (ResourceSurrogateId, SearchParamId, ResourceTypeId)
+CREATE CLUSTERED INDEX IXC_PartId_ResourceSurrogateId_SearchParamId_ResourceTypeId 
+  ON dbo.ResourceReferenceSearchParams (PartId, ResourceSurrogateId, SearchParamId, ResourceTypeId)
   WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE UNIQUE INDEX IXU_ReferenceResourceIdInt_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId 
@@ -39,6 +41,7 @@ GO
 CREATE TABLE dbo.StringReferenceSearchParams
 (
     ResourceTypeId            smallint     NOT NULL
+   ,PartId AS isnull(convert(tinyint,ResourceSurrogateId%2),0) PERSISTED
    ,ResourceSurrogateId       bigint       NOT NULL
    ,SearchParamId             smallint     NOT NULL
    ,BaseUri                   varchar(128) COLLATE Latin1_General_100_CS_AS NULL
@@ -48,8 +51,8 @@ CREATE TABLE dbo.StringReferenceSearchParams
 
 ALTER TABLE dbo.StringReferenceSearchParams SET ( LOCK_ESCALATION = AUTO )
 
-CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId_ResourceTypeId 
-  ON dbo.StringReferenceSearchParams (ResourceSurrogateId, SearchParamId, ResourceTypeId)
+CREATE CLUSTERED INDEX IXC_PartId_ResourceSurrogateId_SearchParamId_ResourceTypeId 
+  ON dbo.StringReferenceSearchParams (PartId, ResourceSurrogateId, SearchParamId, ResourceTypeId)
   WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE UNIQUE INDEX IXU_ReferenceResourceId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId 

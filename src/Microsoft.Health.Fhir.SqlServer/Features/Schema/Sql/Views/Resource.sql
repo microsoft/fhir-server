@@ -1,6 +1,7 @@
 ﻿CREATE VIEW dbo.Resource
 AS 
 SELECT A.ResourceTypeId
+      ,A.PartId
       ,A.ResourceSurrogateId
       ,ResourceId
       ,A.ResourceIdInt
@@ -16,10 +17,12 @@ SELECT A.ResourceTypeId
       ,FileId
       ,OffsetInFile
   FROM dbo.CurrentResources A
-       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.PartId = A.PartId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
+  WHERE A.PartId = A.ResourceSurrogateId % 2
 UNION ALL
 SELECT A.ResourceTypeId
+      ,A.PartId
       ,A.ResourceSurrogateId
       ,ResourceId
       ,A.ResourceIdInt
@@ -35,8 +38,9 @@ SELECT A.ResourceTypeId
       ,FileId
       ,OffsetInFile
   FROM dbo.HistoryResources A
-       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+       LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.PartId = A.PartId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt
+  WHERE A.PartId = A.ResourceSurrogateId % 2
 GO
 CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
@@ -68,7 +72,7 @@ BEGIN
     UPDATE B
       SET RawResource = A.RawResource
       FROM Inserted A
-           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId
     
     IF @@rowcount = 0
       INSERT INTO dbo.RawResources
@@ -82,7 +86,7 @@ BEGIN
          ,SearchParamHash = A.SearchParamHash
          ,HistoryTransactionId = A.HistoryTransactionId
       FROM Inserted A
-           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId
   
     RETURN
   END
@@ -92,7 +96,7 @@ BEGIN
     UPDATE B
       SET SearchParamHash = A.SearchParamHash
       FROM Inserted A
-           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId
       WHERE A.IsHistory = 0
     
     RETURN
@@ -103,12 +107,12 @@ BEGIN
     UPDATE B
       SET TransactionId = A.TransactionId
       FROM Inserted A
-           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0
+           JOIN dbo.CurrentResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId AND B.IsHistory = 0
 
     UPDATE B
       SET TransactionId = A.TransactionId
       FROM Inserted A
-           JOIN dbo.HistoryResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1
+           JOIN dbo.HistoryResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId AND B.IsHistory = 1
     
     RETURN
   END
@@ -118,7 +122,7 @@ BEGIN
     UPDATE B
       SET RawResource = A.RawResource
       FROM Inserted A
-           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId
 
     IF @@rowcount = 0
       INSERT INTO dbo.RawResources
@@ -133,7 +137,7 @@ BEGIN
 
   DELETE FROM A
     FROM dbo.CurrentResources A
-    WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
+    WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId AND B.IsHistory = 1)
 
   INSERT INTO dbo.HistoryResources
          ( ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile )
@@ -147,14 +151,14 @@ AS
 BEGIN
   DELETE FROM A
     FROM dbo.CurrentResources A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId AND B.IsHistory = 0)
 
   DELETE FROM A
     FROM dbo.HistoryResources A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId AND B.IsHistory = 1)
 
   DELETE FROM A
     FROM dbo.RawResources A
-    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+    WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.PartId = A.PartId)
 END
 GO
