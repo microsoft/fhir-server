@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappers(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (_.FileId.Value, _.OffsetInFile.Value)).ToList());
+            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
             foreach (var wrapper in wrappers)
             {
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[(wrapper.FileId.Value, wrapper.OffsetInFile.Value)] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 },
                 _logger,
                 cancellationToken);
-            var refs = tmpResources.Where(_ => _.Item2.matchedVersion != null && _.Item2.matchedBytes.IsNull).Select(_ => (_.Item2.matchedFileId.Value, _.Item2.matchedOffsetInFile.Value)).ToList();
+            var refs = tmpResources.Where(_ => _.Item2.matchedVersion != null && _.Item2.matchedBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Item2.matchedFileId).Value, EnsureArg.IsNotNull(_.Item2.matchedOffsetInFile).Value)).ToList();
             var rawResources = GetRawResourcesFromAdls(refs);
             var resources = tmpResources.Select(_ =>
             {
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 RawResource rawResource = null;
                 if (_.Item2.matchedVersion != null)
                 {
-                    rawResource = new RawResource(bytes.IsNull ? rawResources[(fileId.Value, offsetInFile.Value)] : ReadCompressedRawResource(bytes, decompress), FhirResourceFormat.Json, false);
+                    rawResource = new RawResource(bytes.IsNull ? rawResources[(EnsureArg.IsNotNull(fileId).Value, EnsureArg.IsNotNull(offsetInFile).Value)] : ReadCompressedRawResource(bytes, decompress), FhirResourceFormat.Json, false);
                 }
 
                 return (key, (version, rawResource));
