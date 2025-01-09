@@ -413,10 +413,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-#if R5
-                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Contact = new() { new() { Address = new() { City = "Seattle" } }, new() { Address = new() { City = OrganizationCity } } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
+#if Stu3 || R4 || R4B
+                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
 #else
-                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity} }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
+                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Contact = new() { new() { Address = new() { City = "Seattle" } }, new() { Address = new() { City = OrganizationCity } } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
 #endif
 
                 var location = (await TestFhirClient.CreateAsync(new Location { Meta = meta, Address = new Address { City = "Seattle" } })).Resource;
@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
                     Type = Group.GroupType.Person,
-#if !R5
+#if Stu3 || R4 || R4B
                     Actual = true,
 #else
                     Active = true,

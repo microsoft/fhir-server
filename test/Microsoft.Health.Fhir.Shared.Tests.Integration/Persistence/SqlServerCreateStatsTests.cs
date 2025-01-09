@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenSearchForResearchStudyByFocusAndDateWithResearchSubject_StatsAreCreated()
         {
             const string resourceType = "ResearchStudy";
-#if !R5
+#if Stu3 || R4 || R4B
             var researchStudyFocusUri = "http://hl7.org/fhir/SearchParameter/ResearchStudy-focus";
             var query = new[] { Tuple.Create("focus", "surgery"), Tuple.Create("date", "gt1800-01-01"), Tuple.Create("_has:ResearchSubject:study:status", "eligible") };
 #else

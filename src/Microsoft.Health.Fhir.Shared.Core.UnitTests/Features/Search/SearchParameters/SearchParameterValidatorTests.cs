@@ -143,10 +143,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-#if R5
-            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
-#else
+#if Stu3 || R4 || R4B
             var baseArray = new[] { ResourceType.Patient as ResourceType? };
+#else
+            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
 #endif
             var duplicateCode = new SearchParameter { Url = "http://unique", Code = "duplicate", Base = baseArray };
             var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = baseArray };
@@ -166,10 +166,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> DuplicateCodeAtBaseResourceData()
         {
-#if R5
-            var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { VersionIndependentResourceTypesAll.Resource as VersionIndependentResourceTypesAll? } };
-#else
+#if Stu3 || R4 || R4B
             var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { ResourceType.Resource as ResourceType? } };
+#else
+            var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { VersionIndependentResourceTypesAll.Resource as VersionIndependentResourceTypesAll? } };
 #endif
 
             var data = new List<object[]>();
@@ -182,10 +182,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-#if R5
-            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
-#else
+#if Stu3 || R4 || R4B
             var baseArray = new[] { ResourceType.Patient as ResourceType? };
+#else
+            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
 #endif
             var uniqueCode = new SearchParameter { Url = "http://unique", Code = "unique", Base = baseArray };
 

@@ -119,12 +119,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
-#if R5
-            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new() { new() { Address = new Address { City = "Seattle" } } } })).Resource;
-            DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new() { new() { Address = new Address { City = "SeattleForgotten" } } } })).Resource;
-#else
+#if Stu3 || R4 || R4B
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
             DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "SeattleForgotten" } } })).Resource;
+#else
+            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new() { new() { Address = new Address { City = "Seattle" } } } })).Resource;
+            DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new() { new() { Address = new Address { City = "SeattleForgotten" } } } })).Resource;
 #endif
 
             Organization.Name = "Updated";
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             {
                 Meta = meta,
                 Type = Group.GroupType.Person,
-#if !R5
+#if Stu3 || R4 || R4B
                 Actual = true,
 #else
                 Active = true,
@@ -281,14 +281,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             },
                         },
                         WhenPrepared = prepared,
-#if R5
+#if Stu3 || R4 || R4B
+                        Medication = medication.Code,
+#else
                         Medication = new CodeableReference
                         {
                             Concept = medication.Code,
                             Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
-#else
-                        Medication = medication.Code,
 #endif
 #if Stu3
                         Status = MedicationDispense.MedicationDispenseStatus.InProgress,
@@ -318,14 +318,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
-#if R5
+#if Stu3 || R4 || R4B
+                        Medication = medication.Code,
+#else
                         Medication = new CodeableReference
                         {
                             Concept = medication.Code,
                             Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
-#else
-                        Medication = medication.Code,
 #endif
                     })).Resource;
             }

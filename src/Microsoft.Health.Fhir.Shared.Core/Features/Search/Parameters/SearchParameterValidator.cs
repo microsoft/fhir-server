@@ -21,7 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
-#if R5
+#if !Stu3 && !R4 && !R4B
 using Microsoft.Health.Fhir.R5.Core.Extensions;
 #endif
 using Task = System.Threading.Tasks.Task;

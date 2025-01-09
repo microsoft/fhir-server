@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {
     public static class ModelExtensions
     {
-#if !R5
+#if Stu3 || R4 || R4B
         public static Device AssignPatient(this Device device, ResourceReference patient)
         {
 #if Stu3 || R4

@@ -81,11 +81,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
 
-#if R5
+#if Stu3 || R4 || R4B
+            coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
+#else
             coverage.Insurer = new ResourceReference($"Organization/{patient.Id}");
             coverage.Kind = Coverage.CoverageKindCode.Insurance;
-#else
-            coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
 #endif
             coverage.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v3-ActCode", type);
             coverage.Status = FinancialResourceStatusCodes.Active;

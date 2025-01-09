@@ -26,9 +26,8 @@ using NSubstitute;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
-#if !R5
+#if Stu3 || R4 || R4B
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
-
 #endif
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -192,10 +191,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
 
-#if R5
-            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
-#else
+#if Stu3 || R4 || R4B
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
+#else
+            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
 #endif
             {
                 var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);

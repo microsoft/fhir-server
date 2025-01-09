@@ -1141,14 +1141,10 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
                 Type = type,
-#if R5
+#if Stu3 || R4 || R4B
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+#else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
-#elif R4
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-#elif R4B
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-#elif Stu3
-                Base = new List<ResourceType?>() { ResourceType.Patient },
 #endif
                 Expression = expression,
                 Name = searchParamName,

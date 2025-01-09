@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
-#if !R5 // The equivalent field has been removed from CarePlan in R5 seemingly without any replacement.
+#if Stu3 || R4 || R4B  // The equivalent field has been removed from CarePlan in R5 seemingly without any replacement.
         [Fact]
         public void GivenAFhirPathExpressionWithTwoPossibleOutcomeTypes_WhenResolve_TwoTypesReturned()
         {

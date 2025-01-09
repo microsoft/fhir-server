@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
-#if !R5
+#if Stu3 || R4 || R4B
             string query = $"_tag={Fixture.Tag}&_revinclude=Device:patient";
 #else
             string query = $"_tag={Fixture.Tag}&_revinclude=DeviceAssociation:patient";
@@ -764,7 +764,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -784,7 +784,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -823,7 +823,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationDispense,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
 #endif
@@ -1081,7 +1081,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.Medication,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,

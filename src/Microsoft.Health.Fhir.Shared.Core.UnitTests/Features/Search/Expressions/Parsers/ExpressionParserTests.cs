@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
-#if R5
+#if !Stu3 && !R4 && !R4B
 using Microsoft.Health.Fhir.R5.Core.Extensions;
 #endif
 using Microsoft.Health.Fhir.Tests.Common;
@@ -329,10 +329,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 Name = paramName,
                 Code = paramName,
                 Type = SearchParamType.Reference,
-#if R5
-                Target = targetResourceTypes.Select(x => ((ResourceType?)x).ToVersionIndependentResourceTypesAll()),
-#else
+#if Stu3 || R4 || R4B
                 Target = targetResourceTypes.Cast<ResourceType?>(),
+#else
+                Target = targetResourceTypes.Select(x => ((ResourceType?)x).ToVersionIndependentResourceTypesAll()),
 #endif
             }.ToInfo();
 
