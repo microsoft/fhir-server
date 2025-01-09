@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Error", $"blob={blobName} error={e.ToString()}", start, cancellationToken);
+                    await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
                     if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                     {
                         await Task.Delay(1000, cancellationToken);
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", $"blob={blobName} error={e.ToString()}", start, cancellationToken);
+                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
                     if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                     {
                         await Task.Delay(1000, cancellationToken);
