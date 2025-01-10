@@ -52,8 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>A hash of the search options</returns>
         public string GetHash()
         {
-            var expressionHash = default(HashCode);
-            Expression?.AddValueInsensitiveHashCode(ref expressionHash);
+            var expression = Expression?.ToString();
 
             var sort = Sort?.Aggregate(string.Empty, (string result, (SearchParameterInfo param, SortOrder order) input) =>
             {
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return result + $"{input.param}_{input.value}_";
             });
 
-            var hashString = $"{ContinuationToken}_{FeedRange}_{CountOnly}_{IgnoreSearchParamHash}_{IncludeTotal}_{MaxItemCount}_{MaxItemCountSpecifiedByClient}_{IncludeCount}_{ResourceVersionTypes}_{OnlyIds}_{IsLargeAsyncOperation}_{SortQuerySecondPhase}_{IsSortWithFilter}_{DidWeSearchForSortValue}_{SortHasMissingModifier}_{expressionHash.ToHashCode()}_{sort}_{queryHints}";
+            var hashString = $"{ContinuationToken}_{FeedRange}_{CountOnly}_{IgnoreSearchParamHash}_{IncludeTotal}_{MaxItemCount}_{MaxItemCountSpecifiedByClient}_{IncludeCount}_{ResourceVersionTypes}_{OnlyIds}_{IsLargeAsyncOperation}_{SortQuerySecondPhase}_{IsSortWithFilter}_{DidWeSearchForSortValue}_{SortHasMissingModifier}_{expression}_{sort}_{queryHints}";
 
             return hashString.ComputeHash();
         }
