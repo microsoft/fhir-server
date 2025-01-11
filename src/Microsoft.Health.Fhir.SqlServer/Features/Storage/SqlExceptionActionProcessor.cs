@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.Common;
 using System.Data.SqlTypes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,64 +29,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
         {
-            int exceptionNumber = 0;
+            if (exception is SqlException sqlException)
+            {
+                _logger.LogError(exception, $"A {nameof(SqlException)} occurred while executing request");
 
-            if (exception is SqlTruncateException sqlTruncateException)
+                if (sqlException.Number == SqlErrorCodes.TimeoutExpired)
+                {
+                    throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired, exception);
+                }
+                else if (sqlException.Number == SqlErrorCodes.MethodNotAllowed)
+                {
+                    throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed, exception);
+                }
+                else if (sqlException.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
+                {
+                    throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException, exception);
+                }
+                else if (sqlException.Number == LoginFailedForUser)
+                {
+                    throw new LoginFailedForUserException(Core.Resources.InternalServerError, exception);
+                }
+                else if (sqlException.IsCMKError())
+                {
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey);
+                }
+                else
+                {
+                    throw new ResourceSqlException(Core.Resources.InternalServerError, exception);
+                }
+            }
+            else if (exception is SqlTruncateException sqlTruncateException)
             {
                 _logger.LogError(exception, $"A {nameof(ResourceSqlTruncateException)} occurred while executing request");
 
                 throw new ResourceSqlTruncateException(sqlTruncateException.Message, exception);
             }
-            else if (exception is SqlException sqlException)
-            {
-                // SqlException is not mockable - unable to test without complex reflection.
-                // This logic must be similar to the DbException logic below which is only used for unit tests.
-                _logger.LogError(exception, $"A {nameof(SqlException)} occurred while executing request");
-                exceptionNumber = sqlException.Number;
-            }
-            else if (exception is DbException dbException)
-            {
-                // Only used for unit tests.
-                _logger.LogError(dbException, $"A {nameof(DbException)} occurred while executing request");
-                exceptionNumber = dbException.ErrorCode;
-            }
-            else
-            {
-                return Task.CompletedTask;
-            }
 
-            if (exceptionNumber == SqlErrorCodes.TimeoutExpired)
-            {
-                throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired, exception);
-            }
-            else if (exceptionNumber == SqlErrorCodes.MethodNotAllowed)
-            {
-                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed, exception);
-            }
-            else if (exceptionNumber == SqlErrorCodes.QueryProcessorNoQueryPlan)
-            {
-                throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException, exception);
-            }
-            else if (exceptionNumber == LoginFailedForUser)
-            {
-                throw new LoginFailedForUserException(Core.Resources.InternalServerError, exception);
-            }
-            else if (IsCmkError(exceptionNumber))
-            {
-                throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey);
-            }
-            else
-            {
-                throw new ResourceSqlException(Core.Resources.InternalServerError, exception);
-            }
-        }
-
-        private static bool IsCmkError(int errorCode)
-        {
-            return errorCode is SqlErrorCodes.KeyVaultCriticalError or
-                   SqlErrorCodes.KeyVaultEncounteredError or
-                   SqlErrorCodes.KeyVaultErrorObtainingInfo or
-                   SqlErrorCodes.CannotConnectToDBInCurrentState;
+            return Task.CompletedTask;
         }
     }
 }

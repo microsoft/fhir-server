@@ -4,10 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using System.Data.Common;
 using System.Data.SqlTypes;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Antlr4.Runtime.Tree;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -19,11 +23,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     public class SqlExceptionActionProcessorTests
     {
-        private readonly ILogger<SqlExceptionActionProcessor<string, DbException>> _mockLogger;
+        private readonly ILogger<SqlExceptionActionProcessor<string, SqlException>> _mockLogger;
 
         public SqlExceptionActionProcessorTests()
         {
-            _mockLogger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, DbException>>>();
+            _mockLogger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, SqlException>>>();
         }
 
         [Fact]
@@ -31,8 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlTruncateException = new SqlTruncateException("Truncate error");
-            var truncateLogger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, SqlTruncateException>>>();
-            var processor = new SqlExceptionActionProcessor<string, SqlTruncateException>(truncateLogger);
+            var logger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, SqlTruncateException>>>();
+            var processor = new SqlExceptionActionProcessor<string, SqlTruncateException>(logger);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ResourceSqlTruncateException>(() =>
@@ -41,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Equal("Truncate error", exception.Message);
 
             // Verify logger
-            truncateLogger.Received(1).LogError(
+            logger.Received(1).LogError(
                 sqlTruncateException,
                 $"A {nameof(ResourceSqlTruncateException)} occurred while executing request");
         }
@@ -50,21 +54,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData(SqlErrorCodes.TimeoutExpired, typeof(RequestTimeoutException))]
         [InlineData(SqlErrorCodes.MethodNotAllowed, typeof(MethodNotAllowedException))]
         [InlineData(SqlErrorCodes.QueryProcessorNoQueryPlan, typeof(SqlQueryPlanException))]
-        [InlineData(18456, typeof(LoginFailedForUserException))] // 18456 is login failed for user
+        [InlineData(18456, typeof(LoginFailedForUserException))] // Login failed for user
         public async Task GivenSqlException_WhenExecuting_ThenSpecificExceptionIsThrown(int errorCode, Type expectedExceptionType)
         {
             // Arrange
-            var dbException = new MockDbException(errorCode);
-            var processor = new SqlExceptionActionProcessor<string, DbException>(_mockLogger);
+            var sqlException = CreateSqlException(errorCode);
+            var processor = new SqlExceptionActionProcessor<string, SqlException>(_mockLogger);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync(expectedExceptionType, () =>
-                processor.Execute("test-request", dbException, CancellationToken.None));
+                processor.Execute("test-request", sqlException, CancellationToken.None));
 
             // Verify logger
             _mockLogger.Received(1).LogError(
-                dbException,
-                $"A {nameof(DbException)} occurred while executing request");
+                sqlException,
+                $"A {nameof(SqlException)} occurred while executing request");
         }
 
         [Theory]
@@ -75,49 +79,75 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public async Task GivenSqlExceptionWithCmkError_WhenExecuting_ThenCustomerManagedKeyExceptionIsThrown(int errorCode)
         {
             // Arrange
-            var dbException = new MockDbException(errorCode);
-            var processor = new SqlExceptionActionProcessor<string, DbException>(_mockLogger);
+            var sqlException = CreateSqlException(errorCode);
+            var processor = new SqlExceptionActionProcessor<string, SqlException>(_mockLogger);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() =>
-                processor.Execute("test-request", dbException, CancellationToken.None));
+                processor.Execute("test-request", sqlException, CancellationToken.None));
 
             Assert.Equal(Core.Resources.OperationFailedForCustomerManagedKey, exception.Message);
 
             // Verify logger
             _mockLogger.Received(1).LogError(
-                dbException,
-                $"A {nameof(DbException)} occurred while executing request");
+                sqlException,
+                $"A {nameof(SqlException)} occurred while executing request");
         }
 
         [Fact]
-        public async Task GivenDbExceptionWithUnhandledError_WhenExecuting_ThenResourceSqlExceptionIsThrown()
+        public async Task GivenSqlExceptionWithUnhandledError_WhenExecuting_ThenResourceSqlExceptionIsThrown()
         {
             // Arrange
-            var dbException = new MockDbException(9999);
-            var processor = new SqlExceptionActionProcessor<string, DbException>(_mockLogger);
+            var sqlException = CreateSqlException(99999);
+            var processor = new SqlExceptionActionProcessor<string, SqlException>(_mockLogger);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ResourceSqlException>(() =>
-                processor.Execute("test-request", dbException, CancellationToken.None));
+                processor.Execute("test-request", sqlException, CancellationToken.None));
 
             Assert.Equal(Core.Resources.InternalServerError, exception.Message);
 
             // Verify logger
             _mockLogger.Received(1).LogError(
-                dbException,
-                $"A {nameof(DbException)} occurred while executing request");
+                sqlException,
+                $"A {nameof(SqlException)} occurred while executing request");
         }
 
-        private class MockDbException : DbException
+        /// <summary>
+        /// Creates an SqlException with specific error number.
+        /// Useful for testing system errors that can't be generated by a user query.
+        /// </summary>
+        /// <param name="number">Sql exception number</param>
+        /// <returns>sql exception</returns>
+        private static SqlException CreateSqlException(int number)
         {
-            public MockDbException(int errorCode, string message = "Simulated database error")
-                : base(message)
-            {
-                ErrorCode = errorCode;
-            }
+            var collectionConstructor = typeof(SqlErrorCollection)
+                .GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, Array.Empty<Type>(), null);
 
-            public override int ErrorCode { get; }
+            var addMethod = typeof(SqlErrorCollection).GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            var errorCollection = (SqlErrorCollection)collectionConstructor.Invoke(null);
+
+            var errorConstructor = typeof(SqlError)
+                .GetConstructor(
+                    BindingFlags.NonPublic | BindingFlags.Instance,
+                    null,
+                    new[] { typeof(int), typeof(byte), typeof(byte), typeof(string), typeof(string), typeof(string), typeof(int), typeof(uint), typeof(Exception) },
+                    null);
+
+            object error = errorConstructor
+                .Invoke(new object[] { number, (byte)0, (byte)0, "server", "errMsg", "proccedure", 100, 0U, null });
+
+            addMethod.Invoke(errorCollection, new[] { error });
+
+            var constructor = typeof(SqlException)
+                .GetConstructor(
+                    BindingFlags.NonPublic | BindingFlags.Instance, // visibility
+                    null,
+                    new[] { typeof(string), typeof(SqlErrorCollection), typeof(Exception), typeof(Guid) },
+                    null);
+
+            return (SqlException)constructor.Invoke(new object[] { "Error message", errorCollection, new DataException(), Guid.NewGuid() });
         }
     }
 }
