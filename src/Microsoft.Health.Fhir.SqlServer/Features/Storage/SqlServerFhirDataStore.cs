@@ -123,101 +123,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
                 }
             }
-
-            _ = new SqlAdlsCient(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
-
-        private async Task DeleteBlobFromAdls(long transactionId, CancellationToken cancellationToken)
-        {
-            var start = DateTime.UtcNow;
-            var sw = Stopwatch.StartNew();
-            var blobName = GetBlobNameForRaw(transactionId);
-            while (true)
-            {
-                try
-                {
-                    await SqlAdlsCient.Container.GetBlockBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
-                    break;
-                }
-                catch (Exception e)
-                {
-                    await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
-                    {
-                        await Task.Delay(1000, cancellationToken);
-                        continue;
-                    }
-
-                    throw;
-                }
-            }
-
-            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
-        }
-
-        private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
-        {
-            var start = DateTime.UtcNow;
-            var sw = Stopwatch.StartNew();
-            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
-            var blobName = GetBlobNameForRaw(transactionId);
-            while (true)
-            {
-                try
-                {
-                    using var stream = await SqlAdlsCient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
-                    using var writer = new StreamWriter(stream);
-                    var offset = 0;
-                    foreach (var resource in resources)
-                    {
-                        resource.FileId = transactionId;
-                        resource.OffsetInFile = offset;
-                        var line = resource.ResourceWrapper.RawResource.Data;
-                        offset += Encoding.UTF8.GetByteCount(line) + eol;
-                        await writer.WriteLineAsync(line);
-                    }
-
-                    #pragma warning disable CA2016
-                    await writer.FlushAsync();
-                    break;
-                }
-                catch (Exception e)
-                {
-                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
-                    {
-                        await Task.Delay(1000, cancellationToken);
-                        continue;
-                    }
-
-                    throw;
-                }
-            }
-
-            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} blob={blobName}", start, cancellationToken);
-        }
-
-        internal static string GetBlobNameForRaw(long fileId)
-        {
-            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}.ndjson";
-        }
-
-        private static string GetPermanentHashCode(long tr)
-        {
-            var hashCode = 0;
-            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
-            {
-                hashCode = unchecked((hashCode * 251) + c);
-            }
-
-            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
-        }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
@@ -797,11 +707,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsCient.Container != null)
-            {
-                await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
-            }
-
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
             {
                 new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
@@ -876,7 +781,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlAdlsCient.Container != null;
+            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture;
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, makeResourceInvisible, cancellationToken);
         }
 
