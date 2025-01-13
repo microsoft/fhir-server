@@ -110,7 +110,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             else if (expression.Op == "|" ||
                      expression.Op == "!=" ||
                      expression.Op == "==" ||
-                     expression.Op == "and")
+                     expression.Op == "and" ||
+                     expression.Op == "-")
             {
                 foreach (Expression innerExpression in expression.Arguments)
                 {

@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using MediatR;
@@ -95,12 +97,23 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            var searchValueConverterExclusions = new HashSet<string>
+            {
+                typeof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter).FullName,
+            };
+
+#if STU3 || R4 || R4B
+            searchValueConverterExclusions.Add(typeof(CanonicalToReferenceSearchValueConverter).FullName);
+            searchValueConverterExclusions.Add(typeof(IdentifierToStringSearchValueConverter).FullName);
+            searchValueConverterExclusions.Add(typeof(IdToReferenceSearchValueConverter).FullName);
+#endif
+
             // TypedElement based converters
             // These always need to be added as they are also used by the SearchParameterSupportResolver
             // Exclude the extension converter, since it will be dynamically created by the converter manager
             services.TypesInSameAssemblyAs<ITypedElementToSearchValueConverter>()
                 .AssignableTo<ITypedElementToSearchValueConverter>()
-                .Where(t => t.Type != typeof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter))
+                .Where(t => !searchValueConverterExclusions.Contains(t.Type.FullName))
                 .Singleton()
                 .AsService<ITypedElementToSearchValueConverter>();
 

@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _outputHelper = outputHelper;
         }
 
-#if !R5
         [Theory]
         [MemberData(nameof(GetAllSearchParameters))]
         public async Task CheckSearchParameter(
@@ -131,7 +130,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.Unsupported, unsupported.Unsupported);
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
-#endif
 
         private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueConverter converter)>> GetConvertsForSearchParameters(
             string resourceType,

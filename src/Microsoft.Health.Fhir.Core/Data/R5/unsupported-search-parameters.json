@@ -57,14 +57,12 @@
         "http://hl7.org/fhir/SearchParameter/Condition-onset-age",
         "http://hl7.org/fhir/SearchParameter/Condition-abatement-age",
         "http://hl7.org/fhir/SearchParameter/MedicinalProductDefinition-characteristic",
-        "http://hl7.org/fhir/SearchParameter/MessageDefinition-event",
         "http://hl7.org/fhir/SearchParameter/MessageHeader-event",
         "http://hl7.org/fhir/SearchParameter/Observation-component-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Observation-combo-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Observation-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Patient-deceased",
         "http://hl7.org/fhir/SearchParameter/Person-deceased",
-        "http://hl7.org/fhir/SearchParameter/PlanDefinition-definition",
         "http://hl7.org/fhir/SearchParameter/Practitioner-deceased",
         "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence"
     ]
