@@ -87,9 +87,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var value = cmd.ExecuteScalarAsync(sqlRetryService, logger, CancellationToken.None).Result;
                     return value == null ? null : (string)value;
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    return null;
+                    logger.LogError(e, $"Failed to get storage parameter from Parameters.{parameterId}");
+                    throw;
                 }
             }
         }

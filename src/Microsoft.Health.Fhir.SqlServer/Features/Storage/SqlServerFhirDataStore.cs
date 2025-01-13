@@ -131,10 +131,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
-        private async Task DeleteBlobFromAdls(long transactionId, CancellationToken cancellationToken)
+        private async Task DeleteBlobFromAdlsAsync(long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
+            var retries = 0;
             var blobName = GetBlobNameForRaw(transactionId);
             while (true)
             {
@@ -145,8 +146,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
                     {
                         await Task.Delay(1000, cancellationToken);
                         continue;
@@ -157,14 +158,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("DeleteBlobFromAdls", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
+            await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
         }
 
-        private async Task PutRawResourcesIntoAdls(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        private async Task PutRawResourcesIntoAdlsAsync(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            var retries = 0;
             var blobName = GetBlobNameForRaw(transactionId);
             while (true)
             {
@@ -188,8 +190,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdls", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
                     {
                         await Task.Delay(1000, cancellationToken);
                         continue;
@@ -799,7 +801,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsCient.Container != null)
             {
-                await PutRawResourcesIntoAdls(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+                await PutRawResourcesIntoAdlsAsync(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
