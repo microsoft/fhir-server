@@ -186,17 +186,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         matchedOffsetInFile = reader.FieldCount > 6 ? reader.Read(table.OffsetInFile, 7) : null;
                     }
 
-                    return (new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture)), (matchedVersion, matchedBytes, matchedFileId, matchedOffsetInFile));
+                    (ResourceDateKey DateKey, (string Version, SqlBytes Bytes, long? FileId, int? OffsetInFile) Matched) result;
+                    result.DateKey = new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
+                    result.Matched = (matchedVersion, matchedBytes, matchedFileId, matchedOffsetInFile);
+                    return result;
                 },
                 _logger,
                 cancellationToken);
-            var refs = tmpResources.Where(_ => _.Item2.matchedVersion != null && _.Item2.matchedBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Item2.matchedFileId).Value, EnsureArg.IsNotNull(_.Item2.matchedOffsetInFile).Value)).ToList();
+            var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)).ToList();
             var rawResources = GetRawResourcesFromAdls(refs);
             var resources = tmpResources.Select(_ =>
             {
                 var (key, (version, bytes, fileId, offsetInFile)) = _;
                 RawResource rawResource = null;
-                if (_.Item2.matchedVersion != null)
+                if (_.Matched.Version != null)
                 {
                     rawResource = new RawResource(bytes.IsNull ? rawResources[(EnsureArg.IsNotNull(fileId).Value, EnsureArg.IsNotNull(offsetInFile).Value)] : ReadCompressedRawResource(bytes, decompress), FhirResourceFormat.Json, false);
                 }
