@@ -197,14 +197,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResources = GetRawResourcesFromAdls(refs);
             var resources = tmpResources.Select(_ =>
             {
-                var (key, (version, bytes, fileId, offsetInFile)) = _;
                 RawResource rawResource = null;
                 if (_.Matched.Version != null)
                 {
-                    rawResource = new RawResource(bytes.IsNull ? rawResources[(EnsureArg.IsNotNull(fileId).Value, EnsureArg.IsNotNull(offsetInFile).Value)] : ReadCompressedRawResource(bytes, decompress), FhirResourceFormat.Json, false);
+                    rawResource = new RawResource(_.Matched.Bytes.IsNull ? rawResources[(EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)] : ReadCompressedRawResource(_.Matched.Bytes, decompress), FhirResourceFormat.Json, false);
                 }
 
-                return (key, (version, rawResource));
+                return (_.DateKey, (_.Matched.Version, rawResource));
             }).ToList();
             return resources;
         }
