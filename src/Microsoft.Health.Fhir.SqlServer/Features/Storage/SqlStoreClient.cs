@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
-            if (SqlAdlsCient.Container == null)
+            if (SqlAdlsClient.Container == null)
             {
                 throw new InvalidOperationException("ADLS container is null.");
             }
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             foreach (var file in resourceRefsByFile)
             {
                 var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
-                var blobClient = SqlAdlsCient.Container.GetBlobClient(blobName);
+                var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
                 using var stream = blobClient.OpenRead();
                 using var reader = new StreamReader(stream);
                 foreach (var offset in file)

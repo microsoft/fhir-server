@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            _ = new SqlAdlsCient(_sqlRetryService, _logger);
+            _ = new SqlAdlsClient(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await SqlAdlsCient.Container.GetBlockBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+                    await SqlAdlsClient.Container.GetBlockBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
                     break;
                 }
                 catch (Exception e)
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using var stream = await SqlAdlsCient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
+                    using var stream = await SqlAdlsClient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
                     using var writer = new StreamWriter(stream);
                     var offset = 0;
                     foreach (var resource in resources)
@@ -799,7 +799,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsCient.Container != null)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsClient.Container != null)
             {
                 await PutRawResourcesIntoAdlsAsync(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
@@ -878,7 +878,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlAdlsCient.Container != null;
+            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlAdlsClient.Container != null;
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, makeResourceInvisible, cancellationToken);
         }
 
