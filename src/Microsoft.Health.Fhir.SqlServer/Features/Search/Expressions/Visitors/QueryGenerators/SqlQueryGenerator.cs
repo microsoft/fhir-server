@@ -274,15 +274,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
+                        {
+                            Column column = sort.searchParameterInfo.Name switch
                             {
-                                Column column = sort.searchParameterInfo.Name switch
-                                {
-                                    SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
-                                    SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
-                                    _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
-                                };
-                                sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                            })
+                                SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
+                                SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
+                                _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                            };
+                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        })
                             .AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions))
