@@ -15,7 +15,9 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
@@ -64,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var processor = new SqlExceptionActionProcessor<string, SqlException>(_mockLogger);
 
             // Act & Assert
-            var exception = await Assert.ThrowsAsync(expectedExceptionType, () =>
+            await Assert.ThrowsAsync(expectedExceptionType, () =>
                 processor.Execute("test-request", sqlException, CancellationToken.None));
 
             // Verify logger
