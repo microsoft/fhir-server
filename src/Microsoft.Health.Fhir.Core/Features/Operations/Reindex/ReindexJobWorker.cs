@@ -72,6 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             IsBackgroundTask = true,
                         };
 
+                    _contextAccessor.RequestContext = fhirRequestContext;
+
                     // Check for any changes to Search Parameters
                     try
                     {

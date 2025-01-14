@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
-            var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
+            var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance);
             var documentClientInitializer = new FhirCosmosClientInitializer(
                 testProvider,
                 () => new[] { handler },
