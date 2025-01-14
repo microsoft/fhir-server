@@ -899,6 +899,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Options.Create(_jobConfiguration),
                 InitializeReindexJobTask().CreateMockScopeProvider(),
                 _searchParameterOperations,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 NullLogger<ReindexJobWorker>.Instance);
 
             await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);

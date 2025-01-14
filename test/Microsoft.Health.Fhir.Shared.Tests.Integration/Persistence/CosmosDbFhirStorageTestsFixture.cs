@@ -232,7 +232,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _queueClient = new CosmosQueueClient(
                 () => _container.CreateMockScope(),
                 new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
-                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance));
+                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance),
+                retryExceptionPolicyFactory,
+                NullLogger<CosmosQueueClient>.Instance);
 
             _cosmosFhirOperationDataStore = new CosmosFhirOperationDataStore(
                 _queueClient,

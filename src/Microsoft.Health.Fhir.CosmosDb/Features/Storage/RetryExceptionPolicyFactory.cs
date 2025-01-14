@@ -54,6 +54,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
+        public AsyncPolicy BackgroundWorkerRetryPolicy => _backgroundJobRetryPolicy;
+
         private static AsyncRetryPolicy CreateExtendedRetryPolicy(int maxRetries, int maxWaitTimeInSeconds)
         {
             return Policy.Handle<RequestRateExceededException>()
