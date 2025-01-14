@@ -21,8 +21,6 @@
         "http://hl7.org/fhir/SearchParameter/ImplementationGuide-depends-on",
         "http://hl7.org/fhir/SearchParameter/ImplementationGuide-global",
         "http://hl7.org/fhir/SearchParameter/Ingredient-manufacturer",
-        "http://hl7.org/fhir/SearchParameter/Ingredient-strength-concentration-ratio",
-        "http://hl7.org/fhir/SearchParameter/Ingredient-strength-presentation-ratio",
         "http://hl7.org/fhir/SearchParameter/Location-contains",
         "http://hl7.org/fhir/SearchParameter/Location-near",
         "http://hl7.org/fhir/SearchParameter/MeasureReport-measure",
