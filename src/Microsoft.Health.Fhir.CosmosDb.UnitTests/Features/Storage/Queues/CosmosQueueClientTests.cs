@@ -125,9 +125,15 @@ public class CosmosQueueClientTests
             $"Expected retry after {retryAfter.TotalSeconds} seconds, but actual elapsed time was {actualElapsedSeconds} seconds.");
     }
 
-    public class TestCosmosException(HttpStatusCode statusCode, TimeSpan? retryAfter = null) : CosmosException("Test exception message", statusCode, 0, "test-activity-id", 0.0)
+    public class TestCosmosException : CosmosException
     {
-        private readonly TimeSpan? _retryAfter = retryAfter;
+        private readonly TimeSpan? _retryAfter;
+
+        public TestCosmosException(HttpStatusCode statusCode, TimeSpan? retryAfter = null)
+            : base("Test exception message", statusCode, 0, "test-activity-id", 0.0)
+        {
+            _retryAfter = retryAfter;
+        }
 
         public override TimeSpan? RetryAfter => _retryAfter;
     }
