@@ -61,48 +61,94 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
-        [Fact]
-        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned()
+        [Theory]
+        [InlineData(typeof(CosmosOperationCanceledException))]
+        [InlineData(typeof(CosmosException))]
+        public async Task GivenCosmosDb_WhenRetryableExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned(Type exceptionType)
         {
-            // This test simulates that all Health Check calls result in OperationCanceledExceptions.
-            // And all retries should fail.
+            // Arrange
+            Exception exception;
 
-            var diagnostics = Substitute.For<CosmosDiagnostics>();
-            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+            if (exceptionType == typeof(CosmosOperationCanceledException))
+            {
+                exception = new CosmosOperationCanceledException(
+                    originalException: new OperationCanceledException(),
+                    diagnostics: Substitute.For<CosmosDiagnostics>());
+            }
+            else if (exceptionType == typeof(CosmosException))
+            {
+                exception = new CosmosException(
+                    message: "Service Unavailable",
+                    statusCode: System.Net.HttpStatusCode.ServiceUnavailable,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported exception type.");
+            }
 
-            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(coce);
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
+            // Assert
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
-            _testProvider.ReceivedWithAnyArgs(3);
+            _testProvider.ReceivedWithAnyArgs(3); // Ensure the maximum retries were attempted
         }
 
-        [Fact]
-        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned()
+        [Theory]
+        [InlineData(typeof(CosmosOperationCanceledException))]
+        [InlineData(typeof(CosmosException))]
+        public async Task GivenCosmosDb_WhenRetryableExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned(Type exceptionType)
         {
-            // This test simulates that the first call to Health Check results in an OperationCanceledException.
-            // The first attempt should fail, but the next ones should pass.
+            // Arrange
+            Exception exception;
 
-            var diagnostics = Substitute.For<CosmosDiagnostics>();
-            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+            if (exceptionType == typeof(CosmosOperationCanceledException))
+            {
+                exception = new CosmosOperationCanceledException(
+                    originalException: new OperationCanceledException(),
+                    diagnostics: Substitute.For<CosmosDiagnostics>());
+            }
+            else if (exceptionType == typeof(CosmosException))
+            {
+                exception = new CosmosException(
+                    message: "Service Unavailable",
+                    statusCode: System.Net.HttpStatusCode.ServiceUnavailable,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported exception type.");
+            }
 
             int runs = 0;
-            Func<Task> fakeRetry = () =>
-            {
-                runs++;
-                if (runs == 1)
+
+            // Simulate failure on the first attempt and success on subsequent attempts
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
+                .ReturnsForAnyArgs(_ =>
                 {
-                    throw coce;
-                }
+                    runs++;
+                    if (runs == 1)
+                    {
+                        throw exception;
+                    }
 
-                return Task.CompletedTask;
-            };
+                    return Task.CompletedTask;
+                });
 
-            _testProvider.PerformTestAsync(default, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
+            // Act
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.Equal(HealthStatus.Healthy, result.Status);
-            _testProvider.ReceivedWithAnyArgs(2);
+            // Assert
+            Assert.Equal(HealthStatus.Healthy, result.Status); // Final state should be Healthy
+            Assert.Equal(2, runs); // Ensure 2 attempts were made
+            _testProvider.ReceivedWithAnyArgs(2); // Verify PerformTestAsync was called twice
         }
 
         [Fact]
@@ -173,6 +219,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
             Assert.True(result.Data.ContainsKey("Error"));
             Assert.Equal(FhirHealthErrorCode.Error429.ToString(), result.Data["Error"]);
+        }
+
+        [Fact]
+        public async Task GivenCosmosDbWithTimeout_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        {
+            var exception = new CosmosException(
+                    message: "RequestTimeout",
+                    statusCode: HttpStatusCode.RequestTimeout,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
+                .ThrowsForAnyArgs(exception);
+
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+
+            Assert.True(result.Data.ContainsKey("Error"));
+            Assert.Equal(FhirHealthErrorCode.Error408.ToString(), result.Data["Error"]);
         }
     }
 }
