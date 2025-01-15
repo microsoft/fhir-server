@@ -34,6 +34,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const int _exponentialMaxJitterMs = 300;
         private const int _exponentialMaxDelayMs = 60 * 1000;
 
+        private const int _nonExponentialBaseDelayMs = 500;
+        private const int _nonExponentialMaxJitterMs = 300;
+
         public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ILogger<RetryExceptionPolicyFactory> logger)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
@@ -92,8 +95,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return TimeSpan.FromMilliseconds(backoff + jitter);
                 }
 
-                // Default fixed wait time
-                return TimeSpan.FromSeconds(2);
+                // Default logic: 500ms + retryAttempt * jitter
+                var defaultJitter = RandomNumberGenerator.GetInt32(0, _nonExponentialMaxJitterMs) * retryAttempt; // Jitter scaled by retry attempt
+                return TimeSpan.FromMilliseconds(_nonExponentialBaseDelayMs + defaultJitter);
             }
 
             // Retry recommendations for Cosmos DB: https://learn.microsoft.com/azure/cosmos-db/nosql/conceptual-resilient-sdk-applications#should-my-application-retry-on-errors
