@@ -19,12 +19,14 @@
     ],
     "serviceType": [
         {
-            "coding": [
-                {
-                    "code": "52",
-                    "display": "General Discussion"
-                }
-            ]
+            "concept": {
+                "coding": [
+                    {
+                        "code": "52",
+                        "display": "General Discussion"
+                    }
+                ]
+            }
         }
     ],
     "specialty": [

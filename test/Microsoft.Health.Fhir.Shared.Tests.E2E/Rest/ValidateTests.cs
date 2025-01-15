@@ -35,13 +35,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Theory]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
-        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
-        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
+#if Stu3 || R4 || R4B
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
-        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
+#endif
         public async Task GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
@@ -115,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(
             "Observation/$validate",
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
-            "Element with minimum cardinality 1 cannot be null. At Observation.StatusElement.",
+            "Element 'StatusElement' with minimum cardinality 1 cannot be null. At Observation.StatusElement, line , position",
             "Observation.StatusElement")]
         [InlineData(
             "Observation/$validate",

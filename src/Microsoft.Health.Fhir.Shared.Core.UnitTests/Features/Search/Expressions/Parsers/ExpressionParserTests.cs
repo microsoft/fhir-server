@@ -12,6 +12,9 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+#if !Stu3 && !R4 && !R4B
+using Microsoft.Health.Fhir.R5.Core.Extensions;
+#endif
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
@@ -19,6 +22,7 @@ using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SearchModifierCode = Microsoft.Health.Fhir.ValueSets.SearchModifierCode;
 using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
@@ -325,7 +329,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 Name = paramName,
                 Code = paramName,
                 Type = SearchParamType.Reference,
+#if Stu3 || R4 || R4B
                 Target = targetResourceTypes.Cast<ResourceType?>(),
+#else
+                Target = targetResourceTypes.Select(x => ((ResourceType?)x).ToVersionIndependentResourceTypesAll()),
+#endif
             }.ToInfo();
 
             _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(

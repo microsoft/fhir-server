@@ -21,6 +21,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+#if !Stu3 && !R4 && !R4B
+using Microsoft.Health.Fhir.R5.Core.Extensions;
+#endif
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
@@ -149,19 +152,20 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
         {
             // Ensure the search parameter's code value does not already exist for its base type(s)
-            foreach (ResourceType? baseType in searchParam.Base)
+            var baseTypes = searchParam.Base?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
+            foreach (string baseType in baseTypes)
             {
                 if (searchParam.Code is null)
                 {
-                    _logger.LogInformation("Search parameter definition has a null or empty code value. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType.ToString());
+                    _logger.LogInformation("Search parameter definition has a null or empty code value. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType);
                     validationFailures.Add(
                         new ValidationFailure(
                             nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
+                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType)));
                 }
                 else
                 {
-                    if (string.Equals(baseType.ToString(), KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(baseType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
                     {
                         foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
                         {
@@ -176,7 +180,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             }
                         }
                     }
-                    else if (baseType.ToString() == KnownResourceTypes.DomainResource)
+                    else if (baseType == KnownResourceTypes.DomainResource)
                     {
                         foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
                         {
@@ -195,14 +199,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             }
                         }
                     }
-                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, true, out _))
+                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType, searchParam.Code, true, out _))
                     {
                         // The search parameter's code value conflicts with an existing one
-                        _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType.ToString());
+                        _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType);
                         validationFailures.Add(
                         new ValidationFailure(
                             nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType)));
                     }
                 }
             }

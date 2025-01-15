@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -171,7 +172,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("123", "1", "POST", "201 Created")]
         [InlineData("123", "1", "PUT", "201 Created")]
         [InlineData("123", "2", "PUT", "200 OK")]
+#if !Stu3
         [InlineData("123", "2", "PATCH", "200 OK")]
+#endif
         [InlineData("123", "2", "DELETE", "204 NoContent")]
         public void GivenAHistoryResultWithDifferentStatuses_WhenCreateHistoryBundle_ThenCorrectBundleShouldBeReturned(string id, string version, string method, string statusString)
         {
@@ -202,7 +205,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
 
-            foreach (var verb in Enum.GetValues<Bundle.HTTPVerb>())
+            var verbs = Enum.GetValues<Bundle.HTTPVerb>();
+#if Stu3
+            verbs = verbs.Where(x => x != Bundle.HTTPVerb.HEAD && x != Bundle.HTTPVerb.PATCH).ToArray();
+#endif
+            foreach (var verb in verbs)
             {
                 ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123").UpdateVersion("1");
 

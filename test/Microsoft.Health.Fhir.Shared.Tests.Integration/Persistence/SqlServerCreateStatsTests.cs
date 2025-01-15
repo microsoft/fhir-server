@@ -71,7 +71,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenSearchForResearchStudyByFocusAndDateWithResearchSubject_StatsAreCreated()
         {
             const string resourceType = "ResearchStudy";
+#if Stu3 || R4 || R4B
+            var researchStudyFocusUri = "http://hl7.org/fhir/SearchParameter/ResearchStudy-focus";
             var query = new[] { Tuple.Create("focus", "surgery"), Tuple.Create("date", "gt1800-01-01"), Tuple.Create("_has:ResearchSubject:study:status", "eligible") };
+#else
+            var researchStudyFocusUri = "http://hl7.org/fhir/SearchParameter/ResearchStudy-focus-code";
+            var query = new[] { Tuple.Create("focus-code", "surgery"), Tuple.Create("date", "gt1800-01-01"), Tuple.Create("_has:ResearchSubject:study:status", "eligible") };
+#endif
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
             var statsFromCache = SqlServerSearchService.GetStatsFromCache();
             var model = ((SqlServerSearchService)_fixture.SearchService).Model;
@@ -79,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-focus"))));
+                  && _.SearchParamId == model.GetSearchParamId(new Uri(researchStudyFocusUri))));
             Assert.Single(statsFromCache.Where(
                 _ => _.TableName == VLatest.DateTimeSearchParam.TableName
                   && _.ColumnName == "StartDateTime"
