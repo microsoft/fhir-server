@@ -176,11 +176,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 Assert.NotNull(result.Data);
                 Assert.True(result.Data.Any());
 
-                Assert.True(result.Data.ContainsKey("Reason"));
-                Assert.Equal(HealthStatusReason.CustomerManagedKeyAccessLost, result.Data["Reason"]);
+                VerifyErrorInResult(result.Data, "Reason", HealthStatusReason.CustomerManagedKeyAccessLost.ToString());
 
-                Assert.True(result.Data.ContainsKey("Error"));
-                Assert.Equal(FhirHealthErrorCode.Error412.ToString(), result.Data["Error"]);
+                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
             }
         }
 
@@ -202,9 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
             Assert.NotNull(result.Data);
             Assert.True(result.Data.Any());
-
-            Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error500.ToString(), result.Data["Error"]);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error500.ToString());
         }
 
         [Fact]
@@ -216,9 +212,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Degraded, result.Status);
-
-            Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error429.ToString(), result.Data["Error"]);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error429.ToString());
         }
 
         [Fact]
@@ -237,9 +231,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Degraded, result.Status);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error408.ToString());
+        }
 
-            Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error408.ToString(), result.Data["Error"]);
+        private void VerifyErrorInResult(IReadOnlyDictionary<string, object> dictionary, string key, string expectedMessage)
+        {
+            if (dictionary.TryGetValue(key, out var actualValue))
+            {
+                Assert.Equal(expectedMessage, actualValue.ToString());
+            }
+            else
+            {
+                Assert.Fail($"Expected key '{key}' not found in the dictionary.");
+            }
         }
     }
 }
