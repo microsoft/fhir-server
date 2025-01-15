@@ -31,21 +31,18 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-    private readonly ILogger<CosmosQueueClient> _logger;
     private readonly AsyncPolicy _retryPolicy;
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
         ICosmosQueryFactory queryFactory,
         ICosmosDbDistributedLockFactory distributedLockFactory,
-        RetryExceptionPolicyFactory retryExceptionPolicyFactor,
-        ILogger<CosmosQueueClient> logger)
+        RetryExceptionPolicyFactory retryExceptionPolicyFactory)
     {
         _containerFactory = EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
         _queryFactory = EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
         _distributedLockFactory = EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
-        _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactor, nameof(retryExceptionPolicyFactor));
-        _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
 
         _retryPolicy = _retryExceptionPolicyFactory.BackgroundWorkerRetryPolicy;
     }

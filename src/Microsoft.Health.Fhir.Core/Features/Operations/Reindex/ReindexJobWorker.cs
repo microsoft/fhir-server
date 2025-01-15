@@ -60,6 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 if (_searchParametersInitialized)
                 {
+                    var originalRequestContext = _contextAccessor.RequestContext;
+
                     // Create a background task context to trigger the correct retry policy.
                     var fhirRequestContext = new FhirRequestContext(
                         method: nameof(ReindexJobWorker),
@@ -138,6 +140,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // The job failed.
                         _logger.LogError(ex, "Error polling Reindex jobs.");
                     }
+
+                    _contextAccessor.RequestContext = originalRequestContext;
                 }
 
                 try
