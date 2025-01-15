@@ -100,11 +100,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return Policy.Handle<RequestRateExceededException>()
                 .Or<CosmosException>(e => e.IsRequestRateExceeded())
                 .Or<CosmosException>(e =>
-                    e.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
-                    e.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
-                    e.StatusCode == System.Net.HttpStatusCode.Gone ||
+                    e.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                    e.StatusCode == HttpStatusCode.TooManyRequests ||
+                    e.StatusCode == HttpStatusCode.Gone ||
                     e.StatusCode == (HttpStatusCode)449 || // "Retry with" status code
-                    e.StatusCode == System.Net.HttpStatusCode.RequestTimeout)
+                    e.StatusCode == HttpStatusCode.RequestTimeout)
                 .WaitAndRetryAsync(
                     retryCount: maxRetries,
                     sleepDurationProvider: (retryAttempt, exception, context) => SleepDurationProvider(retryAttempt, exception),

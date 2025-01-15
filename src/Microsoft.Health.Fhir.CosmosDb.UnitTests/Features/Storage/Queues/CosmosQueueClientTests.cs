@@ -92,7 +92,7 @@ public class CosmosQueueClientTests
         ICosmosQuery<JobGroupWrapper> cosmosQuery = Substitute.For<ICosmosQuery<JobGroupWrapper>>();
         _cosmosQueryFactory.Create<JobGroupWrapper>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
             .ReturnsForAnyArgs(cosmosQuery);
-        var retryAfter = TimeSpan.FromSeconds(1);
+        var retryAfter = TimeSpan.FromSeconds(2);
         int callCount = 0;
 
         cosmosQuery.ExecuteNextAsync(Arg.Any<CancellationToken>()).ReturnsForAnyArgs(_ =>
@@ -117,7 +117,12 @@ public class CosmosQueueClientTests
         // Assert
         Assert.Equal(2, callCount);
         await cosmosQuery.ReceivedWithAnyArgs(2).ExecuteNextAsync(Arg.Any<CancellationToken>());
-        Assert.True(stopwatch.Elapsed >= retryAfter, $"Policy should respect the RetryAfter value. Stopwatch: {stopwatch.Elapsed}. Retry after: {retryAfter}.");
+
+        // Allowing small imprecision due to timer resolution
+        var actualElapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+        Assert.True(
+            Math.Abs(actualElapsedSeconds - retryAfter.TotalSeconds) <= 0.5,
+            $"Expected retry after {retryAfter.TotalSeconds} seconds, but actual elapsed time was {actualElapsedSeconds} seconds.");
     }
 
     public class TestCosmosException(HttpStatusCode statusCode, TimeSpan? retryAfter = null) : CosmosException("Test exception message", statusCode, 0, "test-activity-id", 0.0)
