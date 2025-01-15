@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     {
                         if (e is CosmosException cosmosException && cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
                         {
-                            var diagnostics = cosmosException.Diagnostics.ToString();
+                            var diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
                             _logger.LogWarning(cosmosException, "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}", diagnostics);
                         }
 
