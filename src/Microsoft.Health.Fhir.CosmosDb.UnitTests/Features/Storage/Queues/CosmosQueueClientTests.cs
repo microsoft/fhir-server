@@ -117,7 +117,7 @@ public class CosmosQueueClientTests
         // Assert
         Assert.Equal(2, callCount);
         await cosmosQuery.ReceivedWithAnyArgs(2).ExecuteNextAsync(Arg.Any<CancellationToken>());
-        Assert.True(stopwatch.Elapsed >= retryAfter, "Policy should respect the RetryAfter value.");
+        Assert.True(stopwatch.Elapsed >= retryAfter, $"Policy should respect the RetryAfter value. Stopwatch: {stopwatch.Elapsed}. Retry after: {retryAfter}.");
     }
 
     public class TestCosmosException(HttpStatusCode statusCode, TimeSpan? retryAfter = null) : CosmosException("Test exception message", statusCode, 0, "test-activity-id", 0.0)
