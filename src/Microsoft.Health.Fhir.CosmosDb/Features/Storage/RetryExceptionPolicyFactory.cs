@@ -103,13 +103,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     sleepDurationProvider: (retryAttempt, exception, context) => SleepDurationProvider(retryAttempt, exception),
                     onRetryAsync: (e, _, _, ctx) =>
                     {
-                        if (e is CosmosException cosmosException)
+                        if (e is CosmosException cosmosException && cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
                         {
-                            if (cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
-                            {
-                                var diagnostics = cosmosException.Diagnostics.ToString();
-                                _logger.LogWarning(cosmosException, "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}", diagnostics);
-                            }
+                            var diagnostics = cosmosException.Diagnostics.ToString();
+                            _logger.LogWarning(cosmosException, "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}", diagnostics);
                         }
 
                         if (maxWaitTimeInSeconds == -1)
