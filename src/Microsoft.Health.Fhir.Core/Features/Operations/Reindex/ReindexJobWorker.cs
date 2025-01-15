@@ -63,9 +63,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Create a background task context to trigger the correct retry policy.
                     var fhirRequestContext = new FhirRequestContext(
                         method: nameof(ReindexJobWorker),
-                        uriString: string.Empty,
-                        baseUriString: string.Empty,
-                        correlationId: string.Empty,
+                        uriString: nameof(ReindexJobWorker),
+                        baseUriString: nameof(ReindexJobWorker),
+                        correlationId: Guid.NewGuid().ToString(),
                         requestHeaders: new Dictionary<string, StringValues>(),
                         responseHeaders: new Dictionary<string, StringValues>())
                         {
