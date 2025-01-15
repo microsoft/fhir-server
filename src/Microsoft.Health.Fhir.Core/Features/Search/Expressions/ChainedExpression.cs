@@ -83,6 +83,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression})";
         }
 
+        public override string ToValueInsensitiveString()
+        {
+            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression.ToValueInsensitiveString()})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(ChainedExpression));

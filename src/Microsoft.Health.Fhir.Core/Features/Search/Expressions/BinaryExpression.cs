@@ -76,6 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Field{BinaryOperator} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} {ValueToString()})";
         }
 
+        public override string ToValueInsensitiveString()
+        {
+            return $"(Field{BinaryOperator} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(BinaryExpression));
