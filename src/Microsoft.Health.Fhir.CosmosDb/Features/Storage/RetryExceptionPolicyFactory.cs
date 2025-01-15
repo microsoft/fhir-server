@@ -30,6 +30,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly AsyncPolicy _bundleActionRetryPolicy;
         private readonly AsyncPolicy _backgroundJobRetryPolicy;
 
+        private const int _exponentialBackoffBaseDelayMs = 100;
+        private const int _exponentialMaxJitterMs = 300;
+        private const int _exponentialMaxDelayMs = 60 * 1000;
+
         public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ILogger<RetryExceptionPolicyFactory> logger)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ? CreateExtendedRetryPolicy(configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries / configuration.RetryOptions.MaxNumberOfRetries, configuration.IndividualBatchActionRetryOptions.MaxWaitTimeInSeconds)
                 : Policy.NoOpAsync();
 
-            _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(100, -1, true);
+            _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(30, -1, true);
         }
 
         public AsyncPolicy RetryPolicy
@@ -77,11 +81,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return cosmosException.RetryAfter.Value;
                 }
 
+                // Exponential backoff is used for background jobs. Given current values, exponential backoff is used for the first 10 retries. After that a fixed wait time of_exponentialMaxDelayMs (60 seconds) is used.
+                // Jitter is multiplied by the retry attempt to increase the randomness of the retry interval for longer retry delays (especially retry > 10).
                 if (useExponentialRetry)
                 {
-                    // Exponential backoff with jitter
-                    var backoff = Math.Pow(2, retryAttempt) * 100; // Exponential backoff in milliseconds
-                    var jitter = RandomNumberGenerator.GetInt32(0, 300); // Add jitter in milliseconds
+                    // Calculate exponential backoff with a cap of 60 seconds
+                    var backoff = Math.Min(Math.Pow(2, retryAttempt) * _exponentialBackoffBaseDelayMs, _exponentialMaxDelayMs);
+
+                    var jitter = RandomNumberGenerator.GetInt32(0, _exponentialMaxJitterMs) * retryAttempt; // Add jitter in milliseconds
                     return TimeSpan.FromMilliseconds(backoff + jitter);
                 }
 
