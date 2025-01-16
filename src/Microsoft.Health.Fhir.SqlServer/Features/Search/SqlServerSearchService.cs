@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            SearchResult searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
             int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                        searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                        var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -229,6 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (fhirContext != null && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.OptimizeConcurrency, out object maxParallelAsObject))
             {
                 _logger.LogInformation("Running search with and without query cache.");
+                var stopwatch = Stopwatch.StartNew();
 
                 using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 var token = tokenSource.Token;
@@ -239,6 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
                 await tokenSource.CancelAsync();
 
+                _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
                 return await result;
             }
             else
