@@ -202,12 +202,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
-                if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
-                }
+                StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+
+                if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+                {
+                    StringBuilder.Append(", ").Append(VLatest.Resource.FileId, resourceTableAlias);
+                    StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
+                }
 
                 if (IsSortValueNeeded(context))
                 {
@@ -271,15 +274,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
-                        {
-                            Column column = sort.searchParameterInfo.Name switch
                             {
-                                SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
-                                SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
-                                _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
-                            };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
+                                Column column = sort.searchParameterInfo.Name switch
+                                {
+                                    SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
+                                    SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
+                                    _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                                };
+                                sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                            })
                             .AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions))
@@ -308,7 +311,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        // TODO: Remove when code starts using TokenSearchParamHighCard table
+        // TODO: Remove. This is not needed as we use precise statistics.
         private void AddOptionClause()
         {
             // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
@@ -700,8 +703,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                 .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
-                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
-                .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+            if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").Append(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                             .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
+            }
+            else
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+            }
 
             // For reverse chaining, if there is a parameter on the _id search parameter, we need another join to get the resource ID of the reference source (all we have is the surrogate ID at this point)
             bool expressionOnTargetHandledBySecondJoin = chainedExpression.ExpressionOnTarget != null && chainedExpression.Reversed && chainedExpression.ExpressionOnTarget.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id);
@@ -796,8 +807,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(context.AddCurrentClause && _allowCurrent ? VLatest.CurrentResource : VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
-                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias)
-                .Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                .Append(" ON ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+            if (_schemaInfo.Current >= SchemaVersionConstants.Lake)
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceIdInt, referenceSourceTableAlias).Append(" = ").Append(VLatest.CurrentResources.ResourceIdInt, referenceTargetResourceTableAlias)
+                             .Append(" AND ").Append(VLatest.ReferenceSearchParam.IsResourceRef, referenceSourceTableAlias).AppendLine(" = 1");
+            }
+            else
+            {
+                StringBuilder.Append(" AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+            }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
@@ -1299,11 +1318,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendMinOrMax(in IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
         {
-            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-            {
-                return;
-            }
-
             delimited.BeginDelimitedElement();
             if (context.Sort[0].sortOrder == SortOrder.Ascending)
             {
