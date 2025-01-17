@@ -12,15 +12,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
 
@@ -119,20 +116,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new InvalidOperationException("ADLS container is null.");
             }
 
-            var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
-            foreach (var file in resourceRefsByFile)
+            // var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
+            foreach (var file in resourceRefs)
             {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
+                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.FileId, file.OffsetInFile);
                 var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
                 using var stream = blobClient.OpenRead();
                 using var reader = new StreamReader(stream);
-                foreach (var offset in file)
-                {
-                    reader.DiscardBufferedData();
-                    stream.Position = offset.OffsetInFile;
-                    var line = reader.ReadLine();
-                    results.Add((file.Key, offset.OffsetInFile), line);
-                }
+                results.Add((file.FileId, file.OffsetInFile), reader.ReadToEnd());
             }
 
             return results;
