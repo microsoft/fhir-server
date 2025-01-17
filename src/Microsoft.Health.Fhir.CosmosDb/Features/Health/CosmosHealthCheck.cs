@@ -76,17 +76,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 ex is CosmosOperationCanceledException ||
                 (ex is CosmosException cex && (cex.StatusCode == HttpStatusCode.ServiceUnavailable || cex.StatusCode == (HttpStatusCode)449));
 
-            void LogAdditionalRetryableExceptionDetails(Exception exception)
-            {
-                if (exception is CosmosException cosmosException && cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
-                {
-                    _logger.LogWarning(
-                        cosmosException,
-                        "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}",
-                        cosmosException.Diagnostics?.ToString() ?? "empty");
-                }
-            }
-
             do
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -107,7 +96,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         // No reasons to retry as the cancellation was external to the health check.
 
                         _logger.LogWarning(ex, "Failed to connect to the data store. External cancellation requested.");
-                        LogAdditionalRetryableExceptionDetails(ex);
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -126,7 +114,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.",
                             attempt,
                             ex.GetType().Name);
-                        LogAdditionalRetryableExceptionDetails(ex);
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -144,7 +131,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.",
                             attempt,
                             ex.GetType().Name);
-                        LogAdditionalRetryableExceptionDetails(ex);
                     }
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
