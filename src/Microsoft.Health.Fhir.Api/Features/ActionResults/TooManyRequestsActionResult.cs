@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                   new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.Throttled,
-                        Resources.TooManyConcurrentRequests),
+                        Api.Resources.TooManyConcurrentRequests),
                   HttpStatusCode.TooManyRequests)
         {
         }

@@ -226,22 +226,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
             var fhirContext = _requestContextAccessor.RequestContext;
-            if (fhirContext != null && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.OptimizeConcurrency, out object maxParallelAsObject))
+            if (fhirContext != null
+                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
+                && useQueryCacheObj != null)
             {
-                _logger.LogInformation("Running search with and without query cache.");
-                var stopwatch = Stopwatch.StartNew();
+                var useQueryCache = Convert.ToString(useQueryCacheObj);
+                if (string.Equals(useQueryCache, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    return await SearchImpl(sqlSearchOptions, true, cancellationToken);
+                }
+                else if (string.Equals(useQueryCache, "false", StringComparison.OrdinalIgnoreCase))
+                {
+                    return await SearchImpl(sqlSearchOptions, false, cancellationToken);
+                }
+                else if (string.Equals(useQueryCache, "both", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Running search with and without query cache.");
+                    var stopwatch = Stopwatch.StartNew();
 
-                using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var token = tokenSource.Token;
+                    using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    var token = tokenSource.Token;
 
-                var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
-                var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
+                    var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
+                    var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
 
-                var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
-                await tokenSource.CancelAsync();
+                    var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
+                    await tokenSource.CancelAsync();
 
-                _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
-                return await result;
+                    _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
+                    return await result;
+                }
+                else // equals default or an invalid value
+                {
+                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                }
             }
             else
             {

@@ -29,14 +29,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private readonly IFhirRuntimeConfiguration _azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
         private readonly IFhirRuntimeConfiguration _azureHealthDataServicesFhirConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void GivenAValidHttpContextForAzureApiForFhir_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsDecorated(bool azureApiForFhir)
+        [Fact]
+        public void GivenAValidHttpContextForAzureApiForFhir_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsDecorated()
         {
             var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: true);
 
-            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, azureApiForFhir ? _azureApiForFhirConfiguration : _azureHealthDataServicesFhirConfiguration);
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureApiForFhirConfiguration);
             filter.OnActionExecuting(httpRequest.ActionContext);
 
             var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;
@@ -45,14 +43,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(true, fhirContextPropertyBag[KnownQueryParameterNames.OptimizeConcurrency]);
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void GivenAValidHttpContext_WhenItDoesNotContainALatencyOverEfficiencyFlag_ThenFhirContextIsClean(bool azureApiForFhir)
+        [Fact]
+        public void GivenAValidHttpContextForAzureHealthDataService_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsNotDecorated()
+        {
+            // The latency-over-efficiency flag is only applicable to Azure API for FHIR.
+
+            var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: true);
+
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureHealthDataServicesFhirConfiguration);
+            filter.OnActionExecuting(httpRequest.ActionContext);
+
+            var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;
+
+            Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
+        }
+
+        [Fact]
+        public void GivenAValidHttpContext_WhenItDoesNotContainALatencyOverEfficiencyFlag_ThenFhirContextIsClean()
         {
             var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: false);
 
-            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, azureApiForFhir ? _azureApiForFhirConfiguration : _azureHealthDataServicesFhirConfiguration);
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureApiForFhirConfiguration);
             filter.OnActionExecuting(httpRequest.ActionContext);
 
             var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;

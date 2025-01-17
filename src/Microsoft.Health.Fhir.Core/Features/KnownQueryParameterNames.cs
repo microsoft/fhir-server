@@ -61,13 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
-        /// This settings is currently set by:
-        ///     x-ms-query-latency-over-efficiency - Gen1 and Gen2
-        ///     x-conditionalquery-processing-logic - Gen1 only
-        /// In Gen1 it is used to hint that the request should run with a max parallel setting.
-        /// In Gen2 it is used to tell the system to optimize for latency over efficiency by running two queries in parallel (with and without query caching).
+        /// This setting is currently set by:
+        ///     x-ms-query-latency-over-efficiency
+        ///     x-conditionalquery-processing-logic
+        /// It is used to hint that the request should run with a max parallel setting.
         /// </summary>
         public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
+        /// This setting is controlled by the x-ms-query-cache-enabled header. It controls whether to use the query cache or not.
+        /// </summary>
+        public const string QueryCaching = "_queryCaching";
 
         /// <summary>
         /// The anonymization configuration
