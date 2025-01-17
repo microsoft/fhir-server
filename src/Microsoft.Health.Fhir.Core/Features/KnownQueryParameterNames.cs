@@ -61,7 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
-        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// This settings is currently set by:
+        ///     x-ms-query-latency-over-efficiency - Gen1 and Gen2
+        ///     x-conditionalquery-processing-logic - Gen1 only
+        /// In Gen1 it is used to hint that the request should run with a max parallel setting.
+        /// In Gen2 it is used to tell the system to optimize for latency over efficiency by running two queries in parallel (with and without query caching).
         /// </summary>
         public const string OptimizeConcurrency = "_optimizeConcurrency";
 
