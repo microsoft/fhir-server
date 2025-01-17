@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         // hard-coding these to minimize resource consumption when throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
-        private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Resources.TooManyConcurrentRequests);
+        private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Api.Resources.TooManyConcurrentRequests);
 
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
+            _logger.LogWarning(Api.Resources.TooManyConcurrentRequests + " Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 

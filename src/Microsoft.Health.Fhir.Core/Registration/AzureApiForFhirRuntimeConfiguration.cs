@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Registration
         public bool IsTransactionSupported => false;
 
         public bool IsLatencyOverEfficiencySupported => true;
+
+        public bool IsQueryCacheSupported => false;
     }
 }

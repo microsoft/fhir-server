@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName = RouteNames.GetBulkDeleteStatusById;
                     break;
                 default:
-                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+                    throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
 
             var routeValues = new RouteValueDictionary()
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName = RouteNames.SearchParameterStatusOperationDefinition;
                     break;
                 default:
-                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+                    throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
 
             return GetRouteUri(

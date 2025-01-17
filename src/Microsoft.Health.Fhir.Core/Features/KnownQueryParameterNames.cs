@@ -61,9 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
-        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// This setting is currently set by:
+        ///     x-ms-query-latency-over-efficiency
+        ///     x-conditionalquery-processing-logic
+        /// It is used to hint that the request should run with a max parallel setting.
         /// </summary>
         public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
+        /// This setting is controlled by the x-ms-query-cache-enabled header. It controls whether to use the query cache or not.
+        /// </summary>
+        public const string QueryCaching = "_queryCaching";
 
         /// <summary>
         /// The anonymization configuration

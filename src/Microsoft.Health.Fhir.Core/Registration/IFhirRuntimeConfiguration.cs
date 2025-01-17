@@ -33,5 +33,10 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// Supports the 'latency-over-efficiency' HTTP header.
         /// </summary>
         bool IsLatencyOverEfficiencySupported { get; }
+
+        /// <summary>
+        /// Supports the query cache HTTP header.
+        /// </summary>
+        bool IsQueryCacheSupported { get; }
     }
 }

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         // hard-coding these to minimize resource consumption for locked message
         private const string LockedContentType = "application/json; charset=utf-8";
-        private static readonly ReadOnlyMemory<byte> _lockedBody = CreateLockedBody(Resources.LockedForInitialImportMode);
+        private static readonly ReadOnlyMemory<byte> _lockedBody = CreateLockedBody(Api.Resources.LockedForInitialImportMode);
 
         public InitialImportLockMiddleware(
             RequestDelegate next,
