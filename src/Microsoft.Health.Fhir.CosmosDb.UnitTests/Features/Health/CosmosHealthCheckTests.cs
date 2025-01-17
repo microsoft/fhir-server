@@ -66,6 +66,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [InlineData(typeof(CosmosException))]
         public async Task GivenCosmosDb_WhenRetryableExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned(Type exceptionType)
         {
+            // This test simulates that all Health Check calls result in OperationCanceledExceptions.
+            // And all retries should fail.
+
             // Arrange
             Exception exception;
 
@@ -104,6 +107,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [InlineData(typeof(CosmosException))]
         public async Task GivenCosmosDb_WhenRetryableExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned(Type exceptionType)
         {
+            // This test simulates that the first call to Health Check results in an OperationCanceledException.
+            // The first attempt should fail, but the next ones should pass.
+
             // Arrange
             Exception exception;
 
