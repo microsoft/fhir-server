@@ -10,6 +10,7 @@ using Prometheus;
 
 namespace Microsoft.AspNetCore.Builder
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class PrometheusMetricsApplicationBuilderExtensions
     {
         public static IApplicationBuilder UsePrometheusHttpMetrics(this IApplicationBuilder app)

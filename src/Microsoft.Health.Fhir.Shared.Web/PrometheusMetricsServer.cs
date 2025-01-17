@@ -14,7 +14,7 @@ using Prometheus.DotNetRuntime;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public sealed class PrometheusMetricsServer : IHostedService, IDisposable
+    internal sealed class PrometheusMetricsServer : IHostedService, IDisposable
     {
         private readonly PrometheusMetricsConfig _prometheusMetricsConfig;
         private readonly ILogger<PrometheusMetricsServer> _logger;

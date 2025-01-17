@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return formatConfiguration;
         }
 
-        private void ValidateTypeFilters(IList<ExportJobFilter> filters)
+        private void ValidateTypeFilters(List<ExportJobFilter> filters)
         {
             if (_contextAccessor.GetHandlingHeader() == SearchParameterHandling.Lenient)
             {

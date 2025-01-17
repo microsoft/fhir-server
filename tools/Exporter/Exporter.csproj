@@ -15,7 +15,7 @@
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
-    <PackageReference Include="System.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Health.SqlServer" />
   </ItemGroup>
 

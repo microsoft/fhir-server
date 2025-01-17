@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Internal.SmartLauncher.Models
 {
-    public class SmartLauncherConfig
+    internal class SmartLauncherConfig
     {
 #pragma warning disable CA1056 // URI-like properties should not be strings
         public string FhirServerUrl { get; set; }

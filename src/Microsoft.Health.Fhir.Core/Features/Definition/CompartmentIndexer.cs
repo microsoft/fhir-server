@@ -32,7 +32,7 @@
             var compartmentTypeToResourceIds = new Dictionary<string, IReadOnlyCollection<string>>();
             Dictionary<string, List<SearchIndexEntry>> searchIndicesByCompartmentType = ExtractSearchIndexByCompartmentType(searchIndices);
 
-            foreach (CompartmentType compartmentType in Enum.GetValues(typeof(CompartmentType)))
+            foreach (CompartmentType compartmentType in Enum.GetValues<CompartmentType>())
             {
                 string compartmentTypeLiteral = compartmentType.ToString();
                 compartmentTypeToResourceIds[compartmentTypeLiteral] = null;

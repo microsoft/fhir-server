@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -14,6 +13,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
 using Microsoft.Health.Fhir.SqlServer.Features;
 using Microsoft.Health.Fhir.Store.Export;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -21,7 +22,7 @@ using Microsoft.Health.Internal.Fhir.Sql;
 
 namespace Microsoft.Health.Internal.Fhir.Exporter
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly SqlService Store = new SqlService(_connectionString);

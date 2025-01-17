@@ -67,9 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             PatchOperationType operationType;
             try
             {
-                operationType = (PatchOperationType)Enum.Parse(
-                    typeof(PatchOperationType),
-                    operationTypeString.ToUpper(new CultureInfo("en-US", false)));
+                operationType = Enum.Parse<PatchOperationType>(operationTypeString.ToUpper(new CultureInfo("en-US", false)));
             }
             catch (ArgumentException)
             {

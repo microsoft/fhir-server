@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace Microsoft.Health.Internal.SmartLauncher
 {
-    public static class Program
+    internal static class Program
     {
         public static void Main(string[] args)
         {

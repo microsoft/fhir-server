@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNullOrWhiteSpace(searchParameterName, nameof(searchParameterName));
             Debug.Assert(
-                Enum.IsDefined(typeof(SearchComparator), comparator),
+                Enum.IsDefined<SearchComparator>(comparator),
                 "Invalid comparator.");
             EnsureArg.IsNotNull(searchValue, nameof(searchValue));
 

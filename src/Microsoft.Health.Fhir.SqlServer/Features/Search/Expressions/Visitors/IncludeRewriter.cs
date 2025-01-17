@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
 
-        private static IList<SearchParamTableExpression> SortIncludeIterateExpressions(IList<SearchParamTableExpression> expressions)
+        private static List<SearchParamTableExpression> SortIncludeIterateExpressions(List<SearchParamTableExpression> expressions)
         {
             // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
             // The search queries are acyclic.
