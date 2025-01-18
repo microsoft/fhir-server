@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.MergeResources
-GO
-CREATE PROCEDURE dbo.MergeResources
+ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
