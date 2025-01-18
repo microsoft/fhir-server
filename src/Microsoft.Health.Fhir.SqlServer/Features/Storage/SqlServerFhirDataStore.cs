@@ -169,21 +169,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var retries = 0;
             while (true)
             {
+                var uploadTasks = new List<Task>();
                 var resourceCounter = 0;
                 foreach (var resource in resources)
                 {
                     var blobName = GetBlobNameForRaw(transactionId, resourceCounter);
                     try
                     {
-                        using var stream = await SqlAdlsClient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
-                        using var writer = new StreamWriter(stream);
+                        var blobClient = SqlAdlsClient.Container.GetBlockBlobClient(blobName);
                         resource.FileId = transactionId;
                         resource.OffsetInFile = resourceCounter;
                         var line = resource.ResourceWrapper.RawResource.Data;
-                        await writer.WriteAsync(line);
-#pragma warning disable CA2016 // There is no async flush method that takes a cancellation token
-                        await writer.FlushAsync().ConfigureAwait(false);
-#pragma warning restore CA2016 // There is no async flush method that takes a cancellation token
+                        var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
+                        uploadTasks.Add(blobClient.UploadAsync(stream, default, cancellationToken));
                         resourceCounter++;
                     }
                     catch (Exception e)
@@ -199,6 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
 
+                await Task.WhenAll(uploadTasks);
                 break;
             }
 
