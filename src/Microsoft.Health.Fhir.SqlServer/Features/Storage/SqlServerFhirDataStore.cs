@@ -131,12 +131,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
-        private async Task DeleteBlobFromAdlsAsync(long transactionId, CancellationToken cancellationToken)
+        private async Task DeleteBlobFromAdlsAsync(long transactionId, int blobIndex, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
             var retries = 0;
-            var blobName = GetBlobNameForRaw(transactionId);
+            var blobName = GetBlobNameForRaw(transactionId, blobIndex);
             while (true)
             {
                 try
@@ -165,32 +165,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
             var retries = 0;
-            var blobName = GetBlobNameForRaw(transactionId);
             while (true)
             {
                 try
                 {
-                    using var stream = await SqlAdlsClient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
-                    using var writer = new StreamWriter(stream);
-                    var offset = 0;
-                    foreach (var resource in resources)
+                    Parallel.For(0, resources.Count, index =>
                     {
-                        resource.FileId = transactionId;
-                        resource.OffsetInFile = offset;
-                        var line = resource.ResourceWrapper.RawResource.Data;
-                        offset += Encoding.UTF8.GetByteCount(line) + eol;
-                        await writer.WriteLineAsync(line);
-                    }
+                        resources[index].FileId = transactionId;
+                        resources[index].OffsetInFile = index;
+                        var blobClient = SqlAdlsClient.Container.GetBlobClient(GetBlobNameForRaw(transactionId, index));
+                        blobClient.Upload(BinaryData.FromString(resources[index].ResourceWrapper.RawResource.Data + Environment.NewLine), overwrite: true);
+                    });
 
-                    #pragma warning disable CA2016
-                    await writer.FlushAsync();
                     break;
                 }
                 catch (Exception e)
                 {
-                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
+                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"transactionId={transactionId} error={e}", start, cancellationToken);
                     if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
                     {
                         await Task.Delay(1000, cancellationToken);
@@ -202,12 +194,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} blob={blobName}", start, cancellationToken);
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} transactionId ={transactionId}", start, cancellationToken);
         }
 
-        internal static string GetBlobNameForRaw(long fileId)
+        internal static string GetBlobNameForRaw(long fileId, int blobIndex)
         {
-            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}.ndjson";
+            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}-index-{blobIndex}.ndjson";
         }
 
         private static string GetPermanentHashCode(long tr)

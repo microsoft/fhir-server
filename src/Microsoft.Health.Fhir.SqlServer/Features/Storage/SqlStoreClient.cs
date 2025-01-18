@@ -10,6 +10,7 @@ using System.Data.SqlTypes;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Resources;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
@@ -119,21 +120,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new InvalidOperationException("ADLS container is null.");
             }
 
-            var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
-            foreach (var file in resourceRefsByFile)
+            Parallel.ForEach(resourceRefs, resourceRef =>
             {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
+                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(resourceRef.FileId, resourceRef.OffsetInFile);
                 var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
-                using var stream = blobClient.OpenRead();
-                using var reader = new StreamReader(stream);
-                foreach (var offset in file)
+                var result = blobClient.Download();
+                using var streamReader = new StreamReader(result.Value.Content);
+                var rawResource = streamReader.ReadLine();
+                lock (results)
                 {
-                    reader.DiscardBufferedData();
-                    stream.Position = offset.OffsetInFile;
-                    var line = reader.ReadLine();
-                    results.Add((file.Key, offset.OffsetInFile), line);
+                    results.Add((resourceRef.FileId, resourceRef.OffsetInFile), rawResource);
                 }
-            }
+            });
 
             return results;
         }
