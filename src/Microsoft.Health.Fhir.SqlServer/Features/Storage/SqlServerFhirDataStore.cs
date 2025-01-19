@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.FileId = transactionId;
                         resource.OffsetInFile = resourceCounter;
                         var line = resource.ResourceWrapper.RawResource.Data;
-                        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
+                        var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
                         uploadTasks.Add(blobClient.UploadAsync(stream, default, cancellationToken));
                         resourceCounter++;
                     }
