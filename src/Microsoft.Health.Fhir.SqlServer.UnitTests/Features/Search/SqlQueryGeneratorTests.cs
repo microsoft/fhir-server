@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -135,5 +136,23 @@ public class SqlQueryGeneratorTests
 
         Assert.Contains("IsHistory = 1", _strBuilder.ToString());
         Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
+    }
+
+    [Fact]
+    public void GivenASearchForReferenceSearchParam_WhenSqlGenerated_ThenIndexHintUsed()
+    {
+        var searchParamInfo = new SearchParameterInfo("subject", "subject");
+        Expression predicate = Expression.And([new SearchParameterExpression(searchParamInfo, new StringExpression(StringOperator.Equals, FieldName.ReferenceResourceId, null, "Patient", false))]);
+        var generator = new ReferenceQueryGenerator();
+        SqlRootExpression sqlExpression = new([new(generator, predicate, SearchParamTableExpressionKind.Normal)], new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        var output = _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        Assert.Contains("WITH (INDEX (IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId))", _strBuilder.ToString());
     }
 }
