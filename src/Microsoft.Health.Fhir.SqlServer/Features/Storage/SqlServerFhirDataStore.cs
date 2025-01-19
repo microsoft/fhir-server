@@ -135,7 +135,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-            var retries = 0;
             var blobName = GetBlobNameForRaw(transactionId, blobIndex);
             while (true)
             {
@@ -147,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) || e.ToString().Contains("The server is busy", StringComparison.OrdinalIgnoreCase))
                     {
                         await Task.Delay(1000, cancellationToken);
                         continue;
@@ -165,7 +164,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-            var retries = 0;
             while (true)
             {
                 try
@@ -183,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"transactionId={transactionId} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) || e.ToString().Contains("The server is busy", StringComparison.OrdinalIgnoreCase))
                     {
                         await Task.Delay(1000, cancellationToken);
                         continue;
