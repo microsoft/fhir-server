@@ -165,7 +165,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
             var retries = 0;
             while (true)
             {
@@ -180,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.FileId = transactionId;
                         resource.OffsetInFile = resourceCounter;
                         var line = resource.ResourceWrapper.RawResource.Data;
-                        var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
+                        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
                         uploadTasks.Add(blobClient.UploadAsync(stream, default, cancellationToken));
                         resourceCounter++;
                     }
