@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.ClientModel;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,7 +11,6 @@ using System.Data;
 using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -45,7 +43,6 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
-using static System.Net.WebRequestMethods;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -552,7 +549,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // add raw resource to search entry
                         var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                        var rawResources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+                        var rawResources = await SqlStoreClient.GetRawResourcesFromAdlsAsync(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
                         foreach (var tmpResource in tmpResources)
                         {
                             if (!clonedSearchOptions.OnlyIds)
@@ -704,7 +701,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 null,
                 cancellationToken);
-            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            var rawResources = await SqlStoreClient.GetRawResourcesFromAdlsAsync(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
             foreach (var resource in resources)
             {
                 var rawResource = resource.SqlBytes.IsNull

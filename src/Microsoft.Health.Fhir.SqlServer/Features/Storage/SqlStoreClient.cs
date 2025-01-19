@@ -7,11 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlTypes;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappersAsync(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            var rawResources = await GetRawResourcesFromAdlsAsync(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
             foreach (var wrapper in wrappers)
             {
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[(EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value)] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
@@ -103,7 +106,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return wrappers.Where(_ => includeInvisible || _.Wrapper.RawResource.Data != InvisibleResource).Select(_ => _.Wrapper).ToList();
         }
 
-        internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+        /* Unmerged change from project 'Microsoft.Health.Fhir.SqlServer (net8.0)'
+        Before:
+                internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+                {
+        After:
+                internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdlsAsync(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+                {
+        */
+        internal static async Task<IDictionary<(long FileId, int OffsetInFile), string>> GetRawResourcesFromAdlsAsync(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
         {
             var results = new Dictionary<(long FileId, int OffsetInFile), string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
@@ -116,17 +127,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new InvalidOperationException("ADLS container is null.");
             }
 
-            // var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
-            foreach (var file in resourceRefs)
+            var downloadTasks = resourceRefs.Select(blobItem => DownloadBlobAsync(blobItem.FileId, blobItem.OffsetInFile));
+            var blobProperties = await Task.WhenAll(downloadTasks);
+
+            foreach (var blob in blobProperties)
             {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.FileId, file.OffsetInFile);
-                var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
-                using var stream = blobClient.OpenRead();
-                using var reader = new StreamReader(stream);
-                results.Add((file.FileId, file.OffsetInFile), reader.ReadToEnd());
+                results.Add(blob.Item1, blob.blobData);
             }
 
             return results;
+        }
+
+        [SuppressMessage("StyleCop.CSharp.MaintainAbilityRules", "SA1414:TupleTypesInSignaturesShouldHaveElementNames", Justification = "Reviewed.")]
+        private static async Task<((long fileId, int suffix), string blobData)> DownloadBlobAsync(long fileId, int suffix)
+        {
+            var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(fileId, suffix);
+
+            // Get a reference to a blob
+            BlobClient blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
+            BlobDownloadResult resourceData = await blobClient.DownloadContentAsync();
+            var blobData = resourceData.Content.ToString();
+
+            return ((fileId, suffix), blobData);
         }
 
         internal static string ReadCompressedRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress)
@@ -185,7 +207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger,
                 cancellationToken);
             var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)).ToList();
-            var rawResources = GetRawResourcesFromAdls(refs);
+            var rawResources = await GetRawResourcesFromAdlsAsync(refs);
             var resources = tmpResources.Select(_ =>
             {
                 RawResource rawResource = null;
