@@ -156,6 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         result.UnsupportedSearchParameters,
                         result.SortOrder,
                         ContinuationTokenConverter.Encode(result.ContinuationToken),
+                        true,
                         true);
                 }
                 catch (UriFormatException)
@@ -168,6 +169,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 // Add the self link to indicate which search parameters were used.
                 bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
+
+                // Add flag check
+                var previous = _urlResolver.ResolvePreviousRouteUrl();
+                if (previous != null)
+                {
+                    bundle.PreviousLink = previous;
+                }
             }
             catch (UriFormatException)
             {

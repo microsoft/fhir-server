@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request.Host.Value);
         }
 
-        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
+        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false, bool addPreviousLink = true)
         {
             string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
 
@@ -212,7 +212,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             // Update continuationToken if new value is provided.
             if (continuationToken != null)
             {
-                routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
+                if (Request.Headers.TryGetValue(KnownHeaders.AddPreviousLink, out var addPreviousLinkHeader) && addPreviousLinkHeader == "true" && addPreviousLink)
+                {
+                    var continuationTokenWithPreviousLink = continuationToken + "||" + routeValues[KnownQueryParameterNames.ContinuationToken];
+                    routeValues[KnownQueryParameterNames.ContinuationToken] = continuationTokenWithPreviousLink;
+                }
+                else
+                {
+                    routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
+                }
             }
 
             return GetRouteUri(
@@ -221,6 +229,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
+        }
+
+        public Uri ResolvePreviousRouteUrl()
+        {
+            if (Request.Headers.TryGetValue(KnownHeaders.AddPreviousLink, out var addPreviousLinkHeader) && addPreviousLinkHeader == "true")
+            {
+                if (Request.Query != null && Request.Query.TryGetValue(KnownQueryParameterNames.ContinuationToken, out var continuationToken))
+                {
+                    // Removes the most recent continuation token segment and returns the previous continuation token.
+                    var previousContinuationToken = continuationToken[0].Split("||", 2)[1];
+                    return ResolveRouteUrl(null, null, previousContinuationToken, false, false);
+                }
+            }
+
+            return null;
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
