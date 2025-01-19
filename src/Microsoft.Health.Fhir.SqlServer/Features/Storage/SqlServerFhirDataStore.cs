@@ -6,11 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -26,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -118,11 +123,102 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
                 }
             }
+
+            _ = new SqlAdlsClient(_sqlRetryService, _logger);
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
+
+        /*private async Task DeleteBlobFromAdlsAsync(long transactionId, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
+            var retries = 0;
+            var blobName = GetBlobNameForRaw(transactionId);
+            while (true)
+            {
+                try
+                {
+                    await SqlAdlsClient.Container.GetBlockBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
+
+            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
+            await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
+        }*/
+
+        private async Task PutRawResourcesIntoAdlsAsync(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        {
+            var start = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
+            var retries = 0;
+            while (true)
+            {
+                var uploadTasks = new List<Task>();
+                var resourceCounter = 0;
+                foreach (var resource in resources)
+                {
+                    var blobName = GetBlobNameForRaw(transactionId, resourceCounter);
+                    try
+                    {
+                        var blobClient = SqlAdlsClient.Container.GetBlockBlobClient(blobName);
+                        resource.FileId = transactionId;
+                        resource.OffsetInFile = resourceCounter;
+                        var line = resource.ResourceWrapper.RawResource.Data;
+                        var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
+                        uploadTasks.Add(blobClient.UploadAsync(stream, default, cancellationToken));
+                        resourceCounter++;
+                    }
+                    catch (Exception e)
+                    {
+                        await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
+                        if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
+                        {
+                            await Task.Delay(1000, cancellationToken);
+                            continue;
+                        }
+
+                        throw;
+                    }
+                }
+
+                await Task.WhenAll(uploadTasks);
+                break;
+            }
+
+            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
+            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} transaction={transactionId}", start, cancellationToken);
+        }
+
+        internal static string GetBlobNameForRaw(long fileId, int resourceCounter)
+        {
+            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}-{resourceCounter}.ndjson";
+        }
+
+        private static string GetPermanentHashCode(long tr)
+        {
+            var hashCode = 0;
+            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
+        }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
@@ -380,7 +476,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            // In case of generic network error we do not know whether SQL transaction was committed or not.
+                            // Therefore, it is not safe to delete blob and/or commit transaction with failure here.
+                            // Let transaction watch dog deal with it.
                             throw;
                         }
                     }
@@ -417,7 +515,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
-                        await Task.Delay(retries > 3 ? 10 : 1000, cancellationToken); // if >3 assume that it is id generation problem
+                        await _sqlRetryService.TryLogEvent(nameof(ImportResourcesInternalAsync), "Warn", $"retries={retries} resources={resources.Count} error={sqlEx.Message}", null, cancellationToken);
+                        await Task.Delay(retries > 3 ? 10 : 500, cancellationToken); // if >3 assume that it is id generation problem
                         continue;
                     }
 
@@ -603,7 +702,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
                                 || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(input.Resource); // version and last updated are not aligned
+                            conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {
@@ -699,7 +798,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsClient.Container != null)
+            {
+                await PutRawResourcesIntoAdlsAsync(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+            }
+
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+            {
+                new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+            }
+            else
+            {
+                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+            }
+
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -765,7 +877,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
+            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlAdlsClient.Container != null;
+            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, makeResourceInvisible, cancellationToken);
         }
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
@@ -777,7 +890,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
-                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+                {
+                    new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                }
+                else
+                {
+                    new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                }
+
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));

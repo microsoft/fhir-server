@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Exporter": {
+      "commandName": "Project",
+      "commandLineArgs": "random"
+    }
+  }
+}
