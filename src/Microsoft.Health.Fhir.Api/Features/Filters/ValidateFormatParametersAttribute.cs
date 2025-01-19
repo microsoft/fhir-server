@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             _parametersValidator.CheckPrettyParameter(httpContext);
             _parametersValidator.CheckSummaryParameter(httpContext);
             _parametersValidator.CheckElementsParameter(httpContext);
+            _parametersValidator.CheckIfBundleTypeIsInvalid(httpContext);
             await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
 
             // If the request is a put or post and has a content-type, check that it's supported
