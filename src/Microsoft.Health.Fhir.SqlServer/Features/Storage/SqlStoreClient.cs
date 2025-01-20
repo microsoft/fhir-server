@@ -13,6 +13,7 @@ using System.Linq;
 using System.Resources;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
@@ -109,31 +110,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
         {
-            var results = new Dictionary<(long FileId, int OffsetInFile), string>();
-            if (resourceRefs == null || resourceRefs.Count == 0)
+            while (true)
             {
-                return results;
-            }
-
-            if (SqlAdlsClient.Container == null)
-            {
-                throw new InvalidOperationException("ADLS container is null.");
-            }
-
-            Parallel.ForEach(resourceRefs, resourceRef =>
-            {
-                var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(resourceRef.FileId, resourceRef.OffsetInFile);
-                var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
-                var result = blobClient.Download();
-                using var streamReader = new StreamReader(result.Value.Content);
-                var rawResource = streamReader.ReadLine();
-                lock (results)
+                try
                 {
-                    results.Add((resourceRef.FileId, resourceRef.OffsetInFile), rawResource);
-                }
-            });
+                    var results = new Dictionary<(long FileId, int OffsetInFile), string>();
+                    if (resourceRefs == null || resourceRefs.Count == 0)
+                    {
+                        return results;
+                    }
 
-            return results;
+                    if (SqlAdlsClient.Container == null)
+                    {
+                        throw new InvalidOperationException("ADLS container is null.");
+                    }
+
+                    Parallel.ForEach(resourceRefs, resourceRef =>
+                    {
+                        var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(resourceRef.FileId, resourceRef.OffsetInFile);
+                        var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
+                        var result = blobClient.Download();
+                        using var streamReader = new StreamReader(result.Value.Content);
+                        var rawResource = streamReader.ReadLine();
+                        lock (results)
+                        {
+                            results.Add((resourceRef.FileId, resourceRef.OffsetInFile), rawResource);
+                        }
+                    });
+
+                    return results;
+                }
+                catch (Exception e)
+                {
+                    if (e.ToString().Contains("Operations per second is over the account limit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Thread.Sleep(1000);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
         }
 
         internal static string ReadCompressedRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress)
