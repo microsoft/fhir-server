@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"transactionId={transactionId} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) || e.ToString().Contains("The server is busy", StringComparison.OrdinalIgnoreCase))
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) || e.ToString().Contains("Status: 503", StringComparison.OrdinalIgnoreCase))
                     {
                         await Task.Delay(1000, cancellationToken);
                         continue;

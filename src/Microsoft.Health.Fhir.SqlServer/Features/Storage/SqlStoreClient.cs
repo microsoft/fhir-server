@@ -139,8 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         // TODO: Uncomment this line
                         ////TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"error={e}", null, CancellationToken.None).Wait();
-                        if (e.ToString().Contains("Operations per second is over the account limit", StringComparison.OrdinalIgnoreCase)
-                            || e.ToString().Contains("The server is busy", StringComparison.OrdinalIgnoreCase))
+                        if (e.ToString().Contains("Status: 503", StringComparison.OrdinalIgnoreCase))
                         {
                             Thread.Sleep(1000);
                             continue;
