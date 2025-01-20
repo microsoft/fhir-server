@@ -110,47 +110,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
         {
-            while (true)
+            var results = new Dictionary<(long FileId, int OffsetInFile), string>();
+            if (resourceRefs == null || resourceRefs.Count == 0)
             {
-                try
+                return results;
+            }
+
+            if (SqlAdlsClient.Container == null)
+            {
+                throw new InvalidOperationException("ADLS container is null.");
+            }
+
+            Parallel.ForEach(resourceRefs, resourceRef =>
+            {
+                var rawResource = string.Empty;
+                while (true)
                 {
-                    var results = new Dictionary<(long FileId, int OffsetInFile), string>();
-                    if (resourceRefs == null || resourceRefs.Count == 0)
-                    {
-                        return results;
-                    }
-
-                    if (SqlAdlsClient.Container == null)
-                    {
-                        throw new InvalidOperationException("ADLS container is null.");
-                    }
-
-                    Parallel.ForEach(resourceRefs, resourceRef =>
+                    try
                     {
                         var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(resourceRef.FileId, resourceRef.OffsetInFile);
                         var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
                         var result = blobClient.Download();
                         using var streamReader = new StreamReader(result.Value.Content);
-                        var rawResource = streamReader.ReadLine();
-                        lock (results)
-                        {
-                            results.Add((resourceRef.FileId, resourceRef.OffsetInFile), rawResource);
-                        }
-                    });
-
-                    return results;
-                }
-                catch (Exception e)
-                {
-                    if (e.ToString().Contains("Operations per second is over the account limit", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Thread.Sleep(1000);
-                        continue;
+                        rawResource = streamReader.ReadLine();
+                        break;
                     }
+                    catch (Exception e)
+                    {
+                        // TODO: Uncomment this line
+                        ////TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"error={e}", null, CancellationToken.None).Wait();
+                        if (e.ToString().Contains("Operations per second is over the account limit", StringComparison.OrdinalIgnoreCase)
+                            || e.ToString().Contains("The server is busy", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Thread.Sleep(1000);
+                            continue;
+                        }
 
-                    throw;
+                        throw;
+                    }
                 }
-            }
+
+                lock (results)
+                {
+                    results.Add((resourceRef.FileId, resourceRef.OffsetInFile), rawResource);
+                }
+            });
+
+            return results;
         }
 
         internal static string ReadCompressedRawResource(SqlBytes bytes, Func<MemoryStream, string> decompress)
