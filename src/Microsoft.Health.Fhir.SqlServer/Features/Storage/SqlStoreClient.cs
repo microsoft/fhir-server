@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappersAsync(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            var rawResources = GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList(), _sqlRetryService);
             foreach (var wrapper in wrappers)
             {
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[(EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value)] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return wrappers.Where(_ => includeInvisible || _.Wrapper.RawResource.Data != InvisibleResource).Select(_ => _.Wrapper).ToList();
         }
 
-        internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+        internal static IDictionary<(long FileId, int OffsetInFile), string> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs, ISqlRetryService sqlRetryService)
         {
             var results = new Dictionary<(long FileId, int OffsetInFile), string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
@@ -137,8 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (Exception e)
                     {
-                        // TODO: Uncomment this line
-                        ////TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"error={e}", null, CancellationToken.None).Wait();
+                        sqlRetryService.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"error={e}", null, CancellationToken.None).Wait();
                         if (e.ToString().Contains("Status: 503", StringComparison.OrdinalIgnoreCase))
                         {
                             Thread.Sleep(1000);
@@ -214,7 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger,
                 cancellationToken);
             var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)).ToList();
-            var rawResources = GetRawResourcesFromAdls(refs);
+            var rawResources = GetRawResourcesFromAdls(refs, _sqlRetryService);
             var resources = tmpResources.Select(_ =>
             {
                 RawResource rawResource = null;

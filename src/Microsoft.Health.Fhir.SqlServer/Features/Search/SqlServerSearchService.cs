@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // add raw resource to search entry
                         var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                        var rawResources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+                        var rawResources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList(), _sqlRetryService);
                         foreach (var tmpResource in tmpResources)
                         {
                             if (!clonedSearchOptions.OnlyIds)
@@ -704,7 +704,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 null,
                 cancellationToken);
-            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList(), _sqlRetryService);
             foreach (var resource in resources)
             {
                 var rawResource = resource.SqlBytes.IsNull
