@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +77,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 ex is CosmosOperationCanceledException ||
                 (ex is CosmosException cex && (cex.StatusCode == HttpStatusCode.ServiceUnavailable || cex.StatusCode == (HttpStatusCode)449));
 
+            // Adds the CosmosDiagnostics to the log message if the exception is a CosmosException.
+            // This avoids truncation of the diagnostics details in the exception by moving it to the properties bag.
+            void LogWithDetails(LogLevel logLevel, Exception ex, string message, IEnumerable<object> logArgs = null)
+            {
+                logArgs ??= [];
+
+                if (ex is CosmosException cosmosException && cosmosException.Diagnostics is not null)
+                {
+                    message = message + " CosmosDiagnostics: {CosmosDiagnostics}";
+                    logArgs = logArgs.Append(cosmosException.Diagnostics.ToString());
+                }
+
+                _logger.Log(logLevel, ex, message, logArgs.ToArray());
+            }
+
             do
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -95,7 +111,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         // Handling an extenal cancellation.
                         // No reasons to retry as the cancellation was external to the health check.
 
-                        _logger.LogWarning(ex, "Failed to connect to the data store. External cancellation requested.");
+                        LogWithDetails(LogLevel.Warning, ex, "Failed to connect to the data store. External cancellation requested.");
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -109,11 +125,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     {
                         // This is a very rare situation. This condition indicates that multiple attempts to connect to the data store happened, but they were not successful.
 
-                        _logger.LogWarning(
+                        LogWithDetails(
+                            LogLevel.Warning,
                             ex,
                             "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.",
-                            attempt,
-                            ex.GetType().Name);
+                            [attempt, ex.GetType().Name]);
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -126,18 +142,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     else
                     {
                         // Number of attempts not reached. Allow retry.
-                        _logger.LogWarning(
+                        LogWithDetails(
+                            LogLevel.Warning,
                             ex,
                             "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.",
-                            attempt,
-                            ex.GetType().Name);
+                            [attempt, ex.GetType().Name]);
                     }
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
                     // Handling CMK errors.
 
-                    _logger.LogWarning(
+                    LogWithDetails(
+                        LogLevel.Warning,
                         ex,
                         "Connection to the data store was unsuccesful because the client's customer-managed key is not available.");
 
@@ -153,7 +170,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 {
                     // Handling timeout exceptions
 
-                    _logger.LogWarning(
+                    LogWithDetails(
+                        LogLevel.Warning,
                         ex,
                         "Failed to connect to the data store. Request has timed out.");
 
@@ -169,7 +187,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 {
                     // Handling request rate exceptions.
 
-                    _logger.LogWarning(
+                    LogWithDetails(
+                        LogLevel.Warning,
                         ex,
                         "Failed to connect to the data store. Rate limit has been exceeded.");
 
@@ -186,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     // Handling other exceptions.
 
                     const string message = "Failed to connect to the data store.";
-                    _logger.LogWarning(ex, message);
+                    LogWithDetails(LogLevel.Warning, ex, message);
 
                     return HealthCheckResult.Unhealthy(
                         description: UnhealthyDescription,

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -19,6 +20,7 @@ using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -37,20 +39,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         private readonly ICosmosClientTestProvider _testProvider = Substitute.For<ICosmosClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
+        private readonly ILogger<CosmosHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosHealthCheck>>();
 
         private readonly TestCosmosHealthCheck _healthCheck;
 
         public CosmosHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
-            optionsSnapshot.Get(Microsoft.Health.Fhir.CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+            optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             _healthCheck = new TestCosmosHealthCheck(
                 new NonDisposingScope(_container),
                 _configuration,
                 optionsSnapshot,
                 _testProvider,
-                NullLogger<TestCosmosHealthCheck>.Instance);
+                _mockLogger);
         }
 
         [Fact]
@@ -240,6 +243,63 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error408.ToString());
         }
 
+        [Fact]
+        public async Task GivenCosmosException_WhenLogged_ThenDiagnosticsShouldBeIncludedInLog()
+        {
+            // This test ensures the CosmosDiagnostics are logged when a CosmosException is thrown.
+
+            // Arrange
+            var diagnosticsString = "Mock diagnostics data";
+            var mockDiagnostics = new TestCosmosDiagnostics(diagnosticsString);
+
+            var exception = new TestCosmosException(
+                message: "Service Unavailable",
+                statusCode: HttpStatusCode.ServiceUnavailable,
+                subStatusCode: 0,
+                activityId: Guid.NewGuid().ToString(),
+                requestCharge: 0,
+                diagnostics: mockDiagnostics);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            // Assert
+            _mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(v => v.ToString().Contains($"CosmosDiagnostics: {diagnosticsString}")),
+                exception,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public async Task GivenCosmosExceptionWithoutDiagnostics_WhenLogged_ThenMessageShouldNotIncludeDiagnostics()
+        {
+            // Arrange
+            var exception = new TestCosmosException(
+                message: "Service Unavailable",
+                statusCode: HttpStatusCode.ServiceUnavailable,
+                subStatusCode: 0,
+                activityId: Guid.NewGuid().ToString(),
+                requestCharge: 0,
+                diagnostics: null);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
+            await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            // Assert
+            _mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(v => !v.ToString().Contains("CosmosDiagnostics")),
+                exception,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
         private void VerifyErrorInResult(IReadOnlyDictionary<string, object> dictionary, string key, string expectedMessage)
         {
             if (dictionary.TryGetValue(key, out var actualValue))
@@ -250,6 +310,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             {
                 Assert.Fail($"Expected key '{key}' not found in the dictionary.");
             }
+        }
+
+        // Allows for testing CosmosExceptions with CosmosDiagnostics as the field is read-only in the base class.
+        public class TestCosmosException : CosmosException
+        {
+            private readonly CosmosDiagnostics _diagnostics;
+
+            public TestCosmosException(string message, HttpStatusCode statusCode, int subStatusCode, string activityId, double requestCharge, CosmosDiagnostics diagnostics)
+                : base(message, statusCode, subStatusCode, activityId, requestCharge)
+            {
+                _diagnostics = diagnostics;
+            }
+
+            public override CosmosDiagnostics Diagnostics => _diagnostics;
+        }
+
+        // Allows for testing CosmosDiagnostics flows through to the logger. CosmosDiagnostics is an abstract class.
+        public class TestCosmosDiagnostics : CosmosDiagnostics
+        {
+            private readonly string _testDiagnosticsString;
+
+            public TestCosmosDiagnostics(string testDiagnosticsString)
+            {
+                _testDiagnosticsString = testDiagnosticsString;
+            }
+
+            public override IReadOnlyList<(string regionName, Uri uri)> GetContactedRegions()
+            {
+                throw new NotImplementedException();
+            }
+
+            public override string ToString() => _testDiagnosticsString;
         }
     }
 }
