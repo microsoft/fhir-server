@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
 
             // Act
-            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+            await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             // Assert
             _mockLogger.Received().Log(
