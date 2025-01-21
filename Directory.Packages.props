@@ -1,42 +1,33 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>8.0.18</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.30</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net6.0'">
       <PropertyGroup>
-        <ConfigurationBinderVersion>8.0.2</ConfigurationBinderVersion>
-        <DependencyInjectionVersion>8.0.2</DependencyInjectionVersion>
-        <LoggingVersion>8.0.2</LoggingVersion>
         <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
         <MediatRVersion>12.4.1</MediatRVersion>
-        <OptionsVersion>8.0.2</OptionsVersion>
-        <SdkPackageVersion>8.0.0</SdkPackageVersion>
-        <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
+        <LoggingVersion>8.0.2</LoggingVersion>
+        <SdkPackageVersion>8.0</SdkPackageVersion>
+        <AspNetPackageVersion>6.0</AspNetPackageVersion>
       </PropertyGroup>
     </When>
     <When Condition="'$(TargetFramework)' == 'net8.0'">
       <PropertyGroup>
-        <ConfigurationBinderVersion>8.0.2</ConfigurationBinderVersion>
-        <DependencyInjectionVersion>8.0.2</DependencyInjectionVersion>
-        <LoggingVersion>8.0.2</LoggingVersion>
         <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
         <MediatRVersion>12.4.1</MediatRVersion>
-        <OptionsVersion>8.0.2</OptionsVersion>
-        <SdkPackageVersion>8.0.0</SdkPackageVersion>
-        <AspNetPackageVersion>8.0.0</AspNetPackageVersion>
+        <LoggingVersion>8.0.2</LoggingVersion>
+        <SdkPackageVersion>8.0</SdkPackageVersion>
+        <AspNetPackageVersion>8.0</AspNetPackageVersion>
       </PropertyGroup>
     </When>
     <Otherwise>
       <PropertyGroup>
-        <ConfigurationBinderVersion>9.0.0</ConfigurationBinderVersion>
-        <DependencyInjectionVersion>9.0.0</DependencyInjectionVersion>
-        <LoggingVersion>9.0.0</LoggingVersion>
         <MediatRVersion>12.4.1</MediatRVersion>
-        <OptionsVersion>9.0.0</OptionsVersion>
+        <LoggingVersion>9.0.0</LoggingVersion>
         <SdkPackageVersion>9.0.0</SdkPackageVersion>
         <AspNetPackageVersion>9.0.0</AspNetPackageVersion>
       </PropertyGroup>
@@ -56,7 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.1.2" />
-    <PackageVersion Include="Azure.Identity" Version="1.13.1" />
+    <PackageVersion Include="Azure.Identity" Version="1.13.2" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
@@ -89,7 +80,7 @@
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.45.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(ConfigurationBinderVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(SdkPackageVersion)" />
@@ -123,7 +114,7 @@
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.5.57" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.52.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
