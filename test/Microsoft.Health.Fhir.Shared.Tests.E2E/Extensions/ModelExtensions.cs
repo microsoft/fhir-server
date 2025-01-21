@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Hl7.Fhir.Model;
-using Microsoft.Azure.Cosmos.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {

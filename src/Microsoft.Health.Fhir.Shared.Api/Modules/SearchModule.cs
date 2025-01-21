@@ -103,6 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             };
 
 #if STU3 || R4 || R4B
+            // These converters are required only for R5.
             searchValueConverterExclusions.Add(typeof(CanonicalToReferenceSearchValueConverter));
             searchValueConverterExclusions.Add(typeof(IdentifierToStringSearchValueConverter));
             searchValueConverterExclusions.Add(typeof(IdToReferenceSearchValueConverter));
