@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
-    internal class TestCosmosHealthCheck : CosmosHealthCheck
+    public class TestCosmosHealthCheck : CosmosHealthCheck
     {
         public TestCosmosHealthCheck(
             IScoped<Container> container,

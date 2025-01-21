@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -19,6 +20,7 @@ using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -37,20 +39,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         private readonly ICosmosClientTestProvider _testProvider = Substitute.For<ICosmosClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
+        private readonly ILogger<CosmosHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosHealthCheck>>();
 
         private readonly TestCosmosHealthCheck _healthCheck;
 
         public CosmosHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
-            optionsSnapshot.Get(Microsoft.Health.Fhir.CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+            optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             _healthCheck = new TestCosmosHealthCheck(
                 new NonDisposingScope(_container),
                 _configuration,
                 optionsSnapshot,
                 _testProvider,
-                NullLogger<TestCosmosHealthCheck>.Instance);
+                _mockLogger);
         }
 
         [Fact]
@@ -61,48 +64,100 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
-        [Fact]
-        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned()
+        [Theory]
+        [InlineData(typeof(CosmosOperationCanceledException))]
+        [InlineData(typeof(CosmosException))]
+        public async Task GivenCosmosDb_WhenRetryableExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned(Type exceptionType)
         {
             // This test simulates that all Health Check calls result in OperationCanceledExceptions.
             // And all retries should fail.
 
-            var diagnostics = Substitute.For<CosmosDiagnostics>();
-            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+            // Arrange
+            Exception exception;
 
-            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(coce);
+            if (exceptionType == typeof(CosmosOperationCanceledException))
+            {
+                exception = new CosmosOperationCanceledException(
+                    originalException: new OperationCanceledException(),
+                    diagnostics: Substitute.For<CosmosDiagnostics>());
+            }
+            else if (exceptionType == typeof(CosmosException))
+            {
+                exception = new CosmosException(
+                    message: "Service Unavailable",
+                    statusCode: System.Net.HttpStatusCode.ServiceUnavailable,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported exception type.");
+            }
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
+            // Assert
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
-            _testProvider.ReceivedWithAnyArgs(3);
+            _testProvider.ReceivedWithAnyArgs(3); // Ensure the maximum retries were attempted
         }
 
-        [Fact]
-        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned()
+        [Theory]
+        [InlineData(typeof(CosmosOperationCanceledException))]
+        [InlineData(typeof(CosmosException))]
+        public async Task GivenCosmosDb_WhenRetryableExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned(Type exceptionType)
         {
             // This test simulates that the first call to Health Check results in an OperationCanceledException.
             // The first attempt should fail, but the next ones should pass.
 
-            var diagnostics = Substitute.For<CosmosDiagnostics>();
-            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+            // Arrange
+            Exception exception;
+
+            if (exceptionType == typeof(CosmosOperationCanceledException))
+            {
+                exception = new CosmosOperationCanceledException(
+                    originalException: new OperationCanceledException(),
+                    diagnostics: Substitute.For<CosmosDiagnostics>());
+            }
+            else if (exceptionType == typeof(CosmosException))
+            {
+                exception = new CosmosException(
+                    message: "Service Unavailable",
+                    statusCode: System.Net.HttpStatusCode.ServiceUnavailable,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported exception type.");
+            }
 
             int runs = 0;
-            Func<Task> fakeRetry = () =>
-            {
-                runs++;
-                if (runs == 1)
+
+            // Simulate failure on the first attempt and success on subsequent attempts
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
+                .ReturnsForAnyArgs(_ =>
                 {
-                    throw coce;
-                }
+                    runs++;
+                    if (runs == 1)
+                    {
+                        throw exception;
+                    }
 
-                return Task.CompletedTask;
-            };
+                    return Task.CompletedTask;
+                });
 
-            _testProvider.PerformTestAsync(default, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
+            // Act
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.Equal(HealthStatus.Healthy, result.Status);
-            _testProvider.ReceivedWithAnyArgs(2);
+            // Assert
+            Assert.Equal(HealthStatus.Healthy, result.Status); // Final state should be Healthy
+            Assert.Equal(2, runs); // Ensure 2 attempts were made
+            _testProvider.ReceivedWithAnyArgs(2); // Verify PerformTestAsync was called twice
         }
 
         [Fact]
@@ -130,11 +185,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 Assert.NotNull(result.Data);
                 Assert.True(result.Data.Any());
 
-                Assert.True(result.Data.ContainsKey("Reason"));
-                Assert.Equal(HealthStatusReason.CustomerManagedKeyAccessLost, result.Data["Reason"]);
+                VerifyErrorInResult(result.Data, "Reason", HealthStatusReason.CustomerManagedKeyAccessLost.ToString());
 
-                Assert.True(result.Data.ContainsKey("Error"));
-                Assert.Equal(FhirHealthErrorCode.Error412.ToString(), result.Data["Error"]);
+                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
             }
         }
 
@@ -156,9 +209,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
             Assert.NotNull(result.Data);
             Assert.True(result.Data.Any());
-
-            Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error500.ToString(), result.Data["Error"]);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error500.ToString());
         }
 
         [Fact]
@@ -170,9 +221,127 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Degraded, result.Status);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error429.ToString());
+        }
 
-            Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error429.ToString(), result.Data["Error"]);
+        [Fact]
+        public async Task GivenCosmosDbWithTimeout_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        {
+            var exception = new CosmosException(
+                    message: "RequestTimeout",
+                    statusCode: HttpStatusCode.RequestTimeout,
+                    subStatusCode: 0,
+                    activityId: Guid.NewGuid().ToString(),
+                    requestCharge: 0);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None)
+                .ThrowsForAnyArgs(exception);
+
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Degraded, result.Status);
+            VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error408.ToString());
+        }
+
+        [Fact]
+        public async Task GivenCosmosException_WhenLogged_ThenDiagnosticsShouldBeIncludedInLog()
+        {
+            // This test ensures the CosmosDiagnostics are logged when a CosmosException is thrown.
+
+            // Arrange
+            var diagnosticsString = "Mock diagnostics data";
+            var mockDiagnostics = new TestCosmosDiagnostics(diagnosticsString);
+
+            var exception = new TestCosmosException(
+                message: "Service Unavailable",
+                statusCode: HttpStatusCode.ServiceUnavailable,
+                subStatusCode: 0,
+                activityId: Guid.NewGuid().ToString(),
+                requestCharge: 0,
+                diagnostics: mockDiagnostics);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
+            await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            // Assert
+            _mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(v => v.ToString().Contains($"CosmosDiagnostics: {diagnosticsString}")),
+                exception,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public async Task GivenCosmosExceptionWithoutDiagnostics_WhenLogged_ThenMessageShouldNotIncludeDiagnostics()
+        {
+            // Arrange
+            var exception = new TestCosmosException(
+                message: "Service Unavailable",
+                statusCode: HttpStatusCode.ServiceUnavailable,
+                subStatusCode: 0,
+                activityId: Guid.NewGuid().ToString(),
+                requestCharge: 0,
+                diagnostics: null);
+
+            _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(exception);
+
+            // Act
+            await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            // Assert
+            _mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(v => !v.ToString().Contains("CosmosDiagnostics")),
+                exception,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        private void VerifyErrorInResult(IReadOnlyDictionary<string, object> dictionary, string key, string expectedMessage)
+        {
+            if (dictionary.TryGetValue(key, out var actualValue))
+            {
+                Assert.Equal(expectedMessage, actualValue.ToString());
+            }
+            else
+            {
+                Assert.Fail($"Expected key '{key}' not found in the dictionary.");
+            }
+        }
+
+        // Allows for testing CosmosExceptions with CosmosDiagnostics as the field is read-only in the base class.
+        public class TestCosmosException : CosmosException
+        {
+            private readonly CosmosDiagnostics _diagnostics;
+
+            public TestCosmosException(string message, HttpStatusCode statusCode, int subStatusCode, string activityId, double requestCharge, CosmosDiagnostics diagnostics)
+                : base(message, statusCode, subStatusCode, activityId, requestCharge)
+            {
+                _diagnostics = diagnostics;
+            }
+
+            public override CosmosDiagnostics Diagnostics => _diagnostics;
+        }
+
+        // Allows for testing CosmosDiagnostics flows through to the logger. CosmosDiagnostics is an abstract class.
+        public class TestCosmosDiagnostics : CosmosDiagnostics
+        {
+            private readonly string _testDiagnosticsString;
+
+            public TestCosmosDiagnostics(string testDiagnosticsString)
+            {
+                _testDiagnosticsString = testDiagnosticsString;
+            }
+
+            public override IReadOnlyList<(string regionName, Uri uri)> GetContactedRegions()
+            {
+                throw new NotImplementedException();
+            }
+
+            public override string ToString() => _testDiagnosticsString;
         }
     }
 }
