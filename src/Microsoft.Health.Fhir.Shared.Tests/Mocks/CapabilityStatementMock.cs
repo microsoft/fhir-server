@@ -38,11 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
             {
 #if Stu3
                 Type = resourceType,
-#elif R4
-                Type = resourceType.ToString(),
-#elif R5
-                Type = resourceType.ToString(),
-#elif R4B
+#else
                 Type = resourceType.ToString(),
 #endif
                 Interaction = interactions?.Select(x => new ResourceInteractionComponent { Code = x }).ToList(),
