@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             var identifier = value?.Value as string;
-            if (!string.IsNullOrEmpty(identifier))
+            if (string.IsNullOrEmpty(identifier))
             {
                 yield break;
             }
