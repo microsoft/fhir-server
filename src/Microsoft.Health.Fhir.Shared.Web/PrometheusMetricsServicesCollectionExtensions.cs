@@ -12,7 +12,7 @@ using Prometheus.SystemMetrics;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public static class PrometheusMetricsServicesCollectionExtensions
+    internal static class PrometheusMetricsServicesCollectionExtensions
     {
         public static void AddPrometheusMetrics(
             this IServiceCollection services,
