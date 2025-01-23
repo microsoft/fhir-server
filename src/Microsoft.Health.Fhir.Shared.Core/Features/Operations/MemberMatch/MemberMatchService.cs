@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             _expressionParser = expressionParser;
             var searchParameterDefinition = searchParameterDefinitionManagerResolver();
             _coverageBeneficiaryParameter = searchParameterDefinition.GetSearchParameter("Coverage", "beneficiary");
-            _resourceTypeSearchParameter = searchParameterDefinition.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+            _resourceTypeSearchParameter = searchParameterDefinition.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
             _logger = logger;
         }
 

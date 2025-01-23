@@ -627,7 +627,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var inputsNoVersionForCheck = new List<ImportResource>();
                     foreach (var input in inputs)
                     {
-                        if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) && input.ResourceWrapper.LastModified < current.LastModified)
+                        // Include inputs only with explicit lastUpdated (input.KeepLastUpdated = true)
+                        if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) && input.KeepLastUpdated && input.ResourceWrapper.LastModified < current.LastModified)
                         {
                             inputsNoVersionForCheck.Add(input);
                         }
