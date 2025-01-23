@@ -981,30 +981,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
-            StringBuilder.Append("SELECT DISTINCT ");
+            StringBuilder.Append("SELECT DISTINCT TOP (")
+                .Append(Parameters.AddParameter(context.IncludeCount, includeInHash: false))
+                .Append(") T1, Sid1, IsMatch, ");
 
-            // TODO - https://github.com/microsoft/fhir-server/issues/1309 (limit for _include also)
-            var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
-            if (isRev)
-            {
-                // the related cte is a reverse include, limit the number of returned items and count to
-                // see if we are over the threshold (to produce a warning to the client)
-                StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount, includeInHash: false)).Append(") ");
-            }
-
-            StringBuilder.Append("T1, Sid1, IsMatch, ");
-
-            if (isRev)
-            {
-                StringBuilder.Append("CASE WHEN count_big(*) over() > ")
-                    .Append(Parameters.AddParameter(context.IncludeCount, true))
-                    .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
-            }
-            else
-            {
-                // if forward, just mark as not partial
-                StringBuilder.AppendLine("0 AS IsPartial ");
-            }
+            StringBuilder.Append("CASE WHEN count_big(*) over() > ")
+                .Append(Parameters.AddParameter(context.IncludeCount, true))
+                .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
 
             StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
 

@@ -187,8 +187,7 @@ END CATCH
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
 
-            var hash = _fixture.ReadableLogger.TryGetLatestLog("SQL Search Service query hash:", out var hashValue) ? hashValue.Substring(31) : null;
-            Assert.NotNull(hash);
+            var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
 
             // assert an sproc was not used
             Assert.False(await CheckIfSprocUsed(hash));
@@ -200,16 +199,11 @@ END CATCH
             // Query after adding an sproc to the database
             var sw = Stopwatch.StartNew();
             var sprocWasUsed = false;
-
-            // Change parameter values to test that hash is independent of parameter values
-            query = new[] { Tuple.Create("birthdate", "gt1900-01-01"), Tuple.Create("birthdate", "lt2000-01-01"), Tuple.Create("address-city", "Town"), Tuple.Create("address-state", "State") };
-
             while (sw.Elapsed.TotalSeconds < 100) // previous single try after 1.1 sec delay was not reliable.
             {
                 await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-                var newHash = _fixture.ReadableLogger.TryGetLatestLog("SQL Search Service query hash:", out var newHashValue) ? newHashValue.Substring(31) : null;
-                Assert.Equal(hash, newHash);
+                Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
                 if (await CheckIfSprocUsed(hash))
                 {
                     sprocWasUsed = true;
