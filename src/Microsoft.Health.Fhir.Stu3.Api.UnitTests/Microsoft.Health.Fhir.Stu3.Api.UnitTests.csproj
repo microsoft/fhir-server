@@ -2,6 +2,9 @@
   <PropertyGroup>
     <RootNamespace>Microsoft.Health.Fhir.Api.UnitTests</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>Stu3</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
