@@ -22,6 +22,15 @@
     <!-- Transitive Dependency of Microsoft.SqlServer.SqlManagementObjects. Fixing version to mitigate CVE -->
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Schema\Migrations\$(LatestSchemaVersion).sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion Condition="'%(Filename)' != '$(LatestSchemaVersion)'">%(Filename)</MutableClassVersion>
+      <MutableClassVersion Condition="'%(Filename)' == '$(LatestSchemaVersion)'">Latest</MutableClassVersion>
+    </EmbeddedResource>
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\*.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\*.sql" Exclude="Features\Schema\Migrations\*.diff.sql;Features\Schema\Migrations\$(LatestSchemaVersion).sql">
@@ -44,7 +53,7 @@
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
 
- <ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -66,7 +75,7 @@
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
