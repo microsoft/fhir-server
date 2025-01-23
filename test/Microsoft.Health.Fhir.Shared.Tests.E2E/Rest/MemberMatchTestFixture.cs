@@ -80,12 +80,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Tag = new List<Coding>() { _tag },
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
+
+#if Stu3 || R4 || R4B
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
+#else
+            coverage.Insurer = new ResourceReference($"Organization/{patient.Id}");
+            coverage.Kind = Coverage.CoverageKindCode.Insurance;
+#endif
             coverage.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v3-ActCode", type);
             coverage.Status = FinancialResourceStatusCodes.Active;
             if (!string.IsNullOrEmpty(subPlan))
             {
-#if !Stu3
+#if Stu3
+                coverage.Grouping = new Coverage.GroupComponent()
+                {
+                    SubPlan = subPlan,
+                };
+#elif R4
                 coverage.Class = new List<Coverage.ClassComponent>()
                 {
                     new Coverage.ClassComponent()
@@ -94,10 +105,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         Value = subPlan,
                     },
                 };
-#else
-                coverage.Grouping = new Coverage.GroupComponent()
+#elif R4B
+                coverage.Class = new List<Coverage.ClassComponent>()
                 {
-                    SubPlan = subPlan,
+                    new Coverage.ClassComponent()
+                    {
+                        Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/coverage-class", "subplan"),
+                        Value = subPlan,
+                    },
+                };
+#elif R5
+                coverage.Class = new List<Coverage.ClassComponent>()
+                {
+                    new Coverage.ClassComponent()
+                    {
+                        Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/coverage-class", "subplan"),
+                        Value = new Identifier("http://terminology.hl7.org/CodeSystem/coverage-class", subPlan),
+                    },
                 };
 #endif
             }

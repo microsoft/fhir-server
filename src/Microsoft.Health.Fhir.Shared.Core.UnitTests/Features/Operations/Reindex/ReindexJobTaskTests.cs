@@ -210,9 +210,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenRunningJob_WhenExecuted_ThenQueuedQueryCompleted()
         {
+#if Stu3 || R4 || R4B
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
+#else
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
+#endif
+
             // Get two search parameters with different base resource types and configure them such that they need to be reindexed
             var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
-            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri(appointmentBaseTypeUri));
 
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
@@ -299,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Contains("Appointment", job.ResourceList);
             Assert.Contains("AppointmentResponse", job.ResourceList);
             Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
-            Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
+            Assert.Contains(appointmentBaseTypeUri, job.SearchParamList);
 
             Assert.Equal(4, job.QueryList.Count);
             Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
@@ -405,9 +411,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenJobWithNoWork_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
         {
+#if Stu3 || R4 || R4B
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
+#else
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
+#endif
+
             // Get two search parameters with different base resource types and configure them such that they need to be reindexed
             var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
-            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri(appointmentBaseTypeUri));
 
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
@@ -441,7 +453,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Contains("Appointment", job.ResourceList);
             Assert.Contains("AppointmentResponse", job.ResourceList);
             Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
-            Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
+            Assert.Contains(appointmentBaseTypeUri, job.SearchParamList);
 
             Assert.Empty(job.QueryList);
 
@@ -456,9 +468,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenForceReindex_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
         {
+#if Stu3 || R4 || R4B
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
+#else
+            var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
+#endif
+
             // Get two search parameters with different base resource types and configure them such that they need to be reindexed
             var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
-            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri(appointmentBaseTypeUri));
 
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
@@ -472,7 +490,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 searchParameterTypes: new List<string>()
                 {
                     "http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment",
-                    "http://hl7.org/fhir/SearchParameter/Appointment-date",
+                    appointmentBaseTypeUri,
                 },
                 resourceTypes: new List<string>()
                 {
@@ -500,7 +518,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Contains("Appointment", job.ResourceList);
             Assert.Contains("AppointmentResponse", job.ResourceList);
             Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
-            Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
+            Assert.Contains(appointmentBaseTypeUri, job.SearchParamList);
 
             Assert.Empty(job.QueryList);
 

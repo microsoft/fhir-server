@@ -23,6 +23,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -118,7 +119,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                         {
                                             properties[ArtifactSummaryProperties.OriginKey] = searchItem.Resource.RawResource.Data;
                                         };
-                                    var artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
+
+#if Stu3
+                                    List<ArtifactSummary> artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
+#else
+                                    List<ArtifactSummary> artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);
+#endif
 
                                     foreach (var artifact in artifacts)
                                     {
@@ -175,8 +181,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
         {
-            var summary = ListSummaries(false, disableCacheRefresh);
-            return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
+            IEnumerable<ArtifactSummary> summary = ListSummaries(false, disableCacheRefresh);
+            return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>
                     {
                         if (!x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
@@ -197,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             var sb = new StringBuilder();
-            summaries.Where(x => x.ResourceType == ResourceType.StructureDefinition)
+            summaries.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                .Where(x => x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
                .Select(x => x.ResourceUri).ToList().ForEach(url => sb.Append(url));
 

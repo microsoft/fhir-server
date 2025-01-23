@@ -9,6 +9,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {
     public static class ModelExtensions
     {
+#if Stu3 || R4 || R4B
         public static Device AssignPatient(this Device device, ResourceReference patient)
         {
 #if Stu3 || R4
@@ -18,5 +19,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 #endif
             return device;
         }
+#else
+        public static DeviceAssociation AssignPatient(this Device device, ResourceReference patient)
+        {
+            return new DeviceAssociation
+            {
+                Device = new ResourceReference($"Device/{device.Id}"),
+                Subject = patient,
+                Status = new CodeableConcept("http://hl7.org/fhir/deviceassociation-status", "implanted"),
+            };
+        }
+#endif
     }
 }
