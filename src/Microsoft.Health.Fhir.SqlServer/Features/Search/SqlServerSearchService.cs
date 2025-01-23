@@ -231,15 +231,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 && useQueryCacheObj != null)
             {
                 var useQueryCache = Convert.ToString(useQueryCacheObj);
-                if (string.Equals(useQueryCache, "true", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
                 {
                     return await SearchImpl(sqlSearchOptions, true, cancellationToken);
                 }
-                else if (string.Equals(useQueryCache, "false", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
                 {
                     return await SearchImpl(sqlSearchOptions, false, cancellationToken);
                 }
-                else if (string.Equals(useQueryCache, "both", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogInformation("Running search with and without query cache.");
                     var stopwatch = Stopwatch.StartNew();

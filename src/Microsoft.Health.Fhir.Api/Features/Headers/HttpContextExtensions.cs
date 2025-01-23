@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// <returns>Query cache header value</returns>
         public static string GetQueryCache(this HttpContext outerHttpContext)
         {
-            if (outerHttpContext != null && outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.QueryCacheEnabled, out StringValues headerValues))
+            if (outerHttpContext != null && outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.QueryCacheSetting, out StringValues headerValues))
             {
                 return headerValues.FirstOrDefault();
             }
