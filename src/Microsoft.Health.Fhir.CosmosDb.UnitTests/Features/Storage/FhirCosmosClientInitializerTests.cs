@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _initializer = new FhirCosmosClientInitializer(
                 clientTestProvider,
                 () => new[] { new TestRequestHandler() },
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<RequestContextAccessor<IFhirRequestContext>>()),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), NullLogger<RetryExceptionPolicyFactory>.Instance),
                 Substitute.For<CosmosAccessTokenProviderFactory>(),
                 NullLogger<FhirCosmosClientInitializer>.Instance);
 

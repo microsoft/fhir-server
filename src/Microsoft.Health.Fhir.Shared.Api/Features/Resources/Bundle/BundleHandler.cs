@@ -501,7 +501,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task GenerateRequest(EntryComponent entry, int order, CancellationToken cancellationToken)
         {
             string persistedId = default;
-            HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
+            DefaultHttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
 
             var requestUrl = entry.Request?.Url;
 
@@ -597,7 +597,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId));
         }
 
-        private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
+        private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
         {
             if (!string.IsNullOrWhiteSpace(headerValue))
             {
@@ -964,7 +964,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (_forceProfilesRefresh)
             {
-                _profilesResolver.Refresh();
+                Stopwatch watch = Stopwatch.StartNew();
+                try
+                {
+                    _profilesResolver.Refresh();
+                    _logger.LogInformation("FHIR Profiles cache is refreshed. Elapsed time: {ElapsedMilliseconds}", watch.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "FHIR Profiles cache failed while refreshing. Elapsed time: {ElapsedMilliseconds}", watch.ElapsedMilliseconds);
+                }
             }
         }
 
@@ -986,6 +995,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static string SanitizeString(string input)
         {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
             return input
                 .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
                 .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)

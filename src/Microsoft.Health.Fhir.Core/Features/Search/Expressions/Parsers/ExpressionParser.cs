@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     /// </summary>
     public class ExpressionParser : IExpressionParser
     {
-        private static readonly Dictionary<string, SearchModifierCode> SearchParamModifierMapping = Enum.GetNames(typeof(SearchModifierCode))
-            .Select(e => (SearchModifierCode)Enum.Parse(typeof(SearchModifierCode), e))
+        private static readonly Dictionary<string, SearchModifierCode> SearchParamModifierMapping = Enum.GetNames<SearchModifierCode>()
+            .Select(e => Enum.Parse<SearchModifierCode>(e))
             .ToDictionary(
                 e => e.GetLiteral(),
                 e => e,

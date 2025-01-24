@@ -2,6 +2,9 @@
   <PropertyGroup>
     <RootNamespace>Microsoft.Health.Fhir.Tests.Integration</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>R4B</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />

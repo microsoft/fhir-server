@@ -55,6 +55,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string SearchParameter = "SearchParameter";
 
+        public const string StructureDefinition = "StructureDefinition";
+
         public const string Patient = "Patient";
 
         public const string ValueSet = "ValueSet";

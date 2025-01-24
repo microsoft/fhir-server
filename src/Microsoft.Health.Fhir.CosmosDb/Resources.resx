@@ -174,4 +174,8 @@
   <data name="NotAbleToExecuteQuery" xml:space="preserve">
     <value>Not able to execute a query. Retry the operation.</value>
   </data>
+  <data name="MaxPartitionSizeErrorMessage" xml:space="preserve">
+    <value>Partition reached maximum size.</value>
+    <comment>Error raised when a partition reaches its max size.</comment>
+  </data>
 </root>

@@ -8,7 +8,7 @@ using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Internal.Fhir.Sql
 {
-    public class SqlConnectionBuilder : ISqlConnectionBuilder
+    internal class SqlConnectionBuilder : ISqlConnectionBuilder
     {
         private readonly string _connectionString;
 

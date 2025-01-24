@@ -758,4 +758,8 @@
     <value>The provided search parameter type {0} is not supported for the given expression {1}.</value>
     <comment>{0}: The type field in the search parameter. {1}: The expression field in the search parameter.</comment>
   </data>
+</data>
+  <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
+    <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
+  </data>
 </root>

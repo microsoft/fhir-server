@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IParameterStore _parameterStore;
@@ -339,6 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                        var isSortValueNeeded = false;
 
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && ContainsGlobalEndSurrogateId(clonedSearchOptions);
                         if (exportTimeTravel)
@@ -361,6 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
+                            isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
@@ -418,7 +419,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             string sortValue = null;
                             var isResultPartial = false;
-                            int numberOfColumnsRead = 0;
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
@@ -441,8 +441,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     continue;
                                 }
-
-                                numberOfColumnsRead = reader.FieldCount;
 
                                 // If we get to this point, we know there are more results so we need a continuation token
                                 // Additionally, this resource shouldn't be included in the results
@@ -480,10 +478,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     newContinuationType = resourceTypeId;
                                     newContinuationId = resourceSurrogateId;
 
-                                    // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
-                                    // If we have more, that means we have an extra column tracking sort value.
+                                    // If sort value needed, that means we have an extra column tracking sort value.
                                     // Keep track of sort value if this is the last row.
-                                    if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
+                                    if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
                                     {
                                         var tempSortValue = reader.GetValue(SortValueColumnName);
                                         if ((tempSortValue as DateTime?) != null)
@@ -550,7 +547,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                             {
                                 // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
-                                sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
+                                sqlSearchOptions.DidWeSearchForSortValue = isSortValueNeeded;
                             }
 
                             // This value is set inside the SortRewriter. If it is set, we need to pass

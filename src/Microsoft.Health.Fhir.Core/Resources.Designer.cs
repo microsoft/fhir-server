@@ -1007,6 +1007,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue..
+        /// </summary>
+        internal static string OperationFailedForCustomerManagedKey {
+            get {
+                return ResourceManager.GetString("OperationFailedForCustomerManagedKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1} ErrorFile: {2}.
         /// </summary>
         internal static string OperationFailedWithErrorFile {

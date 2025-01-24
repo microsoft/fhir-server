@@ -61,9 +61,27 @@
     ],
     "attester": [
         {
-            "mode": "professional",
+            "mode": {
+                "coding": [
+                    {
+                        "display": "professional"
+                    }
+                ]
+            },
             "party": {
                 "reference": "Organization/f001"
+            }
+        },
+        {
+            "mode": {
+                "coding": [
+                    {
+                        "display": "patient"
+                    }
+                ]
+            },
+            "party": {
+                "reference": "Patient/xcda"
             }
         }
     ],
@@ -108,27 +126,38 @@
                 "title": "Physical",
                 "creation": "2005-12-24T09:35:00+11:00"
             },
-            "format": {
-                "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
-                "code": "urn:ihe:pcc:handp:2008",
-                "display": "History and Physical Specification"
+            "profile": {
+                "valueCoding": {
+                    "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
+                    "code": "urn:ihe:pcc:handp:2008",
+                    "display": "History and Physical Specification"
+                }
             }
         }
     ],
-    "encounter": [
+    "context": [
         {
             "reference": "Encounter/xcda"
+        },
+        {
+            "reference": "Patient/xcda",
+            "identifier": {
+                "system": "urn:ietf:rfc:3986",
+                "value": "urn:oid:1.3.6.1.4.1.21367.2005.3.7.2345"
+            }
         }
     ],
     "event": [
         {
-            "coding": [
-                {
-                    "system": "http://ihe.net/xds/connectathon/eventCodes",
-                    "code": "T-D8200",
-                    "display": "Arm"
-                }
-            ]
+            "concept": {
+                "coding": [
+                    {
+                        "system": "http://ihe.net/xds/connectathon/eventCodes",
+                        "code": "T-D8200",
+                        "display": "Arm"
+                    }
+                ]
+            }
         }
     ],
     "period": {
@@ -152,17 +181,5 @@
                 "display": "General Medicine"
             }
         ]
-    },
-    "sourcePatientInfo": {
-        "reference": "Patient/xcda"
-    },
-    "related": [
-        {
-            "reference": "Patient/xcda",
-            "identifier": {
-                "system": "urn:ietf:rfc:3986",
-                "value": "urn:oid:1.3.6.1.4.1.21367.2005.3.7.2345"
-            }
-        }
-    ]
+    }
 }
