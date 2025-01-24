@@ -16,16 +16,17 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-////using Azure.Storage.Files.DataLake;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
+using Microsoft.Health.Fhir.SqlServer.Features;
+using Microsoft.Health.Fhir.Store.Export;
 using Microsoft.Health.Fhir.Store.Utils;
 using Microsoft.Health.Internal.Fhir.Exporter;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string ConnectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly string AdlsUri = ConfigurationManager.AppSettings["AdlsUri"];

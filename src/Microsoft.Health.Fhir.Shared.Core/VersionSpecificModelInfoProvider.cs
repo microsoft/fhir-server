@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core
 
         public IReadOnlyCollection<string> GetCompartmentTypeNames()
         {
-            return Enum.GetNames(typeof(CompartmentType));
+            return Enum.GetNames<CompartmentType>();
         }
 
         public Type GetTypeForFhirType(string resourceType)

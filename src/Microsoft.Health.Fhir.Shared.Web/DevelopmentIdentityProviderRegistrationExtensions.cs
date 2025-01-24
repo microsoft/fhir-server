@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Web
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
         private const string WrongAudienceClient = "wrongAudienceClient";

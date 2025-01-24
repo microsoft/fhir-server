@@ -3,13 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Importer
-{
-    internal static class Program
-    {
-        public static void Main()
-        {
-            Importer.Run();
-        }
-    }
-}
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Web.UnitTests")]

@@ -501,7 +501,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task GenerateRequest(EntryComponent entry, int order, CancellationToken cancellationToken)
         {
             string persistedId = default;
-            HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
+            DefaultHttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
 
             var requestUrl = entry.Request?.Url;
 
@@ -597,7 +597,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId));
         }
 
-        private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
+        private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
         {
             if (!string.IsNullOrWhiteSpace(headerValue))
             {
