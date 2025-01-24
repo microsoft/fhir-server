@@ -25,7 +25,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string ConnectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static readonly string AdlsUri = ConfigurationManager.AppSettings["AdlsUri"];

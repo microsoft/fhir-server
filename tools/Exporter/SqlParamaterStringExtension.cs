@@ -10,7 +10,7 @@ using Microsoft.Data.SqlClient.Server;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    public static class SqlParamaterStringExtension
+    internal static class SqlParamaterStringExtension
     {
         static SqlParamaterStringExtension()
         {

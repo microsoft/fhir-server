@@ -153,9 +153,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddTransient<MissingDataFilterCriteria>();
             services.AddTransient<IDataResourceFilter, DataResourceFilter>();
-            services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>));
-            services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>));
-            services.AddTransient(typeof(IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>), typeof(DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>));
+            services.AddTransient<IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>>();
+            services.AddTransient<IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>>();
+            services.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>, DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>>();
         }
     }
 }

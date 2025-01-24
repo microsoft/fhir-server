@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     /// </summary>
     public class SearchParameterExpressionParser : ISearchParameterExpressionParser
     {
-        private static readonly Tuple<string, SearchComparator>[] SearchParamComparators = Enum.GetValues(typeof(SearchComparator))
+        private static readonly Tuple<string, SearchComparator>[] SearchParamComparators = Enum.GetValues<SearchComparator>()
             .Cast<SearchComparator>()
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
