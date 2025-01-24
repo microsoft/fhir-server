@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlClient.Server;
-using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {

@@ -17,7 +17,6 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
-using Microsoft.Data.SqlClient.Server;
 using Microsoft.Health.Fhir.SqlServer.Features;
 using Microsoft.Health.Fhir.Store.Export;
 using Microsoft.Health.Fhir.Store.Utils;
