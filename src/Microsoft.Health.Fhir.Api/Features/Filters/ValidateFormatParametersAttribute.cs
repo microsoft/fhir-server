@@ -51,13 +51,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
                 else
                 {
                     // If no content type is supplied, then the server should respond with an unsupported media type exception.
-                    throw new UnsupportedMediaTypeException(Resources.ContentTypeHeaderRequired);
+                    throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
                 }
             }
             else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
             }

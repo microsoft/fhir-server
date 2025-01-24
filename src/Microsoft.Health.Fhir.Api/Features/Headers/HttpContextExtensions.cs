@@ -49,6 +49,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         }
 
         /// <summary>
+        /// Retrieves from the HTTP header information on using query caching.
+        /// </summary>
+        /// <param name="outerHttpContext">HTTP context</param>
+        /// <returns>Query cache header value</returns>
+        public static string GetQueryCache(this HttpContext outerHttpContext)
+        {
+            if (outerHttpContext != null && outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.QueryCacheSetting, out StringValues headerValues))
+            {
+                return headerValues.FirstOrDefault();
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Retrieves from the HTTP header information about the conditional-query processing logic to be adopted.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>
@@ -109,6 +124,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             }
 
             return requestContext.Properties.TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        public static bool DecorateRequestContextWithQueryCache(this IFhirRequestContext requestContext, string value)
+        {
+            if (requestContext == null)
+            {
+                return false;
+            }
+
+            return requestContext.Properties.TryAdd(KnownQueryParameterNames.QueryCaching, value);
         }
     }
 }
