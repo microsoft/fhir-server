@@ -2,7 +2,6 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>8.0.30</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <Hl7FhirVersion>5.4.0</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.3.0</Hl7FhirLegacyVersion>
   </PropertyGroup>
