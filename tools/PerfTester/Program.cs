@@ -165,6 +165,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 id = patients[patientIndex++];
                 GetPatientRevIncludeObservations(id);
 
+                id = patients[patientIndex++];
+                DDMSInclude(id);
+
                 if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                 {
                     lock (swReport)
@@ -1020,6 +1023,29 @@ END
             var sw = Stopwatch.StartNew();
             var status = string.Empty;
             var uri = new Uri(_endpoint + "/Observation?patient=" + patientId);
+            var count = 0;
+            try
+            {
+                var response = _httpClient.GetAsync(uri).Result;
+                status = response.StatusCode.ToString();
+                var content = response.Content.ReadAsStringAsync().Result;
+                var split = content.Split("fullUrl", StringSplitOptions.None);
+                count = split.Length - 1;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"uri={uri} error={e.Message}");
+                _store.TryLogEvent("Diag.GetObservationsForPatient", "Error", $"id={patientId} error={e.Message}", null, CancellationToken.None).Wait();
+            }
+
+            _store.TryLogEvent("Diag.GetObservationsForPatient", "Warn", $"{(int)sw.Elapsed.TotalMilliseconds} msec status={status} count={count} id={patientId}", null, CancellationToken.None).Wait();
+        }
+
+        private static void DDMSInclude(string patientId)
+        {
+            var sw = Stopwatch.StartNew();
+            var status = string.Empty;
+            var uri = new Uri($"{_endpoint}/DiagnosticReport?status=final&issued=2021-04-03&subject=Patient/{patientId}&_include=DiagnosticReport:encounter&_include=DiagnosticReport:result&_include:iterate=DiagnosticReport:results-interpreter&_include:iterate=DiagnosticReport:based-on&_include:iterate=Encounter:location&_include:iterate=DiagnosticReport:performer&_include:iterate=ServiceRequest:requester&_include:iterate=ServiceRequest:encounter&_include:iterate=Location:organization");
             var count = 0;
             try
             {
