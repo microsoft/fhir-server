@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 {
                     context.Response.Clear();
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    await context.Response.WriteAsync(Resources.ContentTypeFormUrlEncodedExpected);
+                    await context.Response.WriteAsync(Api.Resources.ContentTypeFormUrlEncodedExpected);
                     return;
                 }
             }

@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 acceptHeaderValue.Count != 1 ||
                 !string.Equals(acceptHeaderValue[0], KnownContentTypes.JsonContentType, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
+                throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
 
             if (context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValues))
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         || (v.Length == 1 && !(requiredHeaderValueFound = string.Equals(v[0], PreferHeaderValueRequired, StringComparison.OrdinalIgnoreCase)))
                         || (v.Length == 2 && (!string.Equals(v[0], PreferHeaderValueOptional, StringComparison.OrdinalIgnoreCase) || !Enum.TryParse<SearchParameterHandling>(v[1], true, out _))))
                     {
-                        throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, value, PreferHeaderName));
+                        throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedHeaderValue, value, PreferHeaderName));
                     }
                 }
 
@@ -102,14 +102,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     continue;
                 }
 
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+                throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedParameter, paramName));
             }
 
             if (queryCollection?.Keys != null &&
                 queryCollection.Keys.Contains(KnownQueryParameterNames.TypeFilter) &&
                 !queryCollection.Keys.Contains(KnownQueryParameterNames.Type))
             {
-                throw new RequestNotValidException(Resources.TypeFilterWithoutTypeIsUnsupported);
+                throw new RequestNotValidException(Api.Resources.TypeFilterWithoutTypeIsUnsupported);
             }
 
             if (queryCollection.TryGetValue(KnownQueryParameterNames.OutputFormat, out var outputFormats))
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!(outputFormat == null || SupportedOutputFormats.Contains(outputFormat)))
                     {
-                        throw new RequestNotValidException(string.Format(Resources.InvalidOutputFormat, outputFormat));
+                        throw new RequestNotValidException(string.Format(Api.Resources.InvalidOutputFormat, outputFormat));
                     }
                 }
             }
