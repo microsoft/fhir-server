@@ -217,7 +217,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             var ndJson = new StringBuilder();
-            for (int i = 0;  i < 80001; i++)
+            for (int i = 0;  i < 79001; i++)
             {
                 var id = Guid.NewGuid().ToString("N");
                 var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
@@ -227,7 +227,21 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var message = await ImportWaitAsync(checkLocation, false);
+            await ImportWaitAsync(checkLocation, true);
+
+            ndJson = new StringBuilder();
+            for (int i = 0; i < 1000; i++) // load violators in nlarge batch to avoid large number of retries
+            {
+                var id = Guid.NewGuid().ToString("N");
+                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
+                ndJson.Append(str);
+            }
+
+            location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var message = await ImportWaitAsync(checkLocation, true);
+
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
         }
