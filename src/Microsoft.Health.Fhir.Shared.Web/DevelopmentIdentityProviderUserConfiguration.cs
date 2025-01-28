@@ -7,7 +7,8 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class DevelopmentIdentityProviderUserConfiguration
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Referenced by other assembles via shared projects.")]
+    public sealed class DevelopmentIdentityProviderUserConfiguration
     {
         public string Id { get; set; }
 

@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
     [ServiceFilter(typeof(QueryLatencyOverEfficiencyFilterAttribute))]
+    [ServiceFilter(typeof(QueryCacheFilterAttribute))]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
     public class FhirController : Controller

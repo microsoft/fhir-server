@@ -16,6 +16,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Internal.SmartLauncher
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Startup class.")]
     public class Startup
     {
         public Startup(IConfiguration configuration)
@@ -27,9 +28,9 @@ namespace Microsoft.Health.Internal.SmartLauncher
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
-#pragma warning disable CA1801 // Review unused parameters
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Required by runtime.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Required by runtime.")]
         public void ConfigureServices(IServiceCollection services)
-#pragma warning restore CA1801 // Review unused parameters
         {
         }
 

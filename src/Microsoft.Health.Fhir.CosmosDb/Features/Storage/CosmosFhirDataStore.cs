@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -198,6 +199,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (CosmosException cme) when (cme.StatusCode == HttpStatusCode.Forbidden && cme.SubStatusCode == 1014)
+                {
+                    // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-forbidden#partition-key-exceeding-storage
+
+                    _logger.LogWarning(cme, "PreconditionFailed: Partition reached maximum size.");
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(Resources.MaxPartitionSizeErrorMessage)));
                 }
                 catch (RequestRateExceededException rateExceededException)
                 {
@@ -432,7 +440,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             continue;
                         }
 
-                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                        throw new TransactionFailureException(transactionalBatchResponse.ErrorMessage);
                     }
                 }
                 else

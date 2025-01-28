@@ -33,6 +33,7 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
+      multiplePlatforms: true
 
 - stage: provisionEnvironment
   displayName: Provision Environment

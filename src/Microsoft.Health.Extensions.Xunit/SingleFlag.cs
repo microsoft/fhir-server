@@ -11,7 +11,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// A struct encapsulating an enum value where the numeric value only has a single bit set.
     /// </summary>
-    public struct SingleFlag : IEquatable<SingleFlag>
+    internal struct SingleFlag : IEquatable<SingleFlag>
     {
         public SingleFlag(Enum enumValue)
         {
