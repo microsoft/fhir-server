@@ -42,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
         }
 
+        public override string ToValueInsensitiveString()
+        {
+            return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(MissingSearchParameterExpression));

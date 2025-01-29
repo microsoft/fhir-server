@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -125,11 +126,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 
-        public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
-
         public GetResourceHandler GetResourceHandler { get; set; }
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
+
+        internal ReadableLogger<SqlServerSearchService> ReadableLogger => _fixture.GetRequiredService<ReadableLogger<SqlServerSearchService>>();
 
         public void Dispose()
         {

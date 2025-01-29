@@ -144,6 +144,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
         }
 
+
+        // Check this one, I don't think the toString is correct
+        public override string ToValueInsensitiveString()
+        {
+            var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
+            var iterate = Iterate ? " Iterate" : string.Empty;
+            var reversed = Reversed ? "Reversed " : string.Empty;
+            var wildcard = WildCard ? " Wildcard" : string.Empty;
+            var paramName = ReferenceSearchParameter != null ? $" {ReferenceSearchParameter.Code}" : string.Empty;
+            return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
+        }
+
         private IReadOnlyCollection<string> GetRequiredResources()
         {
             if (Reversed)
