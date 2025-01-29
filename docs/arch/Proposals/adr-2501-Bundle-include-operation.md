@@ -37,7 +37,7 @@ graph TD;
 ```
 
 ## Status
-Accepted
+Proposed
 
 ## Consequences
 - **Positive Impacts:**
