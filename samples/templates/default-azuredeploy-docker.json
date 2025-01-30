@@ -114,17 +114,6 @@
                 "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
             }
         },
-        "cosmosDbFreeTier": {
-            "type": "string",
-            "allowedValues": [
-                "Yes",
-                "No"
-            ],
-            "defaultValue": "No",
-            "metadata": {
-                "description": "Use Cosmos DB free tier."
-            }
-        },
         "cosmosDbCmkUrl": {
             "type": "string",
             "defaultValue": "",
@@ -182,9 +171,16 @@
                 "description": "Version of the FHIR specification to deploy."
             }
         },
+        "registryName": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com/healthcareapis",
+            "metadata": {
+                "description": "Docker registry containing images to deploy."
+            }
+        },
         "imageTag": {
             "type": "string",
-            "defaultValue": "release",
+            "defaultValue": "latest",
             "metadata": {
                 "description": "Tag of the docker image to deploy."
             }
@@ -239,7 +235,6 @@
     },
     "variables": {
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
-        "isCosmosDbFreeTier": "[equals(parameters('cosmosDbFreeTier'),'Yes')]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
@@ -286,7 +281,6 @@
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
-        "registryName": "healthplatformregistry.azurecr.io",
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "isSqlHyperscaleTier": "[equals(parameters('sqlDatabaseComputeTier'),'Hyperscale')]",
@@ -343,7 +337,7 @@
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
-                            "value": "[concat('https://', variables('registryName'))]"
+                            "value": "[concat('https://', parameters('registryName'))]"
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_USERNAME",
@@ -392,7 +386,7 @@
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
                     "properties": {
-                        "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
+                        "linuxFxVersion": "[concat('DOCKER|', parameters('registryName'), '/', toLower(parameters('fhirVersion')), '-fhir-server',':', parameters('imageTag'))]",
                         "appCommandLine": "azure-fhir-api",
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
