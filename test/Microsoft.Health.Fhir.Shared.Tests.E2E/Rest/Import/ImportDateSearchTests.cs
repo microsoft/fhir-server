@@ -39,15 +39,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         // eb: the range of the search value does overlap not with the range of the target value, and the range below the search value contains the range of the target value.
         [Theory]
         [InlineData("1980", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-12-31T23:59:59.9999999.
-        [InlineData("1980-01")] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-01-31T23:59:59.9999999.
-        [InlineData("1980-05", 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-05-01T00:00:00.0000000 and end time less than or equal to 1980-05-31T23:59:59.9999999.
-        [InlineData("1980-05-10")] // Any dates with start time greater than or equal to 1980-05-10T00:00:00.0000000 and end time less than or equal to 1980-05-10T23:59:59.9999999.
-        [InlineData("1980-05-11", 3, 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T00:00:00.0000000 and end time less than or equal to 1980-05-11T23:59:59.9999999.
-        [InlineData("1980-05-11T16:32:15", 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:15.0000000 and end time less than or equal to 1980-05-11T16:32:15.9999999.
-        [InlineData("1980-05-11T16:32:15.500", 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.5000000 and end time less than or equal to 1980-05-11T16:32:30.50000000.
-        [InlineData("1980-05-11T16:32:15.5000000", 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.5000000 and end time less than or equal to 1980-05-11T16:32:30.50000000.
-        [InlineData("1980-05-11T16:32:15.5000001")] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.50000001 and end time less than or equal to 1980-05-11T16:32:30.50000001.
-        [InlineData("1980-05-11T16:32:30")] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.0000000 and end time less than or equal to 1980-05-11T16:32:30.9999999.
+        [InlineData("1980-01", 1)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-01-31T23:59:59.9999999.
+        [InlineData("1980-05", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-05-01T00:00:00.0000000 and end time less than or equal to 1980-05-31T23:59:59.9999999.
+        [InlineData("1980-05-10", 1, 2)] // Any dates with start time greater than or equal to 1980-05-10T00:00:00.0000000 and end time less than or equal to 1980-05-10T23:59:59.9999999.
+        [InlineData("1980-05-11", 1, 2, 3, 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T00:00:00.0000000 and end time less than or equal to 1980-05-11T23:59:59.9999999.
+        [InlineData("1980-05-11T16:32:15", 1, 2, 3, 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:15.0000000 and end time less than or equal to 1980-05-11T16:32:15.9999999.
+        [InlineData("1980-05-11T16:32:15.500", 1, 2, 3, 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.5000000 and end time less than or equal to 1980-05-11T16:32:30.50000000.
+        [InlineData("1980-05-11T16:32:15.5000000", 1, 2, 3, 4, 5)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.5000000 and end time less than or equal to 1980-05-11T16:32:30.50000000.
+        [InlineData("1980-05-11T16:32:15.5000001", 1, 2, 3, 4)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.50000001 and end time less than or equal to 1980-05-11T16:32:30.50000001.
+        [InlineData("1980-05-11T16:32:30", 1, 2, 3)] // Any dates with start time greater than or equal to 1980-05-11T16:32:30.0000000 and end time less than or equal to 1980-05-11T16:32:30.9999999.
         [InlineData("ne1980", 0, 6)] // Any dates with start time less than 1980-01-01T00:00:00.0000000 or end time greater than 1980-12-31T23:59:59.9999999.
         [InlineData("ne1980-01", 0, 1, 2, 3, 4, 5, 6, 7)] // Any dates with start time less than 1980-01-01T00:00:00.0000000 or end time greater than 1980-01-31T23:59:59.9999999.
         [InlineData("ne1980-05", 0, 1, 6)] // Any dates with start time less than 1980-05-01T00:00:00.0000000 or end time greater than 1980-05-31T23:59:59.9999999.
