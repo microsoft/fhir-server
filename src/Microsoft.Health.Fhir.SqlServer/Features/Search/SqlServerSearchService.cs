@@ -68,8 +68,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IParameterStore _parameterStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
+            ISqlQueryHashCalculator queryHashCalculator,
             IParameterStore parameterStore,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
@@ -115,6 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
+            _queryHashCalculator = queryHashCalculator;
             _parameterStore = parameterStore;
             _logger = logger;
 
@@ -142,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
+            SearchResult searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
             int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
 
             if (!sqlSearchOptions.IsSortWithFilter &&
@@ -177,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
+                        searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -206,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, cancellationToken);
+                        var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -221,8 +223,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
+            var fhirContext = _requestContextAccessor.RequestContext;
+            if (fhirContext != null
+                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
+                && useQueryCacheObj != null)
+            {
+                var useQueryCache = Convert.ToString(useQueryCacheObj);
+                if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
+                {
+                    return await SearchImpl(sqlSearchOptions, true, cancellationToken);
+                }
+                else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
+                {
+                    return await SearchImpl(sqlSearchOptions, false, cancellationToken);
+                }
+                else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Running search with and without query cache.");
+                    var stopwatch = Stopwatch.StartNew();
+
+                    using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    var token = tokenSource.Token;
+
+                    var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
+                    var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
+
+                    var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
+                    await tokenSource.CancelAsync();
+
+                    _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
+                    return await result;
+                }
+                else // equals default or an invalid value
+                {
+                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                }
+            }
+            else
+            {
+                return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            }
+        }
+
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             Expression searchExpression = sqlSearchOptions.Expression;
 
             // AND in the continuation token
@@ -336,6 +383,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                        var isSortValueNeeded = false;
 
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && ContainsGlobalEndSurrogateId(clonedSearchOptions);
                         if (exportTimeTravel)
@@ -354,15 +402,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
-                                _reuseQueryPlans.IsEnabled(_sqlRetryService),
+                                reuseQueryPlans,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
+                            isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = clonedSearchOptions.GetHash();
+                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
@@ -415,7 +464,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             string sortValue = null;
                             var isResultPartial = false;
-                            int numberOfColumnsRead = 0;
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
@@ -438,8 +486,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     continue;
                                 }
-
-                                numberOfColumnsRead = reader.FieldCount;
 
                                 // If we get to this point, we know there are more results so we need a continuation token
                                 // Additionally, this resource shouldn't be included in the results
@@ -477,10 +523,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     newContinuationType = resourceTypeId;
                                     newContinuationId = resourceSurrogateId;
 
-                                    // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
-                                    // If we have more, that means we have an extra column tracking sort value.
+                                    // If sort value needed, that means we have an extra column tracking sort value.
                                     // Keep track of sort value if this is the last row.
-                                    if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
+                                    if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
                                     {
                                         var tempSortValue = reader.GetValue(SortValueColumnName);
                                         if ((tempSortValue as DateTime?) != null)
@@ -547,7 +592,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                             {
                                 // If there is an extra column for sort value, we know we have searched for sort values. If no results were returned, we don't know if we have searched for sort values so we need to assume we did so we run the second phase.
-                                sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
+                                sqlSearchOptions.DidWeSearchForSortValue = isSortValueNeeded;
                             }
 
                             // This value is set inside the SortRewriter. If it is set, we need to pass
@@ -570,6 +615,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 cancellationToken,
                 true); // this enables reads from replicas
 
+            _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
             return searchResult;
         }
 

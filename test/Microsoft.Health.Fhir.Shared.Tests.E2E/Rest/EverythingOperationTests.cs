@@ -44,13 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-#if R5
-            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
-#else
+#if Stu3 || R4 || R4B
             ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.Device);
+#else
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.DeviceAssociation);
 #endif
         }
 
@@ -59,10 +59,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.NonExistentPatient.Id}/$everything";
-#if R5
-            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
-#else
+#if Stu3 || R4 || R4B
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
+#else
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceAssociationOfNonExistentPatient);
 #endif
         }
 
@@ -110,7 +110,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
 
+#if Stu3 || R4 || R4B
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment, Fixture.Device);
+#else
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.DeviceAssociation, Fixture.Appointment);
+#endif
         }
 
         [Fact]
@@ -212,14 +216,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.ObservationOfPatientReferencedBySeeAlsoLink);
 
-#if R5
-            // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
-            // No need to run Phase 3 for FHIR R5.
-            Assert.Null(thirdBundle.Resource.NextLink);
-#else
+#if Stu3 || R4 || R4B
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
             Assert.Empty(fourthBundle.Resource.Entry);
+#else
+            // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+            // No need to run Phase 3 for FHIR R5.
+            Assert.Null(thirdBundle.Resource.NextLink);
 #endif
         }
 

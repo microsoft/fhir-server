@@ -65,7 +65,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet8
+  - job: Windows_dotnet9
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -74,6 +74,13 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
+  - job: Windows_dotnet8
+    pool:
+      name: '$(DefaultWindowsPool)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: 'net8.0'
   - job: Linux_dotnet6
     pool:
       name: '$(DefaultLinuxPool)'
@@ -131,6 +138,7 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
+      multiplePlatforms: true
 
 # *********************** Stu3 ***********************
 - stage: redeployStu3

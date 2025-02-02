@@ -48,7 +48,6 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -126,11 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 
+        public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
+
         public GetResourceHandler GetResourceHandler { get; set; }
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
-
-        internal ReadableLogger<SqlServerSearchService> ReadableLogger => _fixture.GetRequiredService<ReadableLogger<SqlServerSearchService>>();
 
         public void Dispose()
         {
@@ -147,17 +146,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
-            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             observationResource.UpdateCreate = true;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Organization, null);
-            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Organization);
+            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Organization.EqualsString(r.Type.ToString()));
             organizationResource.UpdateCreate = true;
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
-            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Medication);
+            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Medication.EqualsString(r.Type.ToString()));
             medicationResource.UpdateCreate = true;
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
