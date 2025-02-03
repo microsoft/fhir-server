@@ -13,8 +13,10 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         private readonly ISearchService _searchService;
         private readonly IDeletionService _deleter;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirContext;
+        private readonly CoreFeatureConfiguration _configuration;
         private readonly ILogger<ConditionalDeleteResourceHandler> _logger;
 
         public ConditionalDeleteResourceHandler(
@@ -43,17 +46,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             IAuthorizationService<DataActions> authorizationService,
             IDeletionService deleter,
             RequestContextAccessor<IFhirRequestContext> fhirContext,
+            IOptions<CoreFeatureConfiguration> configuration,
             ILogger<ConditionalDeleteResourceHandler> logger)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(deleter, nameof(deleter));
+            EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchService = searchService;
             _deleter = deleter;
             _fhirContext = fhirContext;
+            _configuration = configuration.Value;
             _logger = logger;
         }
 
@@ -86,33 +92,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteSingleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            var matchedResults = await _searchService.ConditionalSearchAsync(
+            var results = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
                 logger: _logger);
 
-            int count = matchedResults.Results.Count;
+            int count = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
+            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+
             if (count == 0)
             {
                 return new DeleteResourceResponse(0);
             }
-            else if (count == 1)
+            else if (count == 1 && !tooManyIncludeResults)
             {
-                var result = await _deleter.DeleteAsync(
-                    new DeleteResourceRequest(
-                        request.ResourceType,
-                        matchedResults.Results.First().Resource.ResourceId,
-                        request.DeleteOperation,
-                        bundleResourceContext: request.BundleResourceContext),
-                    cancellationToken);
-
-                if (string.IsNullOrWhiteSpace(result.VersionId))
+                if (results.Results.Count == 1)
                 {
-                    return new DeleteResourceResponse(result);
-                }
+                    var result = await _deleter.DeleteAsync(
+                        new DeleteResourceRequest(
+                            request.ResourceType,
+                            results.Results.First().Resource.ResourceId,
+                            request.DeleteOperation,
+                            bundleResourceContext: request.BundleResourceContext),
+                        cancellationToken);
 
-                return new DeleteResourceResponse(result, weakETag: WeakETag.FromVersionId(result.VersionId));
+                    if (string.IsNullOrWhiteSpace(result.VersionId))
+                    {
+                        return new DeleteResourceResponse(result);
+                    }
+
+                    return new DeleteResourceResponse(result, weakETag: WeakETag.FromVersionId(result.VersionId));
+                }
+                else
+                {
+                    // Include results were present, use delete multiple to handle them.
+                    return await DeleteMultipleAsync(request, cancellationToken);
+                }
+            }
+            else if (count == 1 && tooManyIncludeResults)
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch));
             }
             else
             {
@@ -124,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            long numDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
+            long numDeleted = (await _deleter.DeleteMultipleAsync(request, cancellationToken)).Sum(result => result.Value);
             return new DeleteResourceResponse((int)numDeleted);
         }
     }

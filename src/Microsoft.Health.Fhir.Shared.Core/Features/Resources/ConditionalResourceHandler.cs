@@ -54,27 +54,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
-            var matchedResults = await _searchService.ConditionalSearchAsync(
+            var results = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
                 logger: _logger);
 
-            int count = matchedResults.Results.Count;
-            if (count == 0)
+            int matchCount = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
+            if (matchCount == 0)
             {
                 _logger.LogInformation("Conditional handler: Not Match. ResourceType={ResourceType}", request.ResourceType);
                 return await HandleNoMatch(request, cancellationToken);
             }
-            else if (count == 1)
+            else if (matchCount == 1)
             {
                 _logger.LogInformation("Conditional handler: One Match Found. ResourceType={ResourceType}", request.ResourceType);
-                return await HandleSingleMatch(request, matchedResults.Results.First(), cancellationToken);
+                return await HandleSingleMatch(request, results.Results.First(), cancellationToken);
             }
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                _logger.LogInformation("PreconditionFailed: Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, count);
+                _logger.LogInformation("PreconditionFailed: Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, matchCount);
                 throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
         }

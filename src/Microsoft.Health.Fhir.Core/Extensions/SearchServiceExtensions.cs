@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             var matchedResults = new List<SearchResultEntry>();
+            var includeResults = new List<SearchResultEntry>();
             string lastContinuationToken = continuationToken;
             LongRunningOperationStatistics statistics = new LongRunningOperationStatistics(operationName: "conditionalSearchAsync");
             try
@@ -98,8 +99,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     {
                         matchedResults.AddRange(
                             results?.Results
-                                .Where(x => x.SearchEntryMode != ValueSets.SearchEntryMode.Outcome)
+                                .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
                                 .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+
+                        // This will get include results and outcome results. Outcome results are needed to check for too many includes warning.
+                        includeResults.AddRange(
+                            results?.Results
+                                .Where(x => x.SearchEntryMode != ValueSets.SearchEntryMode.Match));
                     }
                 }
                 while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));
@@ -121,7 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
             }
 
-            return (matchedResults, lastContinuationToken);
+            var resultsToReturn = matchedResults.Concat(includeResults).ToList();
+            return (resultsToReturn, lastContinuationToken);
         }
     }
 }

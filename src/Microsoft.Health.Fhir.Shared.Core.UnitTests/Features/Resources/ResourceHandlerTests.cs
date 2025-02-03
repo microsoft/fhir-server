@@ -14,9 +14,11 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
@@ -115,6 +117,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
             _resourceIdProvider = new ResourceIdProvider();
 
+            var coreFeatureConfiguration = new CoreFeatureConfiguration();
+
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
@@ -129,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalCreateLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalUpsertLogger)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor, conditionalDeleteLogger)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), conditionalDeleteLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, _authorizationService, contextAccessor, _searchService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, deleter)).Singleton().AsSelf().AsImplementedInterfaces();
 
