@@ -1691,6 +1691,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;$includes&apos; operation is not supported for CosmosDB data store..
+        /// </summary>
+        internal static string UnsupportedIncludesOperation {
+            get {
+                return ResourceManager.GetString("UnsupportedIncludesOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only Code, ResourceType, and Url are supported as query parameters for $status.
         /// </summary>
         internal static string UnsupportedSearchParameterStateQueryParameter {

@@ -125,5 +125,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// Used by export to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
+
+        /// <summary>
+        /// The include continuation token parameter.
+        /// </summary>
+        public const string IncludesContinuationToken = "includesCt";
     }
 }

@@ -85,9 +85,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -99,7 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false)
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -118,6 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.IgnoreSearchParamHash = queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IgnoreSearchParamHash && _.Item2 != null);
 
             string continuationToken = null;
+            string includesContinuationToken = null;
             string feedRange = null;
 
             var searchParams = new SearchParams();
@@ -137,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                    continuationToken = ContinuationTokenEncoder.Decode(query.Item2);
                     setDefaultBundleTotal = false;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.FeedRange, StringComparison.OrdinalIgnoreCase))
@@ -218,6 +220,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(ex.Message);
                     }
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase))
+                {
+                    // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
+                    if (includesContinuationToken != null)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.IncludesContinuationToken));
+                    }
+
+                    if (!isIncludesOperation)
+                    {
+                        // TODO: should this case be ignored or throw an exception? The Hl7 doc says, we should ignore it in general. (https://www.hl7.org/fhir/R4/search.html#errors)
+                        // throw new BadRequestException(string.Format(Core.Resources.InvalidContinuationToken, query.Item2, SupportedTotalTypes));
+                    }
+
+                    includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
+                    setDefaultBundleTotal = false;
+                }
                 else
                 {
                     // Parse the search parameters.
@@ -233,7 +253,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            if (isIncludesOperation && string.IsNullOrEmpty(includesContinuationToken))
+            {
+                throw new BadRequestException("'includesCt' parameter must be provided for $includes operation.");
+            }
+
             searchOptions.ContinuationToken = continuationToken;
+            searchOptions.IncludesContinuationToken = includesContinuationToken;
             searchOptions.FeedRange = feedRange;
 
             if (setDefaultBundleTotal)

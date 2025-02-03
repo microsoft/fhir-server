@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(continuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true,
                 ResourceVersionType.Latest)
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true)
                 .Returns(x =>
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(continuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true)
                 .Returns(x =>
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(newContinuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true)
                 .Returns(x =>
@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true)
                 .Returns(x =>
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenEncoder.Encode(newContinuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken,
                 true)
                 .Returns(x =>
@@ -1340,7 +1340,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(
+                        continuationTokenIndex = int.Parse(ContinuationTokenEncoder.Decode(
                             x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
                                 .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.ContinuationToken)
                                 .Select(x => x.Item2).First())[2..]);
