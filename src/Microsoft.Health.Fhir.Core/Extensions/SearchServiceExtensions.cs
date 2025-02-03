@@ -26,8 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             KnownQueryParameterNames.Summary,
             KnownQueryParameterNames.Total,
             KnownQueryParameterNames.ContinuationToken,
-            "_include",
-            "_revinclude",
         };
 
         /// <summary>
@@ -100,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     {
                         matchedResults.AddRange(
                             results?.Results
-                                .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                                .Where(x => x.SearchEntryMode != ValueSets.SearchEntryMode.Outcome)
                                 .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
                     }
                 }
