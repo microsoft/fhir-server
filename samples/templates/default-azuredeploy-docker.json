@@ -288,7 +288,8 @@
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
-        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]"
+        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]",
+        "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]"
     },
     "resources": [
         {
@@ -386,7 +387,7 @@
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
                     "properties": {
-                        "linuxFxVersion": "[concat('DOCKER|', parameters('registryName'), '/', toLower(parameters('fhirVersion')), '-fhir-server',':', parameters('imageTag'))]",
+                        "linuxFxVersion": "[concat('DOCKER|', parameters('registryName'), '/', variables('imageRepositoryName'),':', parameters('imageTag'))]",
                         "appCommandLine": "azure-fhir-api",
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
