@@ -60,7 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 cancellationToken,
                 logger: _logger);
 
-            int matchCount = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
+            var matches = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+            int matchCount = matches.Count;
             if (matchCount == 0)
             {
                 _logger.LogInformation("Conditional handler: Not Match. ResourceType={ResourceType}", request.ResourceType);
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             else if (matchCount == 1)
             {
                 _logger.LogInformation("Conditional handler: One Match Found. ResourceType={ResourceType}", request.ResourceType);
-                return await HandleSingleMatch(request, results.Results.First(), cancellationToken);
+                return await HandleSingleMatch(request, matches.First(), cancellationToken);
             }
             else
             {

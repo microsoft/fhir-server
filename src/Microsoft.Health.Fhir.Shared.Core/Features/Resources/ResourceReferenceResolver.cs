@@ -96,7 +96,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger)).Results;
+            var matches = (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger))
+                .Results
+                .Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                .ToList();
+
+            return matches;
         }
     }
 }
