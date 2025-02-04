@@ -1335,7 +1335,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
-                        var isSortValueNeeded = false;
 
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && ContainsGlobalEndSurrogateId(clonedSearchOptions);
                         if (exportTimeTravel)
@@ -1358,7 +1357,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
-                            isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 

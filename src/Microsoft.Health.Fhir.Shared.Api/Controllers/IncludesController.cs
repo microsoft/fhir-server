@@ -26,15 +26,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class IncludesController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly CoreFeatureConfiguration _coreFeaturesConfig;
 
-        public IncludesController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures)
+        public IncludesController(IMediator mediator)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
 
             _mediator = mediator;
-            _coreFeaturesConfig = coreFeatures.Value;
         }
 
         [HttpGet]
