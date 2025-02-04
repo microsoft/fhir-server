@@ -21,6 +21,7 @@ using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using static Antlr4.Runtime.Atn.SemanticContext;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -380,6 +381,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     case SearchParamTableExpressionKind.Chain:
                         HandleTableKindChain(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                        break;
+
+                    case SearchParamTableExpressionKind.NotReferenced:
+                        HandleTableKindNotReferenced(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
                         break;
 
                     case SearchParamTableExpressionKind.Include:
@@ -1116,6 +1121,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _sortVisited = true;
         }
 
+        private void HandleTableKindNotReferenced(SearchParamTableExpression searchParamTableExpression, SearchOptions context, string referenceSourceTableAlias, string referenceTargetTableAlias)
+        {
+            var previousTable = TableExpressionName(FindRestrictingPredecessorTableExpressionIndex());
+
+            StringBuilder.Append("SELECT T1, Sid1");
+            StringBuilder.AppendLine(IsInSortMode(context) ? ", SortValue" : string.Empty);
+            StringBuilder.Append("FROM ").Append(VLatest.CurrentResource).AppendLine(referenceTargetTableAlias);
+            StringBuilder.AppendLine("WHERE NOT EXISTS").AppendLine("(");
+
+            using (StringBuilder.Indent())
+            {
+                StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
+                StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(referenceSourceTableAlias);
+                StringBuilder.Append($"WHERE {referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceId}");
+                StringBuilder.Append($"AND {referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceTypeId}");
+            }
+
+            StringBuilder.AppendLine(")");
+
+            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            {
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, referenceTargetTableAlias);
+                AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetTableAlias);
+                if (searchParamTableExpression.Predicate != null)
+                {
+                    delimited.BeginDelimitedElement();
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                }
+            }
+        }
+
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
@@ -1243,6 +1279,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     case SearchParamTableExpressionKind.Normal:
                     case SearchParamTableExpressionKind.Chain:
                     case SearchParamTableExpressionKind.Top:
+                    case SearchParamTableExpressionKind.NotReferenced:
                         return currentIndex - 1;
                     case SearchParamTableExpressionKind.Concatenation:
                         return FindImpl(currentIndex - 1);

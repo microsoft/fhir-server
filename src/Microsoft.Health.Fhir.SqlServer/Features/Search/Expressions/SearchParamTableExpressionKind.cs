@@ -74,5 +74,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// the sort parameter is also present as a query parameter in the base search query.
         /// </summary>
         SortWithFilter,
+
+        /// <summary>
+        /// Represents a table expression that is used to find resources that are not referenced by any other resources.
+        /// </summary>
+        NotReferenced,
     }
 }
