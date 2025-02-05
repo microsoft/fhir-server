@@ -1,0 +1,59 @@
+# ADR: Resource Table Refactoring and Index Optimization for FHIR Server
+
+## Context
+The FHIR server database schema required optimizations to improve performance, reduce index size, and enhance query efficiency. One main approach was identified:
+1. Removing an index from the `Resource` table by splitting history and current resources into separate tables (`CurrentResources`, `HistoryResources`) and moving `RawResource` into its own table (`RawResources`).
+
+Additionally, changes include increasing string reference ID size from 64 to 768 bytes and modifying search queries to work efficiently with the new schema.
+
+## Decision
+We will implement the schema optimizations by:
+- Splitting the `Resource` table into `CurrentResources` and `HistoryResources`.
+- Creating a `RawResources` table to store raw resource data without frequent movement.
+- Creating views (`Resource`, `ReferenceSearchParam`) to minimize code changes.
+- Managing writes using stored procedures and triggers, ensuring backward compatibility.
+- Updating SQL query generation logic to remove reliance on index hints.
+- Deploying changes with a phased approach, using a special flag to disable automatic schema upgrades temporarily.
+
+```mermaid
+
+graph TD;
+    subgraph "Original Schema"
+        ResourceTable["Resource Table"]
+        ResourceTable -- contains --> RawResource["Raw Resource"]
+    end
+
+    subgraph "Updated Schema"
+        CurrentResources["CurrentResources Table"]
+        HistoryResources["HistoryResources Table"]
+        RawResources["RawResources Table"]
+    end
+
+    ResourceTable -->|Split Into| CurrentResources
+    ResourceTable -->|Split Into| HistoryResources
+    ResourceTable -->|Move RawResource To| RawResources
+
+
+```
+
+## Status
+Proposed
+
+## Consequences
+### Positive Outcomes:
+- Improved query performance due to more efficient indexing and reduced table size.
+- Enhanced scalability, especially for large datasets.
+- Improved maintainability and separation of concerns in the database schema.
+- Minimal code changes due to the use of views.
+
+### Potential Challenges:
+- Temporary performance degradation during schema migration.
+- Need for additional testing, especially for complex queries (e.g., DDMS-like queries).
+- Updates to existing search service logic to remove index hints.
+- Potential need for adjustments in performance test suites.
+
+### Next Steps:
+- Complete production testing before final deployment.
+- Ensure monitoring of query latencies before, during, and after deployment.
+- Validate performance improvements against baseline metrics.
+- Update documentation and guidelines for working with the new schema.
