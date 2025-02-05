@@ -1,7 +1,8 @@
 # ADR: Introducing ResourceIdIntMap for Integer-Based Resource Mapping
+Labels: [SQL](https://github.com/microsoft/fhir-server/labels/Area-SQL)
 
 ## Context
-The FHIR server schema requires improvements in resource reference searches, which were previously reliant on string-based `ResourceId` values. These string-based references were inefficient for large-scale queries requiring many duplicated values being stored. By introducing an integer mapping, we aim to reduce the space required to store this data and simplify reference searches.
+The FHIR server schema requires storage optimizations in resource reference searches, which were previously reliant on string-based `ResourceId` values. By introducing an integer mapping, we aim to reduce the space required to store this data and simplify reference searches.
 
 ## Decision
 We will introduce a new `ResourceIdIntMap` table that:
@@ -38,12 +39,10 @@ Proposed
 
 ## Consequences
 ### Positive Outcomes:
-- Improved query performance by utilizing integer-based references instead of strings.
-- Reduced indexing overhead and increased efficiency in database joins.
-- Better scalability as integer-based searches are significantly faster than string-based ones.
+- Reduced storage size by eliminating many duplicated string values.
 
 ### Potential Challenges:
-- Migration complexity in converting existing `ResourceId` values to integers.
+- (Possible) Degraded query performance in some scenarios with additional joins.
 - Adjustments required in application logic to accommodate the new reference structure.
 - Additional testing necessary to ensure correctness and performance improvements.
 
@@ -51,4 +50,3 @@ Proposed
 - Develop migration scripts to populate `ResourceIdIntMap` without affecting existing functionality.
 - Implement changes in `ReferenceSearchParam` to fully leverage integer-based lookups.
 - Conduct performance testing to verify improvements and address any regressions.
-- Update documentation to reflect the schema changes and best practices for querying the new structure.

@@ -1,10 +1,12 @@
-# ADR: Resource Table Refactoring and Index Optimization for FHIR Server
+# ADR: Resource Table Refactoring and Index Optimization
+Labels: [SQL](https://github.com/microsoft/fhir-server/labels/Area-SQL)
 
 ## Context
-The FHIR server database schema required optimizations to improve performance, reduce index size, and enhance query efficiency. One main approach was identified:
+The FHIR server database schema requires optimizations to reduce index size, this change outlines removing unneeded indexes from the Resource table:
+
 1. Removing an index from the `Resource` table by splitting history and current resources into separate tables (`CurrentResources`, `HistoryResources`) and moving `RawResource` into its own table (`RawResources`).
 
-Additionally, changes include increasing string reference ID size from 64 to 768 bytes and modifying search queries to work efficiently with the new schema.
+Additionally, changes include increasing string reference ID size from 64 to 768 bytes and modifying search queries to work with the new schema.
 
 ## Decision
 We will implement the schema optimizations by:
@@ -41,16 +43,17 @@ Proposed
 
 ## Consequences
 ### Positive Outcomes:
-- Improved query performance due to more efficient indexing and reduced table size.
+- Reduced index size.
 - Enhanced scalability, especially for large datasets.
 - Improved maintainability and separation of concerns in the database schema.
 - Minimal code changes due to the use of views.
 
 ### Potential Challenges:
 - Temporary performance degradation during schema migration.
-- Need for additional testing, especially for complex queries (e.g., DDMS-like queries).
+- Need for additional testing, especially for complex queries.
 - Updates to existing search service logic to remove index hints.
 - Potential need for adjustments in performance test suites.
+- Some queries and scenarios might degrade in performance under the new schema.
 
 ### Next Steps:
 - Complete production testing before final deployment.

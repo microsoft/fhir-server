@@ -1,4 +1,5 @@
 # ADR: Implementing $includes Operation for Managing FHIR Bundle Includes
+Labels: [Specification](https://github.com/microsoft/fhir-server/labels/Specification) | [API](https://github.com/microsoft/fhir-server/labels/Area-API)
 
 ## Context
 FHIR API users and developers need a scalable solution for handling included resources (_include and _revInclude) within a search bundle. Currently, performance constraints limit the number of included items to 100. When this limit is exceeded, all additional included items are truncated, making it difficult to retrieve necessary data efficiently. The new $includes operation is introduced to allow separate retrieval of included items with support for pagination, maintaining API performance and usability. 

@@ -1,4 +1,5 @@
 # ADR: Support for `_include` Parameter in Delete Requests
+Labels: [Specification](https://github.com/microsoft/fhir-server/labels/Specification) | [API](https://github.com/microsoft/fhir-server/labels/Area-API)
 
 ## Context
 
