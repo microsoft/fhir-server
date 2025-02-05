@@ -757,4 +757,7 @@
   <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
     <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
   </data>
+  <data name="ReindexRunning" xml:space="preserve">
+    <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
+  </data>
 </root>
