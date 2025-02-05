@@ -207,7 +207,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
                 () => documentClient,
                 _cosmosDataStoreConfiguration,
-                cosmosDocumentQueryFactory);
+                cosmosDocumentQueryFactory,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance));
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
