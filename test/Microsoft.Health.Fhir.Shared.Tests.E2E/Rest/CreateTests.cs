@@ -62,6 +62,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABinaryResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            using FhirResponse<Binary> response = await _client.CreateAsync(Samples.GetJsonSample<Binary>("binary-example.json");
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.NotNull(response.Headers.ETag);
+            Assert.NotNull(response.Headers.Location);
+            Assert.NotNull(response.Content.Headers.LastModified);
+
+            Binary binary = response.Resource;
+
+            Assert.NotNull(binary.Id);
+            Assert.NotNull(binary.Meta.VersionId);
+            Assert.NotNull(binary.Meta.LastUpdated);
+
+            Assert.Equal($@"W/""{binary.Meta.VersionId}""", response.Headers.ETag.ToString());
+
+            TestHelper.AssertLocationHeaderIsCorrect(_client, binary, response.Headers.Location);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(binary.Meta.LastUpdated, response.Content.Headers.LastModified);
+
+            DotNetAttributeValidation.Validate(binary, true);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
             using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: Samples.GetProvenanceHeader());
