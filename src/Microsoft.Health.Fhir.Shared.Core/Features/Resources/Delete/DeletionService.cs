@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -18,9 +19,12 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
@@ -46,6 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirContext;
+        private readonly CoreFeatureConfiguration _configuration;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -59,6 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
+            RequestContextAccessor<IFhirRequestContext> fhirContext,
+            IOptions<CoreFeatureConfiguration> configuration,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -69,6 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _fhirContext = EnsureArg.IsNotNull(fhirContext, nameof(fhirContext));
+            _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -116,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             EnsureArg.IsNotNull(request, nameof(request));
 
             var searchCount = 1000;
+            bool tooManyIncludeResults = false;
 
             IReadOnlyCollection<SearchResultEntry> results;
             string ct;
@@ -136,6 +147,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             var deleteTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            if (CheckFhirContextIssues())
+            {
+                var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch));
+                throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+            }
 
             // Delete the matched results...
             try
@@ -184,6 +201,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 onlyIds: true,
                                 logger: _logger);
                         }
+
+                        if (CheckFhirContextIssues())
+                        {
+                            tooManyIncludeResults = true;
+                            break;
+                        }
                     }
                     else
                     {
@@ -217,9 +240,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, deleteTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
-            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
+            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults)
             {
                 var exceptions = new List<Exception>();
+
+                if (tooManyIncludeResults)
+                {
+                    exceptions.Add(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch)));
+                }
+
                 deleteTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<Dictionary<string, long>> result) =>
                     {
                         if (result.Exception != null)
@@ -355,6 +384,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             });
 
             return auditTask;
+        }
+
+        private bool CheckFhirContextIssues()
+        {
+            return _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
         }
 
         private static Dictionary<string, long> AppendDeleteResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
