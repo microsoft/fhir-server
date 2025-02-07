@@ -265,6 +265,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
+        [SkippableFact]
+        public async Task GivenBulkHardDeleteJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
+        {
+            CheckBulkDeleteEnabled();
+
+            var resourceTypes = new Dictionary<string, long>()
+            {
+                { "Patient", 1 },
+                { "Observation", 1 },
+            };
+
+            string tag = Guid.NewGuid().ToString();
+            var patient = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
+
+            var observation = Activator.CreateInstance<Observation>();
+            observation.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            observation.Subject = new ResourceReference("Patient/" + patient.Id);
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept("test", "test");
+
+            await _fhirClient.CreateAsync(observation);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
+
+            using HttpRequestMessage request = GenerateBulkDeleteRequest(
+                tag,
+                "Observation/$bulk-delete",
+                queryParams: new Dictionary<string, string>
+                {
+                    { "_include", "Observation:subject" },
+                    { KnownQueryParameterNames.BulkHardDelete, "true" },
+                });
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+        }
+
         private async Task RunBulkDeleteRequest(
             Dictionary<string, long> expectedResults,
             bool addUndeletedResource = false,
@@ -282,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), (int)expectedResults[key], tag);
             }
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
+            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag, path, queryParams);
 
