@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABinaryResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
-            using FhirResponse<Binary> response = await _client.CreateAsync(Samples.GetJsonSample<Binary>("binary-example.json");
+            using FhirResponse<Binary> response = await _client.CreateAsync(Samples.GetJsonSample<Binary>("binary-example.json"));
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
