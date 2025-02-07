@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             try
             {
                 Bundle createBundle = new Bundle();
-                createBundle.Type = Bundle.BundleType.Transaction;
+                createBundle.Type = Bundle.BundleType.Batch;
                 createBundle.Entry = new System.Collections.Generic.List<Bundle.EntryComponent>();
 
                 Group group = new Group();
