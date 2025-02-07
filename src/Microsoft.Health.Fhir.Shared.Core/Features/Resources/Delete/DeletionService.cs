@@ -159,18 +159,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 while (results.Any() || !string.IsNullOrEmpty(ct))
                 {
-                    IReadOnlyCollection<SearchResultEntry> resultsToDelete =
-                        request.DeleteAll ? results : results.Take(Math.Max((int)(request.MaxDeleteCount.GetValueOrDefault() - numQueuedForDeletion), 0)).ToArray();
-
-                    numQueuedForDeletion += resultsToDelete.Count;
+                    numQueuedForDeletion += results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
-                        deleteTasks.Add(SoftDeleteResourcePage(request, resultsToDelete, cancellationTokenSource.Token));
+                        deleteTasks.Add(SoftDeleteResourcePage(request, results, cancellationTokenSource.Token));
                     }
                     else
                     {
-                        deleteTasks.Add(HardDeleteResourcePage(request, resultsToDelete, cancellationTokenSource.Token));
+                        deleteTasks.Add(HardDeleteResourcePage(request, results, cancellationTokenSource.Token));
                     }
 
                     if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
@@ -280,12 +277,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId)));
 
-            bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
-            ResourceWrapperOperation[] softDeletes = resourcesToDelete.Select(item =>
+            ResourceWrapperOperation[] softDeletes = await Task.WhenAll(resourcesToDelete.Select(async item =>
             {
-                ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(request.ResourceType, item.Resource.ResourceId);
+                bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Resource.ResourceTypeName, cancellationToken);
+                ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(item.Resource.ResourceTypeName, item.Resource.ResourceId);
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
-            }).ToArray();
+            }));
 
             try
             {
