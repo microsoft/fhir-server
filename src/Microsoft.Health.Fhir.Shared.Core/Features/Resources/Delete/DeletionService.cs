@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
-        private readonly RequestContextAccessor<IFhirRequestContext> _fhirContext;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly ILogger<DeletionService> _logger;
 
@@ -65,7 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
-            RequestContextAccessor<IFhirRequestContext> fhirContext,
             IOptions<CoreFeatureConfiguration> configuration,
             ILogger<DeletionService> logger)
         {
@@ -77,7 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _fhirContext = EnsureArg.IsNotNull(fhirContext, nameof(fhirContext));
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
 
             _retryPolicy = Policy
@@ -385,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private bool CheckFhirContextIssues()
         {
-            return _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+            return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
         }
 
         private static Dictionary<string, long> AppendDeleteResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
