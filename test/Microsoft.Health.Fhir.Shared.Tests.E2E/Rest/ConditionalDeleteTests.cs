@@ -216,7 +216,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 Group group = new Group();
                 group.Member = new System.Collections.Generic.List<Group.MemberComponent>();
+#if !R5
                 group.Actual = true;
+#else
+                group.Membership = Group.GroupMembershipBasis.Enumerated;
+#endif
                 group.Type = Group.GroupType.Person;
 
                 group.Meta = new Meta();
