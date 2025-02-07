@@ -14,10 +14,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -60,13 +62,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger2 = Substitute.For<ILogger<SearchParameterStateUpdateHandler>>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
             _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
+            _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope();
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
-            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger);
+            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger, _fhirOperationDataStoreFactory);
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
@@ -269,7 +275,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var loggers = CreateTestAuditLogger();
-            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger);
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger, _fhirOperationDataStoreFactory);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
@@ -289,6 +295,32 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             Assert.Single(loggers.logger.LogRecords);
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
+        }
+
+        [Fact]
+        public async Task GivenARequestToUpdateSearchParameterStatus_WhenAReindexJobIsRunning_ThenAnOperationOutcomeIsReturnedIndicatingUpdatesAreNotAllowed()
+        {
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
+            };
+
+            IFhirOperationDataStore fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+            fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((true, string.Empty));
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory = () => fhirOperationDataStore.CreateMockScope();
+
+            SearchParameterStateUpdateHandler searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger, fhirOperationDataStoreFactory);
+            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+
+            Assert.NotNull(response);
+            Assert.NotNull(response.UpdateStatus);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
+            var issue = resourceResponse.Issue[0];
+            Assert.True(issue.Details.Text == Fhir.Core.Resources.ReindexRunning);
+            Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
+            Assert.True(issue.Code == OperationOutcome.IssueType.Conflict);
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
