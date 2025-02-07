@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     /// </summary>
     public class ResourceElement : IResourceElement
     {
+        private readonly Lazy<EvaluationContext> _context;
         private readonly List<string> _nonDomainTypes = new List<string>
             {
                 "Bundle",
@@ -29,7 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             EnsureArg.IsNotNull(instance, nameof(instance));
 
-            Instance = instance;
+            _context = new Lazy<EvaluationContext>(() =>
+                new EvaluationContext().WithResourceOverrides(instance));
         }
 
         internal ResourceElement(ITypedElement instance, object resourceInstance)
@@ -55,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             get
             {
-                var obj = Instance.Scalar("Resource.meta.lastUpdated");
+                var obj = Instance.Scalar("Resource.meta.lastUpdated", _context.Value);
                 if (obj != null)
                 {
                     return PrimitiveTypeConverter.ConvertTo<DateTimeOffset>(obj.ToString());
@@ -67,18 +69,18 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public T Scalar<T>(string fhirPath)
         {
-            object scalar = Instance.Scalar(fhirPath);
+            object scalar = Instance.Scalar(fhirPath, _context.Value);
             return (T)scalar;
         }
 
         public IEnumerable<ITypedElement> Select(string fhirPath)
         {
-            return Instance.Select(fhirPath);
+            return Instance.Select(fhirPath, _context.Value);
         }
 
         public bool Predicate(string fhirPath)
         {
-            return Instance.Predicate(fhirPath);
+            return Instance.Predicate(fhirPath, _context.Value);
         }
     }
 }
