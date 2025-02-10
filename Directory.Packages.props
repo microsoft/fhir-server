@@ -92,8 +92,8 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(LoggingVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.22.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(ConsoleLoggingVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(LoggingVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(SdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(ConsoleLoggingVersion)" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(SdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
