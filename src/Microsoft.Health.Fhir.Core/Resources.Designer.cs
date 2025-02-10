@@ -1169,6 +1169,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete..
+        /// </summary>
+        internal static string ReindexRunning {
+            get {
+                return ResourceManager.GetString("ReindexRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {

@@ -131,8 +131,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 new CosmosClientBuilder(host, _cosmosAccessTokenProviderFactory.Invoke().TokenCredential) :
                 new CosmosClientBuilder(host, key);
 
+            if (configuration.ConnectionMode == ConnectionMode.Gateway)
+            {
+                builder.WithConnectionModeGateway();
+            }
+            else
+            {
+                builder.WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true);
+            }
+
             builder
-                .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
                 .AddCustomHandlers(requestHandlers.ToArray());
