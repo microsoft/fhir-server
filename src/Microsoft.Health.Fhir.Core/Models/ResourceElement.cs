@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             EnsureArg.IsNotNull(instance, nameof(instance));
 
+            Instance = instance;
             _context = new Lazy<EvaluationContext>(() =>
                 new EvaluationContext().WithResourceOverrides(instance));
         }
