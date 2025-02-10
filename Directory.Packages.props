@@ -3,7 +3,7 @@
   <PropertyGroup>
     <HealthcareSharedPackageVersion>8.0.33</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.3</Hl7FhirVersion>
-    <Hl7FhirLegacyVersion>5.3.0</Hl7FhirLegacyVersion>
+    <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
