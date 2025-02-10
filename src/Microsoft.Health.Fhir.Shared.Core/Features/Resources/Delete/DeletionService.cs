@@ -298,13 +298,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
-                partialResults.AddRange(softDeleteIncludes.Select(item => (
-                    item.Wrapper.ResourceTypeName,
-                    item.Wrapper.ResourceId,
-                    resourcesToDelete
-                        .Where(resource => resource.Resource.ResourceId == item.Wrapper.ResourceId && resource.Resource.ResourceTypeName == item.Wrapper.ResourceTypeName)
-                        .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
+                if (softDeleteIncludes.Any())
+                {
+                    await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
+                    partialResults.AddRange(softDeleteIncludes.Select(item => (
+                        item.Wrapper.ResourceTypeName,
+                        item.Wrapper.ResourceId,
+                        resourcesToDelete
+                            .Where(resource => resource.Resource.ResourceId == item.Wrapper.ResourceId && resource.Resource.ResourceTypeName == item.Wrapper.ResourceTypeName)
+                            .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
+                }
 
                 await fhirDataStore.Value.MergeAsync(softDeleteMatches, cancellationToken);
             }
