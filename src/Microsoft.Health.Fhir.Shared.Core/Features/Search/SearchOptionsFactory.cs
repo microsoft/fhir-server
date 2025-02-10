@@ -123,6 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            bool notReferencedSearch = false;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
@@ -216,6 +217,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (Exception ex)
                     {
                         throw new BadRequestException(ex.Message);
+                    }
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.NotReferenced, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Currently the only supported value for _not-referenced is "*:*".
+                    // If this feature is enhanced in the future to allow for checking if specific references are not present, this will need to be updated.
+                    if (string.Equals(query.Item2, "*:*", StringComparison.OrdinalIgnoreCase))
+                    {
+                        notReferencedSearch = true;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.NotReferencedParameterInvalidValue, query.Item2));
                     }
                 }
                 else
@@ -392,6 +406,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     throw new InvalidSearchOperationException(
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                 }
+            }
+
+            if (notReferencedSearch)
+            {
+                searchExpressions.Add(Expression.NotReferencedSearch());
             }
 
             if (searchExpressions.Count == 1)
