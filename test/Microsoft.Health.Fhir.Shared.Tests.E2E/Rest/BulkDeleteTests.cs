@@ -181,8 +181,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async Task GivenBulkDeleteJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
+#if Stu3
+            Skip.If(true, "Referenced used isn't present in Stu3");
+#else
             CheckBulkDeleteEnabled();
 
             var resourceTypes = new Dictionary<string, long>()
@@ -203,8 +208,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     new Coding("testTag", tag),
                 },
             };
-            encounter.Status = EncounterStatus.Finished;
+            encounter.Status = EncounterStatus.Planned;
+#if !R5
             encounter.Class = new Coding("test", "test");
+#else
+            encounter.Class = new List<CodeableConcept>();
+            encounter.Class.Add(new CodeableConcept("test", "test"));
+#endif
 
             encounter = await _fhirClient.CreateAsync(encounter);
 
@@ -236,6 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+#endif
         }
 
         [SkippableFact]
