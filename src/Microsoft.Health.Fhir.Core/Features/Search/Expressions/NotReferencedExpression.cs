@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     public class NotReferencedExpression : Expression
     {
+        
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
         }
