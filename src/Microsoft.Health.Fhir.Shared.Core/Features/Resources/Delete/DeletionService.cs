@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var deleteTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            if (CheckFhirContextIssues())
+            if (AreIncludeResultsTruncated())
             {
                 var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch));
                 throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 logger: _logger);
                         }
 
-                        if (CheckFhirContextIssues())
+                        if (AreIncludeResultsTruncated())
                         {
                             tooManyIncludeResults = true;
                             break;
@@ -431,7 +431,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return auditTask;
         }
 
-        private bool CheckFhirContextIssues()
+        private bool AreIncludeResultsTruncated()
         {
             return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
         }

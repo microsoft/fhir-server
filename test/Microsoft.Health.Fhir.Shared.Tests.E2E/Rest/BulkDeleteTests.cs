@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -188,10 +189,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 { "Patient", 1 },
                 { "Observation", 1 },
+                { "Encounter", 1 },
             };
 
             string tag = Guid.NewGuid().ToString();
             var patient = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
+
+            var encounter = Activator.CreateInstance<Encounter>();
+            encounter.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            encounter.Status = EncounterStatus.Finished;
+            encounter.Class = new Coding("test", "test");
+
+            encounter = await _fhirClient.CreateAsync(encounter);
 
             var observation = Activator.CreateInstance<Observation>();
             observation.Meta = new Meta()
@@ -202,6 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
             observation.Subject = new ResourceReference("Patient/" + patient.Id);
+            observation.Encounter = new ResourceReference("Encounter/" + encounter.Id);
             observation.Status = ObservationStatus.Final;
             observation.Code = new CodeableConcept("test", "test");
 
@@ -214,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Observation/$bulk-delete",
                 queryParams: new Dictionary<string, string>
                 {
-                    { "_include", "Observation:subject" },
+                    { "_include", "Observation:*" },
                 });
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -231,10 +247,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 { "Patient", 1 },
                 { "Observation", 1 },
+                { "Encounter", 1 },
             };
 
             string tag = Guid.NewGuid().ToString();
             var patient = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
+
+            var encounter = Activator.CreateInstance<Encounter>();
+            encounter.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            encounter.Subject = new ResourceReference("Patient/" + patient.Id);
+            encounter.Status = EncounterStatus.Finished;
+            encounter.Class = new Coding("test", "test");
+
+            await _fhirClient.CreateAsync(encounter);
 
             var observation = Activator.CreateInstance<Observation>();
             observation.Meta = new Meta()
@@ -257,7 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Patient/$bulk-delete",
                 queryParams: new Dictionary<string, string>
                 {
-                    { "_revinclude", "Observation:subject" },
+                    { "_revinclude", "*:*" },
                 });
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
