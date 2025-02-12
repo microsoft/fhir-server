@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
         // Default value is PortReuseMode.ReuseUnicastPort, recommended value is PortReuseMode.ReuseUnicastPort. Leaving null to use the SDK default.
         public PortReuseMode? PortReuseMode { get; set; }
 
-        // Default value is true, recommended value is true. Leaving null to use the SDK default.
-        public bool EnableTcpConnectionEndpointRediscovery { get; set; }
+        // Default value is true, recommended value is true. Value is true for explicit configuration.
+        public bool EnableTcpConnectionEndpointRediscovery { get; set; } = true;
 
         public ConsistencyLevel? DefaultConsistencyLevel { get; set; }
 
