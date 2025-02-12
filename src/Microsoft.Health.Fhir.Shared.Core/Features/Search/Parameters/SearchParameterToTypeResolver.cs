@@ -291,11 +291,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static EnumerableReturnType Visit(BracketExpression expression, Context ctx)
         {
-            if (expression.Operand is BinaryExpression binaryExpression)
+            if (expression.Operand != null)
             {
-                return Accept(binaryExpression, ctx);
+                return Accept(expression.Operand, ctx);
             }
 
+            // Bracket expressions should always have an operand.
+            // They should fail compilation if they don't.
             throw new NotImplementedException();
         }
 
