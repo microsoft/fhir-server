@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 {
                     RouteData routeData = context.GetRouteData();
 
-                    if (routeData?.Values != null)
+                    if (routeData?.Values?.Any() == true)
                     {
                         routeData.Values.TryGetValue("controller", out object controllerName);
                         routeData.Values.TryGetValue("action", out object actionName);

@@ -9,18 +9,21 @@ using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
-using AngleSharp.Common;
 using EnsureThat;
-using IdentityServer4.Models;
-using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using OpenIddict.Abstractions;
+using OpenIddict.Server;
+using OpenIddict.Validation.AspNetCore;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -53,67 +56,76 @@ namespace Microsoft.Health.Fhir.Web
             {
                 var host = configuration["ASPNETCORE_URLS"];
 
-                services.AddIdentityServer()
-                    .AddDeveloperSigningCredential()
-                    .AddInMemoryApiScopes(new[]
+                services.AddDbContext<ApplicationAuthDbContext>(options =>
+                {
+                    options.UseInMemoryDatabase("DevAuthDb");
+                    options.UseOpenIddict();
+                });
+
+                services.AddOpenIddict()
+                    .AddCore(options =>
                     {
-                        new ApiScope(DevelopmentIdentityProviderConfiguration.Audience),
-                        new ApiScope(WrongAudienceClient),
-                        new ApiScope("fhirUser"),
-                    }.Concat(smartScopes))
-                    .AddInMemoryApiResources(new[]
-                    {
-                        new ApiResource(
-                            DevelopmentIdentityProviderConfiguration.Audience,
-                            userClaims: new[] { authorizationConfiguration.RolesClaim, "fhirUser" })
-                        {
-                            Scopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
-                        },
-                        new ApiResource(
-                            WrongAudienceClient,
-                            userClaims: new[] { authorizationConfiguration.RolesClaim })
-                        {
-                            Scopes = { WrongAudienceClient },
-                        },
+                        // Register the in-memory stores.
+                        options.UseEntityFrameworkCore()
+                            .UseDbContext<ApplicationAuthDbContext>();
                     })
-                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select((user) =>
-                        {
-                            var userClaims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList();
-                            userClaims.Add(new Claim("fhirUser", host + "Patient/" + user.Id));
-                            return new TestUser
+                    .AddServer(options =>
+                    {
+                        // Minimal token endpoint
+                        options.SetTokenEndpointUris("/connect/token");
+
+                        // Dev flows:
+                        options.AllowClientCredentialsFlow();
+                        options.AllowPasswordFlow();
+
+                        // Development signing - no persistent store required
+                        options.AddDevelopmentSigningCertificate();
+                        options.AddDevelopmentEncryptionCertificate();
+                        options.DisableAccessTokenEncryption();
+
+                        // For testing, you can allow clients without secrets:
+                        // options.AcceptAnonymousClients();
+
+                        // ASP.NET Core integration
+                        options.UseAspNetCore()
+                            .EnableTokenEndpointPassthrough();
+
+                        // Register sample scope strings (replace usage of ApiScope).
+                        options.RegisterScopes(
+                            "fhirUser",
+                            DevelopmentIdentityProviderConfiguration.Audience,
+                            WrongAudienceClient);
+                        options.RegisterScopes(smartScopes.ToArray());
+
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
                             {
-                                Username = user.Id,
-                                Password = user.Id,
-                                IsActive = true,
-                                SubjectId = user.Id,
-                                Claims = userClaims,
-                            };
-                        }).ToList())
-                    .AddInMemoryClients(
-                        developmentIdentityProviderConfiguration.ClientApplications.Select(
-                            applicationConfiguration =>
-                                new Client
+                                DevelopmentIdentityProviderApplicationConfiguration client = developmentIdentityProviderConfiguration
+                                    .ClientApplications
+                                    .FirstOrDefault(x => x.Id == context.ClientId);
+
+                                if (client == null)
                                 {
-                                    ClientId = applicationConfiguration.Id,
+                                    context.Reject(
+                                        error: OpenIddictConstants.Errors.InvalidClient,
+                                        description: "The specified 'client_id' doesn't match a registered application.");
+                                }
 
-                                    // client credentials and ROPC for testing
-                                    AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
+                                if (!string.Equals(client.Id, context.ClientSecret, StringComparison.Ordinal))
+                                {
+                                    context.Reject(
+                                        error: OpenIddictConstants.Errors.InvalidGrant,
+                                        description: "The specified 'client_secret' is invalid.");
+                                }
 
-                                    // secret for authentication
-                                    ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
+                                return default;
+                            }));
+                    });
 
-                                    // scopes that client has access to
-                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
-
-                                    // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(
-                                        r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
-                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id, host))
-                                            .ToList(),
-
-                                    ClientClaimsPrefix = string.Empty,
-                                }))
-                ;
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                });
             }
 
             return services;
@@ -127,9 +139,12 @@ namespace Microsoft.Health.Fhir.Web
         public static IApplicationBuilder UseDevelopmentIdentityProviderIfConfigured(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
-            if (app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>()?.Value?.Enabled == true)
+            var devIdpConfig = app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>();
+
+            if (devIdpConfig?.Value?.Enabled == true)
             {
-                app.UseIdentityServer();
+                app.UseAuthentication();
+                app.UseAuthorization();
             }
 
             return app;
@@ -142,20 +157,19 @@ namespace Microsoft.Health.Fhir.Web
         /// This is an optional configuration source and is only intended to be used for local development.
         /// </summary>
         /// <param name="configurationBuilder">The configuration builder.</param>
-        /// <param name="existingConfiguration">abc</param>
+        /// <param name="existingConfiguration">The existing configuration.</param>
         /// <returns>The same configuration builder.</returns>
         public static IConfigurationBuilder AddDevelopmentAuthEnvironmentIfConfigured(this IConfigurationBuilder configurationBuilder, IConfigurationRoot existingConfiguration)
         {
             EnsureArg.IsNotNull(existingConfiguration, nameof(existingConfiguration));
 
             string testEnvironmentFilePath = existingConfiguration["TestAuthEnvironment:FilePath"];
-
+            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath);
             if (string.IsNullOrWhiteSpace(testEnvironmentFilePath))
             {
                 return configurationBuilder;
             }
 
-            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath);
             if (!File.Exists(testEnvironmentFilePath))
             {
                 return configurationBuilder;
@@ -164,36 +178,36 @@ namespace Microsoft.Health.Fhir.Web
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
-        private static List<ApiScope> GenerateSmartClinicalScopes()
+        private static List<string> GenerateSmartClinicalScopes()
         {
             ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
-            var scopes = new List<ApiScope>();
+            var scopes = new List<string>();
 
-            scopes.Add(new ApiScope("patient/*.*"));
-            scopes.Add(new ApiScope("user/*.*"));
-            scopes.Add(new ApiScope("system/*.*"));
-            scopes.Add(new ApiScope("system/*.read"));
-            scopes.Add(new ApiScope("patient/*.read"));
-            scopes.Add(new ApiScope("user/*.write"));
-            scopes.Add(new ApiScope("user/*.read"));
+            scopes.Add("patient/*.*");
+            scopes.Add("user/*.*");
+            scopes.Add("system/*.*");
+            scopes.Add("system/*.read");
+            scopes.Add("patient/*.read");
+            scopes.Add("user/*.write");
+            scopes.Add("user/*.read");
 
             foreach (var resourceType in resourceTypes)
             {
-                scopes.Add(new ApiScope($"patient/{resourceType}.*"));
-                scopes.Add(new ApiScope($"user/{resourceType}.*"));
-                scopes.Add(new ApiScope($"patient/{resourceType}.read"));
-                scopes.Add(new ApiScope($"user/{resourceType}.read"));
-                scopes.Add(new ApiScope($"patient/{resourceType}.write"));
-                scopes.Add(new ApiScope($"user/{resourceType}.write"));
-                scopes.Add(new ApiScope($"system/{resourceType}.write"));
-                scopes.Add(new ApiScope($"system/{resourceType}.read"));
+                scopes.Add($"patient/{resourceType}.*");
+                scopes.Add($"user/{resourceType}.*");
+                scopes.Add($"patient/{resourceType}.read");
+                scopes.Add($"user/{resourceType}.read");
+                scopes.Add($"patient/{resourceType}.write");
+                scopes.Add($"user/{resourceType}.write");
+                scopes.Add($"system/{resourceType}.write");
+                scopes.Add($"system/{resourceType}.read");
             }
 
             return scopes;
         }
 
-        private static ClientClaim[] CreateFhirUserClaims(string userId, string host)
+        private static Claim[] CreateFhirUserClaims(string userId, string host)
         {
             string userType = null;
 
@@ -210,11 +224,11 @@ namespace Microsoft.Health.Fhir.Web
                 userType = "System";
             }
 
-            return
-            [
-                new ClientClaim("appid", userId),
-                new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
-            ];
+            return new[]
+            {
+                new Claim("appid", userId),
+                new Claim("fhirUser", $"{host}{userType}/" + userId),
+            };
         }
 
         private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
@@ -247,14 +261,13 @@ namespace Microsoft.Health.Fhir.Web
                 private const string AudienceKey = "FhirServer:Security:Authentication:Audience";
                 private const string DevelopmentIdpEnabledKey = "DevelopmentIdentityProvider:Enabled";
                 private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
-
-                private readonly IConfigurationRoot _existingConfiguration;
-
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };
+
+                private readonly IConfigurationRoot _existingConfiguration;
 
                 public Provider(JsonConfigurationSource source, IConfigurationRoot existingConfiguration)
                     : base(source)
@@ -273,12 +286,12 @@ namespace Microsoft.Health.Fhir.Web
                         StringComparer.OrdinalIgnoreCase);
 
                     // add properties related to the development identity provider.
-                    Data[DevelopmentIdpEnabledKey] = bool.TrueString;
-
                     if (string.IsNullOrWhiteSpace(_existingConfiguration[AudienceKey]))
                     {
                         Data[AudienceKey] = DevelopmentIdentityProviderConfiguration.Audience;
                     }
+
+                    Data[DevelopmentIdpEnabledKey] = bool.TrueString;
 
                     if (string.IsNullOrWhiteSpace(_existingConfiguration[AuthorityKey]))
                     {

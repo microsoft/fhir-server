@@ -260,21 +260,22 @@ namespace Microsoft.Health.Fhir.Web
 
         private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
         {
+            // Note: This method is still used to configure JWT Bearer for non–OpenIddict tokens.
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-                .AddJwtBearer(options =>
-                {
-                    options.Authority = securityConfiguration.Authentication.Authority;
-                    options.Audience = securityConfiguration.Authentication.Audience;
-                    options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
-                    options.MapInboundClaims = false;
-                    options.RequireHttpsMetadata = true;
-                    options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
-                });
+            .AddJwtBearer(options =>
+            {
+                options.Authority = securityConfiguration.Authentication.Authority;
+                options.Audience = securityConfiguration.Authentication.Audience;
+                options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
+                options.MapInboundClaims = false;
+                options.RequireHttpsMetadata = true;
+                options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
+            });
         }
 
         /// <summary>
