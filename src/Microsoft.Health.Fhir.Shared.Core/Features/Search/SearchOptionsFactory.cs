@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (notReferencedSearch)
             {
-                searchExpressions.Add(Expression.NotReferencedSearch());
+                searchExpressions.Add(Expression.NotReferenced());
             }
 
             if (searchExpressions.Count == 1)

@@ -757,4 +757,7 @@
   <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
     <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
   </data>
+  <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
+    <value>Not referenced only supports the value *:*</value>
+  </data>
 </root>
