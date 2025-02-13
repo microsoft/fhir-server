@@ -17,6 +17,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly NotReferencedQueryGenerator Instance = new NotReferencedQueryGenerator();
 
-        public override Table Table => VLatest.ReferenceSearchParam;
+        public override Table Table => VLatest.CurrentResource;
     }
 }

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -124,6 +125,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.Append(" "); // Replaced CR by space keeping code "protection".
 
             return context;
+        }
+
+        public override SearchParameterQueryGeneratorContext VisitNotReferenced(NotReferencedExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            // Need to add a target table alias, it isn't working right without it.
+            var referenceTargetTableAlias = string.IsNullOrEmpty(context.TableAlias) ? string.Empty : context.TableAlias + ".";
+            var referenceSourceTableAlias = "refSource";
+
+            context.StringBuilder.AppendLine("NOT EXISTS").AppendLine("(");
+            using (context.StringBuilder.Indent())
+            {
+                context.StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
+                context.StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).AppendLine($" {referenceSourceTableAlias}");
+
+                using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
+                {
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.CurrentResource.ResourceId}");
+
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.CurrentResource.ResourceTypeId}");
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
+
+            return base.VisitNotReferenced(expression, context);
         }
 
         protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)

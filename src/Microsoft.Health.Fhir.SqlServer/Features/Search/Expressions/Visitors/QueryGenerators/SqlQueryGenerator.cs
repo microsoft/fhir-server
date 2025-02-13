@@ -1127,29 +1127,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT T1, Sid1");
             StringBuilder.AppendLine(IsInSortMode(context) ? ", SortValue" : string.Empty);
-            StringBuilder.Append("FROM ").Append(VLatest.CurrentResource).AppendLine(referenceTargetTableAlias);
-            StringBuilder.AppendLine("WHERE NOT EXISTS").AppendLine("(");
-
-            using (StringBuilder.Indent())
-            {
-                StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
-                StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(referenceSourceTableAlias);
-                StringBuilder.Append($"WHERE {referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceId}");
-                StringBuilder.Append($"AND {referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceTypeId}");
-            }
-
-            StringBuilder.AppendLine(")");
+            StringBuilder.Append("FROM ").AppendLine(previousTable);
+            StringBuilder.AppendLine($"JOIN {VLatest.CurrentResource} AS {referenceTargetTableAlias} ON {previousTable}.T1 = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceTypeId} AND {previousTable}.Sid1 = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceSurrogateId}");
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, referenceTargetTableAlias);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetTableAlias);
                 AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetTableAlias);
-                if (searchParamTableExpression.Predicate != null)
+
+                delimited.BeginDelimitedElement();
+                StringBuilder.AppendLine("AND NOT EXISTS").AppendLine("(");
+                using (StringBuilder.Indent())
                 {
-                    delimited.BeginDelimitedElement();
-                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                    StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
+                    StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).AppendLine($" {referenceSourceTableAlias}");
+
+                    using (var nestedDelimited = StringBuilder.BeginDelimitedWhereClause())
+                    {
+                        nestedDelimited.BeginDelimitedElement();
+                        StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceId}");
+
+                        nestedDelimited.BeginDelimitedElement();
+                        StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}.{VLatest.CurrentResource.ResourceTypeId}");
+                    }
                 }
             }
+
+            StringBuilder.AppendLine(")");
         }
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)

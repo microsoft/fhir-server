@@ -16,16 +16,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly NotReferencedRewriter Instance = new NotReferencedRewriter();
 
-        private static readonly SearchParamTableExpression _notReferencedExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.NotReferenced);
+        // private static readonly SearchParamTableExpression _notReferencedExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.NotReferenced);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
-            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
-
-            newTableExpressions.Add(_notReferencedExpression);
-
-            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+            return expression;
         }
     }
 }
