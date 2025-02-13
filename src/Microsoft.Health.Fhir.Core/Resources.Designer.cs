@@ -1601,6 +1601,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The number of included results exceeded the limit of {0}.
+        /// </summary>
+        internal static string TooManyIncludeResults {
+            get {
+                return ResourceManager.GetString("TooManyIncludeResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
         /// </summary>
         internal static string TransactionDeadlock {
