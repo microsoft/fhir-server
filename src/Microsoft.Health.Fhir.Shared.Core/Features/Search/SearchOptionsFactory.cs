@@ -119,8 +119,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.IgnoreSearchParamHash = queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IgnoreSearchParamHash && _.Item2 != null);
 
             string continuationToken = null;
-            string includesContinuationToken = null;
             string feedRange = null;
+
+            // $includes related parameters
+            string includesContinuationToken = null;
+            int? includesCount = null;
 
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
@@ -229,14 +232,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.IncludesContinuationToken));
                     }
 
-                    if (!isIncludesOperation)
-                    {
-                        // TODO: should this case be ignored or throw an exception? The Hl7 doc says, we should ignore it in general. (https://www.hl7.org/fhir/R4/search.html#errors)
-                        // throw new BadRequestException(string.Format(Core.Resources.InvalidContinuationToken, query.Item2, SupportedTotalTypes));
-                    }
-
                     includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
                     setDefaultBundleTotal = false;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesCount, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (int.TryParse(query.Item2, out int count) && count > 0)
+                    {
+                        includesCount = count;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(Core.Resources.InvalidSearchIncludesCountSpecified);
+                    }
                 }
                 else
                 {
@@ -255,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (isIncludesOperation && string.IsNullOrEmpty(includesContinuationToken))
             {
-                throw new BadRequestException("'includesCt' parameter must be provided for $includes operation.");
+                throw new BadRequestException(Core.Resources.MissingIncludesContinuationToken);
             }
 
             searchOptions.ContinuationToken = continuationToken;
@@ -301,7 +309,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
-            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+            if (includesCount.HasValue && includesCount <= _featureConfiguration.DefaultIncludeCountPerSearch)
+            {
+                searchOptions.IncludeCount = includesCount.Value;
+            }
+            else
+            {
+                if (includesCount.HasValue)
+                {
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterIncludesCountExceedLimit, _featureConfiguration.DefaultIncludeCountPerSearch, includesCount)));
+                }
+
+                searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+            }
 
             if (searchParams.Elements?.Any() == true && searchParams.Summary != null && searchParams.Summary != SummaryType.False)
             {

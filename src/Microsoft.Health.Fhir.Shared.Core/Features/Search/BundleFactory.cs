@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             new Bundle.LinkComponent()
                             {
                                 Relation = "related",
-                                Url = url.AbsoluteUri,
+                                Url = url?.AbsoluteUri,
                             });
                     }
                     catch (UriFormatException)

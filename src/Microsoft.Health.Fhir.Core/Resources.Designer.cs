@@ -755,6 +755,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter value must be an integer greater than zero..
+        /// </summary>
+        internal static string InvalidSearchIncludesCountSpecified {
+            get {
+                return ResourceManager.GetString("InvalidSearchIncludesCountSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to &quot;Security configuration base endpoint {0} is an invalid Uri&quot;..
         /// </summary>
         internal static string InvalidSecurityConfigurationBaseEndpoint {
@@ -850,6 +859,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string Meta {
             get {
                 return ResourceManager.GetString("Meta", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;&apos;includesCt&apos; parameter must be provided for $includes operation.&quot;.
+        /// </summary>
+        internal static string MissingIncludesContinuationToken {
+            get {
+                return ResourceManager.GetString("MissingIncludesContinuationToken", resourceCulture);
             }
         }
         
@@ -1322,6 +1340,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter exceeds limit configured for server. Current limit is {0} while `_includesCount` parameter set to {1}..
+        /// </summary>
+        internal static string SearchParamaterIncludesCountExceedLimit {
+            get {
+                return ResourceManager.GetString("SearchParamaterIncludesCountExceedLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported..
         /// </summary>
         internal static string SearchParameterByDefinitionUriNotSupported {
@@ -1709,7 +1736,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The &apos;$includes&apos; operation is not supported for CosmosDB data store..
+        ///   Looks up a localized string similar to The &apos;$includes&apos; operation is not supported..
         /// </summary>
         internal static string UnsupportedIncludesOperation {
             get {

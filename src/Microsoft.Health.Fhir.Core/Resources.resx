@@ -764,8 +764,16 @@
     <value>The number of included results exceeded the limit of {0}</value>
     <comment>{0} is the limit of how many include results the service will return.</comment>
   </data>
-</root>
   <data name="UnsupportedIncludesOperation" xml:space="preserve">
-    <value>The '$includes' operation is not supported for CosmosDB data store.</value>
+    <value>The '$includes' operation is not supported.</value>
+  </data>
+  <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
+    <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
+  </data>
+  <data name="InvalidSearchIncludesCountSpecified" xml:space="preserve">
+    <value>The '_includesCount' parameter value must be an integer greater than zero.</value>
+  </data>
+  <data name="MissingIncludesContinuationToken" xml:space="preserve">
+    <value>"The 'includesCt' parameter must be provided for the $includes operation."</value>
   </data>
 </root>

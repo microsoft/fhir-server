@@ -781,12 +781,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT DISTINCT ");
 
-            if (includeExpression.Reversed || context.IsIncludesOperation)
-            {
-                // In case its revinclude, we limit the number of returned items as the resultset size is potentially
-                // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...
-                StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
-            }
+            // Adding 1 to the include count for detecting a case of truncated "include" resources.
+            StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
 
             var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
 
@@ -911,6 +907,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     var tableAlias = includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
                     delimited.BeginDelimitedElement()
+                        .Append("(")
                         .Append(VLatest.Resource.ResourceTypeId, tableAlias)
                         .Append(" > ")
                         .Append(includesContinuationToken.IncludeResourceTypeId)
@@ -922,7 +919,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, tableAlias)
                         .Append(" > ")
                         .Append(includesContinuationToken.IncludeResourceSurrogateId)
-                        .Append(")");
+                        .Append("))");
                 }
 
                 var scope = delimited.BeginDelimitedElement();
@@ -996,15 +993,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
-            var includeCount = context.IncludeCount;
-            if (context.IsIncludesOperation)
-            {
-                // Adding 1 for detecting an IsPartial resource if any.
-                includeCount++;
-            }
-
             StringBuilder.Append("SELECT DISTINCT TOP (")
-                .Append(Parameters.AddParameter(includeCount, includeInHash: false))
+                .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
                 .Append(") T1, Sid1, IsMatch, ");
 
             StringBuilder.Append("CASE WHEN count_big(*) over() > ")

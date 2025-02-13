@@ -368,19 +368,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
-                if (address == null)
-                {
-                    uriString = _linkGenerator.GetUriByRouteValues(
+                uriString = address == null ?
+                    _linkGenerator.GetUriByRouteValues(
                         httpContext,
                         routeName,
                         routeValues,
                         scheme,
                         new HostString(host),
-                        pathBase);
-                }
-                else
-                {
-                    uriString = _linkGenerator.GetUriByAddress<RouteValuesAddress>(
+                        pathBase) :
+                    _linkGenerator.GetUriByAddress<RouteValuesAddress>(
                         httpContext,
                         address,
                         address.ExplicitValues,
@@ -388,7 +384,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         scheme,
                         new HostString(host),
                         pathBase);
-                }
             }
 
             return new Uri(uriString);

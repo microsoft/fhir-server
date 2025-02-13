@@ -10,19 +10,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class IncludesOperationRewriter : SqlExpressionRewriterWithInitialContext<object>
+    internal class IncludesOperationRewriter : IncludeRewriter
     {
-        internal static readonly IncludesOperationRewriter Instance = new IncludesOperationRewriter();
-
-        private static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(
-            null,
-            null,
-            SearchParamTableExpressionKind.IncludeLimit);
-
-        private static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(
-            null,
-            null,
-            SearchParamTableExpressionKind.IncludeUnionAll);
+        internal static new readonly IncludesOperationRewriter Instance = new IncludesOperationRewriter();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -50,11 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // Add sorted include expressions after all other expressions
             var reorderedExpressions = nonIncludeExpressions.Concat(sortedIncludeExpressions).Concat(new[] { IncludeUnionAllExpression, IncludeLimitExpression }).ToList();
             return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
-        }
-
-        private IEnumerable<SearchParamTableExpression> SortIncludeIterateExpressions(List<SearchParamTableExpression> includeIterateExpressions)
-        {
-            throw new NotImplementedException();
         }
     }
 }
