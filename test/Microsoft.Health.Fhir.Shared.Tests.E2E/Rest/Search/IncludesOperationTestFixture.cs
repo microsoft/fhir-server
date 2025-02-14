@@ -95,6 +95,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             KnownResourceTypes.Practitioner,
         };
 
+        private readonly IList<Resource> _patientResources;
+        private readonly IList<Resource> _relatedResources;
         private readonly IDictionary<string, IList<Resource>> _relatedResourcesByResourceType;
         private readonly string _tag;
 
@@ -104,15 +106,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
+            _patientResources = new List<Resource>();
+            _relatedResources = new List<Resource>();
             _relatedResourcesByResourceType = new Dictionary<string, IList<Resource>>(StringComparer.OrdinalIgnoreCase);
-            _tag = $"includestest-{DateTime.UtcNow.Ticks.ToString()}";
+            _tag = $"includestest-{DateTime.UtcNow.Ticks}";
         }
 
         public string[] KnownRelatedResourceTypes => _knownRelatedResourceTypes;
 
-        public IReadOnlyList<Resource> PatientResources { get; private set; } = new List<Resource>();
+        public IList<Resource> PatientResources => _patientResources;
 
-        public IReadOnlyList<Resource> RelatedResources { get; private set; } = new List<Resource>();
+        public IList<Resource> RelatedResources => _relatedResources;
 
         public string Tag => _tag;
 
@@ -121,11 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await base.OnInitializedAsync();
             var bundle = TagResources((Bundle)Samples.GetJsonSample(ResourceFileName).ToPoco());
             var response = await TestFhirClient.PostBundleAsync(bundle);
-            ((List<Resource>)PatientResources).AddRange(
+            ((List<Resource>)_patientResources).AddRange(
                 response.Resource.Entry
                     .Select(x => x.Resource)
                     .Where(x => x.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)));
-            ((List<Resource>)RelatedResources).AddRange(
+            ((List<Resource>)_relatedResources).AddRange(
                 response.Resource.Entry
                     .Select(x => x.Resource)
                     .Where(x => !x.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)

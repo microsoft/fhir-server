@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -536,14 +537,49 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
+        [Fact]
+        public void GivenMultipleIncludesContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
+        {
+            const string encodedContinuationToken = "MTIz";
+
+            Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                }));
+        }
+
+        [Theory]
+        [InlineData(100, 100)]
+        [InlineData(null, 500)]
+        [InlineData(int.MaxValue, 500)]
+        public void GivenAnIncludesCount_WhenCreated_ThenCorrectIncludeCountShouldBeSet(int? valueToSet, int valueExpected)
+        {
+            var parameters = valueToSet.HasValue
+                ? new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.IncludesCount, valueToSet.Value.ToString()) }
+                : null;
+            SearchOptions options = CreateSearchOptions(queryParameters: parameters);
+
+            Assert.NotNull(options);
+            Assert.Equal(valueExpected, options.IncludeCount);
+        }
+
+        [Fact]
+        public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
+        {
+            Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
-            string compartmentId = null)
+            string compartmentId = null,
+            bool isIncludesOperation = false)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
         }
     }
 }

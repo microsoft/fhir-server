@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(expectedRelatedResources.Count, actualRelatedResources.Count);
             foreach (var resourceType in expectedRelatedResources.Keys)
             {
-                Assert.True(actualRelatedResources.ContainsKey(resourceType));
+                Assert.True(actualRelatedResources.TryGetValue(resourceType, out _));
                 Assert.Equal(expectedRelatedResources[resourceType].Count, actualRelatedResources[resourceType].Count);
                 Assert.Contains(
                     actualRelatedResources[resourceType],
@@ -192,8 +192,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private void ValidateResources(
             FhirResponse<Bundle> response,
-            IReadOnlyList<Resource> patientResources,
-            IReadOnlyList<Resource> relatedResources,
+            IList<Resource> patientResources,
+            IList<Resource> relatedResources,
             int totalPatientResourceCount,
             int totalRelatedResourceCount)
         {
