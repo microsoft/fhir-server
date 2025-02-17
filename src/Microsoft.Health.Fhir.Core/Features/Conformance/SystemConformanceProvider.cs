@@ -296,12 +296,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             try
             {
-                _defaultCapabilitySemaphore.Dispose();
-                _metadataSemaphore.Dispose();
-            }
-            catch (NullReferenceException nex)
-            {
-                _logger.LogWarning(nex, "Null value encountered while disposing semaphores.");
+                _defaultCapabilitySemaphore?.Dispose();
+                _metadataSemaphore?.Dispose();
             }
             catch (Exception ex)
             {
