@@ -32,8 +32,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IAsyncDisposable
     {
+#pragma warning disable CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
         private readonly SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
+#pragma warning restore CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
+
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly int _rebuildDelay = 240; // 4 hours in minutes
@@ -294,15 +297,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _cancellationTokenSource.Dispose();
             _rebuilder = null;
 
-            try
-            {
-                _defaultCapabilitySemaphore?.Dispose();
-                _metadataSemaphore?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Unhandled exception encountered while disposing semaphores.");
-            }
+            // Stopped disposing '_defaultCapabilitySemaphore' to validate a null reference in prod.
+            // Stopped disposing '_metadataSemaphore' to validate a null reference in prod.
 
             _disposed = true;
 
