@@ -656,6 +656,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_includesCt&apos; parameter is ignored for a non-$includes request..
+        /// </summary>
+        internal static string IncludesContinuationTokenIgnored {
+            get {
+                return ResourceManager.GetString("IncludesContinuationTokenIgnored", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to An internal error has occurred. If this problem persists, please contact Customer Support..
         /// </summary>
         internal static string InternalServerError {
@@ -863,7 +872,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;&apos;includesCt&apos; parameter must be provided for $includes operation.&quot;.
+        ///   Looks up a localized string similar to &quot;The &apos;includesCt&apos; parameter must be provided for the $includes operation.&quot;.
         /// </summary>
         internal static string MissingIncludesContinuationToken {
             get {
@@ -1340,7 +1349,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter exceeds limit configured for server. Current limit is {0} while `_includesCount` parameter set to {1}..
+        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}..
         /// </summary>
         internal static string SearchParamaterIncludesCountExceedLimit {
             get {

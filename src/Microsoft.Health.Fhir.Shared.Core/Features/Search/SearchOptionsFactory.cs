@@ -232,8 +232,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.IncludesContinuationToken));
                     }
 
-                    includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
-                    setDefaultBundleTotal = false;
+                    if (isIncludesOperation)
+                    {
+                        includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
+                        setDefaultBundleTotal = false;
+                    }
+                    else
+                    {
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                Core.Resources.IncludesContinuationTokenIgnored));
+                    }
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesCount, StringComparison.OrdinalIgnoreCase))
                 {

@@ -776,4 +776,7 @@
   <data name="MissingIncludesContinuationToken" xml:space="preserve">
     <value>"The 'includesCt' parameter must be provided for the $includes operation."</value>
   </data>
+  <data name="IncludesContinuationTokenIgnored" xml:space="preserve">
+    <value>The '_includesCt' parameter is ignored for a non-$includes request.</value>
+  </data>
 </root>

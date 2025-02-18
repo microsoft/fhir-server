@@ -551,6 +551,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(true, 0)]
+        [InlineData(false, 1)]
+        public void GivenIncludesContinuationToken_WhenCreated_ThenOperationOutcomeIssueShouldBeAddedForNonIncludesOperation(bool isIncludesOperation, int operationOutcomeIssueCount)
+        {
+            const string ct = "123";
+            var options = CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ct)),
+                },
+                isIncludesOperation: isIncludesOperation);
+
+            var expectedCt = isIncludesOperation ? ct : null;
+            Assert.Equal(expectedCt, options.IncludesContinuationToken);
+            Assert.Equal(
+                operationOutcomeIssueCount,
+                _defaultFhirRequestContext.BundleIssues.Count(x => x.Diagnostics == Core.Resources.IncludesContinuationTokenIgnored));
+        }
+
+        [Theory]
         [InlineData(100, 100)]
         [InlineData(null, 500)]
         [InlineData(int.MaxValue, 500)]
