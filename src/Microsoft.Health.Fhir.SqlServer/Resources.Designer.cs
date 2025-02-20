@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The provided continuation token for $includes operation is not valid..
+        /// </summary>
+        internal static string InvalidIncludesContinuationToken {
+            get {
+                return ResourceManager.GetString("InvalidIncludesContinuationToken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid resource type &apos;{0}&apos;..
         /// </summary>
         internal static string InvalidResourceTypeValue {

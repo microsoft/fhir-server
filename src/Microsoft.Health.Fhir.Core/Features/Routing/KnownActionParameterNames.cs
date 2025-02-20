@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Routing
+namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
     internal class KnownActionParameterNames
     {

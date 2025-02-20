@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             QueryHints = other.QueryHints;
 
             ResourceVersionTypes = other.ResourceVersionTypes;
+            IncludesContinuationToken = other.IncludesContinuationToken;
         }
 
         /// <summary>
@@ -149,6 +150,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Flag for async operations that want to return a large number of results.
         /// </summary>
         public bool IsLargeAsyncOperation { get; internal set; }
+
+        /// <summary>
+        /// Flag for $includes operation.
+        /// </summary>
+        public bool IsIncludesOperation => !string.IsNullOrEmpty(IncludesContinuationToken);
+
+        /// <summary>
+        /// Gets the optional continuation token for $includes operation.
+        /// </summary>
+        public string IncludesContinuationToken { get; internal set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance
