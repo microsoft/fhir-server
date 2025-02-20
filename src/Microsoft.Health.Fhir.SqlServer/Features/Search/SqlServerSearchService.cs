@@ -1477,12 +1477,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             if (moreResults)
                             {
                                 _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
-                                _requestContextAccessor.RequestContext.BundleIssues.Add(
-                                    new OperationOutcomeIssue(
-                                        OperationOutcomeConstants.IssueSeverity.Warning,
-                                        OperationOutcomeConstants.IssueType.Incomplete,
-                                        Core.Resources.TruncatedIncludeMessage));
-
                                 nextIncludesContinuationToken = new IncludesContinuationToken(
                                     new object[]
                                     {

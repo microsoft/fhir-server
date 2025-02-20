@@ -161,7 +161,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pages)
         {
             var actualRelatedResources = relatedResources
-                .Where(x => !x.TypeName.Equals(KnownResourceTypes.OperationOutcome, StringComparison.OrdinalIgnoreCase))
                 .GroupBy(x => x.TypeName)
                 .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase);
             var expectedRelatedResources = _fixture.RelatedResourcesFor(
@@ -179,14 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (pages > 0)
             {
-                var operationOutcomes = relatedResources
-                    .Where(x => x.TypeName.Equals(KnownResourceTypes.OperationOutcome, StringComparison.OrdinalIgnoreCase)
-                        && ((OperationOutcome)x).Issue.Any(y => y.Severity == OperationOutcome.IssueSeverity.Warning
-                            && y.Code == OperationOutcome.IssueType.Incomplete
-                            && (y.Diagnostics?.Equals(Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)))
-                    .ToList();
-                Assert.Equal((int)Math.Ceiling((relatedResources.Count - operationOutcomes.Count) / (double)includesCount), pages);
-                Assert.Equal(pages - 1, operationOutcomes.Count);
+                Assert.Equal((int)Math.Ceiling(relatedResources.Count / (double)includesCount), pages);
             }
         }
 
