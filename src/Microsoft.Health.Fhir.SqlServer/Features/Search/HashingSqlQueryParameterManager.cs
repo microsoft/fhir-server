@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool HasParametersToHash => _setToHash.Count > 0;
 
         /// <summary>
-        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId, not SearchParamId, and not ResourceId.
         /// </summary>
         /// <typeparam name="T">The CLR column type</typeparam>
         /// <param name="column">The table column the parameter is bound to.</param>
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId, not SearchParamId, and not ResourceId.
         /// </summary>
         /// <param name="column">The table column the parameter is bound to.</param>
         /// <param name="value">The parameter value</param>
@@ -65,7 +65,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name // logic uses "ResourceTypeId" string value. Resource table is chosen arbitrarily.
                     || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
-                    || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name) // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.
+                    || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.
+                    || column.Metadata.Name == VLatest.Resource.ResourceId.Metadata.Name
+                    || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)
             {
                 return value;
             }
