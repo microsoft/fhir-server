@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -36,16 +35,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase
     {
-        private const string HashParameterName = "@hash";
-
-        private static readonly string GetJobByHashQuery =
-            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
-
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
         private readonly IScoped<Container> _containerScope;
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
@@ -81,54 +74,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerScope = containerScope;
-            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _queryFactory = queryFactory;
             _logger = logger;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-
-            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
-            CollectionId = collectionConfiguration.CollectionId;
         }
-
-        private string DatabaseId { get; }
-
-        private string CollectionId { get; }
 
         public override async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            if (_cosmosDataStoreConfiguration.UseQueueClientJobs)
-            {
-                return await base.CreateExportJobAsync(jobRecord, cancellationToken);
-            }
-
-            throw new NotImplementedException("LegacyExportJob is no longer supported");
+            return await base.CreateExportJobAsync(jobRecord, cancellationToken);
         }
 
         public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            if (IsLegacyJob(id))
-            {
-                throw new NotImplementedException("LegacyExportJob is no longer supported");
-            }
-
             return await base.GetExportJobByIdAsync(id, cancellationToken);
         }
 
         public override async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
-            if (IsLegacyJob(jobRecord.Id))
-            {
-                throw new NotImplementedException("LegacyExportJob is no longer supported");
-            }
-
             return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
-        }
-
-        private static bool IsLegacyJob(string jobId)
-        {
-            return !long.TryParse(jobId, out long _);
         }
 
         public override async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
@@ -290,43 +255,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to update a reindex job.");
-                throw;
-            }
-        }
-
-        private async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
-
-            try
-            {
-                var query = _queryFactory.Create<CosmosExportJobRecordWrapper>(
-                    _containerScope.Value,
-                    new CosmosQueryContext(
-                        new QueryDefinition(GetJobByHashQuery)
-                            .WithParameter(HashParameterName, hash),
-                        new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) }));
-
-                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync(cancellationToken);
-
-                if (result.Count == 1)
-                {
-                    // We found an existing job that matches the hash.
-                    CosmosExportJobRecordWrapper wrapper = result.First();
-
-                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
-                }
-
-                return null;
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestRateExceeded())
-                {
-                    throw;
-                }
-
-                _logger.LogError(dce, "Failed to get an export job by hash.");
                 throw;
             }
         }
