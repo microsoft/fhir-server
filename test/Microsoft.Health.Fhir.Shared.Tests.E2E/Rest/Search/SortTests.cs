@@ -1137,7 +1137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, DateTime.Now.Subtract(TimeSpan.FromDays(90))),
                 p => SetPatientInfo(p, "Portland", "Williams", tag, DateTime.Now.Subtract(TimeSpan.FromDays(60))),
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
@@ -1149,7 +1149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, new DateTime(1940, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "Williamas", tag, new DateTime(1942, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
@@ -1166,10 +1166,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<TResource[]> CreateResourcesAsync<TResource>(params Action<TResource>[] resourceCustomizer)
+            where TResource : Resource, new()
+        {
+            TResource[] resources = new TResource[resourceCustomizer.Length];
+
+            for (int i = 0; i < resources.Length; i++)
+            {
+                TResource resource = new TResource();
+
+                resourceCustomizer[i](resource);
+                using var response = await Client.CreateAsync(resource);
+                resources[i] = response;
+
+                await Task.Delay(10); // this delay prevents out of sync load to cosmos database
+            }
+
+            return resources;
+        }
+
         private async Task<Patient[]> CreatePaginatedPatientsWithMissingBirthDates(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Robinson", tag),
                 p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Williamas", tag),
                 p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
@@ -1189,7 +1208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag),
                 p => SetPatientInfo(p, "Portland", "Williams", tag),
                 p => SetPatientInfo(p, "Portland", "James", tag),
@@ -1201,7 +1220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Portland", "Williams", tag),
                 p => SetPatientInfo(p, "Vancouver", family: null, tag),
                 p => SetPatientInfo(p, "Bellingham", family: null, tag),
@@ -1215,7 +1234,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Portland", new List<string>() { "Rasputin", "Alex" }, tag),
                 p => SetPatientInfo(p, "Portland", new List<string>() { "Christie", "James", "Rock" }, tag),
                 p => SetPatientInfo(p, "Seattle", new List<string>() { "Robinson", "Ragnarok" }, tag),
