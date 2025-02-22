@@ -1179,7 +1179,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 using var response = await Client.CreateAsync(resource);
                 resources[i] = response;
 
-                await Task.Delay(10); // this delay prevents out of sync timestamps when loading to cosmos database
+                await Task.Delay(100); // this delay prevents out of sync timestamps when loading to cosmos database
             }
 
             return resources;
