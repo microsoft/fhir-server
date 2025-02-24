@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 using Microsoft.Health.JobManagement;
