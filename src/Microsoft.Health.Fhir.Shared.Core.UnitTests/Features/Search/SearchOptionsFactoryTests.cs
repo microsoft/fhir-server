@@ -547,7 +547,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
                     Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
-                }));
+                },
+                isIncludesOperation: true));
         }
 
         [Theory]
