@@ -231,6 +231,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             catch (RequestRateExceededException rree)
             {
                 _logger.LogWarning(rree, "[JobId:{JobId}] Job failed due to RequestRateExceeded.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rree.Message, HttpStatusCode.TooManyRequests);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
