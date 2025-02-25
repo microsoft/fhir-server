@@ -41,11 +41,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
             {
                 Assert.Contains(sp, fhirStoredProcsClasses.Select(x => x.Name));
             }
-
-            /*foreach (Type storeproc in fhirStoredProcsClasses)
-            {
-                Assert.Contains(storeproc.Name, storeProcs);
-            }*/
         }
 
         [Fact]
