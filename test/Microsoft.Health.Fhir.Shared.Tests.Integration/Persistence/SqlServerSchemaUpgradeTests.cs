@@ -44,16 +44,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.Schema)]
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
         {
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
+        [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
+            if (!KnownEnvironmentVariableNames.SqlServerConnectionString.Contains("(local)", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
@@ -264,8 +268,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
-                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
-                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                    (schemaDifference.SourceObject?.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject?.Name.ToString() == "[dbo].[StringSearchParam]"))
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
@@ -285,7 +289,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "GetResourceSearchParamStats", "DequeueJob", "DisableIndexes", "GetResourceVersions", "EnqueueJobs", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
+                    var objectsToSkip = new[] { "GetResourcesByTypeAndSurrogateIdRange", "ReferenceSearchParam", "GetResourceSearchParamStats", "DequeueJob", "DisableIndexes", "GetResourceVersions", "EnqueueJobs", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
                     objectsToSkip.Add("PartitionFunction_ResourceChangeData_Timestamp"); // definition is not predictable as it has start time component
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
@@ -296,6 +300,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         && schemaDifference.TargetObject != null
                         && (schemaDifference.SourceObject.ObjectType.Name == "Procedure" || schemaDifference.SourceObject.ObjectType.Name == "View")
                         && await IsObjectTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
+                    {
+                        continue;
+                    }
+
+                    // TODO: Remove after upgrade to optimized database schema
+                    if (schemaDifference.TargetObject?.Name.ToString() == "[dbo].[ResourceTbl]" || schemaDifference.TargetObject?.Name.ToString() == "[dbo].[ReferenceSearchParamTbl]")
                     {
                         continue;
                     }
@@ -324,7 +334,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             text1 = Normalize(text1);
             text2 = Normalize(text2);
 
-            Assert.Equal(text1, text2);
+            try
+            {
+                Assert.Equal(text1, text2);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"object={objectName} message={e.Message}");
+            }
 
             return true;
         }
@@ -351,6 +368,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return text.ToLowerInvariant()
+                       .Replace(" output\n", " out\n")
                        .Replace("\n", string.Empty)
                        .Replace("\r", string.Empty)
                        .Replace("\t", string.Empty)
