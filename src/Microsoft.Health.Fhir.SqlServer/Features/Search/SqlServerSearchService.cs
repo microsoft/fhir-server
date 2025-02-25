@@ -604,7 +604,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             }).ToArray())
                                     : null;
                             IncludesContinuationToken includeContinuationToken = null;
-                            if (clonedSearchOptions.IncludesOperationEnabled
+                            if (clonedSearchOptions.IncludesOperationSupported
                                 && clonedSearchOptions.Expression is MultiaryExpression
                                 && ((MultiaryExpression)clonedSearchOptions.Expression).Expressions.Any(x => x is IncludeExpression)
                                 && newContinuationType.HasValue
@@ -653,7 +653,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             }
 
                             var resources = new List<SearchResultEntry>(matchedResources);
-                            if (!clonedSearchOptions.IncludesOperationEnabled || includedResources.Count <= clonedSearchOptions.IncludeCount)
+                            if (!clonedSearchOptions.IncludesOperationSupported || includedResources.Count <= clonedSearchOptions.IncludeCount)
                             {
                                 resources.AddRange(includedResources);
                             }
