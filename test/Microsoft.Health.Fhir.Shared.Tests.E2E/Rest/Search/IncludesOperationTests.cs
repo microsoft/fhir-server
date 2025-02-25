@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -63,6 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string query,
             int? includesCount)
         {
+            var supportsIncludes = _fixture.TestFhirServer.Metadata.SupportsOperation("includes");
+
             query = TagQuery(query);
             includesCount = includesCount ?? _fixture.RelatedResources.Count;
 
@@ -74,13 +77,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patientResources,
                 relatedResources,
                 _fixture.PatientResources.Count,
-                _fixture.RelatedResources.Count);
+                _fixture.RelatedResources.Count,
+                supportsIncludes);
             ValidateLinks(
                 response,
                 KnownResourceTypes.Patient,
                 query,
                 patientResources.Count,
-                relatedResources.Count);
+                relatedResources.Count,
+                supportsIncludes);
         }
 
         /// <summary>
@@ -91,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// <param name="count">The _count parameter value.</param>
         /// <param name="includesCount">The _includesCount parameter value.</param>
         /// <returns>A task executing the test</returns>
-        [Theory]
+        [SkippableTheory]
         [InlineData("_include=Patient:general-practitioner&_includesCount=1", new string[] { KnownResourceTypes.Practitioner }, null, 1)]
         [InlineData("_revinclude=Observation:subject&_count=2&_includesCount=2", new string[] { KnownResourceTypes.Observation }, 2, 2)]
         [InlineData("_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2", new string[] { KnownResourceTypes.Organization, KnownResourceTypes.MedicationDispense, KnownResourceTypes.DiagnosticReport }, 2, 2)]
@@ -104,6 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int? count,
             int? includesCount)
         {
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
             query = TagQuery(query);
             resourceTypes = resourceTypes ?? _fixture.KnownRelatedResourceTypes;
             count = count ?? _fixture.PatientResources.Count;
@@ -187,14 +194,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             IList<Resource> patientResources,
             IList<Resource> relatedResources,
             int totalPatientResourceCount,
-            int totalRelatedResourceCount)
+            int totalRelatedResourceCount,
+            bool supportsIncludes)
         {
             var expectedResources = patientResources.Concat(relatedResources).ToList();
             var actualResources = response.Resource.Entry
                 .Select(x => x.Resource)
                 .Where(x => !x.TypeName.Equals(nameof(KnownResourceTypes.OperationOutcome), StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            Assert.Equal(expectedResources.Count, actualResources.Count);
+            if (supportsIncludes)
+            {
+                Assert.Equal(expectedResources.Count, actualResources.Count);
+            }
+            else
+            {
+                var actualRelatedResources = response.Resource.Entry
+                    .Select(x => x.Resource)
+                    .Where(x => !x.TypeName.Equals(nameof(KnownResourceTypes.Patient), StringComparison.OrdinalIgnoreCase)
+                        && !x.TypeName.Equals(nameof(KnownResourceTypes.OperationOutcome), StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                Assert.NotEmpty(actualRelatedResources);
+            }
+
             Assert.Contains(
                 actualResources,
                 x => expectedResources.Any(y => y.IsExactly(x)));
@@ -239,7 +260,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string resourceType,
             string query,
             int patientResourceCount,
-            int relatedResourceCount)
+            int relatedResourceCount,
+            bool supportsIncludes)
         {
             Assert.NotNull(response.Resource.SelfLink);
             Assert.Equal($"{Server.BaseAddress}{resourceType}?{query}", DecodeUrl(response.Resource.SelfLink.AbsoluteUri));
@@ -251,7 +273,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Matches(ContinuationTokenRegex, response.Resource.NextLink.AbsoluteUri);
             }
 
-            if (relatedResourceCount < _fixture.RelatedResources.Count)
+            if (supportsIncludes && relatedResourceCount < _fixture.RelatedResources.Count)
             {
                 var relatedLink = response.Resource.Link?.Where(x => x.Relation.Equals("related", StringComparison.Ordinal)).FirstOrDefault();
                 Assert.NotNull(relatedLink);

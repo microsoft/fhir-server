@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             ResourceVersionTypes = other.ResourceVersionTypes;
             IncludesContinuationToken = other.IncludesContinuationToken;
+            IncludesOperationEnabled = other.IncludesOperationEnabled;
         }
 
         /// <summary>
@@ -160,6 +161,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the optional continuation token for $includes operation.
         /// </summary>
         public string IncludesContinuationToken { get; internal set; }
+
+        /// <summary>
+        /// Gets the value indicating whether or not $includes operation is enabled.
+        /// </summary>
+        public bool IncludesOperationEnabled { get; internal set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

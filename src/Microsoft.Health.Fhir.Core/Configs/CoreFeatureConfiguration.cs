@@ -86,5 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the includes.
+        /// </summary>
+        public bool SupportsIncludes { get; set; } = false;
     }
 }

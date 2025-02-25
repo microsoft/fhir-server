@@ -14,7 +14,9 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -26,12 +28,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class IncludesController : Controller
     {
         private readonly IMediator _mediator;
+        private readonly CoreFeatureConfiguration _coreFeaturesConfiguration;
 
-        public IncludesController(IMediator mediator)
+        public IncludesController(
+            IMediator mediator,
+            IOptions<CoreFeatureConfiguration> coreFeaturesConfiguration)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(coreFeaturesConfiguration?.Value, nameof(coreFeaturesConfiguration));
 
             _mediator = mediator;
+            _coreFeaturesConfiguration = coreFeaturesConfiguration.Value;
         }
 
         [HttpGet]
@@ -39,6 +46,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchSystem)]
         public async Task<IActionResult> Search(string typeParameter)
         {
+            if (!_coreFeaturesConfiguration.SupportsIncludes)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Includes));
+            }
+
             ResourceElement response = await _mediator.SearchIncludeResourceAsync(
                 typeParameter,
                 Request.GetQueriesForSearch(),

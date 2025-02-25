@@ -96,5 +96,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         public const string Includes = "$includes";
         public const string IncludesResourceType = ResourceType + "/" + Includes;
+        public const string IncludesOperationDefinition = OperationDefinition + "/" + OperationsConstants.Includes;
     }
 }

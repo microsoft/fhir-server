@@ -148,6 +148,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.SearchParameterStatus);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.IncludesOperationDefinition, Name = RouteNames.IncludesOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> IncludesOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.Includes);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);

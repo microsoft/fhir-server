@@ -279,6 +279,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             searchOptions.ContinuationToken = continuationToken;
             searchOptions.IncludesContinuationToken = includesContinuationToken;
+            searchOptions.IncludesOperationEnabled = _featureConfiguration.SupportsIncludes;
             searchOptions.FeedRange = feedRange;
 
             if (setDefaultBundleTotal)

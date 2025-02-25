@@ -333,6 +333,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.SearchParameterStatus:
                     routeName = RouteNames.SearchParameterStatusOperationDefinition;
                     break;
+                case OperationsConstants.Includes:
+                    routeName = RouteNames.IncludesOperationDefinition;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
