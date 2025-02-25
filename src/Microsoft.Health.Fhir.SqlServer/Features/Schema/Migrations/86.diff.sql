@@ -2359,6 +2359,21 @@ BEGIN TRY
   IF 0 < (SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_Id = object_id('ReferenceSearchParamTbl') AND index_id IN (0,1))
     RAISERROR('ReferenceSearchParamTbl is not empty', 18, 127)
 
+  BEGIN TRANSACTION
+  
+  EXECUTE sp_getapplock 'LakeSchemaUpgrade', 'Exclusive' -- to prevent other processes from entering this transaction
+  
+  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = 86 AND Status = 'Completed')
+  BEGIN
+    COMMIT TRANSACTION
+    RETURN
+  END
+   
+  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = 86)
+    UPDATE dbo.SchemaVersion SET Status = 'Completed' WHERE Version = 86 -- enable schema updates via tool in OSS
+  ELSE
+    INSERT INTO dbo.SchemaVersion (Version, Status) SELECT 86, 'Completed'
+
   EXECUTE('
 ALTER VIEW dbo.ReferenceSearchParam
 AS
@@ -3916,8 +3931,11 @@ BEGIN CATCH
 END CATCH
   ')
   EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='GetResourcesByTypeAndSurrogateIdRange',@Action='Alter'
+
+  COMMIT TRANSACTION
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
   EXECUTE dbo.LogEvent @Process=@Process,@Status='Error';
   THROW
 END CATCH
