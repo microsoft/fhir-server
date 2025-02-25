@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 using Microsoft.Health.JobManagement;
@@ -32,7 +33,7 @@ using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobC
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
-    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase
+    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
@@ -80,19 +81,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
         }
 
-        public override async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            return await base.CreateExportJobAsync(jobRecord, cancellationToken);
-        }
-
         public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            return await base.GetExportJobByIdAsync(id, cancellationToken);
-        }
+            if (IsLegacyJob(id))
+            {
+                // try old job records
+                var oldJobs = (ILegacyExportOperationDataStore)this;
+                return await oldJobs.GetLegacyExportJobByIdAsync(id, cancellationToken);
+            }
 
-        public override async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
+            return await base.GetExportJobByIdAsync(id, cancellationToken);
         }
 
         public override async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
@@ -254,6 +252,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to update a reindex job.");
+                throw;
+            }
+        }
+
+        private static bool IsLegacyJob(string jobId)
+        {
+            return !long.TryParse(jobId, out long _);
+        }
+
+        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.GetLegacyExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+
+            try
+            {
+                ItemResponse<CosmosLegacyExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosLegacyExportJobRecordWrapper>(
+                    id,
+                    new PartitionKey(CosmosDbLegacyExportConstants.ExportJobPartitionKey),
+                    cancellationToken: cancellationToken);
+
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Resource.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Resource.ETag));
+
+                return outcome;
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.IsRequestRateExceeded())
+                {
+                    throw;
+                }
+
+                if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, id));
+                }
+
+                _logger.LogError(dce, "Failed to get an export job by id.");
                 throw;
             }
         }
