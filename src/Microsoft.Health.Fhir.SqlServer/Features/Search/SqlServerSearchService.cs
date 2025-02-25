@@ -157,37 +157,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
                 if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) ||
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
                 {
-                    if (sqlSearchOptions.MaxItemCount - resultCount == 0)
-                    {
-                        // Since we are already returning MaxItemCount number of resources we don't want
-                        // to execute another search right now just to drop all the resources. We will return
-                        // a "special" ct so that we the subsequent request will be handled correctly.
-                        var ct = new ContinuationToken(new object[]
-                            {
-                                SqlSearchConstants.SortSentinelValueForCt,
-                                0,
-                            });
+                    var firstPhaseResults = new List<SearchResultEntry>(searchResult.Results);
+                    sqlSearchOptions.SortQuerySecondPhase = true;
+                    sqlSearchOptions.MaxItemCount -= resultCount;
+                    searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        searchResult = new SearchResult(searchResult.Results, ct.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+                    var finalResultsInOrder = new List<SearchResultEntry>();
+                    if (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending)
+                    {
+                        finalResultsInOrder.AddRange(firstPhaseResults);
+                        finalResultsInOrder.AddRange(searchResult.Results);
                     }
                     else
                     {
-                        var finalResultsInOrder = new List<SearchResultEntry>();
                         finalResultsInOrder.AddRange(searchResult.Results);
-                        sqlSearchOptions.SortQuerySecondPhase = true;
-                        sqlSearchOptions.MaxItemCount -= resultCount;
-
-                        searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
-
-                        finalResultsInOrder.AddRange(searchResult.Results);
-                        searchResult = new SearchResult(
-                            finalResultsInOrder,
-                            searchResult.ContinuationToken,
-                            searchResult.SortOrder,
-                            searchResult.UnsupportedSearchParameters);
+                        finalResultsInOrder.AddRange(firstPhaseResults);
                     }
+
+                    searchResult = new SearchResult(
+                        finalResultsInOrder,
+                        searchResult.ContinuationToken,
+                        searchResult.SortOrder,
+                        searchResult.UnsupportedSearchParameters);
                 }
             }
 
