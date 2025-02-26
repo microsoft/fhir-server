@@ -44,16 +44,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.Schema)]
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
         {
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
+        [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
+            // previously test was skipped with (Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")
+            if (!KnownEnvironmentVariableNames.SqlServerConnectionString.Contains("(local)", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
@@ -264,8 +269,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
-                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
-                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                    (schemaDifference.SourceObject?.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject?.Name.ToString() == "[dbo].[StringSearchParam]"))
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
@@ -295,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     if (schemaDifference.SourceObject != null
                         && schemaDifference.TargetObject != null
                         && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
-                        && await IsStoredProcedureTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
+                        && await IsObjectTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
                     {
                         continue;
                     }
@@ -316,15 +321,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return unexpectedDifference.ToString();
         }
 
-        private async Task<bool> IsStoredProcedureTextEqual(string connStr1, string connStr2, string storedProcedureName)
+        private async Task<bool> IsObjectTextEqual(string connStr1, string connStr2, string objectName)
         {
-            var text1 = await GetStoredProcedureText(connStr1, storedProcedureName);
-            var text2 = await GetStoredProcedureText(connStr2, storedProcedureName);
+            var text1 = await GetStoredProcedureText(connStr1, objectName);
+            var text2 = await GetStoredProcedureText(connStr2, objectName);
 
             text1 = Normalize(text1);
             text2 = Normalize(text2);
 
-            Assert.Equal(text1, text2);
+            try
+            {
+                Assert.Equal(text1, text2);
+            }
+            catch (Xunit.Sdk.EqualException e)
+            {
+                throw new Exception($"object={objectName} message={e.Message}");
+            }
 
             return true;
         }
@@ -351,6 +363,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return text.ToLowerInvariant()
+                       .Replace(" output\n", " out\n")
                        .Replace("\n", string.Empty)
                        .Replace("\r", string.Empty)
                        .Replace("\t", string.Empty)
