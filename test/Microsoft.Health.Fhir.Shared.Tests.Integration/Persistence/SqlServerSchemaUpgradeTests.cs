@@ -55,12 +55,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
-            // previously test was skipped with (Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")
-            if (!KnownEnvironmentVariableNames.SqlServerConnectionString.Contains("(local)", StringComparison.OrdinalIgnoreCase))
-            {
-                await Task.CompletedTask;
-            }
-
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
