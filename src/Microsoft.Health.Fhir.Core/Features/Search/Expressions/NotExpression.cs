@@ -40,6 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Not {Expression})";
         }
 
+        public override string ToValueInsensitiveString()
+        {
+            return $"(Not {Expression.ToValueInsensitiveString()})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(NotExpression));

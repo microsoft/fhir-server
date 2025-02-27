@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
+        private ReadableLogger<SqlServerSearchService> _readableLogger;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -124,8 +125,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
 
         internal SchemaInformation SchemaInformation { get; private set; }
-
-        internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
         internal static string GetDatabaseName(string test = null)
         {
@@ -278,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
-            SqlQueryHashCalculator = new TestSqlHashCalculator();
+            _readableLogger = new ReadableLogger<SqlServerSearchService>();
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -295,9 +294,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
-                SqlQueryHashCalculator,
                 new SqlServerParameterStore(SqlConnectionBuilder, NullLogger<SqlServerParameterStore>.Instance),
-                NullLogger<SqlServerSearchService>.Instance);
+                _readableLogger);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
@@ -413,9 +411,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _sqlQueueClient;
             }
 
-            if (serviceType == typeof(TestSqlHashCalculator))
+            if (serviceType == typeof(ReadableLogger<SqlServerSearchService>))
             {
-                return SqlQueryHashCalculator as TestSqlHashCalculator;
+                return _readableLogger;
             }
 
             return null;

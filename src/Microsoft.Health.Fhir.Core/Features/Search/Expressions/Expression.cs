@@ -316,9 +316,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <inheritdoc />
         public abstract override string ToString();
 
+        public abstract string ToValueInsensitiveString();
+
         /// <summary>
         /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.
         /// For example, date=2013&amp;name=Smith and date=2014&amp;name=Trudeau would have the same hash code.
+        /// HashCodes change after a restart, don't use this for something that needs to be consistent between restarts.
         /// </summary>
         /// <param name="hashCode">The HashCode instance to accumulate into</param>
         public abstract void AddValueInsensitiveHashCode(ref HashCode hashCode);
