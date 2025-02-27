@@ -271,7 +271,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 var objectsToSkip = new[] { "PartitionFunction_ResourceChangeData_Timestamp" }; // definition is not predictable as it has start time component
-                ////var objectsToSkip = new[] { "GetResourceSearchParamStats", "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
                 if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                 {
                     continue;
@@ -279,8 +278,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 if (schemaDifference.SourceObject != null
                     && schemaDifference.TargetObject != null
-                    && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
+                    && (schemaDifference.SourceObject.ObjectType.Name == "Procedure" || schemaDifference.SourceObject.ObjectType.Name == "View")
                     && await IsObjectTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
+                {
+                    continue;
+                }
+
+                // TODO: Remove after Lake schema got deployed
+                if (schemaDifference.TargetObject?.Name.ToString() == "[dbo].[ResourceTbl]" || schemaDifference.TargetObject?.Name.ToString() == "[dbo].[ReferenceSearchParamTbl]")
                 {
                     continue;
                 }
