@@ -434,7 +434,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
             {
-                return importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated) ? 80000 / resources.Count : 30; // 80K is id sequence rollover
+                return importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated) ? Math.Min(8000, 80000 / resources.Count) : 30; // 80K is id sequence rollover
             }
 
             List<string> GetErrors(IReadOnlyCollection<ImportResource> dups, IReadOnlyCollection<ImportResource> conflicts)
