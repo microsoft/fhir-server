@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // previously test was skipped with (Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")
             if (!EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString).Contains("(local)", StringComparison.OrdinalIgnoreCase))
             {
-                await Task.CompletedTask;
+                return;
             }
 
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
