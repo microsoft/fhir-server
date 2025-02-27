@@ -16,6 +16,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -2084,6 +2085,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal(OperationStatus.Failed, _exportJobRecord.Status);
             Assert.Equal(errorMessage, _exportJobRecord.FailureDetails.FailureReason);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJob_WhenSearchFailedWithRequestRateExceeded_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Throws(new RequestRateExceededException(null));
+
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
+            {
+                await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         private async Task RunTypeFilterTest(IList<ExportJobFilter> filters, string resourceTypes)

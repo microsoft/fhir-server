@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Azure.Cosmos;
 
@@ -29,6 +30,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
         public int? InitialDatabaseThroughput { get; set; }
 
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
+
+        // Default value is indefinate, recommended value is 20m - 24 hours. Setting to 1 hour.
+        public TimeSpan? IdleTcpConnectionTimeout { get; set; } = TimeSpan.FromHours(1);
+
+        // Default value is 5 seconds, recommended value is 1 second.
+        public TimeSpan? OpenTcpConnectionTimeout { get; set; } = TimeSpan.FromSeconds(1);
+
+        // Default value is 30, recommended value is 30. Leaving null to use the SDK default.
+        public int? MaxRequestsPerTcpConnection { get; set; }
+
+        // Default value is 65535, recommended value is 65535. Leaving null to use the SDK default.
+        public int? MaxTcpConnectionsPerEndpoint { get; set; }
+
+        // Default value is PortReuseMode.ReuseUnicastPort, recommended value is PortReuseMode.ReuseUnicastPort. Leaving null to use the SDK default.
+        public PortReuseMode? PortReuseMode { get; set; }
+
+        // Default value is true, recommended value is true. Value is true for explicit configuration.
+        public bool EnableTcpConnectionEndpointRediscovery { get; set; } = true;
 
         public ConsistencyLevel? DefaultConsistencyLevel { get; set; }
 

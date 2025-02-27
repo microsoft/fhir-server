@@ -289,6 +289,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             throw new NotImplementedException();
         }
 
+        private static EnumerableReturnType Visit(BracketExpression expression, Context ctx)
+        {
+            if (expression.Operand != null)
+            {
+                return Accept(expression.Operand, ctx);
+            }
+
+            // Bracket expressions should always have an operand.
+            // They should fail compilation if they don't.
+            throw new NotImplementedException();
+        }
+
         private static EnumerableReturnType Visit(Expression expression, Context ctx)
         {
             throw new NotImplementedException();

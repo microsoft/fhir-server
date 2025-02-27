@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression rewrittenExpression = inputExpression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             Assert.Equal(
-                "(And (FieldGreaterThanOrEqual DateTimeStart 2021-01-01T00:00:00.0000000) (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldLessThanOrEqual DateTimeEnd 2021-01-01T23:59:59.0000000))",
+                "(And (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldGreaterThanOrEqual DateTimeEnd 2021-01-01T00:00:00.0000000))",
                 rewrittenExpression.ToString());
         }
 
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression rewrittenExpression = inputExpression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             Assert.Equal(
-                "(And (FieldGreaterThanOrEqual DateTimeStart 2021-01-01T00:00:00.0000000) (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldLessThanOrEqual DateTimeEnd 2021-01-01T23:59:59.0000000))",
+                "(And (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldGreaterThanOrEqual DateTimeEnd 2021-01-01T00:00:00.0000000))",
                 rewrittenExpression.ToString());
         }
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression rewrittenExpression = inputExpression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             Assert.Equal(
-                "(And (FieldGreaterThan DateTimeStart 2021-01-01T00:00:00.0000000) (FieldLessThan DateTimeStart 2021-01-01T23:59:59.0000000) (FieldLessThan DateTimeEnd 2021-01-01T23:59:59.0000000))",
+                "(And (FieldLessThan DateTimeStart 2021-01-01T23:59:59.0000000) (FieldGreaterThan DateTimeEnd 2021-01-01T00:00:00.0000000))",
                 rewrittenExpression.ToString());
         }
 
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression rewrittenExpression = inputExpression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             Assert.Equal(
-                "(And (FieldGreaterThanOrEqual DateTimeStart 2021-01-01T00:00:00.0000000) (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldLessThanOrEqual DateTimeEnd 2021-01-01T23:59:59.0000000) (FieldEqual Number 1))",
+                "(And (FieldLessThanOrEqual DateTimeStart 2021-01-01T23:59:59.0000000) (FieldGreaterThanOrEqual DateTimeEnd 2021-01-01T00:00:00.0000000) (FieldEqual Number 1))",
                 rewrittenExpression.ToString());
         }
 

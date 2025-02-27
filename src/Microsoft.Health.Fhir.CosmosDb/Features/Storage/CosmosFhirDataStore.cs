@@ -679,7 +679,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     var prevPage = page;
-                    page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() => cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token));
 
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {
