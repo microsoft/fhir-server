@@ -1,22 +1,68 @@
-mode: Mainline
+strategies:
+- ConfiguredNextVersion
+- Mainline
 # assembly-version: If this number changes, other assemblies have to update references to the assembly
 assembly-versioning-scheme: Major
 assembly-file-versioning-scheme: MajorMinorPatch
 tag-prefix: release\/
 ignore:
   sha: []
-
 branches:
   main:
-    is-release-branch: true
-    tag: ''
+    mode: ContinuousDeployment
+    increment: Patch
+    track-merge-target: false
+    track-merge-message: true
+    is-release-branch: false
+    is-main-branch: true
+    label: ''
+    prevent-increment:
+      of-merged-branch: true
+      when-current-commit-tagged: false
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
-    tag: pr
-    tag-number-pattern: '[/-](?<number>\d+)[-/]'
+    label: pr
+    label-number-pattern: '[/-](?<number>\d+)[-/]'
+    # https://github.com/GitTools/GitVersion/blob/a4dde97534bb504f8c41a2ca0c709f7cea12dae0/src/GitVersion.Core/VersionCalculation/VersionSearchStrategies/MainlineVersionStrategy.cs#L240-L242
+    prevent-increment:
+      of-merged-branch: true
+      when-current-commit-tagged: false
+    track-merge-message: true
+    source-branches:
+    - main
+    - feature
+    - hotfix
   hotfix:
-    regex: ^hotfix(es)?[/-]
-    tag: useBranchName
+    increment: Patch
+    regex: ^hotfix(es)?[/-](?<BranchName>.+)
+    source-branches:
+    - main
   feature:
-    regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]
-    tag: useBranchName
+    increment: Patch
+    regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]*(?<BranchName>.+)
+    source-branches:
+    - main
+  unknown:
+    increment: Patch
+    prevent-increment:
+      when-current-commit-tagged: false
+    regex: (?<BranchName>.+)
+    source-branches:
+    - main
+    is-source-branch-for: []
+mode: ContinuousDelivery
+label: '{BranchName}'
+increment: Inherit
+prevent-increment:
+  of-merged-branch: false
+  when-branch-merged: false
+  when-current-commit-tagged: true
+track-merge-target: false
+track-merge-message: true
+commit-message-incrementing: Enabled
+regex: ''
+source-branches: []
+is-source-branch-for: []
+tracks-release-branches: false
+is-release-branch: false
+is-main-branch: false
