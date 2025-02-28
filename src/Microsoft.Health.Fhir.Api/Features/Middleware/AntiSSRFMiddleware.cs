@@ -50,7 +50,7 @@ public sealed class AntiSSRFMiddleware
         if (request.Headers.TryGetValue(_forwardOptions.ForwardedForHeaderName, out StringValues headerValue))
         {
             _logger.LogWarning(
-                "Request contains X-Forwarded-For header with value '{XForwardedFor}'. This header will soon be disallowed.",
+                "Request contains X-Forwarded-For header with value '{XForwardedFor}'.",
                 headerValue.ToString());
         }
 
