@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Internal.AntiSSRF;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {

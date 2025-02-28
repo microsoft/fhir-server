@@ -9,6 +9,7 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using DotLiquid.Tags;
 using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -21,6 +22,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
+using Microsoft.Health.Fhir.Api.Features.Middleware;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -98,6 +100,8 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
+                    // As per the SDL guidance to protect against SSRF attacks, we need to disallow XForwardFor header
+                    // XForwardedFor header is currently used for forwarding the PL request call from SF to AKS.
                     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
                         ForwardedHeaders.XForwardedProto;
 
@@ -207,6 +211,7 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
+            app.UseMiddleware<AntiSSRFMiddleware>();
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
         }
