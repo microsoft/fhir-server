@@ -109,6 +109,24 @@ public class AntiSSRFMiddlewareTests
         await Assert.ThrowsAsync<ServerSideRequestForgeryException>(() => _middleware.InvokeAsync(_context));
     }
 
+    // Careful: This test uses real EUAP DNS entries for validation
+    [Theory]
+    [InlineData("wpeastus2euap-fr4.fhir.azurehealthcareapis.com")] // AKS Gen2 test account
+    [InlineData("wpeastus2euapfr4.azurehealthcareapis.com")] // AKS Gen1 test account
+    public async Task GivenValidForwardedHost_WhenInvokingMiddleware_ThenInvokeNextHandler(string host)
+    {
+        const string OriginalHost = "microsoft.com";
+
+        _networkOptions.ServiceUrl = new Uri("https://" + OriginalHost);
+        _context.Request.Scheme = "https";
+        _context.Request.Host = new HostString(host);
+        _context.Request.Headers.Append(_forwardOptions.ForwardedHostHeaderName, host);
+        _context.Request.Headers.Append(_forwardOptions.OriginalHostHeaderName, OriginalHost);
+
+        await _middleware.InvokeAsync(_context);
+        Assert.Equal((int)HttpStatusCode.Accepted, _context.Response.StatusCode);
+    }
+
     private static Task InvokeAsync(HttpContext context)
     {
         context.Response.StatusCode = (int)HttpStatusCode.Accepted;
