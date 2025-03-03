@@ -2,7 +2,9 @@
 Labels: [SQL](https://github.com/microsoft/fhir-server/labels/Area-SQL)
 
 ## Context
-The FHIR server database schema requires optimizations to reduce index size, this change outlines removing unneeded indexes from the Resource table:
+The FHIR server database schema requires optimizations to reduce index size, this change outlines splitting the resource table into Current and History to remove an index.
+
+In order to support splitting the table, we move the raw binary of the resource to it's own table, so that the binary will not have be to be moved when resource meta data moves from the current to the history table.
 
 1. Removing an index from the `Resource` table by splitting history and current resources into separate tables (`CurrentResources`, `HistoryResources`) and moving `RawResource` into its own table (`RawResources`).
 
@@ -34,9 +36,13 @@ graph TD;
     ResourceTable -->|Split Into| CurrentResources
     ResourceTable -->|Split Into| HistoryResources
     ResourceTable -->|Move RawResource To| RawResources
-
-
 ```
+
+![CurrentResourceTable indexes](ResourceTableIndices.png)
+
+![NewResourceTableIndices](ResourceTableSplit.png)
+
+The above schema diagrams shows to overall reduction of one index in the new tables.
 
 ## Status
 Proposed
