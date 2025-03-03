@@ -1,13 +1,3 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Content Remove="C:\Work\DICOM Team\Code\fhir_raw_resource\fhir-server\/xunit.runner.json" />
-  </ItemGroup>
-
 </Project>
