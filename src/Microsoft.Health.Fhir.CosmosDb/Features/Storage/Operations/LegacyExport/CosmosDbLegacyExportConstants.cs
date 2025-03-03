@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
-
-namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.AcquireExportJobs
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport
 {
-    public sealed class AcquireExportJobsMetadata : StoredProcedureMetadataBase
+    public static class CosmosDbLegacyExportConstants
     {
+        public const string ExportJobPartitionKey = "ExportJob";
     }
 }
