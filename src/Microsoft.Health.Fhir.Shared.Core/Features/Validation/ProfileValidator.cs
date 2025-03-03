@@ -9,6 +9,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
+using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -38,12 +39,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private Validator GetValidator()
         {
+            var expanderSettings = new ValueSetExpanderSettings
+            {
+                MaxExpansionSize = 20000, // Set your desired max expansion size here
+            };
+
+            var terminologyService = new LocalTerminologyService(_resolver.AsAsync(), expanderSettings);
+
             var ctx = new ValidationSettings()
             {
                 ResourceResolver = _resolver,
                 GenerateSnapshot = true,
                 Trace = false,
                 ResolveExternalReferences = false,
+                TerminologyService = terminologyService,
             };
 
             var validator = new Validator(ctx);
