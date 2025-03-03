@@ -429,4 +429,7 @@
   <data name="InvalidBundleEntryRequest" xml:space="preserve">
     <value>Requested operation '{0}' is invalid using the request method {1}.</value>
   </data>
+  <data name="NonroutableHost" xml:space="preserve">
+    <value>The request host cannot be used as it is not routable.</value>
+  </data>
 </root>
