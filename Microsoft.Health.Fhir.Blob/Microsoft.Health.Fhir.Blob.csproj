@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Folder Include="Features\Health\" />
+    <Folder Include="Features\Telemetry\" />
+    <Folder Include="Features\Storage\" />
+  </ItemGroup>
+
+</Project>
