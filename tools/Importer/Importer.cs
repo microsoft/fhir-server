@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
         private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
         private static readonly string FhirAuthCredentialOptions = ConfigurationManager.AppSettings["FhirAuthCredentialOptions"];
+        private static readonly bool UseExponentialRetry = bool.Parse(ConfigurationManager.AppSettings["UseExponentialRetry"]);
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static TokenCredential credential;
         private static HttpClient httpClient = new();
         private static DelegatingHandler handler;
+        private static int maxRetryDelayMs = 600_000;
 
         internal static void Run()
         {
@@ -267,7 +269,9 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                 }
             }
             while (bad && retries < maxRetries);
@@ -358,7 +362,9 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                 }
             }
             while (bad && retries < maxRetries);
@@ -485,8 +491,10 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
                     Interlocked.Increment(ref waits);
-                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                     Interlocked.Decrement(ref waits);
                 }
             }

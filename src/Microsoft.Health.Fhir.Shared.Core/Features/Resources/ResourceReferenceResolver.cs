@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
                         var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
-                        if (results == null || results.Count == 0)
+                        if (results == null || results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count() != 1)
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
                         }
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReferenceToMultipleResources, reference.Reference));
                         }
 
-                        string resourceId = results.First().Resource.ResourceId;
+                        string resourceId = results.First(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Resource.ResourceId;
 
                         referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 
@@ -100,7 +100,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger)).Results;
+            var matches = (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger))
+                .Results
+                .Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                .ToList();
+
+            return matches;
         }
     }
 }

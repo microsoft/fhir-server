@@ -3,10 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public static class CosmosDbExportConstants
+    internal class QueryCacheSetting
     {
-        public const string ExportJobPartitionKey = "ExportJob";
+        public const string Enabled = "enabled";
+        public const string Disabled = "disabled";
+        public const string Default = "default";
+        public const string Both = "both";
     }
 }

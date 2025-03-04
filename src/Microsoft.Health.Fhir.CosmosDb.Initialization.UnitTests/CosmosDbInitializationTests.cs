@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
         {
             string[] storeProcs = new string[]
             {
-                "AcquireExportJobsMetadata",
                 "AcquireReindexJobsMetadata",
                 "HardDeleteMetadata",
                 "ReplaceSingleResourceMetadata",
@@ -38,9 +37,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
 
             Assert.NotEmpty(fhirStoredProcsClasses);
 
-            foreach (Type storeproc in fhirStoredProcsClasses)
+            foreach (string sp in storeProcs)
             {
-                Assert.Contains(storeproc.Name, storeProcs);
+                Assert.Contains(sp, fhirStoredProcsClasses.Select(x => x.Name));
             }
         }
 
