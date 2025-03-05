@@ -563,12 +563,11 @@ CREATE INDEX IX_SearchParamId_ReferenceResourceId1_Code2_INCLUDE_ReferenceResour
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReindexJob (
-    Id                VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Id                VARCHAR (32)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status            VARCHAR (10)  NOT NULL,
     HeartbeatDateTime DATETIME2 (7) NULL,
     RawJobRecord      VARCHAR (MAX) NOT NULL,
-    JobVersion        ROWVERSION    NOT NULL,
-    CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
+    JobVersion        ROWVERSION    NOT NULL CONSTRAINT PKC_ReindexJob_Id PRIMARY KEY CLUSTERED (Id)
 );
 
 CREATE TABLE dbo.CurrentResource (
