@@ -527,19 +527,6 @@ CREATE TABLE dbo.EventLog (
     HostName     VARCHAR (64)    NOT NULL CONSTRAINT PKC_EventLog_EventDate_EventId_PartitionId PRIMARY KEY CLUSTERED (EventDate, EventId, PartitionId) ON EventLogPartitionScheme (PartitionId)
 );
 
-CREATE TABLE dbo.ExportJob (
-    Id                VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Hash              VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status            VARCHAR (10)  NOT NULL,
-    HeartbeatDateTime DATETIME2 (7) NULL,
-    RawJobRecord      VARCHAR (MAX) NOT NULL,
-    JobVersion        ROWVERSION    NOT NULL,
-    CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED (Id)
-);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime
-    ON dbo.ExportJob(Hash, Status, HeartbeatDateTime);
-
 CREATE TABLE dbo.IndexProperties (
     TableName     VARCHAR (100) NOT NULL,
     IndexName     VARCHAR (200) NOT NULL,
