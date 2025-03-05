@@ -117,7 +117,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case BadRequestException _:
                     case RequestNotValidException _:
-                    case ServerSideRequestForgeryException _:
                     case BundleEntryLimitExceededException _:
                     case ProvenanceHeaderException _:
                     case RequestTooCostlyException _:
@@ -133,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
                     case CustomerManagedKeyException _:
+                    case ServerSideRequestForgeryException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
