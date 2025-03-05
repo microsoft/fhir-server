@@ -71,14 +71,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var response = await Client.SearchAsync(ResourceType.Patient, query);
             var patientResources = _fixture.PatientResources;
-            var relatedResources = includesCount >= _fixture.RelatedResources.Count ? _fixture.RelatedResources : new List<Resource>();
+            var relatedResources = _fixture.RelatedResources;
+
             ValidateResources(
                 response,
                 patientResources,
                 relatedResources,
                 _fixture.PatientResources.Count,
-                _fixture.RelatedResources.Count,
-                supportsIncludes);
+                _fixture.RelatedResources.Count);
             ValidateLinks(
                 response,
                 KnownResourceTypes.Patient,
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     .Where(x => x.Relation.Equals("related", StringComparison.Ordinal))
                     .Select(x => x.Url)
                     .FirstOrDefault();
-                var pages = 0;
+                var pages = relatedLink != null ? 1 : 0;
                 while (!string.IsNullOrEmpty(relatedLink))
                 {
                     response = await Client.SearchAsync(relatedLink);
@@ -194,28 +194,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             IList<Resource> patientResources,
             IList<Resource> relatedResources,
             int totalPatientResourceCount,
-            int totalRelatedResourceCount,
-            bool supportsIncludes)
+            int totalRelatedResourceCount)
         {
             var expectedResources = patientResources.Concat(relatedResources).ToList();
             var actualResources = response.Resource.Entry
                 .Select(x => x.Resource)
                 .Where(x => !x.TypeName.Equals(nameof(KnownResourceTypes.OperationOutcome), StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            if (supportsIncludes)
-            {
-                Assert.Equal(expectedResources.Count, actualResources.Count);
-            }
-            else
-            {
-                var actualRelatedResources = response.Resource.Entry
-                    .Select(x => x.Resource)
-                    .Where(x => !x.TypeName.Equals(nameof(KnownResourceTypes.Patient), StringComparison.OrdinalIgnoreCase)
-                        && !x.TypeName.Equals(nameof(KnownResourceTypes.OperationOutcome), StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                Assert.NotEmpty(actualRelatedResources);
-            }
-
             Assert.Contains(
                 actualResources,
                 x => expectedResources.Any(y => y.IsExactly(x)));

@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             }
 
                             var matchedResources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                            var includedResources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                            var includedResources = new List<SearchResultEntry>(sqlSearchOptions.IncludeCount);
                             short? newContinuationType = null;
                             long? newContinuationId = null;
                             bool moreResults = false;
@@ -603,7 +603,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 _ => sortValue,
                                             }).ToArray())
                                     : null;
-                            IncludesContinuationToken includeContinuationToken = null;
+                            string includeContinuationTokenString = null;
                             if (clonedSearchOptions.IncludesOperationSupported
                                 && clonedSearchOptions.Expression is MultiaryExpression
                                 && ((MultiaryExpression)clonedSearchOptions.Expression).Expressions.Any(x => x is IncludeExpression)
@@ -612,13 +612,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 && matchedResourceSurrogateIdStart.HasValue
                                 && includedResources.Count > clonedSearchOptions.IncludeCount)
                             {
-                                includeContinuationToken = new IncludesContinuationToken(
+                                clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
                                     new object[]
                                     {
                                         newContinuationType.Value,
                                         matchedResourceSurrogateIdStart.Value,
                                         newContinuationId.Value,
-                                    });
+                                    }).ToJson();
+
+                                var includesSearchResult = await SearchIncludeImpl(clonedSearchOptions, cancellationToken);
+                                includedResources.Clear();
+                                includedResources.AddRange(includesSearchResult.Results);
+                                includeContinuationTokenString = includesSearchResult.IncludesContinuationToken;
                             }
 
                             if (isResultPartial)
@@ -652,13 +657,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.SortHasMissingModifier = true;
                             }
 
-                            var resources = new List<SearchResultEntry>(matchedResources);
-                            if (!clonedSearchOptions.IncludesOperationSupported || includedResources.Count <= clonedSearchOptions.IncludeCount)
-                            {
-                                resources.AddRange(includedResources);
-                            }
-
-                            searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includeContinuationToken?.ToJson());
+                            searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includeContinuationTokenString);
                         }
                     }
                 },
