@@ -38,6 +38,7 @@
   <ItemGroup Label="CVE Mitigation">
     <PackageVersion Include="Microsoft.Health.Blob" Version="$(HealthcareSharedPackageVersion)" />
     <!--Please include the CGA id if possible-->
+    <PackageVersion Include="Microsoft.Health.Blob" Version="8.0.44" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.2" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
