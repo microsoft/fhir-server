@@ -2363,16 +2363,17 @@ BEGIN TRY
   
   EXECUTE sp_getapplock 'LakeSchemaUpgrade', 'Exclusive' -- to prevent other processes from entering this transaction
   
-  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = 86 AND Status = 'Completed')
+  DECLARE @Version int = 87 -- it keeps changing
+  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = @Version AND Status = 'Completed')
   BEGIN
     COMMIT TRANSACTION
     RETURN
   END
    
-  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = 86)
-    UPDATE dbo.SchemaVersion SET Status = 'Completed' WHERE Version = 86 -- enable schema updates via tool in OSS
+  IF EXISTS (SELECT * FROM dbo.SchemaVersion WHERE Version = @Version)
+    UPDATE dbo.SchemaVersion SET Status = 'Completed' WHERE Version = @Version -- enable schema updates via tool in OSS
   ELSE
-    INSERT INTO dbo.SchemaVersion (Version, Status) SELECT 86, 'Completed'
+    INSERT INTO dbo.SchemaVersion (Version, Status) SELECT @Version, 'Completed'
 
   EXECUTE('
 ALTER VIEW dbo.ReferenceSearchParam
