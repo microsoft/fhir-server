@@ -15,11 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Registration
         bool IsSelectiveSearchParameterSupported { get; }
 
         /// <summary>
-        /// Export background worker.
-        /// </summary>
-        bool IsExportBackgroundWorkerSupported { get; }
-
-        /// <summary>
         /// Customer Key Validation background worker keeps running and checking the health of customer managed key.
         /// </summary>
         bool IsCustomerKeyValidationBackgroundWorkerSupported { get; }
