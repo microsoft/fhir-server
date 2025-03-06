@@ -778,4 +778,7 @@
   <data name="IncludesContinuationTokenIgnored" xml:space="preserve">
     <value>The 'includesCt' parameter is ignored for a non-$includes request.</value>
   </data>
+  <data name="TooManyParameters" xml:space="preserve">
+    <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
+  </data>
 </root>
