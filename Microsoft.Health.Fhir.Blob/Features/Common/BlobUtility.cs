@@ -6,7 +6,7 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Blob.Features.Storage;
+namespace Microsoft.Health.Fhir.Blob.Features.Common;
 
 internal static class BlobUtility
 {
