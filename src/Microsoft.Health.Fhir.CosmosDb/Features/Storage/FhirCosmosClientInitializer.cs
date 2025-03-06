@@ -137,7 +137,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else
             {
-                builder.WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true);
+                builder.WithConnectionModeDirect(
+                    idleTcpConnectionTimeout: configuration.IdleTcpConnectionTimeout,
+                    openTcpConnectionTimeout: configuration.OpenTcpConnectionTimeout,
+                    maxRequestsPerTcpConnection: configuration.MaxRequestsPerTcpConnection,
+                    maxTcpConnectionsPerEndpoint: configuration.MaxTcpConnectionsPerEndpoint,
+                    portReuseMode: configuration.PortReuseMode,
+                    enableTcpConnectionEndpointRediscovery: configuration.EnableTcpConnectionEndpointRediscovery);
             }
 
             builder

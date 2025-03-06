@@ -55,6 +55,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [SMART on FHIR Proxy tutorial](docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
 - [FHIR Postman tutorial](https://docs.microsoft.com/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
+- [Connect to SQL Database](docs/HowToConnectSQLDatabase.md): Describes how to connect to SQL Database.
 
 ## Blog Posts
 * Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/health/2018/11/12/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/).
