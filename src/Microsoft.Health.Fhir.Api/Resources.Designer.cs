@@ -547,6 +547,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request host cannot be used as it is not routable..
+        /// </summary>
+        public static string NonroutableHost {
+            get {
+                return ResourceManager.GetString("NonroutableHost", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Hard delete must be requested in order to purge history..
         /// </summary>
         public static string NoSoftPurge {

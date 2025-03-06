@@ -59,6 +59,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ExportResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Health\StorageInitializedHealthCheckTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Middleware\AntiSSRFMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />
