@@ -16,8 +16,10 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
+using Microsoft.Health.Fhir.Blob.Features.Common;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Blob.Features.Storage;
 
@@ -29,29 +31,32 @@ public class BlobRawResourceStore : IRawResourceStore
     private readonly BlobOperationOptions _options;
     private readonly ILogger<BlobRawResourceStore> _logger;
     private readonly IBlobClient _blobClient;
+    private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
     private static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
     public BlobRawResourceStore(
         IBlobClient blobClient,
         ILogger<BlobRawResourceStore> logger,
-        IOptions<BlobOperationOptions> options)
+        IOptions<BlobOperationOptions> options,
+        RecyclableMemoryStreamManager recyclableMemoryStreamManager)
     {
         // TODO: Add metrics for blob operations
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         _blobClient = EnsureArg.IsNotNull(blobClient, nameof(blobClient));
         _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
+        _recyclableMemoryStreamManager = EnsureArg.IsNotNull(recyclableMemoryStreamManager, nameof(recyclableMemoryStreamManager));
     }
 
     public async Task<IReadOnlyList<ResourceWrapper>> WriteRawResourcesAsync(IReadOnlyList<ResourceWrapper> rawResources, long storageIdentifier, CancellationToken cancellationToken = default)
     {
         EnsureArg.IsNotNull(rawResources, nameof(rawResources));
-        EnsureArg.IsGte(0, storageIdentifier, nameof(storageIdentifier));
+        EnsureArg.IsGte(storageIdentifier, 0, nameof(storageIdentifier));
 
         _logger.LogInformation($"Writing raw resources to blob storage for storage identifier: {storageIdentifier}.");
 
         // prepare the file to store
         int offset = 0;
-        using MemoryStream stream = new MemoryStream();
+        using RecyclableMemoryStream stream = _recyclableMemoryStreamManager.GetStream();
         using StreamWriter writer = new StreamWriter(stream);
 
         foreach (var resource in rawResources)
@@ -66,11 +71,15 @@ public class BlobRawResourceStore : IRawResourceStore
         BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
         var blobUploadOptions = new BlobUploadOptions { TransferOptions = _options.Upload };
 
-        // TODO: Error handling
-
         // upload the file to blob storage
         stream.Seek(0, SeekOrigin.Begin);
-        await blobClient.UploadAsync(stream, blobUploadOptions, cancellationToken);
+
+        _ = await ExecuteAsync(
+            func: async () =>
+            {
+                return await blobClient.UploadAsync(stream, blobUploadOptions, cancellationToken);
+            },
+            operationName: nameof(WriteRawResourcesAsync));
 
         return rawResources;
     }
@@ -81,7 +90,7 @@ public class BlobRawResourceStore : IRawResourceStore
         return _blobClient.BlobContainerClient.GetBlockBlobClient(blobName);
     }
 
-    private static string GetBlobName(long storageIdentifier)
+    public static string GetBlobName(long storageIdentifier)
     {
         return $"{BlobUtility.ComputeHashPrefixForBlobName(storageIdentifier)}/{storageIdentifier}.ndjson";
     }
@@ -95,26 +104,24 @@ public class BlobRawResourceStore : IRawResourceStore
             T result = await func();
             return result;
         }
-        catch (RequestFailedException ex) when (ex.ErrorCode == BlobErrorCode.BlobNotFound)
-        {
-            _logger.LogError(ex, message: "Access to storage account failed with ErrorCode: {ErrorCode}", ex.ErrorCode);
-            throw new RawResourceStoreException($"Access to storage account failed with ErrorCode: {ex.ErrorCode}");
-        }
         catch (RequestFailedException ex)
         {
-            _logger.LogError(ex, message: "Access to storage account failed with ErrorCode: {ErrorCode}", ex.ErrorCode);
-            throw new RawResourceStoreException($"Access to storage account failed with ErrorCode: {ex.ErrorCode}");
+            var message = Resources.RawResourceStoreOperationFailedWithError;
+            _logger.LogError(ex, message: message);
+            throw new RawResourceStoreException(message, ex);
         }
         catch (AggregateException ex) when (ex.InnerException is RequestFailedException)
         {
             var innerEx = ex.InnerException as RequestFailedException;
-            _logger.LogError(innerEx, message: "Access to external storage account failed with ErrorCode: {ErrorCode}", innerEx.ErrorCode);
-            throw new RawResourceStoreException($"Access to external storage account failed with ErrorCode: {innerEx.ErrorCode}");
+            var message = Resources.RawResourceStoreOperationFailedWithError;
+            _logger.LogError(innerEx, message: message);
+            throw new RawResourceStoreException(message, ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Access to storage account failed");
-            throw new RawResourceStoreException("Access to storage account failed");
+            var message = Resources.RawResourceStoreOperationFailed;
+            _logger.LogError(ex, message);
+            throw new RawResourceStoreException(message, ex);
         }
     }
 }
