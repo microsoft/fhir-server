@@ -229,7 +229,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     else
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.NotReferencedParameterInvalidValue, query.Item2));
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                Core.Resources.NotReferencedParameterInvalidValue));
                     }
                 }
                 else

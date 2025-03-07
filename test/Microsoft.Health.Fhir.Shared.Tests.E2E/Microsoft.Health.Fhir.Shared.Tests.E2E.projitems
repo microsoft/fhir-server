@@ -105,6 +105,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)rest\search\NotReferencedSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)rest\search\NotReferencedSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />
