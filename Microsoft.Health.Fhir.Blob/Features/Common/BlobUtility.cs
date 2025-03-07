@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Blob.Features.Common;
 internal static class BlobUtility
 {
     /// <summary>
-    /// Gets a deterministic hash of length 3, for a given value
+    /// Returns a hash value between 0 to 998.
     /// </summary>
     /// <param name="value"> Value to be hashed</param>
     public static string ComputeHashPrefixForBlobName(long value)
@@ -24,6 +24,6 @@ internal static class BlobUtility
             hashCode = unchecked((hashCode * 251) + c);
         }
 
-        return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
+        return (Math.Abs(hashCode) % 999).ToString().PadLeft(3, '0');
     }
 }
