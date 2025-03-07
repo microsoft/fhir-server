@@ -76,20 +76,16 @@ public class BlobStoreTests
         return resourceWrapper;
     }
 
-    internal static IReadOnlyList<ResourceWrapper> GetResourceWrappers()
+    internal static IReadOnlyList<ResourceWrapper> GetResourceWrappersWithData()
     {
         var resourceWrappers = new List<ResourceWrapper>();
-        using (var stream = new FileStream(_resourceFilePath, FileMode.Open, FileAccess.Read))
+        using var stream = new FileStream(_resourceFilePath, FileMode.Open, FileAccess.Read);
+        using var reader = new StreamReader(stream);
+        string line;
+        while ((line = reader.ReadLine()) != null)
         {
-            using (var reader = new StreamReader(stream))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    var resourceWrapper = CreateTestResourceWrapper(line);
-                    resourceWrappers.Add(resourceWrapper);
-                }
-            }
+            var resourceWrapper = CreateTestResourceWrapper(line);
+            resourceWrappers.Add(resourceWrapper);
         }
 
         return resourceWrappers;
@@ -112,7 +108,7 @@ public class BlobStoreTests
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
 
-        var result = await blobFileStore.WriteRawResourcesAsync(GetResourceWrappers(), DefaultStorageIdentifier, CancellationToken.None);
+        var result = await blobFileStore.WriteRawResourcesAsync(GetResourceWrappersWithData(), DefaultStorageIdentifier, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(DefaultStorageIdentifier, result[0].ResourceStorageIdentifier);

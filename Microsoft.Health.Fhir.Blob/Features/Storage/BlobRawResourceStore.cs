@@ -62,9 +62,19 @@ public class BlobRawResourceStore : IRawResourceStore
 
         foreach (var resource in rawResources)
         {
+            var line = resource.RawResource.Data;
+
+            // Although RawResource ctor does not allow null or empty data, we are checking here to be safe.
+            if (string.IsNullOrEmpty(line))
+            {
+                resource.ResourceStorageIdentifier = storageIdentifier;
+                resource.ResourceStorageOffset = -1; // -1 indicates that the resource is not stored in blob storage.
+                continue;
+            }
+
             resource.ResourceStorageIdentifier = storageIdentifier;
             resource.ResourceStorageOffset = offset;
-            var line = resource.RawResource.Data;
+
             offset += Encoding.UTF8.GetByteCount(line) + EndOfLine;
             await writer.WriteLineAsync(line);
         }
@@ -75,7 +85,6 @@ public class BlobRawResourceStore : IRawResourceStore
         // upload the file to blob storage
         stream.Seek(0, SeekOrigin.Begin);
 
-        // UploadAsync was ~3X faster than OpenWriteAsync while trying to upload a ndjson file (tested with sizes upto 5MB).
         _ = await ExecuteAsync(
             func: async () =>
             {
