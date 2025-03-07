@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData(SqlErrorCodes.MethodNotAllowed, typeof(MethodNotAllowedException))]
         [InlineData(SqlErrorCodes.QueryProcessorNoQueryPlan, typeof(SqlQueryPlanException))]
         [InlineData(18456, typeof(LoginFailedForUserException))] // Login failed for user
-        [InlineData(8003, typeof(RequestNotValidException))]
+        [InlineData(SqlErrorCodes.TooManyParameters, typeof(RequestNotValidException))]
         public async Task GivenSqlException_WhenExecuting_ThenSpecificExceptionIsThrown(int errorCode, Type expectedExceptionType)
         {
             // Arrange
