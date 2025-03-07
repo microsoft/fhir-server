@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -18,6 +20,7 @@ using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Blob.UnitTests.Fixtures;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.IO;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -27,9 +30,9 @@ namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage;
 
 public class BlobStoreTests
 {
+    private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "resources.ndjson");
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
-    private static readonly Uri BlobContainerUrl = new Uri("https://myBlobAccount.blob.core.net/myContainer");
 
     internal static void InitializeBlobStore(out BlobRawResourceStore blobStore, out TestBlobClient blobClient)
     {
@@ -54,8 +57,46 @@ public class BlobStoreTests
         blobStore = new BlobRawResourceStore(blobClient, storeLogger, options, RecyclableMemoryStreamManagerInstance);
     }
 
+    internal static ResourceWrapper CreateTestResourceWrapper(string rawResourceContent)
+    {
+        // We are only interested in the raw resource content from this object, setting dummy values for other ctor arguements
+        var rawResource = Substitute.For<RawResource>(rawResourceContent, FhirResourceFormat.Json, false);
+        var resourceWrapper = new ResourceWrapper(
+            "resourceId",
+            "versionId",
+            "resourceTypeName",
+            rawResource,
+            null,
+            DateTimeOffset.UtcNow,
+            false,
+            null,
+            null,
+            null);
+
+        return resourceWrapper;
+    }
+
+    internal static IReadOnlyList<ResourceWrapper> GetResourceWrappers()
+    {
+        var resourceWrappers = new List<ResourceWrapper>();
+        using (var stream = new FileStream(_resourceFilePath, FileMode.Open, FileAccess.Read))
+        {
+            using (var reader = new StreamReader(stream))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var resourceWrapper = CreateTestResourceWrapper(line);
+                    resourceWrappers.Add(resourceWrapper);
+                }
+            }
+        }
+
+        return resourceWrappers;
+    }
+
     [Fact]
-    public async Task GivenInternalStore_WhenUploadFails_ThenThrowExceptionWithRightMessageAndProperty()
+    public async Task GivenResourceStore_WhenUploadFails_ThenThrowExceptionWithRightMessage()
     {
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(new System.Exception());
@@ -63,5 +104,39 @@ public class BlobStoreTests
         var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
 
         Assert.Equal(Resources.RawResourceStoreOperationFailed, ex.Message);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenUploadSucceeds_ThenValidateStorageDetails()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
+
+        var result = await blobFileStore.WriteRawResourcesAsync(GetResourceWrappers(), DefaultStorageIdentifier, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DefaultStorageIdentifier, result[0].ResourceStorageIdentifier);
+        Assert.Equal(DefaultStorageIdentifier, result[1].ResourceStorageIdentifier);
+        Assert.Equal(0, result[0].ResourceStorageOffset);
+
+        // This offset is based on the test data in the resources.ndjson file.
+        Assert.Equal(2997, result[1].ResourceStorageOffset);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenUploadFails_ThenThrowExceptionWithRightMessageAndErrorCode()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        RequestFailedException requestFailedAuthException = new RequestFailedException(
+            status: 400,
+            message: "auth failed simulation",
+            errorCode: BlobErrorCode.AuthenticationFailed.ToString(),
+            innerException: new Exception("super secret inner info"));
+
+        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
+
+        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
+        Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed.ToString()), ex.Message);
     }
 }

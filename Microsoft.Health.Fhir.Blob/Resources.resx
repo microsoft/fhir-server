@@ -121,6 +121,6 @@
     <value>Raw resource store operation failed</value>
   </data>
   <data name="RawResourceStoreOperationFailedWithError" xml:space="preserve">
-    <value>Access to storage account failed with ErrorCode: {ex.ErrorCode}</value>
+    <value>Access to storage account failed with ErrorCode: {0}</value>
   </data>
 </root>
