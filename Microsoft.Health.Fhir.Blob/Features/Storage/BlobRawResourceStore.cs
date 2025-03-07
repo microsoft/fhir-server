@@ -98,7 +98,7 @@ public class BlobRawResourceStore : IRawResourceStore
         return rawResources;
     }
 
-    protected virtual BlockBlobClient GetNewInstanceBlockBlobClient(long storageIdentifier)
+    protected BlockBlobClient GetNewInstanceBlockBlobClient(long storageIdentifier)
     {
         string blobName = GetBlobName(storageIdentifier);
         return _blobClient.BlobContainerClient.GetBlockBlobClient(blobName);
