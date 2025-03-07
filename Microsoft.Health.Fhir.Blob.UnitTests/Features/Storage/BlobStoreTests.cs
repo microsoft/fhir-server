@@ -16,6 +16,7 @@ using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
+using Microsoft.Health.Fhir.Blob.Features.Common;
 using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Blob.UnitTests.Fixtures;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -134,5 +135,24 @@ public class BlobStoreTests
 
         var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
         Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed.ToString()), ex.Message);
+    }
+
+    [Theory]
+    [InlineData(1234567890)]
+    [InlineData(-1746527485)]
+    [InlineData(8746373845756548765)]
+    [InlineData(-8746373845756548765)]
+    [InlineData(547)]
+    [InlineData(-547)]
+    public void GivenStorageIdentifier_HashReturnedIsBetween0and998(long input)
+    {
+        string hash = BlobUtility.ComputeHashPrefixForBlobName(input);
+        Assert.InRange(int.Parse(hash), 0, 998);
+    }
+
+    [Fact]
+    public void GivenDefaultStorageIdentifier_ThrowsArguementException()
+    {
+        Assert.Throws<ArgumentException>(() => BlobUtility.ComputeHashPrefixForBlobName(0));
     }
 }
