@@ -5,7 +5,7 @@
 
 using OperationsConstants = Microsoft.Health.Fhir.Core.Features.Operations.OperationsConstants;
 
-namespace Microsoft.Health.Fhir.Api.Features.Routing
+namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
     internal class KnownRoutes
     {
@@ -93,5 +93,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string BulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDelete;
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
         public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
+
+        public const string Includes = "$includes";
+        public const string IncludesResourceType = ResourceType + "/" + Includes;
+        public const string IncludesOperationDefinition = OperationDefinition + "/" + OperationsConstants.Includes;
     }
 }

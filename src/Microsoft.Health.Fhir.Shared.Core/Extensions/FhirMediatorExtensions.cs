@@ -150,6 +150,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
+        public static async Task<ResourceElement> SearchIncludeResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var result = await mediator.Send(new SearchResourceRequest(type, queries, true), cancellationToken);
+
+            return result.Bundle;
+        }
+
         public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

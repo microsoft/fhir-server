@@ -170,4 +170,7 @@
   <data name="FailedToImportConflictingVersion" xml:space="preserve">
     <value>Failed to import resource with version conflict, resource id: {0}, line: {1}</value>
   </data>
+  <data name="InvalidIncludesContinuationToken" xml:space="preserve">
+    <value>The provided continuation token for $includes operation is not valid.</value>
+  </data>
 </root>

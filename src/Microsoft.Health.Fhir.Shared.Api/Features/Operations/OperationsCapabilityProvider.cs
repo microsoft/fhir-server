@@ -80,6 +80,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 builder.Apply(AddSelectableSearchParameterDetails);
             }
+
+            if (_coreFeatureConfiguration.SupportsIncludes)
+            {
+                builder.Apply(AddIncludesDetails);
+            }
         }
 
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
@@ -148,6 +153,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddSelectableSearchParameterDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.SearchParameterStatus);
+        }
+
+        public void AddIncludesDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Includes);
         }
     }
 }

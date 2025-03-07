@@ -15,15 +15,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class ContinuationTokenConverterTests
+    public class ContinuationTokenEncoderTests
     {
         [Fact]
         public void GivenAString_WhenEcodingAndDecoding_ThenOriginalStringIsPreserved()
         {
             var data = Guid.NewGuid().ToString();
 
-            var encoded = ContinuationTokenConverter.Encode(data);
-            var decoded = ContinuationTokenConverter.Decode(encoded);
+            var encoded = ContinuationTokenEncoder.Encode(data);
+            var decoded = ContinuationTokenEncoder.Decode(encoded);
 
             Assert.Equal(data, decoded);
         }
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var encodedPrevious = Convert.ToBase64String(Encoding.UTF8.GetBytes(data));
 
-            var decoded = ContinuationTokenConverter.Decode(encodedPrevious);
+            var decoded = ContinuationTokenEncoder.Decode(encodedPrevious);
 
             Assert.Equal(data, decoded);
         }
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var encodedPrevious = Convert.ToBase64String(Encoding.UTF8.GetBytes(data)).Insert(5, "aaaafffff");
 
-            Assert.Throws<BadRequestException>(() => ContinuationTokenConverter.Decode(encodedPrevious));
+            Assert.Throws<BadRequestException>(() => ContinuationTokenEncoder.Decode(encodedPrevious));
         }
 
         [Fact]
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var data = "YWJj";
 
-            var decoded = ContinuationTokenConverter.Decode(data);
+            var decoded = ContinuationTokenEncoder.Decode(data);
 
             Assert.Equal("abc", decoded);
         }

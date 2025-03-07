@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly BundleFactory _bundleFactory;
 
         private const string _continuationToken = "ct";
+        private const string _includesContinuationToken = "includesCt";
         private const string _resourceUrlFormat = "http://resource/{0}";
         private static readonly string _correlationId = Guid.NewGuid().ToString();
         private static readonly Uri _selfUrl = new Uri("http://self/");
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            string encodedContinuationToken = ContinuationTokenConverter.Encode(_continuationToken);
+            string encodedContinuationToken = ContinuationTokenEncoder.Encode(_continuationToken);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
@@ -222,6 +223,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 var actual = _bundleFactory.CreateHistoryBundle(searchResult);
                 Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Response.Status);
+            }
+        }
+
+        [Theory]
+        [InlineData(RouteNames.SearchResources, _includesContinuationToken)]
+        [InlineData(RouteNames.Includes, _includesContinuationToken)]
+        [InlineData(RouteNames.SearchResources, null)]
+        [InlineData(RouteNames.Includes, null)]
+        public void GivenASearchResultWithIncludesContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned(string routeName, string includesContinuationToken)
+        {
+            _fhirRequestContextAccessor.RequestContext.RouteName = routeName;
+
+            var encodedContinuationToken = ContinuationTokenEncoder.Encode(_continuationToken);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+
+            var includesUrl = "https://localhost/Patient/$include";
+            var encodedIncludesContinuationToken = includesContinuationToken != null ? ContinuationTokenEncoder.Encode(includesContinuationToken) : null;
+            _urlResolver.ResolveRouteUrl(
+                Arg.Any<IReadOnlyCollection<Tuple<string, string>>>(),
+                Arg.Any<IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>>(),
+                Arg.Is<string>(x => x == null),
+                Arg.Any<bool>(),
+                Arg.Is<string>(x => x == encodedIncludesContinuationToken),
+                Arg.Any<string>(),
+                Arg.Any<IDictionary<string, object>>()).Returns(new Uri(includesUrl));
+
+            var searchResult = new SearchResult(new SearchResultEntry[0], _continuationToken, null, _unsupportedSearchParameters, null, includesContinuationToken);
+            var actual = _bundleFactory.CreateSearchBundle(searchResult);
+
+            if (routeName != RouteNames.Includes)
+            {
+                Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
+                Assert.Equal(includesContinuationToken != null ? includesUrl : null, actual.Scalar<string>("Bundle.link.where(relation='related').url"));
+            }
+            else
+            {
+                Assert.Equal(includesContinuationToken != null ? includesUrl : null, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
+                Assert.Null(actual.Scalar<string>("Bundle.link.where(relation='related').url"));
             }
         }
     }

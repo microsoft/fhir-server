@@ -13,10 +13,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Shared.Core.Extensions;
 
@@ -146,6 +146,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> SearchParameterStatusOperationDefintion()
         {
             return await GetOperationDefinitionAsync(OperationsConstants.SearchParameterStatus);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.IncludesOperationDefinition, Name = RouteNames.IncludesOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> IncludesOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.Includes);
         }
 
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)

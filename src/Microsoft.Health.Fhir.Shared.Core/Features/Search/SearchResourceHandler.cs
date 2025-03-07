@@ -55,7 +55,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 throw new UnauthorizedFhirActionException();
             }
 
-            SearchResult searchResult = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
+            SearchResult searchResult = await _searchService.SearchAsync(
+                resourceType: request.ResourceType,
+                queryParameters: request.Queries,
+                cancellationToken: cancellationToken,
+                isIncludesOperation: request.IsIncludesRequest);
             searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);

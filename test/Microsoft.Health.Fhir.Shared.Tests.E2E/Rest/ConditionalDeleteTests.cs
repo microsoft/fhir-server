@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 101);
             await ValidateResults(tag, 102);
-            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"Group?_tag={tag}&_count=100&_include=Group:member", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"Group?_tag={tag}&_count=100&_include=Group:member&_includesCount=100", CancellationToken.None));
         }
 
         private async Task CreateWithTag(string tag)

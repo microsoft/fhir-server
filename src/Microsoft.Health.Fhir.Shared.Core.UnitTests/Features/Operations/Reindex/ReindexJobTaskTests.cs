@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexJobTaskTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
-        private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
+        private readonly string _base64EncodedToken = ContinuationTokenEncoder.Encode("token");
         private const int _mockedSearchCount = 5;
 
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");

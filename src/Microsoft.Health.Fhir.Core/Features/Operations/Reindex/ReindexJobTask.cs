@@ -474,7 +474,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // For cases like retry or stale query we don't want to start another chain.
                     if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
-                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
+                        var encodedContinuationToken = ContinuationTokenEncoder.Encode(results.ContinuationToken);
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
                         {
                             LastModified = Clock.UtcNow,

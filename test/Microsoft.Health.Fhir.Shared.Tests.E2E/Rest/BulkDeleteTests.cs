@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -448,7 +449,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void CheckBulkDeleteEnabled()
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='bulk-delete').exists()"), "$bulk-delete not enabled on this server");
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete"), "$bulk-delete not enabled on this server");
         }
     }
 }

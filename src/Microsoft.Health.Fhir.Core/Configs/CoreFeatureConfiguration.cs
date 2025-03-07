@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the default value for included search results.
         /// </summary>
-        public int DefaultIncludeCountPerSearch { get; set; } = 100;
+        public int DefaultIncludeCountPerSearch { get; set; } = 500;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -86,5 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the includes.
+        /// </summary>
+        public bool SupportsIncludes { get; set; } = false;
     }
 }
