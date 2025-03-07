@@ -223,6 +223,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not Referenced is not supported.
+        /// </summary>
+        internal static string NotReferecedNotImplemented {
+            get {
+                return ResourceManager.GetString("NotReferecedNotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unhandled {0} &apos;{1}&apos;..
         /// </summary>
         internal static string UnhandledEnumValue {
