@@ -189,6 +189,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case LoginFailedForUserException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Unauthorized;
                         break;
+                    case RawResourceStoreException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
