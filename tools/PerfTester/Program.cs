@@ -10,6 +10,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -24,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Utils;
 using Microsoft.Health.SqlServer;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
+using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Internal.Fhir.PerfTester
 {
@@ -64,6 +66,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance);
 
+            _httpClient.Timeout = TimeSpan.FromMinutes(10);
+
             DumpResourceIds();
 
             if (_callType == "Diag")
@@ -83,6 +87,13 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelHttpPuts();
+                return;
+            }
+
+            if (_callType == "BundleCreate")
+            {
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
+                ExecuteParallelBundleCreates();
                 return;
             }
 
@@ -262,6 +273,56 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             conn.Open();
             using var cmd = new SqlCommand("SELECT getUTCdate()", conn);
             cmd.ExecuteNonQuery();
+        }
+
+        private static void ExecuteParallelBundleCreates()
+        {
+            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageUri, _ndjsonStorageUAMI, _ndjsonStorageContainerName);
+            var sw = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
+            var calls = 0L;
+            var errors = 0L;
+            var resources = 0;
+            long sumLatency = 0;
+            var batchSize = 500;
+            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer, _nameFilter), _threads, batchSize, (thread, lineItem) =>
+            {
+                if (Interlocked.Read(ref calls) >= _calls)
+                {
+                    return;
+                }
+
+                var swLatency = Stopwatch.StartNew();
+
+                var entries = new List<string>();
+                foreach (var jsonInt in lineItem.Item2)
+                {
+                    var json = jsonInt;
+                    var (resourceType, resourceId) = ParseJson(ref json, Guid.NewGuid().ToString());
+                    var entry = GetEntry(json, resourceType, resourceId);
+                    entries.Add(entry);
+                }
+
+                var status = PostBundleCreate(entries);
+                Interlocked.Increment(ref calls);
+                Interlocked.Add(ref resources, batchSize);
+                var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                Interlocked.Add(ref sumLatency, mcsec);
+                _store.TryLogEvent($"threads={_threads}.{_callType}:{status}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                {
+                    lock (swReport)
+                    {
+                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        {
+                            Console.WriteLine($"Type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(resources / sw.Elapsed.TotalSeconds)} RPS elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                            swReport.Restart();
+                        }
+                    }
+                }
+            });
+
+            Console.WriteLine($"Type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} errors={errors} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(resources / sw.Elapsed.TotalSeconds)} RPS elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
         private static void ExecuteParallelHttpPuts()
@@ -792,6 +853,26 @@ END
             return status;
         }
 
+        private static string GetBundle(IEnumerable<string> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""transaction"",""entry"":[");
+            var first = true;
+            foreach (var entry in entries)
+            {
+                if (!first)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(entry);
+                first = false;
+            }
+
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
         private static string GetBundle(string entry)
         {
             var builder = new StringBuilder();
@@ -810,6 +891,88 @@ END
                    .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
                    .Append('}');
             return builder.ToString();
+        }
+
+        private static string PostBundleCreate(IList<string> entries)
+        {
+            var bundle = GetBundle(entries);
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint);
+                bad = false;
+                try
+                {
+                    if (!_writesEnabled)
+                    {
+                        GetDate();
+                        status = "Skip";
+                        break;
+                    }
+
+                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    request.Content = content;
+                    var response = _httpClient.Send(request);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+                    }
+
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} HttpStatusCode={status}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests // retry overload errors forever
+                                || response.StatusCode == HttpStatusCode.InternalServerError) // 429 on auth cause internal server error
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed write. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
         }
 
         private static string PostBundle(string jsonString, string resourceType, string resourceId)
