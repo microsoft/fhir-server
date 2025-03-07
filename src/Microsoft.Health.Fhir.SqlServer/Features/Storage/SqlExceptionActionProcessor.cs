@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey);
                 }
-                else if (sqlException.Number == 8003)
+                else if (sqlException.Number == SqlErrorCodes.TooManyParameters)
                 {
                     throw new RequestNotValidException(Core.Resources.TooManyParameters);
                 }
