@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -40,7 +41,6 @@ public class BlobRawResourceStore : IRawResourceStore
         IOptions<BlobOperationOptions> options,
         RecyclableMemoryStreamManager recyclableMemoryStreamManager)
     {
-        // TODO: Add metrics for blob operations
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         _blobClient = EnsureArg.IsNotNull(blobClient, nameof(blobClient));
         _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
@@ -52,6 +52,7 @@ public class BlobRawResourceStore : IRawResourceStore
         EnsureArg.IsNotNull(rawResources, nameof(rawResources));
         EnsureArg.IsGte(storageIdentifier, 0, nameof(storageIdentifier));
 
+        Stopwatch timer = Stopwatch.StartNew();
         _logger.LogInformation($"Writing raw resources to blob storage for storage identifier: {storageIdentifier}.");
 
         // prepare the file to store
@@ -74,12 +75,16 @@ public class BlobRawResourceStore : IRawResourceStore
         // upload the file to blob storage
         stream.Seek(0, SeekOrigin.Begin);
 
+        // UploadAsync was ~3X faster than OpenWriteAsync while trying to upload a ndjson file (tested with sizes upto 5MB).
         _ = await ExecuteAsync(
             func: async () =>
             {
                 return await blobClient.UploadAsync(stream, blobUploadOptions, cancellationToken);
             },
             operationName: nameof(WriteRawResourcesAsync));
+
+        timer.Stop();
+        _logger.LogInformation($"Successfully wrote raw resources to blob storage for storage identifier: {blobClient.Name} in {timer.ElapsedMilliseconds} ms");
 
         return rawResources;
     }
@@ -106,14 +111,14 @@ public class BlobRawResourceStore : IRawResourceStore
         }
         catch (RequestFailedException ex)
         {
-            var message = Resources.RawResourceStoreOperationFailedWithError;
+            var message = string.Format(Resources.RawResourceStoreOperationFailedWithError, ex.ErrorCode);
             _logger.LogError(ex, message: message);
             throw new RawResourceStoreException(message, ex);
         }
         catch (AggregateException ex) when (ex.InnerException is RequestFailedException)
         {
             var innerEx = ex.InnerException as RequestFailedException;
-            var message = Resources.RawResourceStoreOperationFailedWithError;
+            var message = string.Format(Resources.RawResourceStoreOperationFailedWithError, innerEx.ErrorCode);
             _logger.LogError(innerEx, message: message);
             throw new RawResourceStoreException(message, ex);
         }

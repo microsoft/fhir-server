@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Blob {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Access to storage account failed with ErrorCode: {ex.ErrorCode}.
+        ///   Looks up a localized string similar to Access to storage account failed with ErrorCode: {0}.
         /// </summary>
         internal static string RawResourceStoreOperationFailedWithError {
             get {
