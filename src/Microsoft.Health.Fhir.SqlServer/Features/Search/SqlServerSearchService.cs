@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.ClientModel;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -43,6 +45,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using static System.Net.WebRequestMethods;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -436,6 +439,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
+                        ContinuationToken continuationToken = null;
+                        var tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.MaxItemCount);
+                        //// logic inside sql reader should be as short as possible
                         using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
                             if (clonedSearchOptions.CountOnly)
@@ -462,7 +468,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 return;
                             }
 
-                            var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
                             short? newContinuationType = null;
                             long? newContinuationId = null;
                             bool moreResults = false;
@@ -485,7 +490,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out bool isPartialEntry,
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
-                                    out byte[] rawResourceBytes,
+                                    out SqlBytes rawResourceSqlBytes,
+                                    out long? fileId,
+                                    out int? offsetInFile,
                                     out bool isInvisible);
 
                                 if (isInvisible)
@@ -500,27 +507,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     moreResults = true;
 
                                     continue;
-                                }
-
-                                Lazy<string> rawResource = new Lazy<string>(() => string.Empty);
-
-                                if (!clonedSearchOptions.OnlyIds)
-                                {
-                                    rawResource = new Lazy<string>(() =>
-                                    {
-                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                        if (string.IsNullOrEmpty(decompressedResource))
-                                        {
-                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                        }
-
-                                        return decompressedResource;
-                                    });
                                 }
 
                                 // See if this resource is a continuation token candidate and increase the count
@@ -551,27 +537,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 // should be marked as partial
                                 isResultPartial = isResultPartial || isPartialEntry;
 
-                                resources.Add(new SearchResultEntry(
-                                    new ResourceWrapper(
-                                        resourceId,
-                                        version.ToString(CultureInfo.InvariantCulture),
-                                        _model.GetResourceTypeName(resourceTypeId),
-                                        clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                        new ResourceRequest(requestMethod),
-                                        resourceSurrogateId.ToLastUpdated(),
-                                        isDeleted,
-                                        null,
-                                        null,
-                                        null,
-                                        searchParameterHash,
-                                        resourceSurrogateId),
-                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                                tmpResources.Add((new SearchResultEntry(
+                                                    new ResourceWrapper(
+                                                        resourceId,
+                                                        version.ToString(CultureInfo.InvariantCulture),
+                                                        _model.GetResourceTypeName(resourceTypeId),
+                                                        null,
+                                                        new ResourceRequest(requestMethod),
+                                                        resourceSurrogateId.ToLastUpdated(),
+                                                        isDeleted,
+                                                        null,
+                                                        null,
+                                                        null,
+                                                        searchParameterHash,
+                                                        resourceSurrogateId),
+                                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                                                isRawResourceMetaSet,
+                                                rawResourceSqlBytes,
+                                                fileId,
+                                                offsetInFile));
                             }
 
                             // call NextResultAsync to get the info messages
                             await reader.NextResultAsync(cancellationToken);
 
-                            ContinuationToken continuationToken = moreResults
+                            continuationToken = moreResults
                                     ? new ContinuationToken(
                                         clonedSearchOptions.Sort.Select(s =>
                                             s.searchParameterInfo.Name switch
@@ -612,9 +602,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 sqlSearchOptions.SortHasMissingModifier = true;
                             }
-
-                            searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                         }
+
+                        // add raw resource to search entry
+                        var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                        var rawResources = SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+                        foreach (var tmpResource in tmpResources)
+                        {
+                            if (!clonedSearchOptions.OnlyIds)
+                            {
+                                var rawResource = new Lazy<string>(() =>
+                                {
+                                    var decompressed = tmpResource.SqlBytes.IsNull
+                                                     ? rawResources[(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value)]
+                                                     : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
+                                    _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
+                                    if (string.IsNullOrEmpty(decompressed))
+                                    {
+                                        decompressed = MissingResourceFactory.CreateJson(tmpResource.Entry.Resource.ResourceId, tmpResource.Entry.Resource.ResourceTypeName, "warning", "incomplete");
+                                        _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                    }
+
+                                    return decompressed;
+                                });
+
+                                tmpResource.Entry.Resource.RawResource = new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: tmpResource.IsMetaSet);
+                            }
+
+                            resources.Add(tmpResource.Entry);
+                        }
+
+                        searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                     }
                 },
                 _logger,
@@ -676,13 +694,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
             PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
-            List<SearchResultEntry> resources = null;
+            List<(SearchResultEntry Entry, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, bool IsMetaSet, string ResourceId)> resources = null;
             await _sqlRetryService.ExecuteSql(
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
                     using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
-                    resources = new List<SearchResultEntry>();
+                    resources = new List<(SearchResultEntry Entry, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, bool IsMetaSet, string ResourceId)>();
                     while (await reader.ReadAsync(cancel))
                     {
                         ReadWrapper(
@@ -697,7 +715,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out byte[] rawResourceBytes,
+                            out SqlBytes rawResourceSqlBytes,
+                            out long? fileId,
+                            out int? offsetInFile,
                             out bool isInvisible);
 
                         if (isInvisible)
@@ -711,30 +731,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
-
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                resourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                resourceSurrogateId.ToLastUpdated(),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash,
-                                resourceSurrogateId),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                        resources.Add(
+                            (new SearchResultEntry(
+                                new ResourceWrapper(
+                                    resourceId,
+                                    version.ToString(CultureInfo.InvariantCulture),
+                                    resourceType,
+                                    null,
+                                    new ResourceRequest(requestMethod),
+                                    resourceSurrogateId.ToLastUpdated(),
+                                    isDeleted,
+                                    null,
+                                    null,
+                                    null,
+                                    searchParameterHash,
+                                    resourceSurrogateId),
+                                isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                            rawResourceSqlBytes,
+                            fileId,
+                            offsetInFile,
+                            isRawResourceMetaSet,
+                            resourceId));
                     }
 
                     return;
@@ -742,7 +759,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 null,
                 cancellationToken);
-            return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
+            var rawResources = SqlStoreClient.GetRawResourcesFromAdls(resources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            foreach (var resource in resources)
+            {
+                var rawResource = resource.SqlBytes.IsNull
+                                ? rawResources[(EnsureArg.IsNotNull(resource.FileId).Value, EnsureArg.IsNotNull(resource.OffsetInFile).Value)]
+                                : SqlStoreClient.ReadCompressedRawResource(resource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
+
+                if (string.IsNullOrEmpty(rawResource))
+                {
+                    rawResource = MissingResourceFactory.CreateJson(resource.ResourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                }
+
+                resource.Entry.Resource.RawResource = new RawResource(rawResource, FhirResourceFormat.Json, resource.IsMetaSet);
+            }
+
+            return new SearchResult(resources.Select(_ => _.Entry), null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
         }
 
         private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -884,7 +917,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out byte[] rawResourceBytes,
+            out SqlBytes rawResourceSqlBytes,
+            out long? fileId,
+            out int? offsetInFile,
             out bool isInvisible)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
@@ -897,8 +932,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isPartialEntry = reader.Read(_isPartial, 7);
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
-            rawResourceBytes = reader.GetSqlBytes(10).Value;
-            isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+            rawResourceSqlBytes = reader.GetSqlBytes(10);
+            //// TODO: Remove field count check when Lake schema is deployed
+            //// Number of fields in old schema is either 11 or 12 (12th is sort value). In new schema, it is either 13 or 14.
+            fileId = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.FileId, 11) : null;
+            offsetInFile = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.OffsetInFile, 12) : null;
+            isInvisible = false;
+            if (!rawResourceSqlBytes.IsNull)
+            {
+                var rawResourceBytes = rawResourceSqlBytes.Value;
+                if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF)
+                {
+                    isInvisible = true;
+                }
+            }
         }
 
         [Conditional("DEBUG")]
