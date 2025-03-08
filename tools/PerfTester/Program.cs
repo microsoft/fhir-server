@@ -41,6 +41,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly bool _writeResourceIds = bool.Parse(ConfigurationManager.AppSettings["WriteResourceIds"]);
         private static readonly int _threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int _calls = int.Parse(ConfigurationManager.AppSettings["Calls"]);
+        private static readonly int _bundleSize = int.Parse(ConfigurationManager.AppSettings["BundleSize"]);
         private static readonly string _callType = ConfigurationManager.AppSettings["CallType"];
         private static readonly bool _performTableViewCompare = bool.Parse(ConfigurationManager.AppSettings["PerformTableViewCompare"]);
         private static readonly string _endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
@@ -284,8 +285,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var errors = 0L;
             var resources = 0;
             long sumLatency = 0;
-            var batchSize = 500;
-            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer, _nameFilter), _threads, batchSize, (thread, lineItem) =>
+            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer, _nameFilter), _threads, _bundleSize, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
                 {
@@ -305,7 +305,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
                 var status = PostBundleCreate(entries);
                 Interlocked.Increment(ref calls);
-                Interlocked.Add(ref resources, batchSize);
+                Interlocked.Add(ref resources, _bundleSize);
                 var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
                 Interlocked.Add(ref sumLatency, mcsec);
                 _store.TryLogEvent($"threads={_threads}.{_callType}:{status}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
