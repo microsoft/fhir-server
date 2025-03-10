@@ -203,9 +203,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Cosmo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.Core", "src\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj", "{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Blob", "Microsoft.Health.Fhir.Blob\Microsoft.Health.Fhir.Blob.csproj", "{0957665E-10C4-4383-B0A7-F324AF5D74CF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Blob", "src\Microsoft.Health.Fhir.Blob\Microsoft.Health.Fhir.Blob.csproj", "{0957665E-10C4-4383-B0A7-F324AF5D74CF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Blob.UnitTests", "Microsoft.Health.Fhir.Blob.UnitTests\Microsoft.Health.Fhir.Blob.UnitTests.csproj", "{DB496F82-C959-4B65-83F5-3CBDA609E383}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Blob.UnitTests", "src\Microsoft.Health.Fhir.Blob.UnitTests\Microsoft.Health.Fhir.Blob.UnitTests.csproj", "{DB496F82-C959-4B65-83F5-3CBDA609E383}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -151,7 +151,7 @@ public class BlobStoreTests
     }
 
     [Fact]
-    public void GivenDefaultStorageIdentifier_ThrowsArguementException()
+    public void GivenStorageIdentifierAsZero_ThrowsArguementException()
     {
         Assert.Throws<ArgumentException>(() => BlobUtility.ComputeHashPrefixForBlobName(0));
     }
