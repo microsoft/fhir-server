@@ -447,7 +447,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                if (processingLogic == BundleProcessingLogic.Sequential)
+                if (processingLogic == BundleProcessingLogic.Sequential && _requestCount > 1)
                 {
                     using (var transaction = _transactionHandler.BeginTransaction())
                     {
