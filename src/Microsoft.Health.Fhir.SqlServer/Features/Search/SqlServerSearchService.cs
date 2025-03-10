@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -351,32 +352,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             // ! - Trace
-            SqlRootExpression expression = (SqlRootExpression)searchExpression
-                                               ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
-                                               .AcceptVisitor(_compartmentSearchRewriter)
-                                               .AcceptVisitor(_smartCompartmentSearchRewriter)
-                                               .AcceptVisitor(DateTimeEqualityRewriter.Instance)
-                                               .AcceptVisitor(FlatteningRewriter.Instance)
-                                               .AcceptVisitor(UntypedReferenceRewriter.Instance)
-                                               .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
-                                               .AcceptVisitor(_partitionEliminationRewriter)
-                                               .AcceptVisitor(_sortRewriter, clonedSearchOptions)
-                                               .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
-                                               .AcceptVisitor(MissingSearchParamVisitor.Instance)
-                                               .AcceptVisitor(NotExpressionRewriter.Instance)
-                                               .AcceptVisitor(_chainFlatteningRewriter)
-                                               .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
-                                               .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
-                                               .AcceptVisitor(
-                                                   (SqlExpressionRewriterWithInitialContext<object>)(_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables
-                                                       ? StringOverflowRewriter.Instance
-                                                       : LegacyStringOverflowRewriter.Instance))
-                                               .AcceptVisitor(NumericRangeRewriter.Instance)
-                                               .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
-                                               .AcceptVisitor(TopRewriter.Instance, clonedSearchOptions)
-                                               .AcceptVisitor(IncludeRewriter.Instance)
-                                           ?? SqlRootExpression.WithResourceTableExpressions();
+            SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
+                ?.AcceptVisitor(IncludeRewriter.Instance)
+                ?? SqlRootExpression.WithResourceTableExpressions();
 
             await CreateStats(expression, cancellationToken);
 
@@ -1298,32 +1276,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             }
 
             // ! - Trace
-            SqlRootExpression expression = (SqlRootExpression)searchExpression
-                                               ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
-                                               .AcceptVisitor(_compartmentSearchRewriter)
-                                               .AcceptVisitor(_smartCompartmentSearchRewriter)
-                                               .AcceptVisitor(DateTimeEqualityRewriter.Instance)
-                                               .AcceptVisitor(FlatteningRewriter.Instance)
-                                               .AcceptVisitor(UntypedReferenceRewriter.Instance)
-                                               .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
-                                               .AcceptVisitor(_partitionEliminationRewriter)
-                                               .AcceptVisitor(_sortRewriter, clonedSearchOptions)
-                                               .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
-                                               .AcceptVisitor(MissingSearchParamVisitor.Instance)
-                                               .AcceptVisitor(NotExpressionRewriter.Instance)
-                                               .AcceptVisitor(_chainFlatteningRewriter)
-                                               .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
-                                               .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
-                                               .AcceptVisitor(
-                                                   (SqlExpressionRewriterWithInitialContext<object>)(_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables
-                                                       ? StringOverflowRewriter.Instance
-                                                       : LegacyStringOverflowRewriter.Instance))
-                                               .AcceptVisitor(NumericRangeRewriter.Instance)
-                                               .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
-                                               .AcceptVisitor(TopRewriter.Instance, clonedSearchOptions)
-                                               .AcceptVisitor(IncludesOperationRewriter.Instance)
-                                           ?? SqlRootExpression.WithResourceTableExpressions();
+            SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
+                ?.AcceptVisitor(IncludesOperationRewriter.Instance)
+                ?? SqlRootExpression.WithResourceTableExpressions();
 
             await CreateStats(expression, cancellationToken);
 
@@ -1503,6 +1458,34 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 true); // this enables reads from replicas
 
             return searchResult;
+        }
+
+        private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
+        {
+            return (SqlRootExpression)rootExpression
+                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
+                .AcceptVisitor(_compartmentSearchRewriter)
+                .AcceptVisitor(_smartCompartmentSearchRewriter)
+                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
+                .AcceptVisitor(FlatteningRewriter.Instance)
+                .AcceptVisitor(UntypedReferenceRewriter.Instance)
+                .AcceptVisitor(_sqlRootExpressionRewriter)
+                .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
+                .AcceptVisitor(_partitionEliminationRewriter)
+                .AcceptVisitor(_sortRewriter, searchOptions)
+                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
+                .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                .AcceptVisitor(NotExpressionRewriter.Instance)
+                .AcceptVisitor(_chainFlatteningRewriter)
+                .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
+                .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
+                .AcceptVisitor(
+                    (SqlExpressionRewriterWithInitialContext<object>)(_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables
+                        ? StringOverflowRewriter.Instance
+                        : LegacyStringOverflowRewriter.Instance))
+                .AcceptVisitor(NumericRangeRewriter.Instance)
+                .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
+                .AcceptVisitor(TopRewriter.Instance, searchOptions);
         }
 
         private class ResourceSearchParamStats
