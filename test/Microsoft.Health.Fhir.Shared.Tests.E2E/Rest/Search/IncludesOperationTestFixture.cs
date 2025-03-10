@@ -95,9 +95,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             KnownResourceTypes.Practitioner,
         };
 
-        private readonly IList<Resource> _patientResources;
-        private readonly IList<Resource> _relatedResources;
-        private readonly IDictionary<string, IList<Resource>> _relatedResourcesByResourceType;
+        private readonly List<Resource> _patientResources;
+        private readonly List<Resource> _relatedResources;
+        private readonly Dictionary<string, IList<Resource>> _relatedResourcesByResourceType;
         private readonly string _tag;
 
         public IncludesOperationTestFixture(
@@ -125,11 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await base.OnInitializedAsync();
             var bundle = TagResources((Bundle)Samples.GetJsonSample(ResourceFileName).ToPoco());
             var response = await TestFhirClient.PostBundleAsync(bundle);
-            ((List<Resource>)_patientResources).AddRange(
+            _patientResources.AddRange(
                 response.Resource.Entry
                     .Select(x => x.Resource)
                     .Where(x => x.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)));
-            ((List<Resource>)_relatedResources).AddRange(
+            _relatedResources.AddRange(
                 response.Resource.Entry
                     .Select(x => x.Resource)
                     .Where(x => !x.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)
