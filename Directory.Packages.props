@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>8.0.44</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.33</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <Hl7FhirVersion>5.4.0</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.3.0</Hl7FhirLegacyVersion>
@@ -37,7 +37,7 @@
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
-    <PackageVersion Include="Microsoft.Health.Blob" Version="8.0.44" />
+    <PackageVersion Include="Microsoft.Health.Blob" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.2" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />

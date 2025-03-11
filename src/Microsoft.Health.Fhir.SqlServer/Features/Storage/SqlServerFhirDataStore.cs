@@ -8,10 +8,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Specialized;
@@ -64,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
+
+        private readonly IRawResourceStore _blobRawResourceStore;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -82,7 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            IRawResourceStore blobRawResourceStore)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -97,6 +98,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+
+            _blobRawResourceStore = EnsureArg.IsNotNull(blobRawResourceStore, nameof(blobRawResourceStore));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -125,6 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             _ = new SqlAdlsClient(_sqlRetryService, _logger);
+            _blobRawResourceStore = blobRawResourceStore;
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
@@ -161,55 +165,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await StoreClient.TryLogEvent("DeleteBlobFromAdlsAsync", "Warn", $"mcsec={mcsec} blob={blobName}", start, cancellationToken);
         }
 
-        private async Task PutRawResourcesIntoAdlsAsync(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
+        private async Task WriteRawResourcesToStore(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
-            var start = DateTime.UtcNow;
-            var sw = Stopwatch.StartNew();
-            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
-            var retries = 0;
-            var blobName = GetBlobNameForRaw(transactionId);
-            while (true)
+            var rawResources = resources.Select(r => r.ResourceWrapper).ToList();
+
+            await _blobRawResourceStore.WriteRawResourcesAsync(rawResources, transactionId, cancellationToken);
+            for (int i = 0; i < resources.Count; i++)
             {
-                try
-                {
-                    using var stream = await SqlAdlsClient.Container.GetBlockBlobClient(blobName).OpenWriteAsync(true, null, cancellationToken);
-                    using var writer = new StreamWriter(stream);
-                    var offset = 0;
-                    foreach (var resource in resources)
-                    {
-                        resource.FileId = transactionId;
-                        resource.OffsetInFile = offset;
-                        var line = resource.ResourceWrapper.RawResource.Data;
-                        offset += Encoding.UTF8.GetByteCount(line) + eol;
-                        await writer.WriteLineAsync(line);
-                    }
-
-                    #pragma warning disable CA2016
-                    await writer.FlushAsync();
-                    break;
-                }
-                catch (Exception e)
-                {
-                    await StoreClient.TryLogEvent("PutRawResourcesIntoAdlsAsync", "Error", $"blob={blobName} error={e}", start, cancellationToken);
-                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase) && retries++ < 3)
-                    {
-                        await Task.Delay(1000, cancellationToken);
-                        continue;
-                    }
-
-                    throw;
-                }
+                resources[i].ResourceStorageOffset = rawResources[i].ResourceStorageOffset;
+                resources[i].ResourceStorageIdentifier = rawResources[i].ResourceStorageIdentifier;
             }
-
-            var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await StoreClient.TryLogEvent("PutRawResourcesToAdls", "Warn", $"mcsec={mcsec} resources={resources.Count} blob={blobName}", start, cancellationToken);
         }
 
+        // TODO: This method will be removed once we move all operations to raw resource store
         internal static string GetBlobNameForRaw(long fileId)
         {
             return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}.ndjson";
         }
 
+        // TODO: This method will be removed once we move all operations to raw resource store
         private static string GetPermanentHashCode(long tr)
         {
             var hashCode = 0;
@@ -703,7 +677,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
                                 || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(input.Resource); // version and last updated are not aligned
+                            conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {
@@ -802,7 +776,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsClient.Container != null)
             {
-                await PutRawResourcesIntoAdlsAsync(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
+                await WriteRawResourcesToStore(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake)

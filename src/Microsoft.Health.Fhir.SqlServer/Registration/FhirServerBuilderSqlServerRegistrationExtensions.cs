@@ -11,6 +11,7 @@ using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -67,6 +68,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add<BlobRawResourceStore>()
+               .Scoped()
+               .AsSelf()
+               .AsImplementedInterfaces();
 
             services.Add<SqlServerFhirOperationDataStore>()
                 .Scoped()
