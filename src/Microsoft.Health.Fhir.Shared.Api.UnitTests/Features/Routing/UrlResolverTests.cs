@@ -35,8 +35,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
     {
         private const string Scheme = "http";
         private const string Host = "test";
-        private const string ContinuationTokenQueryParamName = "ct";
-        private const string IncludesContinuationTokenQueryParamName = "includesCt";
+        private const string ContinuationTokenQueryParamName = KnownQueryParameterNames.ContinuationToken;
+        private const string IncludesContinuationTokenQueryParamName = KnownQueryParameterNames.IncludesContinuationToken;
         private const string DefaultRouteName = "Route";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

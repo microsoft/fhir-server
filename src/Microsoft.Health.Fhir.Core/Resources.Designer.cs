@@ -656,7 +656,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The &apos;_includesCt&apos; parameter is ignored for a non-$includes request..
+        ///   Looks up a localized string similar to The &apos;includesCt&apos; parameter is ignored for a non-$includes request..
         /// </summary>
         internal static string IncludesContinuationTokenIgnored {
             get {

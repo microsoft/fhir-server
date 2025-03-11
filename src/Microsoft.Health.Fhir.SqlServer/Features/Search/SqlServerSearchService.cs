@@ -602,6 +602,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 includedResources.Clear();
                                 includedResources.AddRange(includesSearchResult.Results);
                                 includeContinuationTokenString = includesSearchResult.IncludesContinuationToken;
+                                isResultPartial = !string.IsNullOrEmpty(includeContinuationTokenString);
                             }
 
                             if (isResultPartial)
