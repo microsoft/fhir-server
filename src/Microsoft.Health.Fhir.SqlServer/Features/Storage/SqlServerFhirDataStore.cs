@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
             SqlStoreClient storeClient,
-            IRawResourceStore blobRawResourceStore)
+            IRawResourceStore blobRawResourceStore = null)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -98,8 +98,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-
-            _blobRawResourceStore = EnsureArg.IsNotNull(blobRawResourceStore, nameof(blobRawResourceStore));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -127,6 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
+            // TODO: Cleanup SqlAdlsClient class and its references when all the blob operations have been moved to blob library
             _ = new SqlAdlsClient(_sqlRetryService, _logger);
             _blobRawResourceStore = blobRawResourceStore;
         }
@@ -167,6 +166,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task WriteRawResourcesToStore(IReadOnlyList<MergeResourceWrapper> resources, long transactionId, CancellationToken cancellationToken)
         {
+            // This method will only be called if the 'raw resource in blob' feature is enabled in which case this the resource store instance should not be null
+            EnsureArg.IsNotNull(resources, nameof(resources));
             var rawResources = resources.Select(r => r.ResourceWrapper).ToList();
 
             await _blobRawResourceStore.WriteRawResourcesAsync(rawResources, transactionId, cancellationToken);
@@ -774,7 +775,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && SqlAdlsClient.Container != null)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
             {
                 await WriteRawResourcesToStore(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
