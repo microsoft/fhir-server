@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, applicationName: SqlServerFhirDataStore.MergeApplicationName);
                     return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
                 }
                 catch (Exception e)
