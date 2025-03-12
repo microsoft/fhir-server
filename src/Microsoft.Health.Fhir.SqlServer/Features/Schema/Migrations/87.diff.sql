@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
-GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @RaiseEsceptionOnOverload bit = 0
+ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @RaiseEsceptionOnOverload bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -45,7 +43,7 @@ BEGIN TRY
     SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
   
   SET @msg = 'Waits[msec]='+convert(varchar,@TotalWaitMillisonds)
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@msg
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Text=@msg
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
@@ -54,8 +52,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @TransactionId bigint
---EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = @TransactionId OUT
---SELECT @TransactionId
---SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
---SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC
