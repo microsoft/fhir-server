@@ -8,8 +8,6 @@ parameters:
   type: string
 - name: buildPlatform
   type: string
-- name: multiplePlatforms
-  type: boolean
 
 jobs:
 - job: '${{parameters.version}}_Docker'
@@ -24,13 +22,9 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        MULTIPLATFORM=${{ parameters.multiplePlatforms }}
-        if [ "${MULTIPLATFORM,,}" = "true" ]; then
-          echo "Running multi-platform build. Will pull buildx from dockerhub."
-        else
-          echo "Running single-platform build, pulling buildx from mirror to avoid throttling."
-          docker pull mirror.gcr.io/moby/buildkit:buildx-stable-1
-        fi
+
+        # Pull buildx from mirror to avoid throttling
+        docker pull $(mobyBuildkitMirror):$(mobyBuildkitVersion)
 
         TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
