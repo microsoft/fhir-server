@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ExceptionExtensions
     {
+        private const string _completedSqlTransactionError = "This SqlTransaction has completed; it is no longer usable.";
+
         /// <summary>
         /// Determines whether the exception or its inner exception is of type <see cref="RequestRateExceededException"/>.
         /// It could be the inner exception because the Cosmos DB SDK wraps exceptions that are thrown inside of custom request handlers with a CosmosException.
@@ -38,6 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static bool IsRequestEntityTooLarge(this Exception e)
         {
             return e is RequestEntityTooLargeException || e?.InnerException is RequestEntityTooLargeException;
+        }
+
+        public static bool IsCompletedTransactionException(this InvalidOperationException ioe)
+        {
+            return ioe?.Message?.Contains(_completedSqlTransactionError, StringComparison.OrdinalIgnoreCase) ?? false;
         }
     }
 }
