@@ -56,6 +56,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
+            // TODO: Replace by permanent cleanup logic. Skip for now to leave transactions as they are
+            if (SqlAdlsClient.Container != null)
+            {
+                _logger.LogInformation($"{Name}: SqlAdlsClient.Container != null, skipping for now...");
+                return;
+            }
+
             IReadOnlyList<long> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
             if (timeoutTransactions.Count > 0)
             {
