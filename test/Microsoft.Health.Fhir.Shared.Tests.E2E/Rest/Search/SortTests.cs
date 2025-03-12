@@ -1134,6 +1134,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
         }
 
+        [Theory]
+        [InlineData("birthdate", false)]
+        [InlineData("-birthdate", true)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatients_WhenSearchedWithSortAndAllResourcesRetrievedInFirstPhase_SearchResultShouldNotHaveContinuationToken(string sortParameterName, bool addBirthdate)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedPatientsWithBirthDates(tag, addBirthdate);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_count={patients.Length}");
+            Assert.Equal(patients.Length, response.Resource.Entry.Count);
+            Assert.Null(response.Resource.NextLink);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -1216,6 +1230,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
 
             return patients;
+        }
+
+        private async Task<Patient[]> CreatePaginatedPatientsWithBirthDates(string tag, bool addBirthdate = true)
+        {
+            if (addBirthdate)
+            {
+                return await CreateResourcesAsync<Patient>(
+                    p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
+                    p => SetPatientInfo(p, "Seattle", "Alex", tag, new DateTime(1943, 11, 23)),
+                    p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
+                    p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
+                    p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
+                    p => SetPatientInfo(p, "Portland", "Lone", tag, new DateTime(1950, 05, 12)),
+                    p => SetPatientInfo(p, "Seattle", "Sophie", tag, new DateTime(1953, 05, 12)),
+                    p => SetPatientInfo(p, "Portland", "Peter", tag, new DateTime(1956, 06, 12)),
+                    p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
+                    p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
+            }
+
+            return await CreateResourcesAsync<Patient>(
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "James", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Alex", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Rock", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Mike", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Christie", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Lone", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Sophie", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Peter", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Cathy", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Jones", tag));
         }
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
