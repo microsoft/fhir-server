@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenTooParametersPostRequest_WhenSearching_ThenBadRequestIsReturned()
+        public async Task GivenTooManyParametersInAPostRequest_WhenSearching_ThenBadRequestIsReturned()
         {
             var sb = new StringBuilder();
 
