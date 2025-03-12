@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             ResponseHeaders.CopyTo(responseHeaders, 0);
 
             var clone = new FhirRequestContext(
-                Method,
-                Uri.ToString(),
+                Method ?? "test",
+                Uri?.ToString() ?? "https://fhir.com",
                 BaseUri.ToString(),
                 CorrelationId,
                 requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
@@ -64,12 +64,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
             clone.RouteName = RouteName;
             clone.AuditEventType = AuditEventType;
-            clone.Principal = Principal.Clone();
+            clone.Principal = Principal?.Clone() ?? new ClaimsPrincipal();
             clone.ResourceType = ResourceType;
             clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;
-            clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
+
+            if (AccessControlContext == null)
+            {
+                clone.AccessControlContext = new AccessControlContext();
+            }
+            else
+            {
+                clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
+            }
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {

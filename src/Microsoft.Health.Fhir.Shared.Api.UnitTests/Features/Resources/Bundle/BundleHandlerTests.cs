@@ -361,6 +361,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenABundle_WithASingleRecordAndSequential_ProcessItAsABundle()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            var localAsyncFunction = (CallInfo callInfo) =>
+            {
+                var routeContext = callInfo.Arg<RouteContext>();
+                routeContext.Handler = context =>
+                {
+                    context.Response.StatusCode = 200;
+                    return Task.CompletedTask;
+                };
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(localAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
+            Assert.Single(bundleResource.Entry);
+
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Transaction, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
+            Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+        }
+
+        [Fact]
         public async Task GivenATransactionBundleRequestWithNullUrl_WhenProcessing_ReturnsABadRequest()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
