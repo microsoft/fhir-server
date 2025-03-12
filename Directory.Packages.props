@@ -14,7 +14,11 @@
     </When>
     <Otherwise>
       <PropertyGroup>
-        <AspNetPackageVersion>9.0.3</AspNetPackageVersion>
+        <MediatRVersion>12.4.1</MediatRVersion>
+        <LoggingVersion>9.0.1</LoggingVersion>
+        <ConsoleLoggingVersion>9.0.1</ConsoleLoggingVersion>
+        <SdkPackageVersion>9.0</SdkPackageVersion>
+        <AspNetPackageVersion>9.0.1</AspNetPackageVersion>
       </PropertyGroup>
     </Otherwise>
   </Choose>
