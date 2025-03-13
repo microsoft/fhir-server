@@ -574,7 +574,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(100, 100)]
         [InlineData(null, 500)]
-        [InlineData(int.MaxValue, 500)]
+        [InlineData(int.MaxValue, 1000)]
         public void GivenAnIncludesCount_WhenCreated_ThenCorrectIncludeCountShouldBeSet(int? valueToSet, int valueExpected)
         {
             var parameters = valueToSet.HasValue
