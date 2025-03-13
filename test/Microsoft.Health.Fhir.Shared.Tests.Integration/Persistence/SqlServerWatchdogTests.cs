@@ -180,8 +180,6 @@ END
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
 
-            ExecuteSql("DELETE FROM Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'");
-
             ExecuteSql(@"
 CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
 FOR INSERT
@@ -299,6 +297,7 @@ END
             Assert.Equal(0, GetCount("NumberSearchParam")); // number is not inserted
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
+            ExecuteSql("DELETE FROM Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'");
 
             var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
