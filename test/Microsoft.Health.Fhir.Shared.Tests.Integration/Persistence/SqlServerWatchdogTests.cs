@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -197,11 +198,16 @@ END
                 Assert.Equal("Test", e.Message);
             }
 
+            ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
+
             Assert.Equal(0, GetCount("Resource")); // no resource inserted
 
-            Assert.Equal(1, GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
+            if (SqlAdlsClient.Container == null) // if so, the rest in not relevant
+            {
+                return;
+            }
 
-            ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
+            Assert.Equal(1, GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
 
             var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
