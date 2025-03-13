@@ -33,7 +33,7 @@ public class BlobRawResourceStore : IRawResourceStore
     private readonly ILogger<BlobRawResourceStore> _logger;
     private readonly IBlobClient _blobClient;
     private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
-    private static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
+    internal static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
     public BlobRawResourceStore(
         IBlobClient blobClient,

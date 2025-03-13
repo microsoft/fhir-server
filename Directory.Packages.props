@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>8.0.44</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.30</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <Hl7FhirVersion>5.4.0</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.3.0</Hl7FhirLegacyVersion>
@@ -36,8 +36,8 @@
     </Otherwise>
   </Choose>
   <ItemGroup Label="CVE Mitigation">
+    <PackageVersion Include="Microsoft.Health.Blob" Version="$(HealthcareSharedPackageVersion)" />
     <!--Please include the CGA id if possible-->
-    <PackageVersion Include="Microsoft.Health.Blob" Version="8.0.44" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.2" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
@@ -54,7 +54,7 @@
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.23.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.21.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.25" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
@@ -121,7 +121,7 @@
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="2.13.3" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.52.0" />
