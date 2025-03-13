@@ -166,6 +166,7 @@ END
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("DELETE FROM dbo.Resource");
+            ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
@@ -178,6 +179,8 @@ END
             var wrapper = factory.Create(patient.ToResourceElement(), false, true);
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
+
+            ExecuteSql("DELETE FROM Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'");
 
             ExecuteSql(@"
 CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
