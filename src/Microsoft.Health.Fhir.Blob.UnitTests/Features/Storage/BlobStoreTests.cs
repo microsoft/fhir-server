@@ -40,19 +40,13 @@ public class BlobStoreTests
         var clientOptions = Substitute.For<IOptions<BlobServiceClientOptions>>();
         clientOptions.Value.Returns(Substitute.For<BlobServiceClientOptions>());
 
-        var blobServiceClient = Substitute.For<BlobServiceClient>();
-        var blobContainerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-        var logger = NullLogger<BlobStoreClient>.Instance;
-
         blobClient = new TestBlobClient();
-
         var blobContainerClient = Substitute.For<BlobContainerClient>();
         blobContainerClient.GetBlockBlobClient(Arg.Any<string>()).Returns(Substitute.For<BlockBlobClient>());
 
         var options = Substitute.For<IOptions<BlobOperationOptions>>();
         options.Value.Returns(Substitute.For<BlobOperationOptions>());
 
-        var blobStorerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
         var storeLogger = NullLogger<BlobRawResourceStore>.Instance;
 
         blobStore = new BlobRawResourceStore(blobClient, storeLogger, options, RecyclableMemoryStreamManagerInstance);
@@ -136,7 +130,7 @@ public class BlobStoreTests
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
 
         var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
-        Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed.ToString()), ex.Message);
+        Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed), ex.Message);
     }
 
     [Theory]
