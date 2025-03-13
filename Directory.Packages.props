@@ -33,7 +33,7 @@
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
     <!-- CVE-2021-26701 -->
-    <PackageVersion Include="System.Text.Encodings.Web" Version="9.0.1" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="9.0.2" />
     <!-- CVE-2020-1045 -->
     <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
     <!-- CVE-2022-26907 -->
