@@ -22,13 +22,14 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
+        set -euo pipefail
 
-        # Pull buildx from mirror to avoid throttling
-        docker pull $(mobyBuildkitMirror):$(mobyBuildkitVersion)
+        # Create a new buildx builder instance with the specified platform and buildkit image
+        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap \
+            --driver docker-container --driver-opt image=$(mobyBuildkitMirror):$(mobyBuildkitVersion)
 
         TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
-        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
         docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
                       --platform ${{parameters.buildPlatform}} \
