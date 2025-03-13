@@ -124,7 +124,7 @@ public class BlobRawResourceStore : IRawResourceStore
             _logger.LogError(ex, message: message);
             throw new RawResourceStoreException(message, ex);
         }
-        catch (AggregateException ex) when (ex.InnerException is RequestFailedException)
+        catch (AggregateException ex) when (ex.InnerException is RequestFailedException && ex.InnerException is not null)
         {
             var innerEx = ex.InnerException as RequestFailedException;
             var message = string.Format(Resources.RawResourceStoreOperationFailedWithError, innerEx.ErrorCode);
