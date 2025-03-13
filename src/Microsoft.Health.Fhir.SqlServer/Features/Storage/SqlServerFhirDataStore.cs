@@ -722,7 +722,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (enlistInTransaction)
             {
                 using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
-                await conn.SqlConnection.OpenAsync(cancellationToken);
                 cmd.Connection = conn.SqlConnection;
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
