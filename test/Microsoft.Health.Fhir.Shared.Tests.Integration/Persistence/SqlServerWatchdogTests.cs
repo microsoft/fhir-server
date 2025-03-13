@@ -161,14 +161,94 @@ END
         }
 
         [Fact]
-        public async Task RollTransactionForward()
+        public async Task RollTransactionBackAndDeleteAdlsFile()
         {
-            // TODO: Remove skip when watchdog is fixed
-            if (SqlAdlsClient.Container != null)
+            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
+            ExecuteSql("DELETE FROM dbo.Resource");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
+            var factory = CreateResourceWrapperFactory();
+
+            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
+
+            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
+            wrapper.ResourceSurrogateId = tran.TransactionId;
+            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
+
+            ExecuteSql(@"
+CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
+FOR INSERT
+AS
+BEGIN
+  RAISERROR('Test',18,127)
+  RETURN
+END
+            ");
+
+            try
             {
-                return;
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, new[] { mergeWrapper }, false, 0, cts.Token);
+            }
+            catch (SqlException e)
+            {
+                Assert.Equal("Test", e.Message);
             }
 
+            Assert.Equal(0, GetCount("Resource")); // no resource inserted
+
+            Assert.Equal(1, GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
+
+            ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
+
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            {
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+            DateTime startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            startTime = DateTime.UtcNow;
+            while (GetResourceFromAdls(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
+            }
+
+            await cts.CancelAsync();
+            await wdTask;
+        }
+
+        private static int GetResourceFromAdls(long tranId)
+        {
+            try
+            {
+                var refs = new List<(long, int)>();
+                refs.Add((tranId, 0));
+                var results = SqlStoreClient.GetRawResourcesFromAdls(refs);
+                return results.Count;
+            }
+            catch (Exception e)
+            {
+                Assert.True(e.Message.Contains("notfound", StringComparison.OrdinalIgnoreCase));
+                return 0;
+            }
+        }
+
+        [Fact]
+        public async Task RollTransactionForward()
+        {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("DELETE FROM dbo.Resource");
             ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");

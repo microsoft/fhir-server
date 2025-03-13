@@ -56,13 +56,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            // TODO: Replace by permanent cleanup logic. Skip for now to leave transactions as they are
-            if (SqlAdlsClient.Container != null)
-            {
-                _logger.LogInformation($"{Name}: SqlAdlsClient.Container != null, skipping for now...");
-                return;
-            }
-
             IReadOnlyList<long> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
             if (timeoutTransactions.Count > 0)
             {
@@ -84,6 +77,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 var resources = await _store.GetResourcesByTransactionIdAsync(tranId, cancellationToken);
                 if (resources.Count == 0)
                 {
+                    if (SqlAdlsClient.Container != null)
+                    {
+                        await _store.DeleteBlobFromAdlsAsync(tranId, cancellationToken);
+                    }
+
                     await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", cancellationToken);
                     _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources=0", tranId);
                     await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, cancellationToken);
