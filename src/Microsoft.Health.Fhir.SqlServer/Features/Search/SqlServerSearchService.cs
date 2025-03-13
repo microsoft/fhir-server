@@ -574,6 +574,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 isResultPartial = isResultPartial || isPartialEntry;
                             }
 
+                            if (includedResources.Count > clonedSearchOptions.IncludeCount)
+                            {
+                                includedResources.RemoveRange(
+                                    clonedSearchOptions.IncludeCount,
+                                    includedResources.Count - clonedSearchOptions.IncludeCount);
+                                isResultPartial = true;
+                            }
+
                             // call NextResultAsync to get the info messages
                             await reader.NextResultAsync(cancellationToken);
 
@@ -594,7 +602,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 && newContinuationType.HasValue
                                 && newContinuationId.HasValue
                                 && matchedResourceSurrogateIdStart.HasValue
-                                && includedResources.Count > clonedSearchOptions.IncludeCount)
+                                && isResultPartial)
                             {
                                 clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
                                     new object[]
@@ -608,7 +616,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 includedResources.Clear();
                                 includedResources.AddRange(includesSearchResult.Results);
                                 includeContinuationTokenString = includesSearchResult.IncludesContinuationToken;
-                                isResultPartial = !string.IsNullOrEmpty(includeContinuationTokenString);
                             }
 
                             if (isResultPartial)

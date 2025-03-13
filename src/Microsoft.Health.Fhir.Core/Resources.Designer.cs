@@ -1637,7 +1637,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The number of included results exceeded the limit of {0}.
+        ///   Looks up a localized string similar to The search criteria provided returns partial included resources. Use &apos;_includesCount&apos; parameter to retrieve all included resources (Default: {0}, Max: {1})..
         /// </summary>
         internal static string TooManyIncludeResults {
             get {

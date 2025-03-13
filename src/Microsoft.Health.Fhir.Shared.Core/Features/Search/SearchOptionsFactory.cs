@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
-            if (includesCount.HasValue && includesCount <= _featureConfiguration.DefaultIncludeCountPerSearch)
+            if (includesCount.HasValue && includesCount <= _featureConfiguration.MaxIncludeCountPerSearch)
             {
                 searchOptions.IncludeCount = includesCount.Value;
             }
@@ -329,14 +329,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (includesCount.HasValue)
                 {
+                    searchOptions.IncludeCount = _featureConfiguration.MaxIncludeCountPerSearch;
                     _contextAccessor.RequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
-                            string.Format(Core.Resources.SearchParamaterIncludesCountExceedLimit, _featureConfiguration.DefaultIncludeCountPerSearch, includesCount)));
+                            string.Format(Core.Resources.SearchParamaterIncludesCountExceedLimit, _featureConfiguration.MaxIncludeCountPerSearch, includesCount)));
                 }
-
-                searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+                else
+                {
+                    searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+                }
             }
 
             if (searchParams.Elements?.Any() == true && searchParams.Summary != null && searchParams.Summary != SummaryType.False)

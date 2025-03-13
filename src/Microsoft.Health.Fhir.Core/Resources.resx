@@ -761,8 +761,7 @@
     <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
   </data>
   <data name="TooManyIncludeResults" xml:space="preserve">
-    <value>The number of included results exceeded the limit of {0}</value>
-    <comment>{0} is the limit of how many include results the service will return.</comment>
+    <value>The search criteria provided returns partial included resources. Use '_includesCount' parameter to retrieve all included resources (Default: {0}, Max: {1}).</value>
   </data>
   <data name="UnsupportedIncludesOperation" xml:space="preserve">
     <value>The '$includes' operation is not supported.</value>
