@@ -26,14 +26,16 @@ jobs:
 
         # Create a new buildx builder instance with the specified platform and buildkit image
         # Image is defined in azdo library variable group
-        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap \
+        docker buildx create --name fhir-multi-platform --use --bootstrap \
             --driver docker-container --driver-opt image=$(mobyBuildkitMirror):$(mobyBuildkitVersion)
 
-        TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
+        echo "Building FHIR ${{ parameters.version }} for platform ${{ parameters.buildPlatform }}..."
+
+        TAG="$(azureContainerRegistry)/${{ parameters.version} }_fhir-server:${{ parameters.tag }}"
         az acr login --name $(azureContainerRegistryName)
         docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
-                      --platform ${{parameters.buildPlatform}} \
-                      --build-arg FHIR_VERSION=${{parameters.version}} \
+                      --platform ${{ parameters.buildPlatform }} \
+                      --build-arg FHIR_VERSION=${{ parameters.version }} \
                       --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
                       --push .
