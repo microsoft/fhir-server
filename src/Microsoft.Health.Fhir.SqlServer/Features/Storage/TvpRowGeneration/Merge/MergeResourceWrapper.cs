@@ -32,13 +32,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merg
         public bool HasVersionToCompare { get; internal set; }
 
         /// <summary>
-        /// Adls file Id
+        /// Raw resource storage identifier
         /// </summary>
-        public long? FileId { get; internal set; }
+        public long? ResourceStorageIdentifier { get; internal set; }
 
         /// <summary>
-        /// Reasource record offset in adls file
+        /// Raw resource record storage offset in file
         /// </summary>
-        public int? OffsetInFile { get; internal set; }
+        public int? ResourceStorageOffset { get; internal set; }
     }
 }

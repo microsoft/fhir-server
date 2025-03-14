@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        public const string SectionName = "FhirServer:CoreFeatures";
+
         /// <summary>
         /// Defines CapabilityStatement.name
         /// </summary>
@@ -86,5 +88,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether storing FHIR resources in blob storage is enabled or not.
+        /// </summary>
+        public bool SupportsRawResourceInBlob { get; set; } = false;
     }
 }
