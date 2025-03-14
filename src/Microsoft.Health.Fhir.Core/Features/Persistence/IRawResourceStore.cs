@@ -19,4 +19,13 @@ public interface IRawResourceStore
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The identifier of the inserted resource.</returns>
     Task<IReadOnlyList<ResourceWrapper>> WriteRawResourcesAsync(IReadOnlyList<ResourceWrapper> rawResources, long storageIdentifier, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads a raw FHIR resource from the store.
+    /// </summary>
+    /// <param name="storageIdentifier">Identifier to be used with the storing raw resources</param>
+    /// <param name="offset">Raw Resource start position in the blob</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The raw resource</returns>
+    Task<RawResource> ReadRawResourceAsync(long storageIdentifier, long offset, CancellationToken cancellationToken);
 }
