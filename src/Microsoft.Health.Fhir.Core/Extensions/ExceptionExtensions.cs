@@ -42,9 +42,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return e is RequestEntityTooLargeException || e?.InnerException is RequestEntityTooLargeException;
         }
 
-        public static bool IsCompletedTransactionException(this InvalidOperationException ioe)
+        /// <summary>
+        /// Determines whether the exception if caused by a C# SQL Transaction already committed.
+        /// </summary>
+        /// <param name="e">The exception</param>
+        public static bool IsCompletedTransactionException(this InvalidOperationException e)
         {
-            return ioe?.Message?.Contains(_completedSqlTransactionError, StringComparison.OrdinalIgnoreCase) ?? false;
+            return e?.Message?.Contains(_completedSqlTransactionError, StringComparison.OrdinalIgnoreCase) ?? false;
         }
     }
 }
