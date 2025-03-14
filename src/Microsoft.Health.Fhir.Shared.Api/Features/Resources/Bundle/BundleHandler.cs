@@ -477,7 +477,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (InvalidOperationException ioe) when (ioe.IsCompletedTransactionException())
             {
                 _logger.LogError(ioe, "Failed to commit a transaction. This SqlTransaction has completed.");
-                throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
+                throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.InternalServerError);
             }
             catch (TransactionAbortedException tae)
             {

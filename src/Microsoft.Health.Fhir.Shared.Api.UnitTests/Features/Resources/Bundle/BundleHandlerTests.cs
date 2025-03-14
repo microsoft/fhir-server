@@ -406,6 +406,54 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenATransaction_WithACrashDuringCSharpTransaction_ReturnAProperError()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Observation",
+                        },
+                        Resource = new Observation(),
+                    },
+                },
+            };
+
+            var localAsyncFunction = (CallInfo callInfo) =>
+            {
+                var routeContext = callInfo.Arg<RouteContext>();
+                routeContext.Handler = context =>
+                {
+                    // This exception simulates a possible failure committing a C# transaction.
+                    throw new InvalidOperationException("This SqlTransaction has completed; it is no longer usable.");
+                };
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(localAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+
+            Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.InternalServerError);
+        }
+
+        [Fact]
         public async Task GivenATransactionBundleRequestWithNullUrl_WhenProcessing_ReturnsABadRequest()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
