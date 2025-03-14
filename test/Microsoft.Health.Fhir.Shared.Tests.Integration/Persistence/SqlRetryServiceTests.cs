@@ -713,9 +713,9 @@ END
                 throw new NotImplementedException();
             }
 
-            public Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            public async Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
             {
-                throw new NotImplementedException();
+                return await GetSqlConnectionAsync();
             }
         }
 
