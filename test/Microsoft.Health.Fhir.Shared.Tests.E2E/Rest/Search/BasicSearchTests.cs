@@ -200,6 +200,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         /// <summary>
+        /// Test to make sure we return Bad Request when customer sends too many parameters
+        /// </summary>
+        /// <returns>Task</returns>
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenTooManyParametersInAPostRequest_WhenSearching_ThenBadRequestIsReturned()
+        {
+            var sb = new StringBuilder();
+
+            // Create 2097 parameters
+            for (int i = 1; i <= 2097; i++)
+            {
+                sb.Append(i);
+                sb.Append(",");
+            }
+
+            // Add the last one, 2098 parameters
+            sb.Append("2098");
+
+            string ids = sb.ToString();
+            using var response = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchPostAsync("ChargeItem", null, default, ("_id", ids)));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(Core.Resources.TooManyParameters, response.Message);
+        }
+
+        /// <summary>
         /// This test is based on the details of user story #101268
         /// </summary>
         /// <returns>task</returns>

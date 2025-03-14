@@ -764,4 +764,7 @@
     <value>The number of included results exceeded the limit of {0}</value>
     <comment>{0} is the limit of how many include results the service will return.</comment>
   </data>
+  <data name="TooManyParameters" xml:space="preserve">
+    <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
+  </data>
 </root>

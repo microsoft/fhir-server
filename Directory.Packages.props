@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>8.0.33</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.48</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.3</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
   </PropertyGroup>
@@ -14,7 +14,7 @@
         <LoggingVersion>8.0.2</LoggingVersion>
         <ConsoleLoggingVersion>8.0.1</ConsoleLoggingVersion>
         <SdkPackageVersion>8.0</SdkPackageVersion>
-        <AspNetPackageVersion>8.0.12</AspNetPackageVersion>
+        <AspNetPackageVersion>8.0.13</AspNetPackageVersion>
       </PropertyGroup>
     </When>
     <Otherwise>
@@ -23,7 +23,7 @@
         <LoggingVersion>9.0.1</LoggingVersion>
         <ConsoleLoggingVersion>9.0.1</ConsoleLoggingVersion>
         <SdkPackageVersion>9.0</SdkPackageVersion>
-        <AspNetPackageVersion>9.0.1</AspNetPackageVersion>
+        <AspNetPackageVersion>9.0.2</AspNetPackageVersion>
       </PropertyGroup>
     </Otherwise>
   </Choose>
