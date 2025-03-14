@@ -1,22 +1,13 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>8.0.33</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>8.0.30</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <Hl7FhirVersion>5.4.0</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.3.0</Hl7FhirLegacyVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net6.0'">
-      <PropertyGroup>
-        <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
-        <MediatRVersion>12.4.1</MediatRVersion>
-        <LoggingVersion>8.0.2</LoggingVersion>
-        <SdkPackageVersion>8.0</SdkPackageVersion>
-        <AspNetPackageVersion>6.0</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
     <When Condition="'$(TargetFramework)' == 'net8.0'">
       <PropertyGroup>
         <!-- >= 12.2.0 MediatR started depending on 8.x Microsoft.Extension.* libraries -->
@@ -36,8 +27,8 @@
     </Otherwise>
   </Choose>
   <ItemGroup Label="CVE Mitigation">
-    <!--Please include the CGA id if possible-->
     <PackageVersion Include="Microsoft.Health.Blob" Version="$(HealthcareSharedPackageVersion)" />
+    <!--Please include the CGA id if possible-->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.2" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />

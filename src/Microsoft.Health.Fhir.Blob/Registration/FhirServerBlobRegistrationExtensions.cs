@@ -27,9 +27,9 @@ public static class FhirServerBlobRegistrationExtensions
             .Bind(blobConfig.GetSection(nameof(BlobServiceClientOptions.Operations)));
 
         services.Add<BlobStoreClient>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
+            .Singleton()
+            .AsSelf()
+            .AsImplementedInterfaces();
 
         services
             .AddBlobServiceClient(blobConfig)

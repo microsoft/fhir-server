@@ -33,7 +33,7 @@ public class BlobRawResourceStore : IRawResourceStore
     private readonly ILogger<BlobRawResourceStore> _logger;
     private readonly IBlobClient _blobClient;
     private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
-    private static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
+    internal static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
     public BlobRawResourceStore(
         IBlobClient blobClient,
@@ -124,7 +124,7 @@ public class BlobRawResourceStore : IRawResourceStore
             _logger.LogError(ex, message: message);
             throw new RawResourceStoreException(message, ex);
         }
-        catch (AggregateException ex) when (ex.InnerException is RequestFailedException)
+        catch (AggregateException ex) when (ex.InnerException is RequestFailedException && ex.InnerException is not null)
         {
             var innerEx = ex.InnerException as RequestFailedException;
             var message = string.Format(Resources.RawResourceStoreOperationFailedWithError, innerEx.ErrorCode);

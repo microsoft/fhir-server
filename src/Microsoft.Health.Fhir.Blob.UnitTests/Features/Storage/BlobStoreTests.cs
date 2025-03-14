@@ -116,8 +116,10 @@ public class BlobStoreTests
         Assert.Equal(DefaultStorageIdentifier, result[1].ResourceStorageIdentifier);
         Assert.Equal(0, result[0].ResourceStorageOffset);
 
+        var expectedOffset = result[0].RawResource.Data.Length + BlobRawResourceStore.EndOfLine;
+
         // This offset is based on the test data in the resources.ndjson file.
-        Assert.Equal(2997, result[1].ResourceStorageOffset);
+        Assert.Equal(expectedOffset, result[1].ResourceStorageOffset);
     }
 
     [Fact]
@@ -134,7 +136,7 @@ public class BlobStoreTests
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
 
         var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
-        Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed.ToString()), ex.Message);
+        Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed), ex.Message);
     }
 
     [Theory]
