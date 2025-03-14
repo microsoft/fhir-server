@@ -935,6 +935,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        /// </summary>
+        internal static string NotReferencedParameterInvalidValue {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
         internal static string NumberOfCompositeComponentsExceeded {

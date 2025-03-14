@@ -178,4 +178,7 @@
     <value>Partition reached maximum size.</value>
     <comment>Error raised when a partition reaches its max size.</comment>
   </data>
+  <data name="NotReferecedNotImplemented" xml:space="preserve">
+    <value>Not Referenced is not supported</value>
+  </data>
 </root>
