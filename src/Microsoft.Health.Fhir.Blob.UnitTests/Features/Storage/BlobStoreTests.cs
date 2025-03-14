@@ -40,19 +40,13 @@ public class BlobStoreTests
         var clientOptions = Substitute.For<IOptions<BlobServiceClientOptions>>();
         clientOptions.Value.Returns(Substitute.For<BlobServiceClientOptions>());
 
-        var blobServiceClient = Substitute.For<BlobServiceClient>();
-        var blobContainerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-        var logger = NullLogger<BlobStoreClient>.Instance;
-
         blobClient = new TestBlobClient();
-
         var blobContainerClient = Substitute.For<BlobContainerClient>();
         blobContainerClient.GetBlockBlobClient(Arg.Any<string>()).Returns(Substitute.For<BlockBlobClient>());
 
         var options = Substitute.For<IOptions<BlobOperationOptions>>();
         options.Value.Returns(Substitute.For<BlobOperationOptions>());
 
-        var blobStorerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
         var storeLogger = NullLogger<BlobRawResourceStore>.Instance;
 
         blobStore = new BlobRawResourceStore(blobClient, storeLogger, options, RecyclableMemoryStreamManagerInstance);
