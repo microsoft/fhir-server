@@ -84,43 +84,6 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-  - powershell: |
-      $maxRetries = 3
-      $attempt = 0
-      $threshold = 0.05
-      do {
-        dotnet test "$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" `
-          --logger "trx;LogFileName=TestResults_${attempt}.trx" `
-          --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"
-        $testResultFile = Join-Path -Path "$(System.DefaultWorkingDirectory)" -ChildPath "TestResults_${attempt}.trx"
-        
-        # Parse TRX to get total and failed test counts:
-        [xml]$trx = Get-Content $testResultFile
-        $total = $trx.TestRun.ResultSummary.Counters.total
-        $failed = $trx.TestRun.ResultSummary.Counters.failed
-        
-        $failureRate = $failed / $total
-        if ($failureRate -lt $threshold -and $failed -gt 0 -and $attempt -lt $maxRetries) {
-          # Generate list of failed tests
-          $failedTests = $trx.TestRun.Results.UnitTestResult |
-            Where-Object { $_.outcome -eq "Failed" } |
-            Select-Object -ExpandProperty testName |
-            ForEach-Object { "FullyQualifiedName=$_" } -join "|"
-          
-          if (-not [string]::IsNullOrWhiteSpace($failedTests)) {
-            Write-Host "Re-running failed tests... Attempt $($attempt+1)"
-            dotnet test "$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" `
-              --filter $failedTests
-          }
-        }
-        $attempt++
-      } while ($failureRate -lt $threshold -and $failed -gt 0 -and $attempt -lt $maxRetries)
-
-      if ($failureRate -ge $threshold) {
-        Write-Error "Test failure rate ($([string]::Format('{0:P2}', $failureRate))) exceeded threshold."
-        exit 1
-      }
-
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
