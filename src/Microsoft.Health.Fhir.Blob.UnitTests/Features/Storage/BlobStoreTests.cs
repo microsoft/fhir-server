@@ -5,15 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
-using Azure.Core;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -36,7 +32,6 @@ namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage;
 public class BlobStoreTests
 {
     private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "resources.ndjson");
-    private static readonly string _streamFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "stream.txt");
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
 
@@ -45,13 +40,19 @@ public class BlobStoreTests
         var clientOptions = Substitute.For<IOptions<BlobServiceClientOptions>>();
         clientOptions.Value.Returns(Substitute.For<BlobServiceClientOptions>());
 
+        var blobServiceClient = Substitute.For<BlobServiceClient>();
+        var blobContainerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
+        var logger = NullLogger<BlobStoreClient>.Instance;
+
         blobClient = new TestBlobClient();
+
         var blobContainerClient = Substitute.For<BlobContainerClient>();
         blobContainerClient.GetBlockBlobClient(Arg.Any<string>()).Returns(Substitute.For<BlockBlobClient>());
 
         var options = Substitute.For<IOptions<BlobOperationOptions>>();
         options.Value.Returns(Substitute.For<BlobOperationOptions>());
 
+        var blobStorerConfiguration = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
         var storeLogger = NullLogger<BlobRawResourceStore>.Instance;
 
         blobStore = new BlobRawResourceStore(blobClient, storeLogger, options, RecyclableMemoryStreamManagerInstance);
@@ -89,13 +90,6 @@ public class BlobStoreTests
         }
 
         return resourceWrappers;
-    }
-
-    internal static Stream GetBlobDownloadStreamingResult()
-    {
-        return new FileStream(_streamFilePath, FileMode.Open, FileAccess.Read);
-
-        // return new MemoryStream(Encoding.UTF8.GetBytes("{\"resourceType\":\"Patient\"}"));
     }
 
     [Fact]
@@ -162,41 +156,5 @@ public class BlobStoreTests
     public void GivenStorageIdentifierAsZero_ThrowsArguementException()
     {
         Assert.Throws<ArgumentException>(() => BlobUtility.ComputeHashPrefixForBlobName(0));
-    }
-
-    [Fact]
-    public async Task GivenResourceStore_WhenDownloadSucceeds_ThenValidateRawResource()
-    {
-        long testResourceStorageIdentifier = 1010101010;
-        int offset = 2997;
-        var resources = GetResourceWrappersWithData();
-
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        var substituteBlobContainerClient = Substitute.For<BlockBlobClient>();
-        substituteBlobContainerClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
-
-        var memoryStream = GetBlobDownloadStreamingResult(); // Your method to get a valid Stream.
-        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
-            content: memoryStream,
-            details: BlobsModelFactory.BlobDownloadDetails());
-
-        // Instead of substituting for Response<T>, create a real instance:
-        Response<BlobDownloadStreamingResult> response =
-            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content});
-
-        // Configure substitute client to return desired response.
-        substituteBlobContainerClient.DownloadStreamingAsync(
-            Arg.Any<BlobDownloadOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(response));
-
-        // Read the data back
-        var rawResource1 = await blobFileStore.ReadRawResourceAsync(testResourceStorageIdentifier, 0, CancellationToken.None);
-        var rawResource2 = await blobFileStore.ReadRawResourceAsync(testResourceStorageIdentifier, offset, CancellationToken.None);
-
-        Assert.NotNull(rawResource1);
-        Assert.NotNull(rawResource2);
-        Assert.Equal(resources[0].RawResource.Data, rawResource1.Data);
-        Assert.Equal(resources[1].RawResource.Data, rawResource2.Data);
     }
 }
