@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        public const string SectionName = "FhirServer:CoreFeatures";
+
         /// <summary>
         /// Defines CapabilityStatement.name
         /// </summary>

@@ -131,7 +131,14 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-                fhirServerBuilder.AddBlobStore(Configuration);
+
+                // Only register blob store if the feature is enabled
+                CoreFeatureConfiguration coreFeatureConfiguration = new();
+                Configuration.GetSection(CoreFeatureConfiguration.SectionName).Bind(coreFeatureConfiguration);
+                if (coreFeatureConfiguration.SupportsRawResourceInBlob)
+                {
+                    fhirServerBuilder.AddBlobStore(Configuration);
+                }
             }
         }
 
