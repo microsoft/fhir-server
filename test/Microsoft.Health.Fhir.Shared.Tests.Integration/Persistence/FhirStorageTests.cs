@@ -115,6 +115,23 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task DatabaseMergeThrottling()
+        {
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
+            //// set optimal threashold to low value to see waits.
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 2");
+            Parallel.For(0, 4, new ParallelOptions { MaxDegreeOfParallelism = 4}, (i) =>
+            {
+                var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
+                patient.Id = Guid.NewGuid().ToString();
+                Mediator.UpsertResourceAsync(patient.ToResourceElement()).Wait();
+            });
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT sum(convert(int,substring(EventText,len('Waits[msec]=)'),10))) FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') = 0 RAISERROR('Waits are not recorded', 18, 127)");
+            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task TimeTravel()
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Resource"); // remove all data

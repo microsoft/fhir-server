@@ -4159,10 +4159,11 @@ BEGIN TRY
     SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    WHILE @OptimalConcurrency < (SELECT count(*)
-                                 FROM   sys.dm_exec_sessions
-                                 WHERE  status <> 'sleeping'
-                                        AND program_name = 'MergeResources')
+    WHILE @TotalWaitMillisonds < 60000
+          AND @OptimalConcurrency < (SELECT count(*)
+                                     FROM   sys.dm_exec_sessions
+                                     WHERE  status <> 'sleeping'
+                                            AND program_name = 'MergeResources')
         BEGIN
             IF @RaiseEsceptionOnOverload = 1
                 THROW 50410, 'Number of concurrent calls to MergeResources is above optimal.', 1;

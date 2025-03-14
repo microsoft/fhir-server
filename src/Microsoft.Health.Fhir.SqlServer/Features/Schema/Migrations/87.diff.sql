@@ -16,7 +16,7 @@ BEGIN TRY
 
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
-  WHILE @OptimalConcurrency < (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
+  WHILE @TotalWaitMillisonds < 60000 AND @OptimalConcurrency < (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
   BEGIN
     IF @RaiseEsceptionOnOverload = 1
       THROW 50410, 'Number of concurrent calls to MergeResources is above optimal.', 1 
@@ -43,7 +43,7 @@ BEGIN TRY
     SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
   
   SET @msg = 'Waits[msec]='+convert(varchar,@TotalWaitMillisonds)
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Text=@msg
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@msg
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
