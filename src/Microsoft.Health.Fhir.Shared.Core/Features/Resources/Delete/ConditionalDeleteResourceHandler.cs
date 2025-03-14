@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else if (count == 1 && tooManyIncludeResults)
             {
-                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch));
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
             }
             else
             {

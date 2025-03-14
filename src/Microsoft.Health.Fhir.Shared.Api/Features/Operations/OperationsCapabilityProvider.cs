@@ -8,11 +8,13 @@ using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -28,22 +30,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly IUrlResolver _urlResolver;
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public OperationsCapabilityProvider(
             IOptions<OperationsConfiguration> operationConfiguration,
             IOptions<FeatureConfiguration> featureConfiguration,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            IUrlResolver urlResolver)
+            IUrlResolver urlResolver,
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             EnsureArg.IsNotNull(operationConfiguration?.Value, nameof(operationConfiguration));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
 
             _operationConfiguration = operationConfiguration.Value;
             _featureConfiguration = featureConfiguration.Value;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _urlResolver = urlResolver;
+            _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
@@ -79,6 +85,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             if (_coreFeatureConfiguration.SupportsSelectableSearchParameters)
             {
                 builder.Apply(AddSelectableSearchParameterDetails);
+            }
+
+            if (_coreFeatureConfiguration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false))
+            {
+                builder.Apply(AddIncludesDetails);
             }
         }
 
@@ -148,6 +159,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddSelectableSearchParameterDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.SearchParameterStatus);
+        }
+
+        public void AddIncludesDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Includes);
         }
     }
 }

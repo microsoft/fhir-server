@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,11 +14,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -34,22 +38,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public OperationDefinitionController(
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> featureConfig,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfig)
+            IOptions<CoreFeatureConfiguration> coreFeatureConfig,
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value, nameof(operationsConfig));
             EnsureArg.IsNotNull(featureConfig?.Value, nameof(featureConfig));
             EnsureArg.IsNotNull(coreFeatureConfig?.Value, nameof(coreFeatureConfig));
+            EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
 
             _mediator = mediator;
             _operationConfiguration = operationsConfig.Value;
             _featureConfiguration = featureConfig.Value;
             _coreFeatureConfiguration = coreFeatureConfig.Value;
+            _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
         }
 
         [HttpGet]
@@ -148,6 +156,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.SearchParameterStatus);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.IncludesOperationDefinition, Name = RouteNames.IncludesOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> IncludesOperationDefinition()
+        {
+            if (!_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? true)
+            {
+                throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
+            }
+
+            return await GetOperationDefinitionAsync(OperationsConstants.Includes);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -186,6 +207,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.BulkDelete:
                     operationEnabled = _coreFeatureConfiguration.SupportsBulkDelete;
+                    break;
+                case OperationsConstants.Includes:
+                    operationEnabled = _coreFeatureConfiguration.SupportsIncludes;
                     break;
                 default:
                     break;

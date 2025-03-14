@@ -24,12 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="sortOrder">The parameters the results are sorted by</param>
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="searchIssues">List of search issues found.</param>
+        /// <param name="includesContinuationToken">The continuation token for $includes operation.</param>
         public SearchResult(
             IEnumerable<SearchResultEntry> results,
             string continuationToken,
             IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortOrder,
             IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
-            IReadOnlyList<OperationOutcomeIssue> searchIssues = null)
+            IReadOnlyList<OperationOutcomeIssue> searchIssues = null,
+            string includesContinuationToken = null)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ContinuationToken = continuationToken;
             SortOrder = sortOrder;
             SearchIssues = searchIssues ?? Array.Empty<OperationOutcomeIssue>();
+            IncludesContinuationToken = includesContinuationToken;
         }
 
         public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
@@ -80,6 +83,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the continuation token.
         /// </summary>
         public string ContinuationToken { get; }
+
+        /// <summary>
+        /// Gets the continuation token for $includes operation.
+        /// </summary>
+        public string IncludesContinuationToken { get; }
 
         /// <summary>
         /// A list of issues that will be returned inside a search result.

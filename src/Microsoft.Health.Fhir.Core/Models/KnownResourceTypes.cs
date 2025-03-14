@@ -67,6 +67,10 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string CareTeam = "CareTeam";
 
+        public const string MedicationDispense = "MedicationDispense";
+
+        public const string MedicationRequest = "MedicationRequest";
+
         public const string All = "all";
     }
 }

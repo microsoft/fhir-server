@@ -7,9 +7,8 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using FluentValidation.Results;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
