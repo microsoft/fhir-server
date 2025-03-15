@@ -131,7 +131,6 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
-      multiplePlatforms: true
 
 # *********************** Stu3 ***********************
 - stage: redeployStu3
