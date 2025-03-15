@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, null, logger, cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
@@ -260,9 +260,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
         /// <param name="disableRetries">"Flag indicating whether retries are disabled."</param>
+        /// <param name="applicationName">"Application name."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false)
+        public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, logger, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, applicationName, logger, cancellationToken);
                     //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
                     sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
@@ -445,7 +446,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _coreFeatureConfiguration = coreFeatureConfiguration;
             }
 
-            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, ILogger logger, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, string applicationName, ILogger logger, CancellationToken cancel)
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
@@ -455,7 +456,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
                 {
                     logSB.AppendLine("Not read only");
-                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
                 }
                 else
                 {
@@ -466,11 +467,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {
                         isReadOnlyConnection = string.Empty;
-                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
                     }
                     else if (replicaTrafficRatio > 0.99)
                     {
-                        conn = await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(true, applicationName);
                     }
                     else
                     {
@@ -480,9 +481,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             isReadOnlyConnection = string.Empty;
                         }
 
-                        conn = useWriteConnection
-                                ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel)
-                                : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel);
+                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(!useWriteConnection, applicationName);
                     }
                 }
 
