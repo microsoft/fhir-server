@@ -1,16 +1,16 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @RaiseEsceptionOnOverload bit = 0
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @RaiseExceptionOnOverload bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate),'NULL')+' E='+convert(varchar,@RaiseEsceptionOnOverload)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate,121),'NULL')+' E='+convert(varchar,@RaiseExceptionOnOverload)
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
        ,@OptimalConcurrency int = isnull((SELECT Number FROM Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'), 256)
        ,@WaitMilliseconds smallint = 10
-       ,@TotalWaitMillisonds int = 0
+       ,@TotalWaitMilliseconds int = 0
        ,@msg varchar(1000)
 
 BEGIN TRY
@@ -19,15 +19,15 @@ BEGIN TRY
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
   -- total wait should be less than 30 sec default timeout 
-  WHILE @TotalWaitMillisonds < 10 * (1 + rand()) AND @OptimalConcurrency < (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
+  WHILE @TotalWaitMilliseconds < 10000 * (1 + rand()) AND @OptimalConcurrency < (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
   BEGIN
-    IF @RaiseEsceptionOnOverload = 1
+    IF @RaiseExceptionOnOverload = 1
       THROW 50410, 'Number of concurrent calls to MergeResources is above optimal.', 1 
 
     SET @msg = '00:00:00.'+format(@WaitMilliseconds, 'd3')
     WAITFOR DELAY @msg
-    SET @TotalWaitMillisonds += @WaitMilliseconds
-    SET @WaitMilliseconds = @WaitMilliseconds * (1.5 + rand())
+    SET @TotalWaitMilliseconds += @WaitMilliseconds
+    SET @WaitMilliseconds = @WaitMilliseconds * (2.5 + rand())
     IF @WaitMilliseconds > 999 SET @WaitMilliseconds = 999
   END
 
@@ -46,9 +46,9 @@ BEGIN TRY
          (  SurrogateIdRangeFirstValue,   SurrogateIdRangeLastValue,                      HeartbeatDate )
     SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
   
-  IF @TotalWaitMillisonds > 0
+  IF @TotalWaitMilliseconds > 0
   BEGIN
-    SET @msg = 'Waits[msec]='+convert(varchar,@TotalWaitMillisonds)
+    SET @msg = 'Waits[msec]='+convert(varchar,@TotalWaitMilliseconds)
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@msg
   END
 END TRY

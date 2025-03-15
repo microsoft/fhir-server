@@ -4149,28 +4149,28 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL, @RaiseEsceptionOnOverload BIT=0
+@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL, @RaiseExceptionOnOverload BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count) + ' HB=' + isnull(CONVERT (VARCHAR, @HeartbeatDate), 'NULL') + ' E=' + CONVERT (VARCHAR, @RaiseEsceptionOnOverload), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @OptimalConcurrency AS INT = isnull((SELECT Number
-                                                                                                                                                                                                                                                                                                                                                                                    FROM   Parameters
-                                                                                                                                                                                                                                                                                                                                                                                    WHERE  Id = 'MergeResources.OptimalConcurrentCalls'), 256), @WaitMilliseconds AS SMALLINT = 10, @TotalWaitMillisonds AS INT = 0, @msg AS VARCHAR (1000);
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count) + ' HB=' + isnull(CONVERT (VARCHAR, @HeartbeatDate, 121), 'NULL') + ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnOverload), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @OptimalConcurrency AS INT = isnull((SELECT Number
+                                                                                                                                                                                                                                                                                                                                                                                         FROM   Parameters
+                                                                                                                                                                                                                                                                                                                                                                                         WHERE  Id = 'MergeResources.OptimalConcurrentCalls'), 256), @WaitMilliseconds AS SMALLINT = 10, @TotalWaitMilliseconds AS INT = 0, @msg AS VARCHAR (1000);
 BEGIN TRY
     SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    WHILE @TotalWaitMillisonds < 10 * (1 + rand())
+    WHILE @TotalWaitMilliseconds < 10000 * (1 + rand())
           AND @OptimalConcurrency < (SELECT count(*)
                                      FROM   sys.dm_exec_sessions
                                      WHERE  status <> 'sleeping'
                                             AND program_name = 'MergeResources')
         BEGIN
-            IF @RaiseEsceptionOnOverload = 1
+            IF @RaiseExceptionOnOverload = 1
                 THROW 50410, 'Number of concurrent calls to MergeResources is above optimal.', 1;
             SET @msg = '00:00:00.' + format(@WaitMilliseconds, 'd3');
             WAITFOR DELAY @msg;
-            SET @TotalWaitMillisonds += @WaitMilliseconds;
-            SET @WaitMilliseconds = @WaitMilliseconds * (1.5 + rand());
+            SET @TotalWaitMilliseconds += @WaitMilliseconds;
+            SET @WaitMilliseconds = @WaitMilliseconds * (2.5 + rand());
             IF @WaitMilliseconds > 999
                 SET @WaitMilliseconds = 999;
         END
@@ -4187,9 +4187,9 @@ BEGIN TRY
     SELECT @TransactionId,
            @TransactionId + @Count - 1,
            isnull(@HeartbeatDate, getUTCdate());
-    IF @TotalWaitMillisonds > 0
+    IF @TotalWaitMilliseconds > 0
         BEGIN
-            SET @msg = 'Waits[msec]=' + CONVERT (VARCHAR, @TotalWaitMillisonds);
+            SET @msg = 'Waits[msec]=' + CONVERT (VARCHAR, @TotalWaitMilliseconds);
             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @msg;
         END
 END TRY
