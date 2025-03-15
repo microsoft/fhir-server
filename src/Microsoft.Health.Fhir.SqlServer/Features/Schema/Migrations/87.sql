@@ -4159,7 +4159,7 @@ BEGIN TRY
     SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    WHILE @TotalWaitMillisonds < 60000
+    WHILE @TotalWaitMillisonds < 10 * (1 + rand())
           AND @OptimalConcurrency < (SELECT count(*)
                                      FROM   sys.dm_exec_sessions
                                      WHERE  status <> 'sleeping'
@@ -4170,7 +4170,9 @@ BEGIN TRY
             SET @msg = '00:00:00.' + format(@WaitMilliseconds, 'd3');
             WAITFOR DELAY @msg;
             SET @TotalWaitMillisonds += @WaitMilliseconds;
-            SET @WaitMilliseconds = CASE WHEN @WaitMilliseconds < 500 THEN @WaitMilliseconds * 2 ELSE 999 END;
+            SET @WaitMilliseconds = @WaitMilliseconds * (1.5 + rand());
+            IF @WaitMilliseconds > 999
+                SET @WaitMilliseconds = 999;
         END
     SET @FirstValueVar = NULL;
     WHILE @FirstValueVar IS NULL
@@ -4185,8 +4187,11 @@ BEGIN TRY
     SELECT @TransactionId,
            @TransactionId + @Count - 1,
            isnull(@HeartbeatDate, getUTCdate());
-    SET @msg = 'Waits[msec]=' + CONVERT (VARCHAR, @TotalWaitMillisonds);
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @msg;
+    IF @TotalWaitMillisonds > 0
+        BEGIN
+            SET @msg = 'Waits[msec]=' + CONVERT (VARCHAR, @TotalWaitMillisonds);
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @msg;
+        END
 END TRY
 BEGIN CATCH
     IF error_number() = 1750

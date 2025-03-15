@@ -126,7 +126,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 patient.Id = Guid.NewGuid().ToString();
                 Mediator.UpsertResourceAsync(patient.ToResourceElement()).Wait();
             });
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT sum(convert(int,substring(EventText,len('Waits[msec]=)'),10))) FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') = 0 RAISERROR('Waits are not recorded', 18, 127)");
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') RAISERROR('Waits are not recorded', 18, 127)");
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
         }
 
