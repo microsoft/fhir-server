@@ -28,7 +28,7 @@ jobs:
         # Image is defined in azdo library variable group
         docker buildx create --name fhir-multi-platform --use \
             --driver docker-container --driver-opt image=$(mobyBuildkitMirror):$(mobyBuildkitVersion)
-        docker builx inspect fhir-multi-platform --bootstrap
+        docker buildx inspect fhir-multi-platform --bootstrap
 
         echo "Building FHIR ${{ parameters.version }} for platform ${{ parameters.buildPlatform }}..."
 
