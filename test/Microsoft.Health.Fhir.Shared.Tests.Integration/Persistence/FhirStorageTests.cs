@@ -120,7 +120,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
             //// set optimal threashold to low value to see waits.
             await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 2");
-            Parallel.For(0, 4, new ParallelOptions { MaxDegreeOfParallelism = 4}, (i) =>
+            Parallel.For(0, 8, new ParallelOptions { MaxDegreeOfParallelism = 8 }, (i) =>
             {
                 var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
                 patient.Id = Guid.NewGuid().ToString();
