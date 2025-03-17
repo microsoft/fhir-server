@@ -24,7 +24,7 @@ jobs:
       inlineScript: |
         set -euo pipefail
 
-        # Images is defined in azdo library variable group
+        # Images variables are defined in azdo library variable group
         echo "Creating builder using cached buildkit mirror..."
         docker buildx create --name fhir-multi-platform --use \
             --driver docker-container --driver-opt image=$(mobyBuildkitImage)
