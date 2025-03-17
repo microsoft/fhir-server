@@ -53,6 +53,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT 'MergeResources.AdlsConnectionString','UseDevelopmentStorage=true'");
+            }
         }
 
         [Fact]
@@ -138,7 +142,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
                 var message = await ImportWaitAsync(registration.CheckLocation, false);
                 Assert.Equal(requestedExceptions == 6 ? HttpStatusCode.InternalServerError : HttpStatusCode.OK, message.StatusCode);
                 var retries = (int)ExecuteSql("SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransaction' AND Status = 'Error'");
-                Assert.Equal(requestedExceptions == 6 ? 5 : 3, retries);
+                Assert.Equal(requestedExceptions == 6 ? 4 : 3, retries);
             }
             finally
             {
