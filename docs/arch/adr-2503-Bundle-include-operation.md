@@ -5,7 +5,7 @@ Labels: [Specification](https://github.com/microsoft/fhir-server/labels/Specific
 FHIR API users and developers need a scalable solution for handling included resources (_include and _revInclude) within a search bundle. Currently, performance constraints limit the number of included items to 1000. When this limit is exceeded, all additional included items are truncated, making it difficult to retrieve necessary data efficiently. The new $includes operation is introduced to allow separate retrieval of included items with support for pagination, maintaining API performance and usability. 
 
 Key considerations:
-- Ensuring that included resources are accessible beyond the 100-item limit.
+- Ensuring that included resources are accessible beyond the 1000-item limit.
 - Supporting pagination for large datasets.
 - Maintaining consistency with standard FHIR search behavior.
 - Providing clear feedback through OperationOutcome when the limit is exceeded.
