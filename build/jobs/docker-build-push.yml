@@ -30,8 +30,7 @@ jobs:
             --driver docker-container --driver-opt image=$(mobyBuildkitImage)
         
         echo "Setting up QEMU for cross-platform builds..."
-        docker pull $(multiarchQemuImage)
-        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        docker run --rm --privileged $(multiarchQemuImage) --reset -p yes
         
         echo "Inspecting builder to confirm setup..."
         docker buildx inspect fhir-multi-platform --bootstrap
