@@ -117,7 +117,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task TimeTravel()
         {
-            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Resource"); // remove all data
+            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Resource --"); // remove all data
 
             // add resource
             var type = "Patient";
