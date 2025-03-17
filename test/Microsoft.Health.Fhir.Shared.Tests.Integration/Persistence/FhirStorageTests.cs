@@ -413,7 +413,7 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco<Resource>();
             newResourceValues.Id = saveResult.RawResourceElement.Id;
 
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement());
@@ -791,6 +791,48 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
                     _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
+            }
+        }
+
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Theory]
+        public async Task GivenACreatedResource_WhenBlobStorageEnabled_ThenRawResourceIsNotStoredInSqlDB(bool blobStoreForResourceEnabled)
+        {
+            // Enable blob storage
+            _fixture.CoreFeatures.Value.SupportsRawResourceInBlob = blobStoreForResourceEnabled;
+
+            // Create a test resource
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            // Verify that the resource is created
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+
+            // Fetch the resource from the SQL database
+            var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
+            var wrapper = await _fixture.DataStore.GetAsync(resourceKey, CancellationToken.None);
+
+            if (blobStoreForResourceEnabled)
+            {
+                // Additional check in the database
+                await _fixture.SqlHelper.ExecuteSqlCmd(
+                    @$"
+IF EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
+BEGIN
+    THROW 50000, 'Raw resource data should not be stored in the SQL database when blob storage is enabled.', 1
+END");
+            }
+            else
+            {
+                // Additional check in the database
+                await _fixture.SqlHelper.ExecuteSqlCmd(
+                    @$"
+IF NOT EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
+BEGIN
+    THROW 50000, 'Raw resource data should be stored in the SQL database when blob storage is disabled.', 1
+END");
             }
         }
 

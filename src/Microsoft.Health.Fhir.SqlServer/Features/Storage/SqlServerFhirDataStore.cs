@@ -181,19 +181,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         // TODO: This method will be removed once we move all operations to raw resource store
         internal static string GetBlobNameForRaw(long fileId)
         {
-            return $"hash-{GetPermanentHashCode(fileId)}/transaction-{fileId}.ndjson";
+            return $"{GetPermanentHashCode(fileId)}/{fileId}.ndjson";
         }
 
         // TODO: This method will be removed once we move all operations to raw resource store
         private static string GetPermanentHashCode(long tr)
         {
             var hashCode = 0;
-            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
+            foreach (var c in tr.ToString())
             {
                 hashCode = unchecked((hashCode * 251) + c);
             }
 
-            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
+            return (Math.Abs(hashCode) % 1000).ToString().PadLeft(3, '0');
         }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)

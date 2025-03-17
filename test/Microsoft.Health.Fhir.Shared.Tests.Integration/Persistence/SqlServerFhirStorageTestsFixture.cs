@@ -7,13 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Azure.Identity;
+using Azure.Storage.Blobs;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Blob.Configs;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -124,6 +127,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
+        public IOptions<CoreFeatureConfiguration> CoreFeatures => _options;
+
         internal static string GetDatabaseName(string test = null)
         {
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
@@ -154,6 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
+            collection.AddSingleton(_options);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
             _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
@@ -229,6 +235,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
+            var blobServiceClient = new BlobServiceClient("UseDevelopmentStorage=true");
+            IOptionsMonitor<BlobContainerConfiguration> optionsMonitor = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
+            var blobStoreClient = new BlobStoreClient(blobServiceClient, optionsMonitor, NullLogger<BlobStoreClient>.Instance);
+            var blobRawResourceStore = new BlobRawResourceStore(blobStoreClient, NullLogger<BlobRawResourceStore>.Instance, Options.Create(new BlobOperationOptions()), new IO.RecyclableMemoryStreamManager());
+
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -242,7 +253,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
+                blobRawResourceStore); // Pass the BlobRawResourceStore instance here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -413,6 +425,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(IOptions<CoreFeatureConfiguration>))
+            {
+                return _options;
             }
 
             return null;
