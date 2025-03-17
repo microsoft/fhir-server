@@ -27,9 +27,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
             // No support to Selective Search Parameter.
             Assert.False(runtimeConfiguration.IsSelectiveSearchParameterSupported);
 
-            // Support to Export.
-            Assert.True(runtimeConfiguration.IsExportBackgroundWorkerSupported);
-
             // No support to CMK Background Service.
             Assert.False(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);
 
@@ -48,9 +45,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 
             // Support to Selective Search Parameter.
             Assert.True(runtimeConfiguration.IsSelectiveSearchParameterSupported);
-
-            // No support to Export.
-            Assert.False(runtimeConfiguration.IsExportBackgroundWorkerSupported);
 
             // Support to CMK Background Service.
             Assert.True(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);

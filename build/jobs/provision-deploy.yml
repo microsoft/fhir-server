@@ -81,6 +81,7 @@ jobs:
             enableImport = $true
             backgroundTaskCount = 5
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
+            registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
         }
      

@@ -760,4 +760,8 @@
   <data name="ReindexRunning" xml:space="preserve">
     <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
   </data>
+  <data name="TooManyIncludeResults" xml:space="preserve">
+    <value>The number of included results exceeded the limit of {0}</value>
+    <comment>{0} is the limit of how many include results the service will return.</comment>
+  </data>
 </root>

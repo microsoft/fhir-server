@@ -161,16 +161,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
+                        // Check if more resources to be retrieved.
+                        sqlSearchOptions.SortQuerySecondPhase = true;
+                        sqlSearchOptions.MaxItemCount = 1;
+                        var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+
                         // Since we are already returning MaxItemCount number of resources we don't want
                         // to execute another search right now just to drop all the resources. We will return
                         // a "special" ct so that we the subsequent request will be handled correctly.
-                        var ct = new ContinuationToken(new object[]
+                        var ct = (secondSearchResult.Results?.Any() ?? false) ? new ContinuationToken(new object[]
                             {
                                 SqlSearchConstants.SortSentinelValueForCt,
                                 0,
-                            });
+                            })
+                            : null;
 
-                        searchResult = new SearchResult(searchResult.Results, ct.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+                        searchResult = new SearchResult(searchResult.Results, ct?.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
                     }
                     else
                     {

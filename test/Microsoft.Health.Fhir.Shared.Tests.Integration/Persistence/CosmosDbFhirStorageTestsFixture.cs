@@ -90,7 +90,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 AllowDatabaseCreation = true,
                 AllowCollectionSetup = true,
                 PreferredLocations = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbPreferredLocations)?.Split(';', StringSplitOptions.RemoveEmptyEntries),
-                UseQueueClientJobs = true,
             };
 
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration

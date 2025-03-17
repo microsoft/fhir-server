@@ -98,8 +98,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
-                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                        ForwardedHeaders.XForwardedProto;
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit

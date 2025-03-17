@@ -58,8 +58,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
+            var substituteResults = new Dictionary<string, long>();
+            substituteResults.Add("Patient", 3);
+
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
-                .Returns(args => 3);
+                .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
@@ -80,8 +83,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
+            var substituteResults = new Dictionary<string, long>();
+            substituteResults.Add("Patient", 3);
+
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
-                .Returns(args => 3);
+                .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
