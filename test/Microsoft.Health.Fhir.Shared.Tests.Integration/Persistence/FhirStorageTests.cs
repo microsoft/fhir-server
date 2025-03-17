@@ -120,14 +120,22 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
             //// set optimal threashold to low value to see waits.
             await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 2");
+            //// make calls longer
+            await _fixture.SqlHelper.ExecuteSqlCmd(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR INSERT
+AS
+WAITFOR DELAY '00:00:01'
+                    ");
             Parallel.For(0, 8, new ParallelOptions { MaxDegreeOfParallelism = 8 }, (i) =>
             {
                 var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
                 patient.Id = Guid.NewGuid().ToString();
                 Mediator.UpsertResourceAsync(patient.ToResourceElement()).Wait();
             });
+            await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') RAISERROR('Waits are not recorded', 18, 127)");
+            //// make sure waits were recorded
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') RAISERROR('Waits were not recorded', 18, 127)");
         }
 
         [Fact]
