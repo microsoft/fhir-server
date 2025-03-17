@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnIncompleteSearchParam_WhenDeletingConditionally_TheServerRespondsWithCorrectMessage()
         {
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier=", CancellationToken.None));
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?_tag=", CancellationToken.None));
             Assert.Equal(HttpStatusCode.PreconditionFailed, fhirException.StatusCode);
             Assert.Equal(fhirException.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType));
         }
@@ -52,10 +52,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoExistingResources_WhenDeletingConditionally_TheServerShouldReturnAccepted(int deleteCount)
         {
-            var identifier = Guid.NewGuid().ToString();
-            await ValidateResults(identifier, 0);
+            var tag = Guid.NewGuid().ToString();
+            await ValidateResults(tag, 0);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?_tag={tag}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
 
@@ -67,26 +67,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(string hardDeleteKey, bool hardDeleteValue, int deleteCount)
         {
-            var identifier = Guid.NewGuid().ToString();
-            await CreateWithIdentifier(identifier);
-            await ValidateResults(identifier, 1);
+            var tag = Guid.NewGuid().ToString();
+            await CreateWithTag(tag);
+            await ValidateResults(tag, 1);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&{hardDeleteKey}={hardDeleteValue}&_count={deleteCount}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?_tag={tag}&{hardDeleteKey}={hardDeleteValue}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-            await ValidateResults(identifier, 0);
+            await ValidateResults(tag, 0);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyInSingleMode_TheServerShouldReturnError()
         {
-            var identifier = Guid.NewGuid().ToString();
-            await CreateWithIdentifier(identifier);
-            await CreateWithIdentifier(identifier);
-            await ValidateResults(identifier, 2);
+            var tag = Guid.NewGuid().ToString();
+            await CreateWithTag(tag);
+            await CreateWithTag(tag);
+            await ValidateResults(tag, 2);
 
-            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?_tag={tag}", CancellationToken.None));
         }
 
         [InlineData(-1)]
@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRangeCount_TheServerShouldReturnError(int deleteCount)
         {
-            var identifier = Guid.NewGuid().ToString();
-            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
+            var tag = Guid.NewGuid().ToString();
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?_tag={tag}&_count={deleteCount}", CancellationToken.None));
         }
 
         [InlineData(true)]
@@ -106,17 +106,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete)
         {
-            var identifier = Guid.NewGuid().ToString();
-            await CreateWithIdentifier(identifier);
-            await CreateWithIdentifier(identifier);
-            await CreateWithIdentifier(identifier);
-            await ValidateResults(identifier, 3);
+            var tag = Guid.NewGuid().ToString();
+            await CreateWithTag(tag);
+            await CreateWithTag(tag);
+            await CreateWithTag(tag);
+            await ValidateResults(tag, 3);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?_tag={tag}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(3, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
-            await ValidateResults(identifier, 0);
+            await ValidateResults(tag, 0);
         }
 
         [InlineData(true, 50, 50, 0)]
@@ -126,20 +126,66 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         public async Task GivenMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete, int create, int delete, int expected)
         {
-            var identifier = Guid.NewGuid().ToString();
+            var tag = Guid.NewGuid().ToString();
 
-            await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithIdentifier(identifier)));
-            await ValidateResults(identifier, create);
+            await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithTag(tag)));
+            await ValidateResults(tag, create);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?_tag={tag}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(delete, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
-            await ValidateResults(identifier, expected);
+            await ValidateResults(tag, expected);
         }
 
-        private async Task CreateWithIdentifier(string identifier)
+        [Fact]
+        public async Task GivenMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 5);
+            await ValidateResults(tag, 6);
+            FhirResponse response = await _client.DeleteAsync($"Group?_tag={tag}&_count=1&_include=Group:member", CancellationToken.None);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(6, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
+            await ValidateResults(tag, 0);
+        }
+
+        [Fact]
+        public async Task GivenMatchingResources_WhenHardDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 5);
+            await ValidateResults(tag, 6);
+            FhirResponse response = await _client.DeleteAsync($"Group?hardDelete=true&_tag={tag}&_count=1&_include=Group:member", CancellationToken.None);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(6, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
+            await ValidateResults(tag, 0);
+        }
+
+        [Fact]
+        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 5);
+            await CreateGroupWithPatients(tag, 5);
+            await ValidateResults(tag, 12);
+            FhirResponse response = await _client.DeleteAsync($"Group?_tag={tag}&_count=2&_include=Group:member", CancellationToken.None);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(12, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
+            await ValidateResults(tag, 0);
+        }
+
+        [Fact]
+        public async Task GivenMatchingResources_WhenDeletingConditionallyWithMoreIncludedResourcesThanTheLimit_ThenBadRequestIsRetured()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 101);
+            await ValidateResults(tag, 102);
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"Group?_tag={tag}&_count=100&_include=Group:member", CancellationToken.None));
+        }
+
+        private async Task CreateWithTag(string tag)
         {
             await _createSemaphore.WaitAsync(TimeSpan.FromMinutes(1));
 
@@ -147,7 +193,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 Encounter encounter = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
 
-                encounter.Identifier.Add(new Identifier("http://e2etests", identifier));
+                encounter.Meta = new Meta();
+                encounter.Meta.Tag = new System.Collections.Generic.List<Coding> { new Coding("http://e2etests", tag) };
                 using FhirResponse<Encounter> response = await _client.CreateAsync(encounter);
 
                 Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -158,17 +205,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        private async Task ValidateResults(string identifier, int expected)
+        private async Task CreateGroupWithPatients(string tag, int count)
         {
-            var result = await GetResourceCount(identifier);
+            await _createSemaphore.WaitAsync(TimeSpan.FromMinutes(1));
+            try
+            {
+                Bundle createBundle = new Bundle();
+                createBundle.Type = Bundle.BundleType.Batch;
+                createBundle.Entry = new System.Collections.Generic.List<Bundle.EntryComponent>();
+
+                Group group = new Group();
+                group.Member = new System.Collections.Generic.List<Group.MemberComponent>();
+#if !R5
+                group.Actual = true;
+#else
+                group.Membership = Group.GroupMembershipBasis.Enumerated;
+#endif
+                group.Type = Group.GroupType.Person;
+
+                group.Meta = new Meta();
+                group.Meta.Tag = new System.Collections.Generic.List<Coding> { new Coding("http://e2etests", tag) };
+
+                for (int i = 0; i < count; i++)
+                {
+                    var id = Guid.NewGuid();
+                    var patient = new Patient();
+                    patient.Meta = new Meta();
+                    patient.Meta.Tag = new System.Collections.Generic.List<Coding> { new Coding("http://e2etests", tag) };
+                    patient.Id = id.ToString();
+
+                    createBundle.Entry.Add(new Bundle.EntryComponent { Resource = patient, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"Patient/{id}" } });
+
+                    group.Member.Add(new Group.MemberComponent { Entity = new ResourceReference($"Patient/{id}") });
+                }
+
+                createBundle.Entry.Add(new Bundle.EntryComponent { Resource = group, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Group" } });
+
+                using FhirResponse<Bundle> response = await _client.PostBundleAsync(createBundle);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            }
+            finally
+            {
+                _createSemaphore.Release();
+            }
+        }
+
+        private async Task ValidateResults(string tag, int expected)
+        {
+            var result = await GetResourceCount(tag);
             Assert.Equal(expected, result);
         }
 
-        private async Task<int?> GetResourceCount(string identifier)
+        private async Task<int?> GetResourceCount(string tag)
         {
             try
             {
-                FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier=http://e2etests|{identifier}&_summary=count");
+                FhirResponse<Bundle> result = await _client.SearchAsync($"?_tag=http://e2etests|{tag}&_summary=count");
 
                 return result.Resource.Total;
             }
