@@ -8,19 +8,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Web;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
@@ -30,7 +31,20 @@ namespace Microsoft.Health.Fhir.Web
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string WrongAudienceClient = "wrongAudienceClient";
+        internal const string WrongAudienceClient = "wrongAudienceClient";
+
+        internal static readonly string[] AllowedGrantTypes = new string[]
+        {
+            OpenIddictConstants.GrantTypes.ClientCredentials,
+            OpenIddictConstants.GrantTypes.Password,
+        };
+
+        internal static readonly string[] AllowedScopes = new string[]
+        {
+            DevelopmentIdentityProviderConfiguration.Audience,
+            WrongAudienceClient,
+            "fhirUser",
+        };
 
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
@@ -43,8 +57,8 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            var authorizationConfiguration = new AuthorizationConfiguration();
-            configuration.GetSection("FhirServer:Security:Authorization").Bind(authorizationConfiguration);
+            var securityConfiguration = new SecurityConfiguration();
+            configuration.GetSection("FhirServer:Security").Bind(securityConfiguration);
 
             var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
@@ -72,7 +86,19 @@ namespace Microsoft.Health.Fhir.Web
                     .AddServer(options =>
                     {
                         // Minimal token endpoint
-                        options.SetTokenEndpointUris("/connect/token");
+                        if (securityConfiguration.EnableAadSmartOnFhirProxy)
+                        {
+                            // Note: Keep "/connect/token" at the top so OpenIddict will return the correct token endpoint
+                            //   on "/.well-known/openid-configuration".
+                            options.SetTokenEndpointUris(
+                                "/connect/token",
+                                "/AadSmartOnFhirProxy/token");
+                            options.SetAuthorizationEndpointUris("/AadSmartOnFhirProxy/authorize");
+                        }
+                        else
+                        {
+                            options.SetTokenEndpointUris("/connect/token");
+                        }
 
                         // Dev flows:
                         options.AllowClientCredentialsFlow();
@@ -88,15 +114,19 @@ namespace Microsoft.Health.Fhir.Web
 
                         // ASP.NET Core integration
                         options.UseAspNetCore()
-                            .EnableTokenEndpointPassthrough();
+                            .EnableTokenEndpointPassthrough()
+                            .DisableTransportSecurityRequirement();
 
                         // Register sample scope strings (replace usage of ApiScope).
-                        options.RegisterScopes(
-                            "fhirUser",
-                            DevelopmentIdentityProviderConfiguration.Audience,
-                            WrongAudienceClient);
+                        options.RegisterScopes(AllowedScopes);
                         options.RegisterScopes(smartScopes.ToArray());
 
+                        // Enable this line if we choose to disable some of the default validation handler OpenIddict uses.
+                        // options.EnableDegradedMode();
+
+                        // Note: OpenIddict has a default token validation handler that does more granular validation
+                        //   including checking the cliend Id and secret. So, we may not need this event handler.
+                        //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
                         options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
                             builder.UseInlineHandler(context =>
                             {
@@ -126,6 +156,8 @@ namespace Microsoft.Health.Fhir.Web
                 {
                     options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
                 });
+
+                services.AddHostedService<OpenIddictApplicationCreater>();
             }
 
             return services;
@@ -178,7 +210,7 @@ namespace Microsoft.Health.Fhir.Web
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
-        private static List<string> GenerateSmartClinicalScopes()
+        internal static List<string> GenerateSmartClinicalScopes()
         {
             ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
@@ -205,6 +237,24 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             return scopes;
+        }
+
+        /// <summary>
+        /// Creates a SHA256 hash of the specified input.
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns>A hash</returns>
+        internal static string Sha256(this string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(input);
+            var hash = SHA256.HashData(bytes);
+
+            return Convert.ToBase64String(hash);
         }
 
         private static Claim[] CreateFhirUserClaims(string userId, string host)
