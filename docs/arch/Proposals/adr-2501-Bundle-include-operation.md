@@ -23,7 +23,7 @@ We will implement the $includes operation, which will allow users to retrieve in
 
 graph TD;
   A[Original Bundle Search] -->|If included items ≤ 1000| B[Included items in Bundle];
-  A -->|If included items > 1000| C[Exclude included items from Bundle];
+  A -->|If included items > 1000| C[First 'page' of includes is in Bundle];
   C --> D[Add related link to $includes operation];
   D --> E[$includes Operation Bundle];
   E -->|Supports pagination| F[Retrieve included items in chunks];
