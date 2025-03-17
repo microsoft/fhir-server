@@ -38,9 +38,9 @@ graph TD;
     ResourceTable -->|Move RawResource To| RawResources
 ```
 
-![CurrentResourceTable indexes](ResourceTableIndices.png)
+![CurrentResourceTable indexes](./images/adr-2502-Resource-table-refactor/ResourceTableIndices.png)
 
-![NewResourceTableIndices](ResourceTableSplit.png)
+![NewResourceTableIndices](./images/adr-2502-Resource-table-refactor/ResourceTableSplit.png)
 
 The above schema diagrams shows to overall reduction of one index in the new tables.
 
