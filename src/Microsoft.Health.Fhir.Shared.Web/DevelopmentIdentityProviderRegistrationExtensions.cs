@@ -13,16 +13,19 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Web;
 using OpenIddict.Abstractions;
+using OpenIddict.Client;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 
@@ -93,7 +96,9 @@ namespace Microsoft.Health.Fhir.Web
                             options.SetTokenEndpointUris(
                                 "/connect/token",
                                 "/AadSmartOnFhirProxy/token");
-                            options.SetAuthorizationEndpointUris("/AadSmartOnFhirProxy/authorize");
+                            options.SetAuthorizationEndpointUris(
+                                "/connect/authorize",
+                                "/AadSmartOnFhirProxy/authorize");
                         }
                         else
                         {
@@ -101,6 +106,7 @@ namespace Microsoft.Health.Fhir.Web
                         }
 
                         // Dev flows:
+                        options.AllowAuthorizationCodeFlow();
                         options.AllowClientCredentialsFlow();
                         options.AllowPasswordFlow();
 

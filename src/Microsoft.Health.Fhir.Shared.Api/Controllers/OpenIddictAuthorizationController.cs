@@ -9,12 +9,11 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
@@ -42,53 +41,57 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _scopeManager = scopeManager;
         }
 
-        /// <summary>
-        /// Handles batch and transaction requests
-        /// </summary>
+        [HttpGet]
+        [Route("/connect/authorize")]
+        public static Task<IActionResult> Authorize()
+        {
+            return Task.Run(() => (IActionResult)new EmptyResult());
+        }
+
         [HttpPost]
         [Route("/connect/token")]
         [AllowAnonymous]
         public async Task<IActionResult> Connect()
         {
             var request = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>()?.Transaction?.Request;
-            if (request.IsClientCredentialsGrantType())
+            if (!request?.IsClientCredentialsGrantType() ?? true)
             {
-                var application = await _applicationManager.FindByClientIdAsync(request.ClientId);
-                if (application == null)
-                {
-                    throw new InvalidOperationException("The application details cannot be found in the database.");
-                }
-
-                // Create the claims-based identity that will be used by OpenIddict to generate tokens.
-                var identity = new ClaimsIdentity(
-                    authenticationType: TokenValidationParameters.DefaultAuthenticationType,
-                    nameType: Claims.Name,
-                    roleType: Claims.Role);
-
-                // Add the claims that will be persisted in the tokens (use the client_id as the subject identifier).
-                identity.SetClaim(Claims.Subject, await _applicationManager.GetClientIdAsync(application));
-                identity.SetClaim(Claims.Name, await _applicationManager.GetDisplayNameAsync(application));
-
-                var permissions = await _applicationManager.GetPermissionsAsync(application);
-                var roles = permissions.Where(x => x.StartsWith($"{_authorizationConfiguration.RolesClaim}:", StringComparison.Ordinal));
-                foreach (var role in roles)
-                {
-                    var r = role?.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                    if (r?.Length == 2)
-                    {
-                        identity.SetClaim(_authorizationConfiguration.RolesClaim, r[^1]);
-                    }
-                }
-
-                // Set the list of scopes granted to the client application in access_token.
-                identity.SetScopes(request.GetScopes());
-                identity.SetResources(await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes())));
-                identity.SetDestinations(GetDestinations);
-
-                return SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+                throw new RequestNotValidException($"Invalid request grant type. It must be '{OpenIddictConstants.GrantTypes.ClientCredentials}'.");
             }
 
-            return await System.Threading.Tasks.Task<IActionResult>.Run(() => FhirResult.NoContent());
+            var application = await _applicationManager.FindByClientIdAsync(request.ClientId);
+            if (application == null)
+            {
+                throw new RequestNotValidException($"Unknown client application: {request.ClientId}.");
+            }
+
+            // Create the claims-based identity that will be used by OpenIddict to generate tokens.
+            var identity = new ClaimsIdentity(
+                authenticationType: TokenValidationParameters.DefaultAuthenticationType,
+                nameType: Claims.Name,
+                roleType: Claims.Role);
+
+            // Add the claims that will be persisted in the tokens (use the client_id as the subject identifier).
+            identity.SetClaim(Claims.Subject, await _applicationManager.GetClientIdAsync(application));
+            identity.SetClaim(Claims.Name, await _applicationManager.GetDisplayNameAsync(application));
+
+            var permissions = await _applicationManager.GetPermissionsAsync(application);
+            var roles = permissions.Where(x => x.StartsWith($"{_authorizationConfiguration.RolesClaim}:", StringComparison.Ordinal));
+            foreach (var role in roles)
+            {
+                var r = role?.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                if (r?.Length == 2)
+                {
+                    identity.SetClaim(_authorizationConfiguration.RolesClaim, r[^1]);
+                }
+            }
+
+            // Set the list of scopes granted to the client application in access_token.
+            identity.SetScopes(request.GetScopes());
+            identity.SetResources(await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes())));
+            identity.SetDestinations(GetDestinations);
+
+            return SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         }
 
         private static IEnumerable<string> GetDestinations(System.Security.Claims.Claim claim)
