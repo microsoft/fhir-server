@@ -31,11 +31,6 @@ public static class FhirServerBlobRegistrationExtensions
             .AsSelf()
             .AsImplementedInterfaces();
 
-        services.Add<BlobRawResourceStore>()
-               .Scoped()
-               .AsSelf()
-               .AsImplementedInterfaces();
-
         services
             .AddBlobServiceClient(blobConfig)
             .Add<BlobRawResourceStore>()
