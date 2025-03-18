@@ -83,9 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Single(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == model.GetSearchParamId(new Uri(researchStudyFocusUri))));
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.DateTimeSearchParam.TableName
+                  && _.SearchParamId == model.GetSearchParamId(new Uri(researchStudyFocusUri)));
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.DateTimeSearchParam.TableName
                   && _.ColumnName == "StartDateTime"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
                   && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date")));
