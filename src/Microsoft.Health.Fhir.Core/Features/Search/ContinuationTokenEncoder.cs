@@ -13,7 +13,7 @@ using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public sealed class ContinuationTokenConverter
+    public sealed class ContinuationTokenEncoder
     {
         private static readonly RecyclableMemoryStreamManager StreamManager = new();
         private const string TokenVersion = "v2|";
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 try
                 {
-                    using MemoryStream memoryStream = StreamManager.GetStream(nameof(ContinuationTokenConverter), continuationTokenBytes, 0, continuationTokenBytes.Length);
+                    using MemoryStream memoryStream = StreamManager.GetStream(nameof(ContinuationTokenEncoder), continuationTokenBytes, 0, continuationTokenBytes.Length);
                     using var deflate = new DeflateStream(memoryStream, CompressionMode.Decompress);
                     using var reader = new StreamReader(deflate, Encoding.UTF8);
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(continuationToken);
 
-            using RecyclableMemoryStream memoryStream = StreamManager.GetStream(tag: nameof(ContinuationTokenConverter));
+            using RecyclableMemoryStream memoryStream = StreamManager.GetStream(tag: nameof(ContinuationTokenEncoder));
             using var deflate = new DeflateStream(memoryStream, CompressionLevel.Fastest);
             using var writer = new StreamWriter(deflate, Encoding.UTF8);
 

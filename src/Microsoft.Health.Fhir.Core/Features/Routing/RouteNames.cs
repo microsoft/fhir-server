@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Routing
+namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
     internal static class RouteNames
     {
@@ -80,5 +80,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string BulkDeleteDefinition = nameof(BulkDeleteDefinition);
 
         internal const string BulkDeleteSoftDeletedDefinition = nameof(BulkDeleteSoftDeletedDefinition);
+
+        internal const string Includes = nameof(Includes);
+
+        internal const string IncludesOperationDefinition = nameof(IncludesOperationDefinition);
     }
 }

@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
-        private static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll);
-        private static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit);
+        protected static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll);
+        protected static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
 
-        private static List<SearchParamTableExpression> SortIncludeIterateExpressions(List<SearchParamTableExpression> expressions)
+        protected static List<SearchParamTableExpression> SortIncludeIterateExpressions(List<SearchParamTableExpression> expressions)
         {
             // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
             // The search queries are acyclic.
