@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create("secondItem", guid2),
             };
 
-            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list);
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create("_id", Guid.NewGuid().ToString()),
             };
 
-            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list);
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
                 () =>
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create("_id", Guid.NewGuid().ToString()),
             };
 
-            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list);
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
             Assert.True(getResourceRequest.Queries.Count == 3);
 
             SearchResourceResponse response = await behavior.Handle(
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor()));
 
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_list", "existing-list") };
-            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list);
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
 
             Assert.True(getResourceRequest.Queries.Count == 1);
             Assert.Equal("_list", getResourceRequest.Queries[0].Item1);

@@ -46,11 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     case ({ } low, { } high):
                         EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
-
-                        newExpressions.Add(low);
-                        newExpressions.Add(new BinaryExpression(high.BinaryOperator, low.FieldName, high.ComponentIndex, high.Value));
-                        newExpressions.Add(high);
-
+                        newExpressions.Add(new BinaryExpression(high.BinaryOperator, low.FieldName, low.ComponentIndex, high.Value));
+                        newExpressions.Add(new BinaryExpression(low.BinaryOperator, high.FieldName, high.ComponentIndex, low.Value));
                         i++;
                         break;
                     default:

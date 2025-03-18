@@ -24,9 +24,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -36,21 +35,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
-        private const string HashParameterName = "@hash";
-
-        private static readonly string GetJobByHashQuery =
-            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
-
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
         private readonly IScoped<Container> _containerScope;
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
 
-        private static readonly AcquireExportJobs _acquireExportJobs = new();
         private static readonly AcquireReindexJobs _acquireReindexJobs = new();
 
         /// <summary>
@@ -82,31 +74,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerScope = containerScope;
-            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _queryFactory = queryFactory;
             _logger = logger;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-
-            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
-            CollectionId = collectionConfiguration.CollectionId;
-        }
-
-        private string DatabaseId { get; }
-
-        private string CollectionId { get; }
-
-        public override async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            if (_cosmosDataStoreConfiguration.UseQueueClientJobs)
-            {
-                return await base.CreateExportJobAsync(jobRecord, cancellationToken);
-            }
-
-            // try old job records
-            var oldJobs = (ILegacyExportOperationDataStore)this;
-            return await oldJobs.CreateLegacyExportJobAsync(jobRecord, cancellationToken);
         }
 
         public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
@@ -119,168 +91,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
 
             return await base.GetExportJobByIdAsync(id, cancellationToken);
-        }
-
-        public override async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            if (IsLegacyJob(jobRecord.Id))
-            {
-                // try old job records
-                var oldJobs = (ILegacyExportOperationDataStore)this;
-                return await oldJobs.UpdateLegacyExportJobAsync(jobRecord, eTag, cancellationToken);
-            }
-
-            return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
-        }
-
-        private static bool IsLegacyJob(string jobId)
-        {
-            return !long.TryParse(jobId, out long _);
-        }
-
-        async Task<IReadOnlyCollection<ExportJobOutcome>> ILegacyExportOperationDataStore.AcquireLegacyExportJobsAsync(
-            ushort numberOfJobsToAcquire,
-            TimeSpan jobHeartbeatTimeoutThreshold,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
-                    async ct => await _acquireExportJobs.ExecuteAsync(
-                        _containerScope.Value.Scripts,
-                        numberOfJobsToAcquire,
-                        (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
-                        ct),
-                    cancellationToken);
-
-                return response.Resource.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestEntityTooLarge())
-                {
-                    throw;
-                }
-
-                _logger.LogError(dce, "Failed to acquire export jobs.");
-                throw;
-            }
-        }
-
-        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.CreateLegacyExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-            var hashObject = new { jobRecord.RequestUri, jobRecord.RequestorClaims };
-            var hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
-
-            ExportJobOutcome resultFromHash = await GetExportJobByHashAsync(hash, cancellationToken);
-            if (resultFromHash != null)
-            {
-                return resultFromHash;
-            }
-
-            jobRecord.Hash = hash;
-
-            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
-
-            try
-            {
-                var result = await _containerScope.Value.CreateItemAsync(
-                    cosmosExportJob,
-                    new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
-                    cancellationToken: cancellationToken);
-
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestRateExceeded())
-                {
-                    throw;
-                }
-
-                _logger.LogError(dce, "Failed to create an export job.");
-                throw;
-            }
-        }
-
-        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.GetLegacyExportJobByIdAsync(string id, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
-
-            try
-            {
-                ItemResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosExportJobRecordWrapper>(
-                    id,
-                    new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
-                    cancellationToken: cancellationToken);
-
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Resource.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Resource.ETag));
-
-                return outcome;
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestRateExceeded())
-                {
-                    throw;
-                }
-
-                if (dce.StatusCode == HttpStatusCode.NotFound)
-                {
-                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, id));
-                }
-
-                _logger.LogError(dce, "Failed to get an export job by id.");
-                throw;
-            }
-        }
-
-        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.UpdateLegacyExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
-            var requestOptions = new ItemRequestOptions();
-
-            // Create access condition so that record is replaced only if eTag matches.
-            if (eTag != null)
-            {
-                requestOptions.IfMatchEtag = eTag.VersionId;
-            }
-
-            try
-            {
-                var replaceResult = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
-                    () => _containerScope.Value.ReplaceItemAsync(
-                        cosmosExportJob,
-                        jobRecord.Id,
-                        new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
-                        cancellationToken: cancellationToken,
-                        requestOptions: requestOptions));
-
-                var latestETag = replaceResult.Resource.ETag;
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestRateExceeded())
-                {
-                    throw;
-                }
-                else if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
-                {
-                    throw new JobConflictException();
-                }
-                else if (dce.StatusCode == HttpStatusCode.NotFound)
-                {
-                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, jobRecord.Id));
-                }
-
-                _logger.LogError(dce, "Failed to update an export job.");
-                throw;
-            }
         }
 
         public override async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
@@ -446,30 +256,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        private async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        private static bool IsLegacyJob(string jobId)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+            return !long.TryParse(jobId, out long _);
+        }
+
+        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.GetLegacyExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             try
             {
-                var query = _queryFactory.Create<CosmosExportJobRecordWrapper>(
-                    _containerScope.Value,
-                    new CosmosQueryContext(
-                        new QueryDefinition(GetJobByHashQuery)
-                            .WithParameter(HashParameterName, hash),
-                        new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) }));
+                ItemResponse<CosmosLegacyExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosLegacyExportJobRecordWrapper>(
+                    id,
+                    new PartitionKey(CosmosDbLegacyExportConstants.ExportJobPartitionKey),
+                    cancellationToken: cancellationToken);
 
-                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync(cancellationToken);
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Resource.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Resource.ETag));
 
-                if (result.Count == 1)
-                {
-                    // We found an existing job that matches the hash.
-                    CosmosExportJobRecordWrapper wrapper = result.First();
-
-                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
-                }
-
-                return null;
+                return outcome;
             }
             catch (CosmosException dce)
             {
@@ -478,7 +283,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw;
                 }
 
-                _logger.LogError(dce, "Failed to get an export job by hash.");
+                if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, id));
+                }
+
+                _logger.LogError(dce, "Failed to get an export job by id.");
                 throw;
             }
         }

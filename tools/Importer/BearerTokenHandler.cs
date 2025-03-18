@@ -18,7 +18,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Importer;
 
-public class BearerTokenHandler : DelegatingHandler
+internal class BearerTokenHandler : DelegatingHandler
 {
     private readonly Dictionary<string, AccessTokenCache> _accessTokenCaches = [];
 

@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     internal static class TestHelper
     {
-        internal static void AssertLocationHeaderIsCorrect(TestFhirClient testFhirClient, Resource createdResource, Uri location)
+        internal static void AssertLocationHeaderIsCorrect(TestFhirClient testFhirClient, Resource createdResource, Uri location, string resourceType = "Observation")
         {
-            Assert.Equal($"{testFhirClient.HttpClient.BaseAddress}Observation/{createdResource.Id}/_history/{createdResource.Meta.VersionId}", location.OriginalString);
+            Assert.Equal($"{testFhirClient.HttpClient.BaseAddress}{resourceType}/{createdResource.Id}/_history/{createdResource.Meta.VersionId}", location.OriginalString);
         }
 
         internal static void AssertLastUpdatedAndLastModifiedAreEqual(DateTimeOffset? lastUpdated, DateTimeOffset? lastModified)

@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Api.Features.Binders;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public static class Program
+    internal static class Program
     {
         public static void Main(string[] args)
         {

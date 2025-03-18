@@ -42,6 +42,7 @@ using TelemetryConfiguration = Microsoft.Health.Fhir.Core.Configs.TelemetryConfi
 
 namespace Microsoft.Health.Fhir.Web
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Internal framework instantiation.")]
     public class Startup
     {
         private static string instanceId;
@@ -97,8 +98,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
-                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                        ForwardedHeaders.XForwardedProto;
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit

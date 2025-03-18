@@ -1141,7 +1141,11 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
                 Type = type,
-                Base = new List<ResourceType?> { ResourceType.Patient },
+#if Stu3 || R4 || R4B
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+#else
+                Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
+#endif
                 Expression = expression,
                 Name = searchParamName,
                 Code = searchParamName,
@@ -1172,7 +1176,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
-            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
