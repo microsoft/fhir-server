@@ -65,7 +65,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet8
+  - job: Windows_dotnet9
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -74,14 +74,14 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet6
+  - job: Linux_dotnet8
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
-        targetBuildFramework: 'net6.0'
+        targetBuildFramework: 'net8.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'

@@ -340,6 +340,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is invalid using the request method {1}..
+        /// </summary>
+        public static string InvalidBundleEntryRequest {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntryRequest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.entry.request.url is required..
         /// </summary>
         public static string InvalidBundleEntryRequestUrl {
@@ -534,6 +543,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The request host cannot be used as it is not routable..
+        /// </summary>
+        public static string NonroutableHost {
+            get {
+                return ResourceManager.GetString("NonroutableHost", resourceCulture);
             }
         }
         

@@ -13,11 +13,15 @@
     }
   ],
   "status": "completed",
-  "class": {
-    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-    "code": "AMB",
-    "display": "ambulatory"
-  },
+    "class": {
+        "coding": [
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+            }
+        ]
+    },
   "type": [
     {
       "coding": [
@@ -58,7 +62,7 @@
   },
   "reason": [
     {
-      "concept": {
+      "use": {
         "coding": [
           {
             "system": "http://snomed.info/sct",
@@ -69,7 +73,7 @@
       }
     }
   ],
-  "hospitalization": {
+  "admission": {
     "preAdmissionIdentifier": {
       "use": "official",
       "system": "http://www.bmc.nl/zorgportal/identifiers/pre-admissions",

@@ -114,17 +114,6 @@
                 "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
             }
         },
-        "cosmosDbFreeTier": {
-            "type": "string",
-            "allowedValues": [
-                "Yes",
-                "No"
-            ],
-            "defaultValue": "No",
-            "metadata": {
-                "description": "Use Cosmos DB free tier."
-            }
-        },
         "cosmosDbCmkUrl": {
             "type": "string",
             "defaultValue": "",
@@ -182,9 +171,16 @@
                 "description": "Version of the FHIR specification to deploy."
             }
         },
+        "registryName": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com/healthcareapis",
+            "metadata": {
+                "description": "Docker registry containing images to deploy."
+            }
+        },
         "imageTag": {
             "type": "string",
-            "defaultValue": "release",
+            "defaultValue": "latest",
             "metadata": {
                 "description": "Tag of the docker image to deploy."
             }
@@ -239,7 +235,6 @@
     },
     "variables": {
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
-        "isCosmosDbFreeTier": "[equals(parameters('cosmosDbFreeTier'),'Yes')]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
@@ -286,7 +281,6 @@
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
-        "registryName": "healthplatformregistry.azurecr.io",
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "isSqlHyperscaleTier": "[equals(parameters('sqlDatabaseComputeTier'),'Hyperscale')]",
@@ -294,7 +288,8 @@
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
-        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]"
+        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]",
+        "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]"
     },
     "resources": [
         {
@@ -343,7 +338,7 @@
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
-                            "value": "[concat('https://', variables('registryName'))]"
+                            "value": "[concat('https://', parameters('registryName'))]"
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_USERNAME",
@@ -392,7 +387,7 @@
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
                     "properties": {
-                        "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
+                        "linuxFxVersion": "[concat('DOCKER|', parameters('registryName'), '/', variables('imageRepositoryName'),':', parameters('imageTag'))]",
                         "appCommandLine": "azure-fhir-api",
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
@@ -700,7 +695,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMsi;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').clientId, ';')]"
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMSI;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').clientId, ';')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",

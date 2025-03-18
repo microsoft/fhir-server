@@ -754,4 +754,28 @@
     <value>The provided search parameter type {0} is not supported for the given expression {1}.</value>
     <comment>{0}: The type field in the search parameter. {1}: The expression field in the search parameter.</comment>
   </data>
+  <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
+    <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
+  </data>
+  <data name="ReindexRunning" xml:space="preserve">
+    <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
+  </data>
+  <data name="TooManyIncludeResults" xml:space="preserve">
+    <value>The search criteria provided returns partial included resources. Use '_includesCount' parameter to retrieve all included resources (Default: {0}, Max: {1}).</value>
+  </data>
+  <data name="UnsupportedIncludesOperation" xml:space="preserve">
+    <value>The '$includes' operation is not supported.</value>
+  </data>
+  <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
+    <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
+  </data>
+  <data name="InvalidSearchIncludesCountSpecified" xml:space="preserve">
+    <value>The '_includesCount' parameter value must be an integer greater than zero.</value>
+  </data>
+  <data name="MissingIncludesContinuationToken" xml:space="preserve">
+    <value>"The 'includesCt' parameter must be provided for the $includes operation."</value>
+  </data>
+  <data name="IncludesContinuationTokenIgnored" xml:space="preserve">
+    <value>The 'includesCt' parameter is ignored for a non-$includes request.</value>
+  </data>
 </root>

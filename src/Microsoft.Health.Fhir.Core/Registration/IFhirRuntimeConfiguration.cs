@@ -15,11 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Registration
         bool IsSelectiveSearchParameterSupported { get; }
 
         /// <summary>
-        /// Export background worker.
-        /// </summary>
-        bool IsExportBackgroundWorkerSupported { get; }
-
-        /// <summary>
         /// Customer Key Validation background worker keeps running and checking the health of customer managed key.
         /// </summary>
         bool IsCustomerKeyValidationBackgroundWorkerSupported { get; }
@@ -33,5 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// Supports the 'latency-over-efficiency' HTTP header.
         /// </summary>
         bool IsLatencyOverEfficiencySupported { get; }
+
+        /// <summary>
+        /// Supports the query cache HTTP header.
+        /// </summary>
+        bool IsQueryCacheSupported { get; }
     }
 }

@@ -22,13 +22,26 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        docker pull mirror.gcr.io/moby/buildkit:buildx-stable-1
-        TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
+        set -euo pipefail
+
+        # Images variables are defined in azdo library variable group
+        echo "Creating builder using cached buildkit mirror..."
+        docker buildx create --name fhir-multi-platform --use \
+            --driver docker-container --driver-opt image=$(mobyBuildkitImage)
+        
+        echo "Setting up QEMU for cross-platform builds..."
+        docker run --rm --privileged $(multiarchQemuImage) --reset -p yes
+        
+        echo "Inspecting builder to confirm setup..."
+        docker buildx inspect fhir-multi-platform --bootstrap
+
+        echo "Building FHIR ${{ parameters.version }} for platform ${{ parameters.buildPlatform }}..."
+        TAG="$(azureContainerRegistry)/${{ parameters.version }}_fhir-server:${{ parameters.tag }}"
         az acr login --name $(azureContainerRegistryName)
-        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
         docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
-                      --platform ${{parameters.buildPlatform}} \
-                      --build-arg FHIR_VERSION=${{parameters.version}} \
+                      --builder fhir-multi-platform \
+                      --platform ${{ parameters.buildPlatform }} \
+                      --build-arg FHIR_VERSION=${{ parameters.version }} \
                       --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
                       --push .

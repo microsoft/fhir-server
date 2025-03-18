@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
@@ -29,20 +30,21 @@ public class CosmosQueueClient : IQueueClient
     private readonly Func<IScoped<Container>> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
-    private static readonly AsyncPolicy _retryPolicy = Policy
-        .Handle<CosmosException>(ex => ex.StatusCode == HttpStatusCode.PreconditionFailed)
-        .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
-        .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
+    private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+    private readonly AsyncPolicy _retryPolicy;
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
         ICosmosQueryFactory queryFactory,
-        ICosmosDbDistributedLockFactory distributedLockFactory)
+        ICosmosDbDistributedLockFactory distributedLockFactory,
+        RetryExceptionPolicyFactory retryExceptionPolicyFactory)
     {
         _containerFactory = EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
         _queryFactory = EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
         _distributedLockFactory = EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
+        _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
+
+        _retryPolicy = _retryExceptionPolicyFactory.BackgroundWorkerRetryPolicy;
     }
 
     public bool IsInitialized() => true;

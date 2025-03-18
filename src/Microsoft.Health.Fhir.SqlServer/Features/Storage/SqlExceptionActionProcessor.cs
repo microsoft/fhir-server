@@ -49,6 +49,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new LoginFailedForUserException(Core.Resources.InternalServerError, exception);
                 }
+                else if (sqlException.IsCMKError())
+                {
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey);
+                }
                 else
                 {
                     throw new ResourceSqlException(Core.Resources.InternalServerError, exception);

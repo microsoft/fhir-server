@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
@@ -148,19 +149,73 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private void CreateLinks(SearchResult result, Bundle bundle)
         {
             bool problemWithLinks = false;
-            if (result.ContinuationToken != null)
+            if (!_fhirRequestContextAccessor.RequestContext?.RouteName?.Equals(RouteNames.Includes, StringComparison.OrdinalIgnoreCase) ?? true)
             {
-                try
+                if (result.ContinuationToken != null)
                 {
-                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        result.UnsupportedSearchParameters,
-                        result.SortOrder,
-                        ContinuationTokenConverter.Encode(result.ContinuationToken),
-                        true);
+                    try
+                    {
+                        bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            ContinuationTokenEncoder.Encode(result.ContinuationToken),
+                            true);
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
                 }
-                catch (UriFormatException)
+
+                if (result.IncludesContinuationToken != null)
                 {
-                    problemWithLinks = true;
+                    try
+                    {
+                        var ambientRouteValuesOverride = new Dictionary<string, object>
+                        {
+                            { KnownHttpRequestProperties.RouteValueAction, "Search" },
+                            { KnownHttpRequestProperties.RouteValueController, RouteNames.Includes },
+                            { KnownActionParameterNames.ResourceType, _fhirRequestContextAccessor.RequestContext.ResourceType },
+                        };
+
+                        Uri url = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            null,
+                            true,
+                            ContinuationTokenEncoder.Encode(result.IncludesContinuationToken),
+                            RouteNames.Includes,
+                            ambientRouteValuesOverride);
+                        bundle.Link.Add(
+                            new Bundle.LinkComponent()
+                            {
+                                Relation = "related",
+                                Url = url?.AbsoluteUri,
+                            });
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
+                }
+            }
+            else
+            {
+                if (result.IncludesContinuationToken != null)
+                {
+                    try
+                    {
+                        bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            null,
+                            true,
+                            ContinuationTokenEncoder.Encode(result.IncludesContinuationToken));
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
                 }
             }
 
