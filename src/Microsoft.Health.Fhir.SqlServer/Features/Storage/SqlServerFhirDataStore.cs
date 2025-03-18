@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private const string InitialVersion = "1";
+        internal const string MergeApplicationName = "MergeResources";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SqlServerFhirModel _model;
@@ -174,6 +175,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
+            // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
+            // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
@@ -691,10 +694,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
         {
-            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
-            using var cmd = conn.CreateNonRetrySqlCommand();
-
-            // Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
+            using var cmd = new SqlCommand();
+            //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResources";
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
@@ -717,7 +718,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+            if (enlistInTransaction)
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
+                cmd.Connection = conn.SqlConnection;
+                cmd.Transaction = conn.SqlTransaction;
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            else
+            {
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
+            }
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
