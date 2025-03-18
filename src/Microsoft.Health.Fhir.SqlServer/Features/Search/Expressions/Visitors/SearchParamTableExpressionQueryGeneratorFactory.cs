@@ -193,6 +193,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return InQueryGenerator.Instance;
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitNotReferenced(NotReferencedExpression expression, object context)
+        {
+            return NotReferencedQueryGenerator.Instance;
+        }
+
         private SearchParamTableExpressionQueryGenerator VisitExpressionsContainer(IExpressionsContainer expression, object context)
         {
             foreach (var childExpression in expression.Expressions)
