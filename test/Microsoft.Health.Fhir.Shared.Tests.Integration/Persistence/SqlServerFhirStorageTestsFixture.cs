@@ -7,16 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Azure.Identity;
-using Azure.Storage.Blobs;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
-using Microsoft.Health.Blob.Configs;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -59,6 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string MasterDatabaseName = "master";
 
         private readonly string _initialConnectionString;
+        private readonly BlobRawResourceStoreTestsFixture _blobRawResourceStoreTestsFixture;
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
@@ -103,6 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
             _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
+            _blobRawResourceStoreTestsFixture = new BlobRawResourceStoreTestsFixture();
         }
 
         public string TestConnectionString { get; private set; }
@@ -235,10 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
-            var blobServiceClient = new BlobServiceClient("UseDevelopmentStorage=true");
-            IOptionsMonitor<BlobContainerConfiguration> optionsMonitor = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-            var blobStoreClient = new BlobStoreClient(blobServiceClient, optionsMonitor, NullLogger<BlobStoreClient>.Instance);
-            var blobRawResourceStore = new BlobRawResourceStore(blobStoreClient, NullLogger<BlobRawResourceStore>.Instance, Options.Create(new BlobOperationOptions()), new IO.RecyclableMemoryStreamManager());
+            await _blobRawResourceStoreTestsFixture.InitializeAsync();
 
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
@@ -254,7 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
-                blobRawResourceStore); // Pass the BlobRawResourceStore instance here
+                _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore instance here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -326,6 +322,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            await _blobRawResourceStoreTestsFixture.DisposeAsync();
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)

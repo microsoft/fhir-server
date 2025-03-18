@@ -798,7 +798,7 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
         [InlineData(true)]
         [InlineData(false)]
         [Theory]
-        public async Task GivenACreatedResource_WhenBlobStorageEnabled_ThenRawResourceIsNotStoredInSqlDB(bool blobStoreForResourceEnabled)
+        public async Task GivenAFhirResource_WhenCreated_RawResourceStoredInCorrectStorage(bool blobStoreForResourceEnabled)
         {
             // Enable blob storage
             _fixture.CoreFeatures.Value.SupportsRawResourceInBlob = blobStoreForResourceEnabled;
@@ -822,7 +822,8 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
 IF EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
 BEGIN
     THROW 50000, 'Raw resource data should not be stored in the SQL database when blob storage is enabled.', 1
-END");
+END
+                    ");
             }
             else
             {
@@ -832,7 +833,8 @@ END");
 IF NOT EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
 BEGIN
     THROW 50000, 'Raw resource data should be stored in the SQL database when blob storage is disabled.', 1
-END");
+END
+                    ");
             }
         }
 
