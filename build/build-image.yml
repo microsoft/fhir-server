@@ -32,4 +32,3 @@ stages:
     parameters: 
       tag: $(build.BuildNumber)
       buildPlatform: $(publicDockerImagePlatforms)
-      multiplePlatforms: true

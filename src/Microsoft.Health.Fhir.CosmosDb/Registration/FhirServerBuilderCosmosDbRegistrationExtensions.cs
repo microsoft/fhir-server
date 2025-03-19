@@ -220,8 +220,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.AddFactory<IScoped<ILegacyExportOperationDataStore>>();
-
             services.Add<FhirCosmosClientInitializer>()
                 .Singleton()
                 .AsService<ICosmosClientInitializer>();
@@ -285,13 +283,6 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 job.AsDelegate<Func<IJob>>();
             }
-
-            services
-                .RemoveServiceTypeExact<LegacyExportJobWorker, INotificationHandler<StorageInitializedNotification>>()
-                .Add<LegacyExportJobWorker>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             return fhirServerBuilder;
         }
