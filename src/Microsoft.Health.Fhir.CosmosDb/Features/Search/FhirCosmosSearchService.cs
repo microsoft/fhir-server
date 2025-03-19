@@ -207,6 +207,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return searchResult;
         }
 
+        public override Task<SearchResult> SearchAsync(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            if (isIncludesOperation)
+            {
+                throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
+            }
+
+            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+        }
+
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
         {
             var chainedReferences = new List<Expression>();
