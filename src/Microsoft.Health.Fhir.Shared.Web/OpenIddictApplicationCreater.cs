@@ -82,8 +82,10 @@ namespace Microsoft.Health.Fhir.Shared.Web
                             {
                                 Permissions.Endpoints.Authorization,
                                 Permissions.Endpoints.Token,
+                                Permissions.ResponseTypes.Code,
                                 Permissions.Scopes.Roles,
                             },
+                            RedirectUris = { new Uri("http://localhost") },
                         };
 
                         foreach (var grantType in DevelopmentIdentityProviderRegistrationExtensions.AllowedGrantTypes)

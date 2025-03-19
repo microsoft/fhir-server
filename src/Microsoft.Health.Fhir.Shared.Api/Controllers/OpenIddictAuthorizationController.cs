@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.IdentityModel.Tokens;
@@ -39,13 +38,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _authorizationConfiguration = authorizationConfiguration;
             _applicationManager = applicationManager;
             _scopeManager = scopeManager;
-        }
-
-        [HttpGet]
-        [Route("/connect/authorize")]
-        public static Task<IActionResult> Authorize()
-        {
-            return Task.Run(() => (IActionResult)new EmptyResult());
         }
 
         [HttpPost]

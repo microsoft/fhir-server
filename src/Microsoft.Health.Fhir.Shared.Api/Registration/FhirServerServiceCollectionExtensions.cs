@@ -11,6 +11,7 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -18,6 +19,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Controllers.Provider;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
@@ -28,7 +30,6 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -63,6 +64,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
+                })
+                .ConfigureApplicationPartManager(manager =>
+                {
+                    manager.FeatureProviders.Remove(manager.FeatureProviders.OfType<ControllerFeatureProvider>().FirstOrDefault());
+                    manager.FeatureProviders.Add(new FhirControllerFeatureProvider(configurationRoot));
                 });
 
             var fhirServerConfiguration = new FhirServerConfiguration();

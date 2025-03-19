@@ -13,19 +13,16 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Web;
 using OpenIddict.Abstractions;
-using OpenIddict.Client;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 
@@ -38,6 +35,7 @@ namespace Microsoft.Health.Fhir.Web
 
         internal static readonly string[] AllowedGrantTypes = new string[]
         {
+            OpenIddictConstants.GrantTypes.AuthorizationCode,
             OpenIddictConstants.GrantTypes.ClientCredentials,
             OpenIddictConstants.GrantTypes.Password,
         };
@@ -59,9 +57,6 @@ namespace Microsoft.Health.Fhir.Web
         {
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            var securityConfiguration = new SecurityConfiguration();
-            configuration.GetSection("FhirServer:Security").Bind(securityConfiguration);
 
             var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
@@ -88,22 +83,12 @@ namespace Microsoft.Health.Fhir.Web
                     })
                     .AddServer(options =>
                     {
-                        // Minimal token endpoint
-                        if (securityConfiguration.EnableAadSmartOnFhirProxy)
-                        {
-                            // Note: Keep "/connect/token" at the top so OpenIddict will return the correct token endpoint
-                            //   on "/.well-known/openid-configuration".
-                            options.SetTokenEndpointUris(
-                                "/connect/token",
-                                "/AadSmartOnFhirProxy/token");
-                            options.SetAuthorizationEndpointUris(
-                                "/connect/authorize",
-                                "/AadSmartOnFhirProxy/authorize");
-                        }
-                        else
-                        {
-                            options.SetTokenEndpointUris("/connect/token");
-                        }
+                        // Note: Keep "/connect/token" at the top so OpenIddict will return the correct token endpoint
+                        //   on "/.well-known/openid-configuration".
+                        options.SetTokenEndpointUris(
+                            "/connect/token",
+                            "/AadSmartOnFhirProxy/token");
+                        options.SetAuthorizationEndpointUris("/AadSmartOnFhirProxy/authorize");
 
                         // Dev flows:
                         options.AllowAuthorizationCodeFlow();
@@ -120,6 +105,7 @@ namespace Microsoft.Health.Fhir.Web
 
                         // ASP.NET Core integration
                         options.UseAspNetCore()
+                            .EnableAuthorizationEndpointPassthrough()
                             .EnableTokenEndpointPassthrough()
                             .DisableTransportSecurityRequirement();
 
