@@ -545,7 +545,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.True(patientParams.Where(p => p.Name == "preexisting2").First().IsSearchable);
 
             var questionnaireParams = searchParameterDefinitionManager.GetSearchParameters("QuestionnaireResponse");
-            Assert.Single(questionnaireParams.Where(p => p.Name == "questionnaire2"));
+            Assert.Single(questionnaireParams, p => p.Name == "questionnaire2");
         }
 
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)

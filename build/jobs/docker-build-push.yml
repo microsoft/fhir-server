@@ -24,13 +24,13 @@ jobs:
       inlineScript: |
         set -euo pipefail
 
-        # Image is defined in azdo library variable group
+        # Images variables are defined in azdo library variable group
         echo "Creating builder using cached buildkit mirror..."
         docker buildx create --name fhir-multi-platform --use \
-            --driver docker-container --driver-opt image=$(mobyBuildkitMirror):$(mobyBuildkitVersion)
+            --driver docker-container --driver-opt image=$(mobyBuildkitImage)
         
         echo "Setting up QEMU for cross-platform builds..."
-        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        docker run --rm --privileged $(multiarchQemuImage) --reset -p yes
         
         echo "Inspecting builder to confirm setup..."
         docker buildx inspect fhir-multi-platform --bootstrap
