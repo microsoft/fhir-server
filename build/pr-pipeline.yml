@@ -53,14 +53,6 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: 'net8.0'
-  - job: Linux_dotnet6
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: 'net6.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
