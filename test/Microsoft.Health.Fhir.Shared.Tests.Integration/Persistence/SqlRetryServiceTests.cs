@@ -668,6 +668,11 @@ END
             {
                 throw new NotImplementedException();
             }
+
+            public Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class SqlConnectionBuilderNoPooling : ISqlConnectionBuilder
@@ -706,6 +711,11 @@ END
             public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 throw new NotImplementedException();
+            }
+
+            public async Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            {
+                return await GetSqlConnectionAsync();
             }
         }
 
