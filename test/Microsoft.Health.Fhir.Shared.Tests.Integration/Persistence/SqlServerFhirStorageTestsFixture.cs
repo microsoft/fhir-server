@@ -81,6 +81,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
+        public SqlServerFhirStorageTestsFixture(IOptions<CoreFeatureConfiguration> coreFeatures)
+            : this(SchemaVersionConstants.Max, GetDatabaseName(), coreFeatures)
+        {
+        }
+
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
@@ -102,6 +107,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
             _blobRawResourceStoreTestsFixture = new BlobRawResourceStoreTestsFixture();
+
+            // This is needed to perform a check based on blob storage support
+            CoreFeatures = _options;
         }
 
         public string TestConnectionString { get; private set; }
@@ -126,7 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
-        public IOptions<CoreFeatureConfiguration> CoreFeatures => _options;
+        public IOptions<CoreFeatureConfiguration> CoreFeatures { get; private set; }
 
         internal static string GetDatabaseName(string test = null)
         {

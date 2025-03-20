@@ -327,6 +327,19 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
+- stage: startAzurite
+  displayName: 'Start Azurite'
+  dependsOn: []
+  jobs:
+  - job: startAzurite
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - script: |
+        docker run -d -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite
+      displayName: 'Start Azurite'
+
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -334,6 +347,7 @@ stages:
   - setupEnvironment
   - deployStu3
   - deployStu3Sql
+  - startAzurite
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -349,6 +363,7 @@ stages:
   - setupEnvironment
   - deployR4
   - deployR4Sql
+  - startAzurite
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -364,6 +379,7 @@ stages:
   - setupEnvironment
   - deployR4B
   - deployR4BSql
+  - startAzurite
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -379,6 +395,7 @@ stages:
   - setupEnvironment
   - deployR5
   - deployR5Sql
+  - startAzurite
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:

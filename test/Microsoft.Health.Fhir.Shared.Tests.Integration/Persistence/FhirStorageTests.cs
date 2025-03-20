@@ -794,15 +794,10 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
             }
         }
 
+        [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        [InlineData(true)]
-        [InlineData(false)]
-        [Theory]
-        public async Task GivenAFhirResource_WhenCreated_RawResourceStoredInCorrectStorage(bool blobStoreForResourceEnabled)
+        public async Task GivenAFhirResource_WhenCreated_RawResourceStoredInCorrectStorage()
         {
-            // Enable blob storage
-            _fixture.CoreFeatures.Value.SupportsRawResourceInBlob = blobStoreForResourceEnabled;
-
             // Create a test resource
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -814,7 +809,7 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
             var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
             var wrapper = await _fixture.DataStore.GetAsync(resourceKey, CancellationToken.None);
 
-            if (blobStoreForResourceEnabled)
+            if (_fixture.CoreFeatures.Value.SupportsRawResourceInBlob)
             {
                 // Raw resource MUST NOT be stored in the SQL database
                 await _fixture.SqlHelper.ExecuteSqlCmd(
