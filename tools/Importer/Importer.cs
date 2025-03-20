@@ -432,9 +432,6 @@ namespace Microsoft.Health.Fhir.Importer
                     return null;
                 }
 
-                var blobs = blobContainerClient.GetBlobs().ToList();
-                Console.WriteLine($"Successfully listed blobs in container {containerName}. Blob count: {blobs.Count}");
-
                 return blobContainerClient;
             }
             catch
