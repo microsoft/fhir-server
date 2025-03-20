@@ -131,6 +131,7 @@ namespace Microsoft.Health.Fhir.Web
                                     context.Reject(
                                         error: OpenIddictConstants.Errors.InvalidClient,
                                         description: "The specified 'client_id' doesn't match a registered application.");
+                                    return default;
                                 }
 
                                 if (!string.Equals(client.Id, context.ClientSecret, StringComparison.Ordinal))

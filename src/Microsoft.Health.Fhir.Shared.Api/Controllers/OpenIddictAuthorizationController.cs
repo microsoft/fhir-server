@@ -43,18 +43,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("/connect/token")]
         [AllowAnonymous]
-        public async Task<IActionResult> Connect()
+        public async Task<IActionResult> Token()
         {
             var request = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>()?.Transaction?.Request;
-            if (!request?.IsClientCredentialsGrantType() ?? true)
+            if (request == null)
             {
-                throw new RequestNotValidException($"Invalid request grant type. It must be '{OpenIddictConstants.GrantTypes.ClientCredentials}'.");
+                throw new RequestNotValidException("Invalid request: null");
             }
 
-            var application = await _applicationManager.FindByClientIdAsync(request.ClientId);
-            if (application == null)
+            if (!request.IsClientCredentialsGrantType())
             {
-                throw new RequestNotValidException($"Unknown client application: {request.ClientId}.");
+                throw new RequestNotValidException($"Invalid request grant type: {request.GrantType}. It must be '{OpenIddictConstants.GrantTypes.ClientCredentials}'.");
             }
 
             // Create the claims-based identity that will be used by OpenIddict to generate tokens.
