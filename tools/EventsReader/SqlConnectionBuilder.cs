@@ -35,5 +35,10 @@ namespace Microsoft.Health.Internal.Fhir.Sql
             builder.ApplicationIntent = ApplicationIntent.ReadOnly;
             return await Task.FromResult(new SqlConnection(builder.ToString()));
         }
+
+        public Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
