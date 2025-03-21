@@ -231,6 +231,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             catch (RequestRateExceededException rree)
             {
                 _logger.LogWarning(rree, "[JobId:{JobId}] Job failed due to RequestRateExceeded.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rree.Message, HttpStatusCode.TooManyRequests);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
@@ -797,7 +800,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(ContinuationTokenConverter.Encode(continuationToken));
+            progress.UpdateContinuationToken(ContinuationTokenEncoder.Encode(continuationToken));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)

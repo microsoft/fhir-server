@@ -9,14 +9,14 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport
 {
     /// <summary>
     /// A wrapper around the <see cref="ExportJobRecord"/> class that contains metadata specific to CosmosDb.
     /// </summary>
-    internal class CosmosExportJobRecordWrapper : CosmosJobRecordWrapper
+    internal class CosmosLegacyExportJobRecordWrapper : CosmosJobRecordWrapper
     {
-        public CosmosExportJobRecordWrapper(ExportJobRecord exportJobRecord)
+        public CosmosLegacyExportJobRecordWrapper(ExportJobRecord exportJobRecord)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
         }
 
         [JsonConstructor]
-        protected CosmosExportJobRecordWrapper()
+        protected CosmosLegacyExportJobRecordWrapper()
         {
         }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
-        public override string PartitionKey { get; } = CosmosDbExportConstants.ExportJobPartitionKey;
+        public override string PartitionKey { get; } = CosmosDbLegacyExportConstants.ExportJobPartitionKey;
 
         [JsonProperty(JobRecordProperties.JobRecord)]
         public ExportJobRecord JobRecord { get; private set; }

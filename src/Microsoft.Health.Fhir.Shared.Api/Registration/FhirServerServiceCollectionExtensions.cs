@@ -22,13 +22,13 @@ using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -136,11 +136,6 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
-            {
-                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            }
 
             return fhirServerBuilder;
         }
