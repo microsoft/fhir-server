@@ -111,11 +111,11 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: PowerShell@2
-      displayName: 'Start Azurite'
-      inputs:
-        targetType: 'inline'
-        script: |
-          docker run -d --rm -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite:latest
+    displayName: 'Start Azurite'
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker run -d --rm -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite:latest
 
   - task: DotNetCoreCLI@2
     displayName: 'Run Sql Integration Tests'
