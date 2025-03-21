@@ -98,8 +98,11 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
+                    // Only support forwardedhost header for AzureHealthDataServices.
+                    // Default value of forwarded headers will be ForwardedHeaders.None for Azure Api For Fhir.
                     options.ForwardedHeaders =
-                        ForwardedHeaders.XForwardedHost;
+                        runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration ?
+                            ForwardedHeaders.XForwardedHost : ForwardedHeaders.None;
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit
