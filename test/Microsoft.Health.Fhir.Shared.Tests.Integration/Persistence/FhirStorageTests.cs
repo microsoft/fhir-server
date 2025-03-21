@@ -795,6 +795,45 @@ UPDATE dbo.CurrentResources SET ResourceIdInt = (SELECT ResourceIdInt FROM Resou
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAFhirResource_WhenCreated_RawResourceStoredInCorrectStorage()
+        {
+            // Create a test resource
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            // Verify that the resource is created
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+
+            // Retrieve resource from the store
+            var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
+            var wrapper = await _fixture.DataStore.GetAsync(resourceKey, CancellationToken.None);
+
+            if (_fixture.CoreFeatures.Value.SupportsRawResourceInBlob)
+            {
+                // Raw resource MUST NOT be stored in the SQL database
+                await _fixture.SqlHelper.ExecuteSqlCmd(
+                    @$"
+IF EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
+BEGIN
+    THROW 50000, 'Raw resource data should not be stored in the SQL database when blob storage is enabled.', 1
+END
+                    ");
+            }
+            else
+            {
+                // Raw resource MUST be stored in the SQL database
+                await _fixture.SqlHelper.ExecuteSqlCmd(
+                    @$"
+IF NOT EXISTS (SELECT 1 FROM dbo.RawResources WHERE ResourceSurrogateId = '{wrapper.ResourceSurrogateId}')
+BEGIN
+    THROW 50000, 'Raw resource data should be stored in the SQL database when blob storage is disabled.', 1
+END
+                    ");
+            }
+        }
+
+        [Fact]
         public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
