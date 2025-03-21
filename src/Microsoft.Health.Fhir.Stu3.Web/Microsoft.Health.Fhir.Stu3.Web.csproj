@@ -7,7 +7,10 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
-    <PackageReference Include="IdentityServer4" NoWarn="NU1902" />
+    <PackageReference Include="OpenIddict.AspNetCore" />
+    <PackageReference Include="OpenIddict.Validation.AspNetCore" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
@@ -16,7 +19,6 @@
     <PackageReference Include="prometheus-net.AspNetCore" />
     <PackageReference Include="prometheus-net.DotNetRuntime" />
     <PackageReference Include="prometheus-net.SystemMetrics" />
-
     <!-- Referenced to mitigate CVE-2021-26701 -->
     <PackageReference Include="System.Text.Encodings.Web" />
     <!-- Referenced to mitigate CVE-2020-1045 -->
