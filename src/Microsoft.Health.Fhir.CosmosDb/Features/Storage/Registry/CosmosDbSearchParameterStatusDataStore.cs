@@ -25,18 +25,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         private DateTimeOffset? _lastRefreshed = null;
         private List<ResourceSearchParameterStatus> _statusList = new();
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
+        private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
 
         public CosmosDbSearchParameterStatusDataStore(
             Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            ICosmosQueryFactory queryFactory)
+            ICosmosQueryFactory queryFactory,
+            RetryExceptionPolicyFactory retryExceptionPolicyFactory)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
+            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
 
             _containerScopeFactory = containerScopeFactory;
             _queryFactory = queryFactory;
+            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
@@ -77,7 +81,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     do
                     {
-                        FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync(cancellationToken);
+                        FeedResponse<SearchParameterStatusWrapper> results = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
+                            async ct => await query.ExecuteNextAsync(
+                                ct),
+                            cancellationToken);
 
                         parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
                     }
@@ -101,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
-        private async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
+        internal async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
         {
             var lastUpdatedQuery = _queryFactory.Create<CacheQueryResponse>(
                 container.Value,
@@ -113,7 +120,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                         MaxItemCount = 1,
                     }));
 
-            FeedResponse<CacheQueryResponse> lastUpdatedResponse = await lastUpdatedQuery.ExecuteNextAsync(cancellationToken);
+            FeedResponse<CacheQueryResponse> lastUpdatedResponse = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
+                async ct => await lastUpdatedQuery.ExecuteNextAsync(
+                    ct),
+                cancellationToken);
+
             var result = lastUpdatedResponse?.FirstOrDefault();
 
             if (result == null || result.Count != currentCount || result.LastUpdated > lastRefreshed)
@@ -144,7 +155,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                     batch.UpsertItem(status);
                 }
 
-                await batch.ExecuteAsync(cancellationToken);
+                await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
+                    async ct => await batch.ExecuteAsync(ct),
+                    cancellationToken);
             }
         }
 
@@ -158,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _statusListSemaphore?.Dispose();
         }
 
-        private class CacheQueryResponse
+        internal class CacheQueryResponse
         {
             public int Count { get; set; }
 
