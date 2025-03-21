@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,7 +24,7 @@ internal class BlobRawResourceStoreTestsFixture : IAsyncLifetime
     {
         _blobServiceClient = new BlobServiceClient("UseDevelopmentStorage=true");
         _optionsMonitor = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-        _optionsMonitor.CurrentValue.Returns(new BlobContainerConfiguration() { ContainerName = Guid.NewGuid().ToString() });
+        _optionsMonitor.CurrentValue.Returns(new BlobContainerConfiguration() { ContainerName = "fhirresources" });
         var blobStoreClient = new BlobStoreClient(_blobServiceClient, _optionsMonitor, NullLogger<BlobStoreClient>.Instance);
         var blobRawResourceStore = new BlobRawResourceStore(blobStoreClient, NullLogger<BlobRawResourceStore>.Instance, Options.Create(new BlobOperationOptions()), new IO.RecyclableMemoryStreamManager());
         RawResourceStore = blobRawResourceStore;

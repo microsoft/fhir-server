@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 hashCode = unchecked((hashCode * 251) + c);
             }
 
-            return (Math.Abs(hashCode) % 1000).ToString().PadLeft(3, '0');
+            return (Math.Abs(hashCode) % 999).ToString().PadLeft(3, '0');
         }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
