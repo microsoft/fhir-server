@@ -71,9 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             : this(dataStore switch
             {
                 Common.FixtureParameters.DataStore.CosmosDb => new CosmosDbFhirStorageTestsFixture(),
-                Common.FixtureParameters.DataStore.SqlServerBlobEnabled => new SqlServerFhirStorageTestsFixture(
-                    Options.Create(new CoreFeatureConfiguration() { SupportsRawResourceInBlob = true })),
-                Common.FixtureParameters.DataStore.SqlServerBlobDisabled => new SqlServerFhirStorageTestsFixture(),
+                Common.FixtureParameters.DataStore.SqlServerBlobEnabled => new SqlServerFhirStorageTestsFixture(dataStore),
+                Common.FixtureParameters.DataStore.SqlServerBlobDisabled => new SqlServerFhirStorageTestsFixture(dataStore),
                 _ => throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null),
             })
         {
