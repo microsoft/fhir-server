@@ -83,21 +83,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> options)
+            : this(maximumSupportedSchemaVersion, databaseName, options.Value.SupportsRawResourceInBlob ? DataStore.SqlServerBlobEnabled : DataStore.SqlServerBlobDisabled, options)
         {
-            switch (options.Value.SupportsRawResourceInBlob)
-            {
-                case true:
-                    new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobEnabled);
-                    break;
-                case false:
-                    new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobDisabled);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(options), options, null);
-            }
+            // switch (options.Value.SupportsRawResourceInBlob)
+            // {
+            //    case true:
+            //        options.Value.SupportsRawResourceInBlob = true;
+            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobEnabled, options);
+            //        break;
+            //    case false:
+            //        options.Value.SupportsRawResourceInBlob = false;
+            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobDisabled, options);
+            //        break;
+            //    default:
+            //        throw new ArgumentOutOfRangeException(nameof(options), options, null);
+            // }
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, DataStore dataStore)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, DataStore dataStore, IOptions<CoreFeatureConfiguration> options = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
@@ -119,10 +122,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             switch (dataStore)
             {
                 case DataStore.SqlServerBlobDisabled:
-                    _options = Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = false });
+                    _options = options ?? Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = false });
                     break;
                 case DataStore.SqlServerBlobEnabled:
-                    _options = Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = true });
+                    _options = options ?? Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = true });
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
