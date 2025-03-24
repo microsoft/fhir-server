@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-                if (prevSearchParamResource != null)
+                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
                     // to the fhirpath or the datatype
