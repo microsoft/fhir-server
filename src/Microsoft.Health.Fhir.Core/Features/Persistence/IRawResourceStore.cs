@@ -28,4 +28,12 @@ public interface IRawResourceStore
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The raw resource</returns>
     Task<RawResource> ReadRawResourceAsync(long storageIdentifier, long offset, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads a list of FHIR resources from the store.
+    /// </summary>
+    /// <param name="rawResources">The raw resources to read.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The list of the raw resources with containing data</returns>
+    Task<IReadOnlyList<RawResource>> ReadRawResourcesAsync(IList<ResourceWrapper> rawResources, CancellationToken cancellationToken);
 }

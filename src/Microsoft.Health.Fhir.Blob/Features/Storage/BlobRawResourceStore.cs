@@ -10,10 +10,13 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Io;
 using Azure;
+using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
@@ -21,6 +24,7 @@ using Microsoft.Health.Fhir.Blob.Features.Common;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.IO;
+using SharpCompress.Compressors.Xz;
 
 namespace Microsoft.Health.Fhir.Blob.Features.Storage;
 
@@ -58,7 +62,7 @@ public class BlobRawResourceStore : IRawResourceStore
         // prepare the file to store
         int offset = 0;
         using RecyclableMemoryStream stream = _recyclableMemoryStreamManager.GetStream();
-        using StreamWriter writer = new StreamWriter(stream);
+        using StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false)); // Explicitly set UTF-8 encoding without BOM);
 
         foreach (var resource in rawResources)
         {
@@ -117,7 +121,7 @@ public class BlobRawResourceStore : IRawResourceStore
         BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
         var blobDownloadOptions = new BlobDownloadOptions { Range = new HttpRange(offset) };
 
-        BlobDownloadStreamingResult result = await ExecuteAsync(
+        string result = await ExecuteAsync(
         func: async () =>
         {
             Response<BlobDownloadStreamingResult> response = await blobClient.DownloadStreamingAsync(
@@ -129,26 +133,143 @@ public class BlobRawResourceStore : IRawResourceStore
                 throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
             }
 
+            string resource;
+
             using (Stream blobStream = response.Value.Content)
             {
                 // The blob content is returned as a stream, so we need to read it into a string.
                 using StreamReader reader = new StreamReader(blobStream, Encoding.UTF8);
 
                 // Read to the end of line
-                string line = await reader.ReadLineAsync();
-                if (string.IsNullOrEmpty(line))
+                resource = await reader.ReadLineAsync();
+
+                if (string.IsNullOrEmpty(resource))
                 {
                     throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
                 }
             }
 
-            return response.Value;
+            return resource;
         },
         operationName: nameof(ReadRawResourceAsync));
 
         timer.Stop();
         _logger.LogInformation($"Successfully read raw resource from blob storage for storage identifier: {blobClient.Name} in {timer.ElapsedMilliseconds} ms");
-        return new RawResource(result.Content.ToString(), Core.Models.FhirResourceFormat.Json, false);
+        return new RawResource(result, Core.Models.FhirResourceFormat.Json, false);
+    }
+
+    public async Task<IReadOnlyList<RawResource>> ReadRawResourcesAsync(IList<ResourceWrapper> rawResources, CancellationToken cancellationToken)
+    {
+        EnsureArg.IsNotNull(rawResources, nameof(rawResources));
+
+        Stopwatch timer = Stopwatch.StartNew();
+        _logger.LogInformation($"Reading {rawResources.Count} raw resources from blob storage");
+
+        var completeRawResources = new List<RawResource>();
+        var blobOffsetDictionary = GetBlobOffsetCombinations(rawResources);
+
+        foreach (var blobContainer in blobOffsetDictionary)
+        {
+            // if offset list is more than 1, read entire file, otherwise, just get the line
+            if (blobContainer.Value.Count > 1)
+            {
+                // read the entire file
+                var fileStream = await ReadBlobContainer(blobContainer.Key, 0, cancellationToken);
+                completeRawResources.AddRange(await FindResourcesInStreamAsync(fileStream, blobContainer.Key, blobContainer.Value));
+            }
+            else
+            {
+                // read the line for 1 resource
+                var rawResource = await ReadRawResourceAsync(blobContainer.Key, blobContainer.Value[0], cancellationToken);
+                if (rawResource != null)
+                {
+                    completeRawResources.Add(rawResource);
+                }
+            }
+        }
+
+        timer.Stop();
+        _logger.LogInformation($"Successfully read {rawResources.Count} raw resources from blob storage in {timer.ElapsedMilliseconds} ms");
+
+        return completeRawResources;
+    }
+
+    internal static async Task<IReadOnlyList<RawResource>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
+    {
+        var completeRawResourcesInBlob = new List<RawResource>();
+        Stream blobStream = completeBlobStream;
+        StreamReader reader = new StreamReader(blobStream, Encoding.UTF8);
+
+        foreach (int offset in offsets)
+        {
+            // Set reading position to offset
+            blobStream.Seek(offset, SeekOrigin.Begin);
+
+            // The blob content is returned as a stream, so we need to read it into a string.
+            // Read to the end of line
+            string resource = await reader.ReadLineAsync();
+
+            if (string.IsNullOrEmpty(resource))
+            {
+                throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+            }
+
+            completeRawResourcesInBlob.Add(new RawResource(resource, Core.Models.FhirResourceFormat.Json, false));
+        }
+
+        reader.Dispose();
+
+        // await blobStream.Dispose();
+
+        return completeRawResourcesInBlob.AsReadOnly();
+    }
+
+    protected async Task<Stream> ReadBlobContainer(long storageIdentifier, int offset, CancellationToken cancellationToken)
+    {
+        var blobContainerName = GetNewInstanceBlockBlobClient(storageIdentifier);
+
+        BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
+        var blobDownloadOptions = new BlobDownloadOptions { Range = new HttpRange(offset) };
+
+        Stream result = await ExecuteAsync(
+        func: async () =>
+        {
+            Response<BlobDownloadStreamingResult> response = await blobClient.DownloadStreamingAsync(
+                    blobDownloadOptions,
+                    cancellationToken);
+
+            if (response == null || response.Value == null || response.Value.Content == null)
+            {
+                throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+            }
+
+            return response.Value.Content;
+        },
+        operationName: nameof(ReadBlobContainer));
+
+        return result;
+    }
+
+    internal static Dictionary<long, List<int>> GetBlobOffsetCombinations(IList<ResourceWrapper> rawResources)
+    {
+        // Dictionary containing different blobContainers that need to be read and the list of offsets within the blob
+        var fileStorageDictionary = new Dictionary<long, List<int>>();
+
+        foreach (var resource in rawResources)
+        {
+            if (resource.ResourceStorageIdentifier != -1 && resource.ResourceStorageOffset >= 0)
+            {
+                if (!fileStorageDictionary.TryGetValue(resource.ResourceStorageIdentifier, out List<int> value))
+                {
+                    value = new List<int>();
+                    fileStorageDictionary[resource.ResourceStorageIdentifier] = value;
+                }
+
+                value.Add(resource.ResourceStorageOffset);
+            }
+        }
+
+        return fileStorageDictionary;
     }
 
     protected BlockBlobClient GetNewInstanceBlockBlobClient(long storageIdentifier)
