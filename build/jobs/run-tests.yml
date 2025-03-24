@@ -121,7 +121,7 @@ jobs:
     displayName: 'Run Sql Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~Cosmos&DisplayName~BlobEnabled" -v normal'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~Cosmos&DisplayName!~BlobEnabled" -v normal'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
