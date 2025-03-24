@@ -184,11 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?gender=female&organization:missing=false&_tag={tag}", patientWithReference);
         }
 
-        /// <summary>
-        /// Note: Disabling the test case as it is causing an unhandled exception from OpenIddict (System.UriFormatException: Invalid URI: The Uri string is too long).
-        /// It should be enabled once the exception is fixed in OpenIddict.
-        /// </summary>
-        [SkippableFact]
+        [Fact(Skip = "An unhandled exception being thrown in OpenIddict libraries before the request reaches the Fhir search endpoint. We contacted the OpenIddict owner and are waiting for bug to be fixed. Disabled until the issue is resolved.")]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()

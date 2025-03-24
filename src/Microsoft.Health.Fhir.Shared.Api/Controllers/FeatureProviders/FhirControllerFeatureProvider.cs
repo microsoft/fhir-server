@@ -8,7 +8,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 
-namespace Microsoft.Health.Fhir.Api.Controllers.Provider
+namespace Microsoft.Health.Fhir.Api.Controllers.FeatureProviders
 {
     public sealed class FhirControllerFeatureProvider : ControllerFeatureProvider
     {

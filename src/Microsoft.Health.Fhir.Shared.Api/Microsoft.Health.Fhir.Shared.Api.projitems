@@ -11,7 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Controllers\Provider\FhirControllerFeatureProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\FeatureProviders\FhirControllerFeatureProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
@@ -91,6 +91,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Controllers\Provider\" />
+    <Folder Include="$(MSBuildThisFileDirectory)Controllers\FeatureProviders\" />
   </ItemGroup>
 </Project>

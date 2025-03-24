@@ -56,6 +56,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException($"Invalid request grant type: {request.GrantType}. It must be '{OpenIddictConstants.GrantTypes.ClientCredentials}'.");
             }
 
+            var application = await _applicationManager.FindByClientIdAsync(request.ClientId);
+            if (application == null)
+            {
+                throw new RequestNotValidException($"Unknown client application: {request.ClientId}.");
+            }
+
             // Create the claims-based identity that will be used by OpenIddict to generate tokens.
             var identity = new ClaimsIdentity(
                 authenticationType: TokenValidationParameters.DefaultAuthenticationType,
