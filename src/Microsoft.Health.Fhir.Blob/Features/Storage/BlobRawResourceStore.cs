@@ -7,12 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Io;
 using Azure;
-using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
@@ -24,7 +23,6 @@ using Microsoft.Health.Fhir.Blob.Features.Common;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.IO;
-using SharpCompress.Compressors.Xz;
 
 namespace Microsoft.Health.Fhir.Blob.Features.Storage;
 
@@ -110,7 +108,7 @@ public class BlobRawResourceStore : IRawResourceStore
     }
 
     // Read a resource form a blob storage, using offset to skip other documents
-    public async Task<RawResource> ReadRawResourceAsync(long storageIdentifier, long offset, CancellationToken cancellationToken = default)
+    internal async Task<ResourceWrapper> ReadRawResourceAsync(long storageIdentifier, int offset, CancellationToken cancellationToken = default)
     {
         EnsureArg.IsGte(storageIdentifier, 0, nameof(storageIdentifier));
         EnsureArg.IsGte(offset, 0, nameof(offset));
@@ -155,32 +153,39 @@ public class BlobRawResourceStore : IRawResourceStore
 
         timer.Stop();
         _logger.LogInformation($"Successfully read raw resource from blob storage for storage identifier: {blobClient.Name} in {timer.ElapsedMilliseconds} ms");
-        return new RawResource(result, Core.Models.FhirResourceFormat.Json, false);
+
+        return CreateGenericResourceWrapper(storageIdentifier, offset, result);
     }
 
-    public async Task<IReadOnlyList<RawResource>> ReadRawResourcesAsync(IList<ResourceWrapper> rawResources, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ResourceWrapper>> ReadRawResourcesAsync(IReadOnlyList<ResourceWrapper> rawResources, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(rawResources, nameof(rawResources));
+        var completeRawResources = new List<ResourceWrapper>();
+
+        if (rawResources.Count == 1)
+        {
+            completeRawResources.Add(await ReadRawResourceAsync(rawResources[0].ResourceStorageIdentifier, rawResources[0].ResourceStorageOffset, cancellationToken));
+            return completeRawResources;
+        }
 
         Stopwatch timer = Stopwatch.StartNew();
         _logger.LogInformation($"Reading {rawResources.Count} raw resources from blob storage");
 
-        var completeRawResources = new List<RawResource>();
         var blobOffsetDictionary = GetBlobOffsetCombinations(rawResources);
 
-        foreach (var blobContainer in blobOffsetDictionary)
+        foreach (var storageIdentifier in blobOffsetDictionary)
         {
             // if offset list is more than 1, read entire file, otherwise, just get the line
-            if (blobContainer.Value.Count > 1)
+            if (storageIdentifier.Value.Count > 1)
             {
                 // read the entire file
-                var fileStream = await ReadBlobContainer(blobContainer.Key, 0, cancellationToken);
-                completeRawResources.AddRange(await FindResourcesInStreamAsync(fileStream, blobContainer.Key, blobContainer.Value));
+                var fileStream = await ReadBlobContainer(storageIdentifier.Key, 0, cancellationToken);
+                completeRawResources.AddRange(await FindResourcesInStreamAsync(fileStream, storageIdentifier.Key, storageIdentifier.Value));
             }
             else
             {
                 // read the line for 1 resource
-                var rawResource = await ReadRawResourceAsync(blobContainer.Key, blobContainer.Value[0], cancellationToken);
+                var rawResource = await ReadRawResourceAsync(storageIdentifier.Key, storageIdentifier.Value[0], cancellationToken);
                 if (rawResource != null)
                 {
                     completeRawResources.Add(rawResource);
@@ -194,32 +199,40 @@ public class BlobRawResourceStore : IRawResourceStore
         return completeRawResources;
     }
 
-    internal static async Task<IReadOnlyList<RawResource>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
+    internal static async Task<IReadOnlyList<ResourceWrapper>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
     {
-        var completeRawResourcesInBlob = new List<RawResource>();
+        var completeRawResourcesInBlob = new List<ResourceWrapper>();
         Stream blobStream = completeBlobStream;
-        StreamReader reader = new StreamReader(blobStream, Encoding.UTF8);
 
-        foreach (int offset in offsets)
+        // Order offsets in ascending order
+        var sortedOffsets = offsets.OrderBy(x => x).ToList();
+
+        if (!blobStream.CanSeek)
         {
-            // Set reading position to offset
-            blobStream.Seek(offset, SeekOrigin.Begin);
-
-            // The blob content is returned as a stream, so we need to read it into a string.
-            // Read to the end of line
-            string resource = await reader.ReadLineAsync();
-
-            if (string.IsNullOrEmpty(resource))
-            {
-                throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-            }
-
-            completeRawResourcesInBlob.Add(new RawResource(resource, Core.Models.FhirResourceFormat.Json, false));
+            throw new NotSupportedException("This stream does not support seeking");
         }
 
-        reader.Dispose();
+        using (var reader = new StreamReader(blobStream, Encoding.UTF8))
+        {
+            foreach (int offset in sortedOffsets)
+            {
+                // Set reading position to offset
+                blobStream.Seek(offset, SeekOrigin.Begin);
 
-        // await blobStream.Dispose();
+                // Clear StreamReader's buffer to align with the new stream position
+                reader.DiscardBufferedData();
+
+                // Read the line from the new position
+                string resource = await reader.ReadLineAsync();
+
+                if (string.IsNullOrEmpty(resource))
+                {
+                    throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+                }
+
+                completeRawResourcesInBlob.Add(CreateGenericResourceWrapper(storageIdentifier, offset, resource));
+            }
+        }
 
         return completeRawResourcesInBlob.AsReadOnly();
     }
@@ -250,7 +263,7 @@ public class BlobRawResourceStore : IRawResourceStore
         return result;
     }
 
-    internal static Dictionary<long, List<int>> GetBlobOffsetCombinations(IList<ResourceWrapper> rawResources)
+    internal static Dictionary<long, List<int>> GetBlobOffsetCombinations(IReadOnlyList<ResourceWrapper> rawResources)
     {
         // Dictionary containing different blobContainers that need to be read and the list of offsets within the blob
         var fileStorageDictionary = new Dictionary<long, List<int>>();
@@ -311,5 +324,24 @@ public class BlobRawResourceStore : IRawResourceStore
             _logger.LogError(ex, message);
             throw new RawResourceStoreException(message, ex);
         }
+    }
+
+    private static ResourceWrapper CreateGenericResourceWrapper(long storageIdentifier, int offset, string rawData)
+    {
+        var wrapper = new ResourceWrapper(
+            "resourceId",
+            "versionId",
+            "resourceTypeName",
+            new RawResource(rawData, Core.Models.FhirResourceFormat.Json, false),
+            null,
+            DateTimeOffset.MinValue,
+            false,
+            null,
+            null,
+            null);
+
+        wrapper.ResourceStorageIdentifier = storageIdentifier;
+        wrapper.ResourceStorageOffset = offset;
+        return wrapper;
     }
 }

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage;
 
 public class BlobStoreTests
 {
-    private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "resources.ndjson");
+    private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "pao-resources.ndjson");
 
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
@@ -113,6 +113,38 @@ public class BlobStoreTests
         return resourceWrappers;
     }
 
+    internal static IReadOnlyList<ResourceWrapper> GetResourceWrappersMetaData(IReadOnlyList<ResourceWrapper> resources)
+    {
+        var resourceWrappersWithMetadata = new List<ResourceWrapper>();
+
+        var expectedOffsets = new List<int>();
+        int lastOffset = 0;
+
+        for (int i = 0; i < resources.Count; i++)
+        {
+            if (i == 0)
+            {
+                // Add first element
+                expectedOffsets.Add(0);
+                var tempResourceWrapper = CreateTestResourceWrapperForReading(0);
+                resourceWrappersWithMetadata.Add(tempResourceWrapper);
+            }
+
+            // No need to process length of last resource, since offset for next resource doesn't exist
+            if (i < resources.Count - 1)
+            {
+                var currentOffset = lastOffset + resources[0].RawResource.Data.Length + BlobRawResourceStore.EndOfLine + 1;
+                expectedOffsets.Add(currentOffset);
+                lastOffset = currentOffset;
+
+                var tempResourceWrapper = CreateTestResourceWrapperForReading(currentOffset);
+                resourceWrappersWithMetadata.Add(tempResourceWrapper);
+            }
+        }
+
+        return resourceWrappersWithMetadata;
+    }
+
     [Fact]
     public async Task GivenResourceStore_WhenUploadFails_ThenThrowExceptionWithRightMessage()
     {
@@ -180,14 +212,17 @@ public class BlobStoreTests
     }
 
     [Fact]
-    public async Task GivenResourceStore_WhenSingleDownloadSucceeds_ThenValidateRawResource()
+    public async Task GivenResourceStore_WhenSingleDownloadSucceeds_ThenValidateFirstRawResourceInBlob()
     {
-        var resources = GetResourceWrappersWithData();
-        var expectedOffset = resources[0].RawResource.Data.Length + BlobRawResourceStore.EndOfLine;
-
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
 
-        var memoryStream = GetBlobDownloadStreamingPartialResult();
+        var resourcesWithData = GetResourceWrappersWithData();
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(resourcesWithData);
+
+        // Validate first element
+        var firstElementOffset = resourceWrappersMetaData[0].ResourceStorageOffset;
+
+        var memoryStream = GetBlobDownloadStreamingPartialResult(firstElementOffset);
         var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
             content: memoryStream,
             details: BlobsModelFactory.BlobDownloadDetails());
@@ -202,9 +237,112 @@ public class BlobStoreTests
             Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(response));
 
-        var rawResource2 = await blobFileStore.ReadRawResourceAsync(DefaultStorageIdentifier, expectedOffset, CancellationToken.None);
-        Assert.NotNull(rawResource2);
-        Assert.Equal(resources[1].RawResource.Data, rawResource2.Data);
+        var firstResource = await blobFileStore.ReadRawResourceAsync(DefaultStorageIdentifier, firstElementOffset, CancellationToken.None);
+        Assert.NotNull(firstResource);
+        Assert.Equal(resourcesWithData[0].RawResource.Data, firstResource.RawResource.Data);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenSingleDownloadSucceeds_ThenValidateMiddleRawResourceInBlob()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        var resourcesWithData = GetResourceWrappersWithData();
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(resourcesWithData);
+
+        // Initialize to first element, in case there are less than 2 elements
+        var middleElementOffset = resourceWrappersMetaData[0].ResourceStorageOffset;
+
+        int middleIndex = resourceWrappersMetaData.Count / 2;
+        if (resourceWrappersMetaData.Count > 2)
+        {
+            middleElementOffset = resourceWrappersMetaData[middleIndex].ResourceStorageOffset;
+        }
+
+        var memoryStream = GetBlobDownloadStreamingPartialResult(middleElementOffset);
+        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
+            content: memoryStream,
+            details: BlobsModelFactory.BlobDownloadDetails());
+
+        // Instead of substituting for Response<T>, create a real instance:
+        Response<BlobDownloadStreamingResult> response =
+            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content });
+
+        // Configure substitute client to return desired response.
+        client.BlockBlobClient.DownloadStreamingAsync(
+            Arg.Any<BlobDownloadOptions>(),
+            Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(response));
+
+        var middleResource = await blobFileStore.ReadRawResourceAsync(DefaultStorageIdentifier, middleElementOffset, CancellationToken.None);
+        Assert.NotNull(middleResource);
+        Assert.Equal(resourcesWithData[middleIndex].RawResource.Data, middleResource.RawResource.Data);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenSingleDownloadSucceeds_ThenValidateLastRawResourceInBlob()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        var resourcesWithData = GetResourceWrappersWithData();
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(resourcesWithData);
+
+        // Validate first, middle and last elements
+        var lastElementOffset = resourceWrappersMetaData[resourceWrappersMetaData.Count - 1].ResourceStorageOffset;
+
+        var memoryStream = GetBlobDownloadStreamingPartialResult(lastElementOffset);
+        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
+            content: memoryStream,
+            details: BlobsModelFactory.BlobDownloadDetails());
+
+        // Instead of substituting for Response<T>, create a real instance:
+        Response<BlobDownloadStreamingResult> response =
+            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content });
+
+        // Configure substitute client to return desired response.
+        client.BlockBlobClient.DownloadStreamingAsync(
+            Arg.Any<BlobDownloadOptions>(),
+            Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(response));
+
+        var lastResource = await blobFileStore.ReadRawResourceAsync(DefaultStorageIdentifier, lastElementOffset, CancellationToken.None);
+        Assert.NotNull(lastResource);
+        Assert.Equal(resourcesWithData[resourceWrappersMetaData.Count - 1].RawResource.Data, lastResource.RawResource.Data);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenMultipleDownloadSucceeds_ThenValidateRawResources()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        var resourcesWithData = GetResourceWrappersWithData();
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(resourcesWithData);
+
+        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
+        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
+            content: memoryStream,
+            details: BlobsModelFactory.BlobDownloadDetails());
+
+        // Instead of substituting for Response<T>, create a real instance:
+        Response<BlobDownloadStreamingResult> response =
+            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content });
+
+        // Configure substitute client to return desired response.
+        client.BlockBlobClient.DownloadStreamingAsync(
+            Arg.Any<BlobDownloadOptions>(),
+            Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(response));
+
+        var rawResourceResults = await blobFileStore.ReadRawResourcesAsync(resourceWrappersMetaData, CancellationToken.None);
+        Assert.NotNull(rawResourceResults);
+        Assert.Equal(resourceWrappersMetaData.Count, rawResourceResults.Count);
+
+        /*foreach (ResourceWrapper wrapper in resourceWrappersMetaData)
+        {
+            // Match by offset
+            var rawData = rawResourceResults.First<ResourceWrapper>(r => r.ResourceStorageOffset == wrapper.ResourceStorageOffset);
+            Assert.Equal(wrapper.RawResource, rawData);
+        }*/
     }
 
     [Fact]
@@ -240,10 +378,21 @@ public class BlobStoreTests
     }
 
     [Fact]
-    public void TestFindResourcesInStreamAsync()
+    public async Task TestFindResourcesInStreamAsync()
     {
-        var result = BlobRawResourceStore.FindResourcesInStreamAsync(GetBlobDownloadStreamingPartialResult(0), DefaultStorageIdentifier, new List<int> { 0, 2997 });
-        Assert.NotNull(result);
+        var resourcesWithData = GetResourceWrappersWithData();
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(resourcesWithData);
+
+        var offsetList = resourceWrappersMetaData.Select(x => x.ResourceStorageOffset).ToList();
+        var results = await BlobRawResourceStore.FindResourcesInStreamAsync(GetBlobDownloadStreamingPartialResult(0), DefaultStorageIdentifier, offsetList);
+        Assert.NotNull(results);
+
+        foreach (int offset in offsetList)
+        {
+            var expectedData = resourcesWithData.First(x => x.ResourceStorageOffset == offset).RawResource.Data;
+            var actualData = results.First(x => x.ResourceStorageOffset == offset).RawResource.Data;
+            Assert.Equal(expectedData, actualData);
+        }
     }
 
     private MemoryStream GetBlobDownloadStreamingPartialResult(int offset = 0)
