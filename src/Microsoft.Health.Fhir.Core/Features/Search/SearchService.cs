@@ -47,15 +47,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
-        public async Task<SearchResult> SearchAsync(
+        public virtual async Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false)
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);

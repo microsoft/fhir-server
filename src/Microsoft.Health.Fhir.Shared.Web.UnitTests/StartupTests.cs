@@ -104,8 +104,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             using var provider = services.BuildServiceProvider();
             if (!string.IsNullOrWhiteSpace(instrumentationKey) || !string.IsNullOrWhiteSpace(connectionString))
             {
-                Assert.NotEmpty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase)));
+                Assert.Contains(services, descriptor => descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
                 Assert.DoesNotContain(services, descriptor =>
                     descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
 
@@ -153,8 +152,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             using var provider = services.BuildServiceProvider();
             if (!string.IsNullOrWhiteSpace(connectionString))
             {
-                Assert.NotEmpty(services.Where(descriptor =>
-                    descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase)));
+                Assert.Contains(services, descriptor => descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
             }
             else
             {
