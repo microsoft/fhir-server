@@ -23,7 +23,6 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Azure;
-using Microsoft.Health.Fhir.Blob.Registration;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -126,19 +125,11 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
             {
-                fhirServerBuilder.AddSqlServer(config =>
+                fhirServerBuilder.AddSqlServer(Configuration, config =>
                 {
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-
-                // Only register blob store if the feature is enabled
-                CoreFeatureConfiguration coreFeatureConfiguration = new();
-                Configuration.GetSection(CoreFeatureConfiguration.SectionName).Bind(coreFeatureConfiguration);
-                if (coreFeatureConfiguration.SupportsRawResourceInBlob)
-                {
-                    fhirServerBuilder.AddBlobStore(Configuration);
-                }
             }
         }
 

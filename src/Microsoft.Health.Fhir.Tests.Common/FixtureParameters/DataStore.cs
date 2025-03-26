@@ -12,12 +12,12 @@ namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
     {
         CosmosDb = 1,                    // 0001
 
-        SqlServerBlobEnabled = 2,        // 0010
+        SqlServerBlobDisabled = 2,        // 0010
 
-        SqlServerBlobDisabled = 4,       // 0100
+        SqlServerBlobEnabled = 4,       // 0100
 
-        SqlServer = SqlServerBlobEnabled | SqlServerBlobDisabled,  // 0110
+        SqlServer = SqlServerBlobDisabled | SqlServerBlobEnabled,  // 0110
 
-        All = CosmosDb | SqlServerBlobEnabled | SqlServerBlobDisabled, // 0111
+        All = CosmosDb | SqlServerBlobDisabled | SqlServerBlobEnabled, // 0111
     }
 }
