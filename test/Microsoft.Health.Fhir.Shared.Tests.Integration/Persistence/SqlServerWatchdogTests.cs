@@ -208,7 +208,7 @@ END
                 return;
             }
 
-            Assert.Equal(1, GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
+            Assert.Equal(1, await GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
 
             var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
@@ -228,7 +228,7 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             startTime = DateTime.UtcNow;
-            while (GetResourceFromAdls(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (await GetResourceFromAdls(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
@@ -237,13 +237,13 @@ END
             await wdTask;
         }
 
-        private static int GetResourceFromAdls(long tranId)
+        private static async Task<int> GetResourceFromAdls(long tranId)
         {
             try
             {
                 var refs = new List<(long, int)>();
                 refs.Add((tranId, 0));
-                var results = SqlStoreClient.GetRawResourcesFromAdls(refs);
+                var results = await SqlStoreClient.GetRawResourcesFromAdls(refs);
                 return results.Count;
             }
             catch (Exception e)
