@@ -426,6 +426,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var matchedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.MaxItemCount);
                         var includedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.IncludeCount);
                         var includeOperationResources = new List<SearchResultEntry>(0);
+                        string includeContinuationTokenString = null;
 
                         //// logic inside sql reader should be as short as possible
                         using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
@@ -591,7 +592,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 _ => sortValue,
                                             }).ToArray())
                                     : null;
-                            string includeContinuationTokenString = null;
+
                             if (clonedSearchOptions.IncludesOperationSupported
                                 && clonedSearchOptions.Expression is MultiaryExpression
                                 && ((MultiaryExpression)clonedSearchOptions.Expression).Expressions.Any(x => x is IncludeExpression)
@@ -655,7 +656,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // add any results from the include operation
                         resources.AddRange(includeOperationResources);
 
-                        searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
+                        searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includeContinuationTokenString);
                     }
                 },
                 _logger,
