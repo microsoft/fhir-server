@@ -12,9 +12,6 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Blob\Microsoft.Health.Fhir.Blob.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Fixtures\pao-resources.ndjson">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Fixtures\resources.ndjson">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
