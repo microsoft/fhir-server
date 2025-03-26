@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage;
 
 public class BlobStoreTests
 {
-    private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "pao-resources.ndjson");
+    private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "resources.ndjson");
 
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
