@@ -23,8 +23,8 @@ public interface IRawResourceStore
     /// <summary>
     /// Reads a list of FHIR resources from the store.
     /// </summary>
-    /// <param name="rawResources">The raw resources to read.</param>
+    /// <param name="rawResourceLocators">The raw resources to read, including storage identifier and offset.</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The list of the raw resources with containing data</returns>
-    Task<IReadOnlyList<ResourceWrapper>> ReadRawResourcesAsync(IReadOnlyList<ResourceWrapper> rawResources, CancellationToken cancellationToken);
+    /// <returns>A dictionary, where the key contains thestorage identifier and offset of the raw resource. Value is the raw resource.</returns>
+    Task<Dictionary<RawResourceLocator, RawResource>> ReadRawResourcesAsync(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken);
 }

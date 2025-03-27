@@ -10,7 +10,7 @@ using System.IO;
 using Azure;
 using Azure.Core;
 
-namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage
+namespace Microsoft.Health.Fhir.Blob.UnitTests.Fixtures
 {
     internal class FakeResponse : Response
     {
