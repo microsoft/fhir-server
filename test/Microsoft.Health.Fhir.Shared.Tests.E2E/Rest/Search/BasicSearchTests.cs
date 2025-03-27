@@ -1266,6 +1266,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
+        [Theory]
+        [InlineData("Patient", HttpStatusCode.OK)]
+        [InlineData("patient", HttpStatusCode.BadRequest)]
+        [InlineData("Observation", HttpStatusCode.OK)]
+        [InlineData("oBservaTion", HttpStatusCode.BadRequest)]
+        public async Task GivenASearchRequestWithCaseMismatchedResourceType_WhenHandled_ReturnsBadRequest(string resourceType, HttpStatusCode statusCode)
+        {
+            var actualStatusCode = HttpStatusCode.OK;
+            try
+            {
+                using var response = await Client.SearchAsync(resourceType);
+            }
+            catch (FhirClientException ex)
+            {
+                actualStatusCode = ex.StatusCode;
+            }
+
+            Assert.Equal(statusCode, actualStatusCode);
+        }
+
         private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;

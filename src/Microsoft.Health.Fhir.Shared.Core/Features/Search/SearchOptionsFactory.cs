@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resourceTypes = searchParams.Parameters
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
-                    .Where(ModelInfoProvider.IsKnownResource)
+                    .Where(q => ModelInfoProvider.IsKnownResource(q))
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
@@ -379,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             else
             {
                 parsedResourceTypes[0] = resourceType;
-                if (!ModelInfoProvider.IsKnownResource(resourceType))
+                if (!ModelInfoProvider.IsKnownResource(resourceType, false))
                 {
                     throw new ResourceNotSupportedException(resourceType);
                 }
