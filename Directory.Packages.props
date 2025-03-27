@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>9.0.6</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>9.0.9</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.3</DotNetSdkPackageVersion>
