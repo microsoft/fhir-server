@@ -203,51 +203,6 @@ public class BlobRawResourceStore : IRawResourceStore
         return completeRawResources;
     }
 
-    public async Task<Dictionary<RawResourceLocator, RawResource>> ReadRawResourcesAsyncbad(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken)
-    {
-        EnsureArg.IsNotNull(rawResourceLocators, nameof(rawResourceLocators));
-        var completeRawResources = new Dictionary<RawResourceLocator, RawResource>();
-
-        if (rawResourceLocators.Count == 1)
-        {
-            var singleRawResource = await ReadRawResourceAsync(rawResourceLocators[0].RawResourceStorageIdentifier, rawResourceLocators[0].RawResourceOffset, cancellationToken);
-            completeRawResources.Add(new RawResourceLocator(rawResourceLocators[0].RawResourceStorageIdentifier, rawResourceLocators[0].RawResourceOffset), singleRawResource);
-            return completeRawResources;
-        }
-
-        Stopwatch timer = Stopwatch.StartNew();
-        _logger.LogInformation($"Reading {rawResourceLocators} raw resources from blob storage");
-
-        var blobOffsetDictionary = GetBlobOffsetCombinations(rawResourceLocators);
-
-        foreach (var storageIdentifier in blobOffsetDictionary)
-        {
-            // if offset list is more than 1, read entire file, otherwise, just get the line
-            if (storageIdentifier.Value.Count > 1)
-            {
-                // read the entire file
-                var fileStream = await ReadBlobContainer(storageIdentifier.Key, 0, cancellationToken);
-                var currentBlobResources = await FindResourcesInStreamAsync(fileStream, storageIdentifier.Key, storageIdentifier.Value);
-
-                foreach (var resource in currentBlobResources)
-                {
-                    completeRawResources.Add(resource.Key, resource.Value);
-                }
-            }
-            else
-            {
-                // read the line for 1 resource
-                var singleRawResource = await ReadRawResourceAsync(storageIdentifier.Key, storageIdentifier.Value[0], cancellationToken);
-                completeRawResources.Add(new RawResourceLocator(storageIdentifier.Key, storageIdentifier.Value[0]), singleRawResource);
-            }
-        }
-
-        timer.Stop();
-        _logger.LogInformation($"Successfully read {rawResourceLocators.Count} raw resources from blob storage in {timer.ElapsedMilliseconds} ms");
-
-        return completeRawResources;
-    }
-
     internal static async Task<Dictionary<RawResourceLocator, RawResource>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
     {
         var completeRawResourcesInBlob = new Dictionary<RawResourceLocator, RawResource>();
