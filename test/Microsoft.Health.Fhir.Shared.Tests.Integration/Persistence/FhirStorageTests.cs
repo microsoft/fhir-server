@@ -118,23 +118,27 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         public async Task DatabaseMergeThrottling()
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
-            //// set optimal threashold to low value to see waits.
-            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 2");
-            //// make calls longer
+
+            // set optimal threashold to low value to see waits.
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 1");
+
+            // make merge calls longer
             await _fixture.SqlHelper.ExecuteSqlCmd(@"
-CREATE TRIGGER Transactions_Trigger ON Transactions FOR INSERT
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE -- This should make commit in MergeResources to run longer
 AS
 WAITFOR DELAY '00:00:01'
                     ");
-            Parallel.For(0, 8, new ParallelOptions { MaxDegreeOfParallelism = 8 }, (i) =>
+            await Parallel.ForAsync(0, 8, async (i, cancell) =>
             {
-                var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
-                patient.Id = Guid.NewGuid().ToString();
-                Mediator.UpsertResourceAsync(patient.ToResourceElement()).Wait();
+                var iInt = i;
+                Thread.Sleep(100 * iInt); // do not start all merges at once
+                var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
+                await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // throttling works only w/o C# transaction, hence MergeOptions(false)
             });
             await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
-            //// make sure waits were recorded
+
+            // make sure waits were recorded
             await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') RAISERROR('Waits were not recorded', 18, 127)");
         }
 

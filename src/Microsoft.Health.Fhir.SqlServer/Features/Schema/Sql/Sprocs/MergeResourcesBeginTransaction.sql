@@ -9,7 +9,7 @@ DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
        ,@OptimalConcurrency int = isnull((SELECT Number FROM Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'), 256)
-       ,@WaitMilliseconds smallint = 10
+       ,@WaitMilliseconds smallint = 100 -- this value should be on par with single resource write
        ,@TotalWaitMilliseconds int = 0
        ,@msg varchar(1000)
 
