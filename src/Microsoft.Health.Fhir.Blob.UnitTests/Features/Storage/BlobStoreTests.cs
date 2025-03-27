@@ -242,15 +242,7 @@ public class BlobStoreTests
             content: memoryStream,
             details: BlobsModelFactory.BlobDownloadDetails());
 
-        // Instead of substituting for Response<T>, create a real instance:
-        Response<BlobDownloadStreamingResult> response =
-            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content });
-
-        // Configure substitute client to return desired response.
-        client.BlockBlobClient.DownloadStreamingAsync(
-            Arg.Any<BlobDownloadOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(response));
+        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
 
         var resultResource = await blobFileStore.ReadRawResourceAsync(key.RawResourceStorageIdentifier, key.RawResourceOffset, CancellationToken.None);
         Assert.NotNull(resultResource);
@@ -270,19 +262,7 @@ public class BlobStoreTests
         }
 
         var memoryStream = GetBlobDownloadStreamingPartialResult(0);
-        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
-            content: memoryStream,
-            details: BlobsModelFactory.BlobDownloadDetails());
-
-        // Instead of substituting for Response<T>, create a real instance:
-        Response<BlobDownloadStreamingResult> response =
-            Response.FromValue(streamingResult, new FakeResponse() { ContentStream = streamingResult.Content });
-
-        // Configure substitute client to return desired response.
-        client.BlockBlobClient.DownloadStreamingAsync(
-            Arg.Any<BlobDownloadOptions>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(response));
+        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
 
         var rawResourceResults = await blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
         Assert.NotNull(rawResourceResults);

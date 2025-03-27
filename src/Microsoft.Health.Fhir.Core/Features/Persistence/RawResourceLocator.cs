@@ -25,9 +25,9 @@ public class RawResourceLocator
 
     public override bool Equals(object obj)
     {
-        return obj is RawResourceLocator key &&
-               RawResourceStorageIdentifier == key.RawResourceStorageIdentifier &&
-               RawResourceOffset == key.RawResourceOffset;
+        return obj != null && obj.GetType() == GetType() &&
+               RawResourceStorageIdentifier == ((RawResourceLocator)obj).RawResourceStorageIdentifier &&
+               RawResourceOffset == ((RawResourceLocator)obj).RawResourceOffset;
     }
 
     public override int GetHashCode()

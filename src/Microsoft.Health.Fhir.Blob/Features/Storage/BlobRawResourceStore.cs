@@ -11,12 +11,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Dom;
 using Azure;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
@@ -118,37 +116,26 @@ public class BlobRawResourceStore : IRawResourceStore
         _logger.LogInformation($"Reading raw resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
 
         BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
-        var blobDownloadOptions = new BlobDownloadOptions { Range = new HttpRange(offset) };
+        var blobReadOptions = new BlobOpenReadOptions(false) { Position = offset };
 
         string result = await ExecuteAsync(
         func: async () =>
         {
-            Response<BlobDownloadStreamingResult> response = await blobClient.DownloadStreamingAsync(
-                    blobDownloadOptions,
-                    cancellationToken);
-
-            if (response?.Value?.Content is null)
+            using (Stream blobStream = await blobClient.OpenReadAsync(blobReadOptions, cancellationToken))
             {
-                throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-            }
-
-            string resource;
-
-            using (Stream blobStream = response.Value.Content)
-            {
-                // The blob content is returned as a stream, so we need to read it into a string.
-                using StreamReader reader = new StreamReader(blobStream, Encoding.UTF8);
-
-                // Read to the end of line
-                resource = await reader.ReadLineAsync();
-
-                if (string.IsNullOrEmpty(resource))
+                using (StreamReader reader = new StreamReader(blobStream, new UTF8Encoding(false)))
                 {
-                    throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+                    // Read to the end of line
+                    string resource = await reader.ReadLineAsync();
+
+                    if (string.IsNullOrEmpty(resource))
+                    {
+                        throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+                    }
+
+                    return resource;
                 }
             }
-
-            return resource;
         },
         operationName: nameof(ReadRawResourceAsync));
 
@@ -246,21 +233,26 @@ public class BlobRawResourceStore : IRawResourceStore
     protected async Task<Stream> ReadBlobContainer(long storageIdentifier, int offset, CancellationToken cancellationToken)
     {
         BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
-        var blobDownloadOptions = new BlobDownloadOptions { Range = new HttpRange(offset) };
+        BlobOpenReadOptions readOptions = new BlobOpenReadOptions(false) { Position = offset };
 
         Stream result = await ExecuteAsync(
         func: async () =>
         {
-            Response<BlobDownloadStreamingResult> response = await blobClient.DownloadStreamingAsync(
-                    blobDownloadOptions,
-                    cancellationToken);
+            return await blobClient.OpenReadAsync(readOptions, cancellationToken);
 
-            if (response?.Value?.Content is null)
+            /*using (Stream response = await blobClient.OpenReadAsync(readOptions, cancellationToken))
             {
-                throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-            }
+                using (StreamReader reader = new StreamReader(response))
+                {
+                    string content = await reader.ReadToEndAsync();
+                    if (content is null)
+                    {
+                        throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
+                    }
 
-            return response.Value.Content;
+                    return content;
+                }
+            }*/
         },
         operationName: nameof(ReadBlobContainer));
 
