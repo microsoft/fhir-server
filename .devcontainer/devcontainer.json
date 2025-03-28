@@ -6,6 +6,17 @@
 	"service": "fhir",
 	"workspaceFolder": "/workspace",
 
+	"hostRequirements": {
+		"cpus": 4,
+		"memory": "8gb"
+	},
+
+	"features": {
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+
+
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
 		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
@@ -18,7 +29,7 @@
 				"name": "R4 SQL Server - DevContainer",
 				"type": "coreclr",
 				"request": "launch",
-				"program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R4.Web.dll",
+				"program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R4.Web.dll",
 				"cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
 				"stopAtEntry": false,
 				"env": {
@@ -53,6 +64,7 @@
 		"ms-azuretools.vscode-health-fhir-converter",
 		"yannick-lagger.vscode-fhir-tools",
 		"edenlabio.fhir-profiler-tool",
+		"cqframework.cql",
 		"github.vscode-pull-request-github",
 		"github.github-vscode-theme"
 	],
@@ -64,8 +76,5 @@
 		"44348": {
 			"protocol": "https"
 		}
-	},
-	"features": {
-		"ghcr.io/devcontainers/features/azure-cli:1": {}
 	}
 }

@@ -15,7 +15,7 @@ services:
     depends_on:
       - "sql"
     build: 
-      context: ../
+      context: ../../
       dockerfile: .devcontainer/Dockerfile
       args:
         # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.

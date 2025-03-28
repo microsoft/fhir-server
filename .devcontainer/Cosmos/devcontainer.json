@@ -6,6 +6,17 @@
 	"service": "fhir",
 	"workspaceFolder": "/workspace",
 
+	"hostRequirements": {
+		"cpus": 4,
+		"memory": "8gb"
+	},
+
+	"features": {
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+
+
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
 		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
@@ -16,6 +27,8 @@
 
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
+		"github.copilot",
+		"github.copilot-chat",
 		"ms-azuretools.vscode-docker",
 		"ms-dotnettools.csdevkit",
 		"ms-dotnettools.vscodeintellicode-csharp",
@@ -41,8 +54,5 @@
 		"44348": {
 			"protocol": "https"
 		}
-	},
-	"features": {
-		"ghcr.io/devcontainers/features/azure-cli:1": {}
 	}
 }
