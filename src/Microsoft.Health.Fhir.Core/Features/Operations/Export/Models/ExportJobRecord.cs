@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string endSurrogateId = null,
             string globalStartSurrogateId = null,
             string globalEndSurrogateId = null,
+            string feedRange = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -43,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
             bool isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator,
             bool smartRequest = false)
@@ -69,6 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RestartCount = 0;
             TypeId = typeId;
             IsParallel = isParallel;
+            IncludeHistory = includeHistory;
+            IncludeDeleted = includeDeleted;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -85,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
             GlobalEndSurrogateId = globalEndSurrogateId;
+
+            FeedRange = feedRange;
 
             SmartRequest = smartRequest;
 
@@ -163,6 +171,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.GlobalStartSurrogateId)]
         public string GlobalStartSurrogateId { get; private set; }
 
+        [JsonProperty(JobRecordProperties.FeedRange)]
+        public string FeedRange { get; private set; }
+
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }
 
@@ -199,6 +210,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.IsParallel)]
         public bool IsParallel { get; private set; }
+
+        [JsonProperty(JobRecordProperties.IncludeHistory)]
+        public bool IncludeHistory { get; private set; }
+
+        [JsonProperty(JobRecordProperties.IncludeDeleted)]
+        public bool IncludeDeleted { get; private set; }
 
         [JsonProperty(JobRecordProperties.SmartRequest)]
         public bool SmartRequest { get; private set; }

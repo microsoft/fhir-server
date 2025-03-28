@@ -3,41 +3,46 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
-    public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
+    public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability, IBundleInnerRequest
     {
-        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, Guid? bundleOperationId = null)
+        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
             DeleteOperation = deleteOperation;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
-        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, Guid? bundleOperationId = null)
+        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
 
             ResourceKey = new ResourceKey(type, id);
             DeleteOperation = deleteOperation;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
         public ResourceKey ResourceKey { get; }
 
-        public Guid? BundleOperationId { get; }
+        public BundleResourceContext BundleResourceContext { get; }
 
         public DeleteOperation DeleteOperation { get; }
+
+        public bool AllowPartialSuccess { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

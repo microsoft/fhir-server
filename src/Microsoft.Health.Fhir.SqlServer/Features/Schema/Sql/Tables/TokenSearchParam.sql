@@ -5,11 +5,8 @@
     SearchParamId               smallint                NOT NULL,
     SystemId                    int                     NULL,
     Code                        varchar(256)            COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory                   bit                     NOT NULL,
-    CodeOverflow                varchar(max)           COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
 )
-
-ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT DF_TokenSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 
@@ -25,19 +22,16 @@ ON dbo.TokenSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
-ON dbo.TokenSearchParam
+CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId 
+ON dbo.TokenSearchParam 
 (
-    ResourceTypeId,
-    SearchParamId,
-    Code,
-    ResourceSurrogateId
-)
-INCLUDE
+    SearchParamId, 
+    Code
+) 
+INCLUDE 
 (
     SystemId
-)
-WHERE IsHistory = 0
+) 
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 

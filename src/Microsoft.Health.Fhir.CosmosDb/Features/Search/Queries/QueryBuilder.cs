@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -24,11 +25,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions = null)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, queryOptions ?? new QueryBuilderOptions());
-        }
-
-        public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
-        {
-            return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
 
         public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
@@ -83,11 +79,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
-                AppendFilterCondition(
-                   "AND",
-                   true,
-                   (KnownResourceWrapperProperties.IsHistory, false),
-                   (KnownResourceWrapperProperties.IsDeleted, false));
+                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsHistory, true));
+                }
+
+                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsHistory, false));
+                }
+
+                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted))
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsDeleted, false));
+                }
 
                 if (!searchOptions.CountOnly)
                 {
@@ -115,39 +129,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         }
                     }
                 }
-
-                var query = new QueryDefinition(_queryBuilder.ToString());
-                _queryParameterManager.AddToQuery(query);
-
-                return query;
-            }
-
-            public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
-            {
-                EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
-
-                AppendSelectFromRoot();
-
-                AppendSystemDataFilter();
-
-                var expressionQueryBuilder = new ExpressionQueryBuilder(
-                    _queryBuilder,
-                    _queryParameterManager);
-
-                if (searchOptions.Expression != null)
-                {
-                    _queryBuilder.Append("AND ");
-                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
-                }
-
-                _queryBuilder.Append("ORDER BY ");
-                var sortOption = searchOptions.Sort[0];
-
-#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
-                _queryBuilder.Append(SearchValueConstants.RootAliasName).Append('.')
-#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
-                    .Append(KnownResourceWrapperProperties.LastModified).Append(' ')
-                    .AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);

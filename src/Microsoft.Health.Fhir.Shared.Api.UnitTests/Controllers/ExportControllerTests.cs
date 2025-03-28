@@ -3,10 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using MediatR;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -15,6 +23,8 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -59,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 containerName: null,
                 formatName: null,
                 isParallel: false,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));
@@ -76,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -94,6 +106,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -111,6 +124,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -127,6 +141,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -146,6 +161,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: null,
@@ -164,6 +180,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: _testAnonymizationConfigEtag,
@@ -182,6 +199,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: _testAnonymizationConfigCollectionReference,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -200,10 +218,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: _testAnonymizationConfigCollectionReference,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: _testAnonymizationConfigEtag,
                 typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithHistoryOrDeletedIncluded_WhenHasTypeFilter_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: ResourceType.Patient.ToString(),
+                containerName: null,
+                formatName: null,
+                typeFilter: "Patient%3Factive%3Dtrue",
+                includeAssociatedData: "_history"));
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: ResourceType.Patient.ToString(),
+                containerName: null,
+                formatName: null,
+                typeFilter: "Patient%3Factive%3Dtrue",
+                includeAssociatedData: "_deleted"));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithDataIncluded_WhenKeyIsInvalid_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                typeFilter: null,
+                includeAssociatedData: "_test"));
         }
 
         // We can configure OciArtifacts through three fields: LoginServer, ImageName and Digest
@@ -235,13 +289,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: null,
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        private ExportController GetController(ExportJobConfiguration exportConfig, FeatureConfiguration features, ArtifactStoreConfiguration artifactStoreConfig)
+        [Theory]
+        [InlineData(true, false, null)]
+        [InlineData(false, true, null)]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, true)]
+        [InlineData(false, false, false)]
+        public async Task GivenASystemLevelExport_WhenRequestSentToMediator_CorrectIsParallelValueInRequest(bool isApiForFhir, bool expectedIsParallel, bool? inputIsParallelValue)
+        {
+            // Get export controller with specific runtime configuration (if needed).
+            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? Substitute.For<AzureApiForFhirRuntimeConfiguration>() : Substitute.For<IFhirRuntimeConfiguration>();
+            var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig, fhirConfig);
+
+            // Setup additional dependencies needed for test execution.
+            exportController.ControllerContext.HttpContext = new DefaultHttpContext();
+
+            _fhirRequestContextAccessor.RequestContext = new FhirRequestContext(
+               method: "export",
+               uriString: "https://test.com/",
+               baseUriString: "https://test.com/",
+               correlationId: "export",
+               requestHeaders: new Dictionary<string, StringValues>(),
+               responseHeaders: new Dictionary<string, StringValues>());
+
+            _urlResolver
+                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new Uri("http://test.com/"));
+
+            // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
+            _mediator
+                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var request = callInfo.Arg<CreateExportRequest>();
+                    if (request.IsParallel != expectedIsParallel)
+                    {
+                        throw new InvalidOperationException($"Expected isParallel value of {expectedIsParallel} but got {request.IsParallel}.");
+                    }
+
+                    return new CreateExportResponse("ExportTestJobId");
+                });
+
+            try
+            {
+                await exportController.Export(null, null, string.Empty, string.Empty, string.Empty, string.Empty, isParallel: inputIsParallelValue);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        private ExportController GetController(ExportJobConfiguration exportConfig, FeatureConfiguration features, ArtifactStoreConfiguration artifactStoreConfig, IFhirRuntimeConfiguration fhirConfig = null)
         {
             var operationConfig = new OperationsConfiguration()
             {
@@ -264,7 +371,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
                 optionsFeatures,
-                NullLogger<ExportController>.Instance);
+                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
         }
     }
 }

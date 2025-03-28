@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private string Id { get; }
 
-        public string UserId => GetEnvironmentVariableWithDefault($"user_{Id}_id", Id);
+        public string UserId => GetEnvironmentVariable($"user_{Id}_id", Id);
 
-        public string Password => GetEnvironmentVariableWithDefault($"user_{Id}_secret", Id);
+        public string Password => GetEnvironmentVariable($"user_{Id}_secret", Id);
 
         public string GrantType => "password";
 

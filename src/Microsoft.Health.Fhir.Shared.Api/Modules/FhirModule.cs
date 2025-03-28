@@ -10,9 +10,12 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -20,13 +23,19 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -106,6 +115,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateImportRequestFilterAttribute>();
             services.AddSingleton<ValidateAsyncRequestFilterAttribute>();
             services.AddSingleton<ValidateParametersResourceAttribute>();
+            services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
+            services.AddSingleton<QueryCacheFilterAttribute>();
 
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
@@ -128,7 +139,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
-            services.Add<SystemConformanceProvider>()
+            services.RemoveServiceTypeExact<SystemConformanceProvider, INotificationHandler<RebuildCapabilityStatement>>()
+                .Add<SystemConformanceProvider>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -153,8 +165,33 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
 
+            // Register a router for Bundle requests.
+            services.AddSingleton<IRouter, BundleRouter>();
+
+            // Registers a health check for improper behavior
+            services.RemoveServiceTypeExact<ImproperBehaviorHealthCheck, INotificationHandler<ImproperBehaviorNotification>>()
+                .Add<ImproperBehaviorHealthCheck>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHealthCheck>()
+                .AsService<INotificationHandler<ImproperBehaviorNotification>>();
+
+            services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
+
+            // Registers a health check to ensure storage gets initialized
+            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<StorageInitializedNotification>>()
+                .Add<StorageInitializedHealthCheck>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHealthCheck>()
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
+
+            services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
+
             services.AddLazy();
             services.AddScoped();
+
+            services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         }
     }
 }

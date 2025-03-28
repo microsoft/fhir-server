@@ -1,0 +1,106 @@
+{
+	"resourceType": "Bundle",
+	"type": "batch",
+	"entry": [
+    {
+        "resource": {
+            "resourceType": "CareTeam",
+            "id": "pagination-careteam1",
+            "participant": [
+                {
+                    "member": {
+                        "reference": "Practitioner/pagination-practitioner1"
+                    }
+                }
+            ],
+            "subject": {
+                "reference": "Patient/pagination-patient1"
+            }
+        },
+        "request": {
+            "method": "PUT",
+            "url": "CareTeam/pagination-careteam1"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "CareTeam",
+            "id": "pagination-careteam2",
+            "participant": [
+                {
+                    "member": {
+                        "reference": "Practitioner/pagination-practitioner1"
+                    }
+                }
+            ],
+            "subject": {
+                "reference": "Patient/pagination-patient2"
+            }
+        },
+        "request": {
+            "method": "PUT",
+            "url": "CareTeam/pagination-careteam2"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "CareTeam",
+            "id": "pagination-careteam3",
+            "participant": [
+                {
+                    "member": {
+                        "reference": "Practitioner/pagination-practitioner1"
+                    }
+                }
+            ],
+            "subject": {
+                "reference": "Patient/pagination-patient3"
+            }
+        },
+        "request": {
+            "method": "PUT",
+            "url": "CareTeam/pagination-careteam3"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "Patient",
+            "id": "pagination-patient1"
+        },
+        "request": {
+            "method": "PUT",
+            "url": "Patient/pagination-patient1"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "Patient",
+            "id": "pagination-patient2"
+        },
+        "request": {
+            "method": "PUT",
+            "url": "Patient/pagination-patient2"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "Patient",
+            "id": "pagination-patient3"
+        },
+        "request": {
+            "method": "PUT",
+            "url": "Patient/pagination-patient3"
+        }
+    },
+    {
+        "resource": {
+            "resourceType": "Practitioner",
+            "id": "pagination-practitioner1"
+        },
+        "request": {
+            "method": "PUT",
+            "url": "Practitioner/pagination-practitioner1"
+        }
+    }
+    ]
+}

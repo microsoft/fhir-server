@@ -7,11 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -27,6 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly TestFhirClient _client;
+        private const string Divcontent = "Generated Narrative with Details";
 
         public DeleteTests(HttpIntegrationTestFixture fixture)
         {
@@ -72,8 +76,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenADeletedResource_WhenSearchWithNotModifier_ThenDeletedResourcesShouldNotBeReturned()
+        {
+            FhirResponse<Flag> response = await _client.CreateAsync(Samples.GetJsonSample("Flag").ToPoco<Flag>());
+
+            // Delete all Flag resources
+            await _client.DeleteAllResources(ResourceType.Flag, null);
+
+            var searchResults = await _client.SearchAsync("Flag?identifier:not=123");
+
+            Assert.True(searchResults.Resource.Entry == null || searchResults.Resource.Entry.Count == 0);
+        }
+
+        [Theory]
+        [InlineData(KnownQueryParameterNames.BulkHardDelete)]
+        [InlineData(KnownQueryParameterNames.HardDelete)]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully()
+        public async Task GivenAResource_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully(string hardDeleteKey)
         {
             List<string> versionIds = new List<string>();
 
@@ -103,7 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             versionIds.Add(response3.Resource.Meta.VersionId);
 
             // Hard-delete the resource.
-            await _client.HardDeleteAsync(observation);
+            string url = $"{observation.TypeName}/{observation.Id}?{hardDeleteKey}=true";
+            await _client.DeleteAsync(url);
 
             // Getting the resource should result in NotFound.
             await ExecuteAndValidateNotFoundStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));
@@ -129,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPurging_ThenServerShouldDeleteHistoryAndKeepCurrentVersion()
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='purge-history').exists()"), "$purge-history not enabled on this server");
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("purge-history"), "$purge-history not enabled on this server");
 
             using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -169,6 +189,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Update the observation.
             for (int i = 0; i < 50; i++)
             {
+                observation.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>{Divcontent + " Version:" + i.ToString()}</b></p></div>",
+                };
                 using FhirResponse<Observation> loopResponse = await _client.UpdateAsync(observation);
 
                 versionIds.Add(loopResponse.Resource.Meta.VersionId);

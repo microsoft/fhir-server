@@ -18,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TemplateCollectionReference = "templateCollectionReference";
 
         public const string RootTemplate = "rootTemplate";
+
+        public const string JsonDeserializationTreatDatesAsStrings = "jsonDeserializationTreatDatesAsStrings";
     }
 }

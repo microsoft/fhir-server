@@ -18,7 +18,7 @@ public static class JobInfoExtensions
 
         try
         {
-            IJobData jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
+            JobDataDefinition jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
 
             return jobDataDefinition?.TypeId;
         }
@@ -34,9 +34,9 @@ public static class JobInfoExtensions
     {
         EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
-        if (jobInfo.Definition == null)
+        if (jobInfo.Definition == null || jobInfo.Definition.Equals("null", StringComparison.OrdinalIgnoreCase))
         {
-            return default;
+            throw new ArgumentNullException(nameof(jobInfo));
         }
 
         return JsonConvert.DeserializeObject<T>(jobInfo.Definition);

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -16,13 +17,13 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>
+    internal sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
-        private CancellationToken _cancellationToken;
+        private static readonly string[] DefragCoord = { "Defrag" };
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlQueueClient _sqlQueueClient;
@@ -53,162 +54,198 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string IsEnabledId => $"{Name}.IsEnabled";
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-            await StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken);
-            await InitDefragParamsAsync();
-        }
+        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
 
-        protected override async Task ExecuteAsync()
+        public override bool AllowRebalance { get; internal set; } = false;
+
+        public override double PeriodSec { get; internal set; } = 24 * 3600;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            if (!await IsEnabledAsync(_cancellationToken))
+            await ChangeDatabaseSettingsAsync(true, cancellationToken); // make sure that there are no leftovers from previous runs
+
+            _threads = await GetThreadsAsync(CancellationToken.None); // renew on each exec
+
+            if (!await IsEnabledAsync(cancellationToken))
             {
-                _logger.LogInformation("Watchdog is not enabled. Exiting...");
+                _logger.LogInformation("DefragWatchdog is not enabled. Exiting...");
                 return;
             }
 
-            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
-            var job = await GetCoordinatorJobAsync(_cancellationToken);
+            var coord = await GetCoordinatorJobAsync(cancellationToken);
 
-            if (job.jobId == -1)
+            if (coord.jobId == -1)
             {
-                _logger.LogInformation("Coordinator job was not found.");
+                _logger.LogInformation("DefragWatchdog.GetCoordinatorJobAsync: coordinator job was not found.");
                 return;
             }
 
-            _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
+            _logger.LogInformation($"DefragWatchdog.coord={coord.jobId}: started.");
 
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             await JobHosting.ExecuteJobWithHeartbeatsAsync(
                 _sqlQueueClient,
                 QueueType,
-                job.jobId,
-                job.version,
-                async cancellationSource =>
+                coord.jobId,
+                coord.version,
+                async cancel =>
                 {
                     try
                     {
-                        var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource.Token);
-                        _logger.LogInformation("Group={GroupId} Job={JobId}: NewDefragItems={NewDefragItems}.", job.groupId, job.jobId, newDefragItems);
-                        if (job.activeDefragItems > 0 || newDefragItems > 0)
-                        {
-                            await ChangeDatabaseSettingsAsync(false, cancellationSource.Token);
+                        var tables = await GetPartitionedTables(cancel.Token); // get tables
+                        _logger.LogInformation($"DefragWatchdog.GetPartitionedTables.coord={coord.groupId}: tables={tables.Count}.");
 
-                            var tasks = new List<Task>();
-                            for (var thread = 0; thread < _threads; thread++)
+                        // parallel loop on table level
+                        await ChangeDatabaseSettingsAsync(false, cancel.Token);
+                        await Parallel.ForEachAsync(tables, new ParallelOptions { MaxDegreeOfParallelism = _threads }, async (table, _) =>
+                        {
+                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, null, cancel.Token);
+                            var items = (await GetFragmentation(table, null, null, cancel.Token)).ToDictionary(_ => (_.Table, _.Index, _.Partition), _ => _.Frag);
+                            _logger.LogInformation($"DefragWatchdog.GetFragmentation.coord={job.GroupId}: job={job.Id} table={table} items={items.Count}.");
+                            var existingItems = await GetExistingItems(job.Id, cancel.Token);
+                            _logger.LogInformation($"DefragWatchdog.GetExistingItems.coord={job.GroupId}: job={job.Id} table={table} existingItems={existingItems.Count}.");
+                            foreach (var item in items.Where(_ => !existingItems.Contains(GetItemDefinition(_.Key.Table, _.Key.Index, _.Key.Partition))))
                             {
-                                tasks.Add(ExecDefragWithHeartbeatAsync(cancellationSource));
+                                _logger.LogInformation($"DefragWatchdog.ExecDefragItem.coord={job.GroupId}: job={job.Id} table={item.Key.Table} index={item.Key.Index} partition={item.Key.Partition} beforeFrag={item.Value} starting...");
+                                await ExecDefragItem(job.Id, item.Key.Table, item.Key.Index, item.Key.Partition, cancel.Token);
+                                _logger.LogInformation($"DefragWatchdog.ExecDefragItem.coord={job.GroupId}: job={job.Id} table={item.Key.Table} index={item.Key.Index} partition={item.Key.Partition} completed.");
                             }
 
-                            await Task.WhenAll(tasks);
-                            await ChangeDatabaseSettingsAsync(true, cancellationSource.Token);
-
-                            _logger.LogInformation("Group={GroupId} Job={JobId}: All ParallelTasks={ParallelTasks} tasks completed.", job.groupId, job.jobId, tasks.Count);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("Group={GroupId} Job={JobId}: No defrag items found.", job.groupId, job.jobId);
-                        }
+                            await _sqlQueueClient.CompleteJobAsync(new JobInfo { QueueType = QueueType, Id = job.Id, Version = job.Version, Status = JobStatus.Completed }, false, cancel.Token);
+                        });
 
                         return null;
                     }
                     catch (Exception e)
                     {
                         _logger.LogError(e, "DefragWatchdog failed.");
+                        await _sqlRetryService.TryLogEvent("DefragWatchdog", "Error", e.ToString(), null, cancel.Token);
                         throw;
                     }
                 },
                 TimeSpan.FromSeconds(_heartbeatPeriodSec),
                 cancellationTokenSource);
 
-            await CompleteJobAsync(job.jobId, job.version, false, _cancellationToken);
+            await ChangeDatabaseSettingsAsync(true, cancellationToken);
+            await CompleteCoordAsync(coord.jobId, coord.version, false, cancellationToken);
+        }
+
+        private async Task CompleteCoordAsync(long jobId, long version, bool failed, CancellationToken cancellationToken)
+        {
+            var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
+            await _sqlQueueClient.CompleteJobAsync(jobInfo, false, cancellationToken);
+            _logger.LogInformation($"DefragWatchdog.CompleteCoordAsync.coord={jobId}: version={version} failed={failed}");
         }
 
         private async Task ChangeDatabaseSettingsAsync(bool isOn, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings") { CommandType = CommandType.StoredProcedure};
+            await using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings") { CommandType = CommandType.StoredProcedure};
             cmd.Parameters.AddWithValue("@IsOn", isOn);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            _logger.LogInformation("ChangeDatabaseSettings: {IsOn}.", isOn);
+            _logger.LogInformation("DefragWatchdog.ChangeDatabaseSettings: {IsOn}.", isOn);
         }
 
-        private async Task ExecDefragWithHeartbeatAsync(CancellationTokenSource cancellationTokenSource)
+        private async Task<IReadOnlyCollection<string>> GetPartitionedTables(CancellationToken cancellationToken)
         {
-            while (true)
-            {
-                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationTokenSource.Token);
-
-                long jobId = job.jobId;
-
-                if (jobId == -1)
+            await using var cmd = new SqlCommand("dbo.GetPartitionedTables") { CommandType = CommandType.StoredProcedure };
+            List<string> results = null;
+            await _sqlRetryService.ExecuteSql(
+                cmd,
+                async (command, cancel) =>
                 {
-                    return;
-                }
-
-                await JobHosting.ExecuteJobWithHeartbeatsAsync(
-                    _sqlQueueClient,
-                    QueueType,
-                    jobId,
-                    job.version,
-                    async cancellationSource =>
+                    results = new List<string>();
+                    await using var reader = await command.ExecuteReaderAsync(cancel);
+                    while (await reader.ReadAsync(cancel))
                     {
-                        var split = job.definition.Split(";");
-                        await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource.Token);
-                        return await Task.FromResult((string)null);
-                    },
-                    TimeSpan.FromSeconds(_heartbeatPeriodSec),
-                    cancellationTokenSource);
+                        results.Add(reader.GetString(0));
+                    }
+                },
+                _logger,
+                null,
+                cancellationToken);
 
-                await CompleteJobAsync(jobId, job.version, false, cancellationTokenSource.Token);
+            return results;
+        }
+
+        private static string GetItemDefinition(string table, string index, int partition)
+        {
+            return $"{table};{index};{partition}";
+        }
+
+        private async Task<IReadOnlyCollection<string>> GetExistingItems(long groupId, CancellationToken cancellationToken)
+        {
+            return (await _sqlQueueClient.GetJobByGroupIdAsync(QueueType, groupId, true, cancellationToken)).Select(_ => _.Definition).ToList();
+        }
+
+        private async Task<IReadOnlyCollection<(string Table, string Index, int Partition, double Frag)>> GetFragmentation(string tableName, string indexName, int? partitionNumber, CancellationToken cancellationToken)
+        {
+            await using var cmd = new SqlCommand("dbo.DefragGetFragmentation") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            cmd.Parameters.AddWithValue("@TableName", tableName);
+            if (indexName != null)
+            {
+                cmd.Parameters.AddWithValue("@IndexName", indexName);
+            }
+
+            if (partitionNumber.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@PartitionNumber", partitionNumber.Value);
+            }
+
+            List<(string Table, string Index, int Partition, double Frag)> results = null;
+            await _sqlRetryService.ExecuteSql(
+                cmd,
+                async (command, cancel) =>
+                {
+                    results = new List<(string Table, string Index, int Partition, double Frag)>();
+                    await using var reader = await command.ExecuteReaderAsync(cancel);
+                    while (await reader.ReadAsync(cancel))
+                    {
+                        results.Add((reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetDouble(3)));
+                    }
+                },
+                _logger,
+                null,
+                cancellationToken);
+
+            return results;
+        }
+
+        private async Task ExecDefragItem(long jobId, string table, string index, int partition, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var st = DateTime.UtcNow;
+                await DefragAsync(table, index, partition, cancellationToken);
+                _logger.LogInformation($"DefragWatchdog.ExecDefragItem.DefragAsync: jobId={jobId} table={table} index={index} partition={partition} completed.");
+                var frag = (await GetFragmentation(table, index, partition, cancellationToken)).First().Frag;
+                await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, jobId, GetItemDefinition(table, index, partition), JobStatus.Completed, frag.ToString(), st, cancellationToken);
+                _logger.LogInformation($"DefragWatchdog.ExecDefragItem.GetFragmentation: jobId={jobId} table={table} index={index} partition={partition} afterFrag={frag} completed.");
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"DefragWatchdog.ExecDefragItem: jobId={jobId} table={table} index={index} partition={partition} failed.");
             }
         }
 
-        private async Task DefragAsync(string table, string index, int partitionNumber, bool isPartitioned, CancellationToken cancellationToken)
+        private async Task DefragAsync(string table, string index, int partition, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(table, nameof(table));
-            EnsureArg.IsNotNullOrWhiteSpace(index, nameof(index));
-
-            _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
-
-            using var cmd = new SqlCommand("dbo.Defrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            await using var cmd = new SqlCommand("dbo.Defrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
             cmd.Parameters.AddWithValue("@TableName", table);
             cmd.Parameters.AddWithValue("@IndexName", index);
-            cmd.Parameters.AddWithValue("@PartitionNumber", partitionNumber);
-            cmd.Parameters.AddWithValue("@IsPartitioned", isPartitioned);
+            cmd.Parameters.AddWithValue("@PartitionNumber", partition);
+            cmd.Parameters.AddWithValue("@IsPartitioned", true);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            _logger.LogInformation("Finished defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
         }
 
-        private async Task CompleteJobAsync(long jobId, long version, bool failed, CancellationToken cancellationToken)
+        private async Task<(long groupId, long jobId, long version)> GetCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
-            await _sqlQueueClient.CompleteJobAsync(jobInfo, false, cancellationToken);
-
-            _logger.LogInformation("Completed JobId: {JobId}, Version: {Version}, Failed: {Failed}", jobId, version, failed);
-        }
-
-        private async Task<int> InitDefragAsync(long groupId, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand("dbo.InitDefrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
-            cmd.Parameters.AddWithValue("@QueueType", QueueType);
-            cmd.Parameters.AddWithValue("@GroupId", groupId);
-            var defragItemsParam = new SqlParameter("@DefragItems", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(defragItemsParam);
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            return (int)defragItemsParam.Value;
-        }
-
-        private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetCoordinatorJobAsync(CancellationToken cancellationToken)
-        {
-            var activeDefragItems = 0;
             await _sqlQueueClient.ArchiveJobsAsync(QueueType, cancellationToken);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, DefragCoord, null, true, cancellationToken);
 
                 if (jobs.Count > 0)
                 {
@@ -227,7 +264,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 var active = await GetActiveCoordinatorJobAsync(cancellationToken);
                 id = (active.groupId, active.jobId, active.version);
-                activeDefragItems = active.activeDefragItems;
             }
 
             if (id.jobId != -1)
@@ -236,7 +272,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 id = (job.groupId, job.jobId, job.version);
             }
 
-            return (id.groupId, id.jobId, id.version, activeDefragItems);
+            return (id.groupId, id.jobId, id.version);
         }
 
         private async Task<(long groupId, long jobId, long version, string definition)> DequeueJobAsync(long? jobId = null, CancellationToken cancellationToken = default)
@@ -251,12 +287,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (-1, -1, -1, string.Empty);
         }
 
-        private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
+        private async Task<(long groupId, long jobId, long version)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@QueueType", QueueType);
             (long groupId, long jobId, long version) id = (-1, -1, -1);
-            var activeDefragItems = 0;
             await _sqlRetryService.ExecuteSql(
                 cmd,
                 async (command, cancel) =>
@@ -268,17 +303,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         {
                             id = (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(3));
                         }
-                        else
-                        {
-                            activeDefragItems++;
-                        }
                     }
                 },
                 _logger,
                 null,
                 cancellationToken);
 
-            return (id.groupId, id.jobId, id.version, activeDefragItems);
+            return (id.groupId, id.jobId, id.version);
         }
 
         private async Task<int> GetThreadsAsync(CancellationToken cancellationToken)
@@ -299,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (int)value;
         }
 
-        private async Task InitDefragParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
+        protected override async Task InitAdditionalParamsAsync()
         {
             _logger.LogInformation("InitDefragParamsAsync starting...");
 
@@ -308,7 +339,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
-INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0
             ");
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
@@ -316,7 +347,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
             cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
-            _threads = await GetThreadsAsync(CancellationToken.None);
             _heartbeatPeriodSec = await GetHeartbeatPeriodAsync(CancellationToken.None);
             _heartbeatTimeoutSec = await GetHeartbeatTimeoutAsync(CancellationToken.None);
 

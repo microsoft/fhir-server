@@ -145,6 +145,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string EndSurrogateId = "endSurrogateId";
 
+        public const string FeedRange = "feedRange";
+
         public const string MaxResourceSurrogateId = "maxResourceSurrogateId";
 
         public const string GlobalStartSurrogateId = "globalStartSurrogateId";
@@ -157,6 +159,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string IsParallel = "isParallel";
 
+        public const string IncludeHistory = "includeHistory";
+
+        public const string IncludeDeleted = "includeDeleted";
+
         public const string SmartRequest = "smartRequest";
 
         public const string DeleteOperation = "deleteOperation";
@@ -168,5 +174,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string BaseUrl = "baseUrl";
 
         public const string ParentRequestId = "parentRequestId";
+
+        public const string ExpectedResourceCount = "expectedResourceCount";
+
+        public const string VersionType = "versionType";
     }
 }

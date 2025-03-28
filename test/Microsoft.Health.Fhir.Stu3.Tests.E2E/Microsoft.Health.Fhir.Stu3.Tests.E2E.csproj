@@ -14,8 +14,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportUsingAcrTests.cs" Link="Rest\AnonymizedExportUsingAcrTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportUsingAcrTests.cs" Link="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportTests.cs" Link="Rest\Export\AnonymizedExportTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
@@ -51,7 +51,6 @@
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems" Label="Shared" />
-  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />
   <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">
 
     <!--

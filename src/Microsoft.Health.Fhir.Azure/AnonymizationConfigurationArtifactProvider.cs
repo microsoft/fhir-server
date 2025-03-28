@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Azure
         private readonly ILogger<AnonymizationConfigurationArtifactProvider> _logger;
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private IOciArtifactProvider _anonymizationConfigurationCollectionProvider;
+        private OciArtifactProvider _anonymizationConfigurationCollectionProvider;
         private IContainerRegistryTokenProvider _containerRegistryTokenProvider;
         private BlobServiceClient _blobClient;
 
@@ -113,26 +114,24 @@ namespace Microsoft.Health.Fhir.Azure
                         throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationCollectionTooLarge);
                     }
 
-                    using (var str = new MemoryStream(acrImage.Blobs[i].Content))
+                    using var str = new MemoryStream(acrImage.Blobs[i].Content);
+                    Dictionary<string, byte[]> blobsDict = StreamUtility.DecompressFromTarGz(str);
+                    if (!blobsDict.TryGetValue(configName, out byte[] value))
                     {
-                        var blobsDict = StreamUtility.DecompressFromTarGz(str);
-                        if (!blobsDict.ContainsKey(configName))
+                        continue;
+                    }
+                    else
+                    {
+                        configFound = true;
+                        if (CheckConfigurationIsTooLarge(value.LongLength))
                         {
-                            continue;
+                            throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                         }
-                        else
-                        {
-                            configFound = true;
-                            if (CheckConfigurationIsTooLarge(blobsDict[configName].LongLength))
-                            {
-                                throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
-                            }
 
-                            using (var config = new MemoryStream(blobsDict[configName]))
-                            {
-                                await config.CopyToAsync(targetStream, cancellationToken);
-                                break;
-                            }
+                        using (var config = new MemoryStream(value))
+                        {
+                            await config.CopyToAsync(targetStream, cancellationToken);
+                            break;
                         }
                     }
                 }

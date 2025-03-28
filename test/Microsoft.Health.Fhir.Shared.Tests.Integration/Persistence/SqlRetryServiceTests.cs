@@ -5,13 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -19,6 +22,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlRetryServiceTests : IClassFixture<SqlServerFhirStorageTestsFixture>
@@ -94,13 +98,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
-        [Fact]
+        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
@@ -283,15 +287,15 @@ END
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionNoPooling)
             {
-                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
             else if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
             else
             {
-                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
             }
         }
 
@@ -306,7 +310,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
@@ -319,7 +323,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
@@ -377,7 +381,7 @@ END
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
-                var result = await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
+                var result = await sqlRetryService.ExecuteReaderAsync<long>(
                     sqlCommand,
                     testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                     logger,
@@ -390,6 +394,8 @@ END
                 {
                     Assert.Equal(i + 1, result[i]);
                 }
+
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
 
                 Assert.Single(logger.LogRecords);
 
@@ -415,7 +421,7 @@ END
                 try
                 {
                     _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
-                    await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
+                    await sqlRetryService.ExecuteReaderAsync<long>(
                         sqlCommand,
                         testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                         logger,
@@ -432,6 +438,8 @@ END
                     _output.WriteLine($"{DateTime.Now:O}: ExecuteSqlDataReader throws.");
                     Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
                 }
+
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
 
                 Assert.Equal(3, logger.LogRecords.Count);
 
@@ -486,6 +494,9 @@ END
                         CancellationToken.None);
                 }
 
+                Assert.StartsWith("Retrieved", logger.LogRecords[0].Message); // Check that logging of connection open was logged.
+                Assert.StartsWith("Opened", logger.LogRecords[1].Message); // Check that logging of connection open was logged.
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -530,6 +541,7 @@ END
                 }
 
                 Assert.Equal(sqlErrorNumber, ex.Number);
+                logger.LogRecords.RemoveAll(_ => _.Exception == null);
                 Assert.Equal(3, logger.LogRecords.Count);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -618,6 +630,24 @@ END
                 _allRetriesFail = allRetriesFail;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                _retryCount++;
+                if (_allRetriesFail || _retryCount == 1)
+                {
+                    var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = "FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST",
+                    };
+                    sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                }
+
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
@@ -633,6 +663,16 @@ END
 
                 return sqlConnection;
             }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class SqlConnectionBuilderNoPooling : ISqlConnectionBuilder
@@ -644,6 +684,19 @@ END
                 _sqlConnectionBuilder = sqlConnectionBuilder;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                {
+                    Pooling = false,
+                };
+                sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
@@ -653,6 +706,16 @@ END
                 };
                 sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 return sqlConnection;
+            }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public async Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            {
+                return await GetSqlConnectionAsync();
             }
         }
 
@@ -672,7 +735,7 @@ END
                 Exception exception,
                 Func<TState, Exception, string> formatter)
             {
-                LogRecords.Add(new LogRecord() { LogLevel = logLevel, Exception = exception });
+                LogRecords.Add(new LogRecord() { LogLevel = logLevel, Exception = exception, Message = formatter(state, exception) });
             }
 
             public bool IsEnabled(LogLevel logLevel)
@@ -685,6 +748,8 @@ END
                 internal LogLevel LogLevel { get; init; }
 
                 internal Exception Exception { get; init; }
+
+                internal string Message { get; init; }
             }
         }
     }

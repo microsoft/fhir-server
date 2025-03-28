@@ -61,6 +61,8 @@ public static class CommandCollectionExtensions
             { OptionAliases.ManagedIdentityClientId, OptionAliases.ManagedIdentityClientId },
             { OptionAliases.AuthenticationType, OptionAliases.AuthenticationType },
             { OptionAliases.Version, OptionAliases.Version },
+            { OptionAliases.EnableWorkloadIdentityShort, OptionAliases.EnableWorkloadIdentity },
+            { OptionAliases.EnableWorkloadIdentity, OptionAliases.EnableWorkloadIdentity },
         };
 
         configurationBuilder.AddCommandLine(args, switchMappings);
@@ -79,10 +81,12 @@ public static class CommandCollectionExtensions
             string? authenticationTypeValue = config[OptionAliases.AuthenticationType];
             if (!string.IsNullOrWhiteSpace(authenticationTypeValue))
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 if (Enum.TryParse(authenticationTypeValue, true, out SqlServerAuthenticationType sqlServerAuthenticationType))
                 {
                     x.AuthenticationType = sqlServerAuthenticationType;
                 }
+#pragma warning restore CS0618 // Type or member is obsolete
             }
         });
 

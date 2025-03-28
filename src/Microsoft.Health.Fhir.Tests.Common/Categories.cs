@@ -34,8 +34,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Cors = nameof(Cors);
 
-        public const string Crucible = nameof(Crucible);
-
         public const string CustomConvertData = nameof(CustomConvertData);
 
         public const string CustomHeaders = nameof(CustomHeaders);
@@ -57,6 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string ExportLongRunning = nameof(ExportLongRunning);
 
+        public const string ExportData = nameof(ExportData);
+
         public const string History = nameof(History);
 
         public const string Import = nameof(Import);
@@ -70,6 +70,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Patch = nameof(Patch);
 
         public const string PatientEverything = nameof(PatientEverything);
+
+        public const string Profiles = nameof(Profiles);
 
         public const string Schema = nameof(Schema);
 

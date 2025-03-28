@@ -26,17 +26,25 @@ public static class SchemaManagerServiceCollectionBuilder
         services.AddOptions<SqlServerDataStoreConfiguration>().Configure<IOptions<CommandLineOptions>>((s, c) =>
         {
             s.ConnectionString = c.Value.ConnectionString;
+#pragma warning disable CS0618 // Type or member is obsolet
             s.AuthenticationType = c.Value.AuthenticationType ?? SqlServerAuthenticationType.ConnectionString;
 
             if (!string.IsNullOrWhiteSpace(c.Value.ManagedIdentityClientId))
             {
                 s.ManagedIdentityClientId = c.Value.ManagedIdentityClientId;
             }
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         services.AddSqlServerConnection();
 
         services.AddSqlServerManagement<SchemaVersion>();
+
+        // Optionally add support for Workload Identity
+        if (bool.TryParse(config[OptionAliases.EnableWorkloadIdentity], out bool enableWorkloadIdentity) && enableWorkloadIdentity)
+        {
+            services.EnableWorkloadManagedIdentity();
+        }
 
         services.AddSingleton<BaseSchemaRunner>();
         services.AddSingleton<IBaseSchemaRunner, FhirBaseSchemaRunner>();

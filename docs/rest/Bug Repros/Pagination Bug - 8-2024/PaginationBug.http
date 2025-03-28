@@ -1,0 +1,110 @@
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+@token = {{bearer.response.body.access_token}}
+
+### Pagination bug 1 - Counting included resources and missing matched resources when using include, decending sort, and the right _count value 
+# Setup test data
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+< ./PaginationBugData.json
+
+### Reindex
+# Trigger a reindexing operation.
+# @name reindex
+POST https://{{hostname}}/$reindex HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: application/json
+
+{  "resourceType": "Parameters", "parameter": [] }
+
+### Records the reindex job location
+@reindexLocation = {{reindex.response.headers.Content-Location}}
+
+###
+# Check the status of the reindexing operation
+GET {{reindexLocation}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+# Count <=2 gives one match and no next link, total = 1
+# Count =3 gives one match and a next link, total = 2
+# Count >=4 gives two matches and no next link, total = 2
+#
+# With just Condition:extension-care-goals a count of 2 produces the issue
+POST https://{{hostname}}/Condition/_search
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json, text/plain, */*
+Authorization: Bearer {{token}}
+
+patient=859f091b-75a0-4690-8f45-ce192c5e045a
+&category=main
+&_count=2
+&_total=accurate
+&_sort=-onset-date
+&_include=Condition:extension-care-goals
+
+###
+# when the sort order is decreasing 
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_sort=-whenprepared&_count=3&_total=accurate&_tag=a696ad4e-9e07-4266-8727-d1e3b9f193cd
+Authorization: Bearer {{token}}
+
+
+### Pagination bug 2 - Reverse chain counting deleted resources when it shouldn't
+# Setup data
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+< ./PaginationBugData2.json
+
+### Delete Patient
+DELETE https://{{hostname}}/Patient/pagination-patient2
+Authorization: Bearer {{token}}
+
+### Gets the first patient but has the wrong total value
+# @name getservicerequest
+POST https://{{hostname}}/Patient/_search
+Content-Type: application/x-www-form-urlencoded
+Authorization: Bearer {{token}}
+
+_total=accurate
+&_count=1
+&_has:CareTeam:patient:participant=pagination-practitioner1
+
+### Gets the summary count (also wrong)
+GET https://{{hostname}}/Patient?_summary=count&_has:CareTeam:patient:participant=pagination-practitioner1
+Authorization: Bearer {{token}}
+
+### Tests if a non-existant referenced resource is counted (it isn't)
+PUT https://{{hostname}}/CareTeam/pagination-careteam4
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "resourceType": "CareTeam",
+    "id": "pagination-careteam4",
+    "participant": [
+        {
+            "member": {
+                "reference": "Practitioner/pagination-practitioner1"
+            }
+        }
+    ],
+    "subject": {
+        "reference": "Patient/pagination-patient-invalid"
+    }
+}

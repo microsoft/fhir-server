@@ -1,0 +1,70 @@
+﻿{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296811"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient?identifier=|11788759296811"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:9B0ACF58-CBA0-4C52-89F0-FC6C97A2D7DC",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296812"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient?identifier=|11788759296812"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:D0A4C3C0-0DE9-4AED-805E-8AC662ED9E21",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296813"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient?identifier=|11788759296813"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:11435F74-B0E9-4481-AC2D-E2D5F8202A7F",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296814"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient?identifier=|11788759296814"
+            }
+        }
+    ]
+}

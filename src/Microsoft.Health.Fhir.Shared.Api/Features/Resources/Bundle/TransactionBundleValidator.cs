@@ -9,10 +9,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -22,12 +23,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public class TransactionBundleValidator
     {
         private readonly ResourceReferenceResolver _referenceResolver;
+        private readonly ILogger<TransactionBundleValidator> _logger;
 
-        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver)
+        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver, ILogger<TransactionBundleValidator> logger)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _referenceResolver = referenceResolver;
+            _logger = logger;
         }
 
         /// <summary>
@@ -99,6 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (matchedResults?.Count > 1)
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enought
+                _logger.LogInformation("PreconditionFailed: ConditionalOperationInBundleNotSelectiveEnough");
                 throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
             }
             else if (matchedResults?.Count == 1)
@@ -118,6 +123,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request?.Url;
+            var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
+            if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, requestVerb));
+            }
+
             HTTPVerb? requestMethod = entry.Request?.Method;
 
             if (string.IsNullOrWhiteSpace(requestUrl))

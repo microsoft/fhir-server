@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         {
             var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest>(_conformanceProvider);
 
-            var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleOperationId: null);
+            var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleResourceContext: null);
 
             await preProcessor.Process(getResourceRequest, CancellationToken.None);
         }
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         {
             var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
 
-            var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleOperationId: null);
+            var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(deleteResourceRequest, CancellationToken.None));
         }

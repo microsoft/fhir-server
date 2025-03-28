@@ -3,27 +3,27 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
-    public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
+    public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability, IBundleInnerRequest
     {
-        public CreateResourceRequest(ResourceElement resource, Guid? bundleOperationId = null)
+        public CreateResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
         }
 
-        public Guid? BundleOperationId { get; }
+        public BundleResourceContext BundleResourceContext { get; }
 
         public ResourceElement Resource { get; }
 

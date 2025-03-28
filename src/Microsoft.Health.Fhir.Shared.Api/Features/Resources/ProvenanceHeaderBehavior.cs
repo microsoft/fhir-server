@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
                 // Create Provenance resource.
                 // TODO: It should probaby go through controller to trigger audit events, but it's quite tricky to do now.
-                await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleOperationId: null), cancellationToken);
+                await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleResourceContext: null), cancellationToken);
             }
 
             return response;
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         private Provenance GetProvenanceFromHeader()
         {
-            if (!_httpContextAccessor.HttpContext.Request.Headers.ContainsKey(KnownHeaders.ProvenanceHeader))
+            if (!_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(KnownHeaders.ProvenanceHeader, out Microsoft.Extensions.Primitives.StringValues value))
             {
                 return null;
             }
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             Provenance provenance;
             try
             {
-                provenance = _fhirJsonParser.Parse<Provenance>(_httpContextAccessor.HttpContext.Request.Headers[KnownHeaders.ProvenanceHeader]);
+                provenance = _fhirJsonParser.Parse<Provenance>(value);
             }
             catch
             {

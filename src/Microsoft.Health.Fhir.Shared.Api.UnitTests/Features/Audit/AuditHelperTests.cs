@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Web;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -184,6 +186,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 customHeaders: _auditHeaderReader.Read(_httpContext),
                 operationType: Arg.Any<string>(),
                 callerAgent: Arg.Any<string>());
+        }
+
+        [Fact]
+        public void GivenDuration_WhenLogExecutedIsCalled_ThenAdditionalPropertiesIsNotNullInAuditLog()
+        {
+            long durationMs = 1123;
+            const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
+            const string expectedResourceType = "Patient";
+
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _fhirRequestContext.ResourceType.Returns(expectedResourceType);
+            _httpContext.Response.StatusCode = (int)expectedStatusCode;
+
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor, durationMs: durationMs);
+
+            _auditLogger.Received(1).LogAudit(
+                AuditAction.Executed,
+                AuditEventType,
+                expectedResourceType,
+                Uri,
+                expectedStatusCode,
+                CorrelationId,
+                CallerIpAddressInString,
+                Claims,
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>(),
+                additionalProperties: Arg.Is<Dictionary<string, string>>(d => d.ContainsKey(AuditHelper.ProcessingDurationMs) && d.ContainsValue(durationMs.ToString())));
         }
 
         [Fact]

@@ -12,6 +12,7 @@ using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -50,6 +51,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.AddSingleton<IParameterStore, SqlServerParameterStore>();
 
             services.Add<SqlServerSearchParameterStatusDataStore>()
                 .Singleton()
@@ -132,19 +135,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services
-                .RemoveServiceTypeExact<SqlQueueClient, INotificationHandler<StorageInitializedNotification>>()
-                .Add<SqlQueueClient>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IQueueClient>()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
-
-            services.Add<SqlImportReindexer>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SqlImporter>()
                 .Transient()
                 .AsSelf()
@@ -172,7 +162,9 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services.Add<SqlStoreClient<InvisibleHistoryCleanupWatchdog>>().Singleton().AsSelf();
+            services.Add<SqlStoreClient>()
+                .Singleton()
+                .AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 

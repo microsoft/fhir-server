@@ -9,6 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -18,16 +21,19 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Export;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerExportTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
+        private readonly ILogger<SqlExportOrchestratorJob> _logger = Substitute.For<ILogger<SqlExportOrchestratorJob>>();
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly ISearchService _searchService;
@@ -36,13 +42,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly byte _queueType = (byte)QueueType.Export;
         private const string DropTrigger = "IF object_id('tmp_JobQueueIns') IS NOT NULL DROP TRIGGER tmp_JobQueueIns";
 
+        // surrogate id range size is set via max number of resources per query on coord record
+        // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
+        private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration() { NumberOfParallelRecordRanges = 5 });
+
         public SqlServerExportTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
             _testOutputHelper = testOutputHelper;
             _searchService = _fixture.GetService<ISearchService>();
             _operationDataStore = _fixture.GetService<SqlServerFhirOperationDataStore>();
-            _queueClient = new SqlQueueClient(_fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            _queueClient = new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
         }
 
         [Fact]
@@ -52,9 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService);
-                //// surrogate id range size is set via max number of resources per query on coord record
-                coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
+                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService, _exportJobConfiguration, _logger);
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 
@@ -117,10 +125,10 @@ END
 
             var jobInfo = await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId);
 
-            retryOnTestException:
+retryOnTestException:
             try
             {
-                await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
+                await coordJob.ExecuteAsync(jobInfo, cts.Token);
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
             }
             catch (Exception e)
@@ -144,7 +152,7 @@ END
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
-            var surrId = DateTime.UtcNow.DateToId();
+            var surrId = DateTimeOffset.UtcNow.ToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
         (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)

@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -34,8 +36,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
-            : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            ILogger<ConditionalUpsertResourceHandler> logger)
+            : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService, logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
@@ -48,13 +51,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // No matches, no id provided: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleOperationId), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
             }
             else
             {
                 // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
                 // TODO: There is a potential contention issue here that this could replace an existing resource
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleOperationId), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
             }
         }
 
@@ -68,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
             {
                 resource.Id = resourceWrapper.ResourceId;
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleOperationId, version), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, version), cancellationToken);
             }
             else
             {

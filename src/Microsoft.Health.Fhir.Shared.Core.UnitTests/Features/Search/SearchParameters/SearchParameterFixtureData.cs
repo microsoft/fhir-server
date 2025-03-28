@@ -57,6 +57,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Assembly
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
+#if STU3 || R4 || R4B
+            var searchValueConverterExclusions = new HashSet<Type>
+            {
+                typeof(CanonicalToReferenceSearchValueConverter),
+                typeof(IdentifierToStringSearchValueConverter),
+                typeof(IdToReferenceSearchValueConverter),
+            };
+
+            types = types.Where(x => !searchValueConverterExclusions.Contains(x));
+#endif
 
             var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
@@ -80,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             var searchService = Substitute.For<ISearchService>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
@@ -100,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static async Task<SearchParameterStatusManager> CreateSearchParameterStatusManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             var searchService = Substitute.For<ISearchService>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(

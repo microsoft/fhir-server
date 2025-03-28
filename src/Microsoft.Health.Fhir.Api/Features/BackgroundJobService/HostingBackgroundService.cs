@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.JobManagement;
 
@@ -24,14 +25,14 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// </summary>
     public class HostingBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
     {
-        private readonly Func<IScoped<JobHosting>> _jobHostingFactory;
+        private readonly IScopeProvider<JobHosting> _jobHostingFactory;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly TaskHostingConfiguration _hostingConfiguration;
         private readonly ILogger<HostingBackgroundService> _logger;
         private bool _storageReady;
 
         public HostingBackgroundService(
-            Func<IScoped<JobHosting>> jobHostingFactory,
+            IScopeProvider<JobHosting> jobHostingFactory,
             IOptions<TaskHostingConfiguration> hostingConfiguration,
             IOptions<OperationsConfiguration> operationsConfiguration,
             ILogger<HostingBackgroundService> logger)
@@ -53,12 +54,11 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             try
             {
-                using IScoped<JobHosting> jobHosting = _jobHostingFactory();
+                using IScoped<JobHosting> jobHosting = _jobHostingFactory.Invoke();
                 JobHosting jobHostingValue = jobHosting.Value;
                 if (_hostingConfiguration != null)
                 {
                     jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
-                    jobHostingValue.MaxRunningJobCount = _hostingConfiguration.MaxRunningTaskCount ?? jobHostingValue.MaxRunningJobCount;
                     jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
                     jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
                 }
@@ -73,7 +73,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
                 foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
-                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource, operation.UpdateProgressOnHeartbeat));
+                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
                 }
 
                 await Task.WhenAll(jobQueues);

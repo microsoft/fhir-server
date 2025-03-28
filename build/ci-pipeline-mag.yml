@@ -23,7 +23,7 @@ stages:
   jobs:
   - job: ProvisionEnvironment
     steps:
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)
@@ -31,7 +31,7 @@ stages:
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(resourceGroupRoot)" -Location "$(ResourceGroupRegion)" -Force
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: 'Deploy Default Site'
       inputs:
         azureSubscription: $(ConnectedServiceName)
@@ -67,7 +67,7 @@ stages:
     
           # Deploy SQL Environment
           New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4Sql)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: 'Delete resource group'
       inputs:
         azureSubscription: $(ConnectedServiceName)

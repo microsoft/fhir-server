@@ -4,13 +4,18 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>Microsoft.Health.Internal.Fhir.Exporter</AssemblyName>
     <RootNamespace>Microsoft.Health.Internal.Fhir.Exporter</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\EventsReader\SqlConnectionBuilder.cs" Link="SqlConnectionBuilder.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
-    <PackageReference Include="System.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Health.SqlServer" />
   </ItemGroup>
 

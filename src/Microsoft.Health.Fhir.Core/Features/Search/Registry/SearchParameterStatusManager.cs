@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -80,12 +81,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (p.IsSearchable != tempStatus.IsSearchable ||
                         p.IsSupported != tempStatus.IsSupported ||
                         p.IsPartiallySupported != tempStatus.IsPartiallySupported ||
-                        p.SortStatus != result.SortStatus)
+                        p.SortStatus != result.SortStatus ||
+                        p.SearchParameterStatus != result.Status)
                     {
                         p.IsSearchable = tempStatus.IsSearchable;
                         p.IsSupported = tempStatus.IsSupported;
                         p.IsPartiallySupported = tempStatus.IsPartiallySupported;
                         p.SortStatus = result.SortStatus;
+                        p.SearchParameterStatus = result.Status;
 
                         updated.Add(p);
                     }

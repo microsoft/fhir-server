@@ -32,7 +32,7 @@ BEGIN TRY
 
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
-  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions AND @CheckTimeoutJobs = 0
+  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions < @MaxPartitions AND @CheckTimeoutJobs = 0
   BEGIN
     SET @Lock = 'DequeueJob_'+convert(varchar,@QueueType)+'_'+convert(varchar,@PartitionId)
 
@@ -72,7 +72,7 @@ BEGIN TRY
 
   -- Do timed out items. 
   SET @LookedAtPartitions = 0
-  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
+  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions < @MaxPartitions
   BEGIN
     SET @Lock = 'DequeueStoreCopyWorkUnit_'+convert(varchar, @PartitionId)
 

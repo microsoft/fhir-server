@@ -9,6 +9,7 @@ variables:
 - template: build-variables.yml
 
 stages:
+# *********************** Setup ***********************
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
@@ -20,6 +21,39 @@ stages:
     steps:
     - template: ./jobs/update-semver.yml  
 
+- stage: cleanStorageAccounts
+  displayName: 'Clean Storage Accounts'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/clean-storage-accounts.yml
+    parameters:
+      environmentName: $(DeploymentEnvironmentName)
+
+- stage: cleanupIntegrationTestDatabases
+  displayName: 'Cleanup Integration Test DBs'
+  dependsOn: []
+  jobs:
+  - job: cleanup
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Azure PowerShell script: InlineScript'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")
+          foreach ($pattern in $testNamePatterns) {
+            $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
+            foreach ($resource in $resources) {
+              Write-Host "Cleaning up $($resource.ResourceName)"
+              Remove-AzResource -ResourceId $resource.ResourceId -Force
+            }
+          }
+          
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
@@ -31,7 +65,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet7
+  - job: Windows_dotnet9
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -40,14 +74,26 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet6
+  - job: Linux_dotnet8
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
-        targetBuildFramework: 'net6.0'
+        targetBuildFramework: 'net8.0'
+
+- stage: BuildArtifacts
+  displayName: 'Build artifacts'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
@@ -65,6 +111,7 @@ stages:
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
   - BuildUnitTests
+  - BuildArtifacts
   jobs:
   - job: Guardian
     pool:
@@ -83,7 +130,9 @@ stages:
   - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
+      buildPlatform: $(publicDockerImagePlatforms)
 
+# *********************** Stu3 ***********************
 - stage: redeployStu3
   displayName: 'Redeploy STU3 CosmosDB Site'
   dependsOn:
@@ -108,6 +157,21 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
+  dependsOn:
+  - BuildArtifacts
+  - redeployStu3
+  - redeployStu3Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+      appServiceName: $(DeploymentEnvironmentName)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+
+# *********************** R4 ***********************
 - stage: redeployR4
   displayName: 'Redeploy R4 CosmosDB Site'
   dependsOn:
@@ -132,6 +196,21 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
+- stage: testR4
+  displayName: 'Run R4 Tests'
+  dependsOn:
+  - BuildArtifacts
+  - redeployR4
+  - redeployR4Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+
+# *********************** R4B ***********************
 - stage: redeployR4B
   displayName: 'Redeploy R4B CosmosDB Site'
   dependsOn:
@@ -156,6 +235,21 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
+- stage: testR4B
+  displayName: 'Run R4B Tests'
+  dependsOn:
+  - BuildArtifacts
+  - redeployR4B
+  - redeployR4BSql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+
+# *********************** R5 ***********************
 - stage: redeployR5
   displayName: 'Redeploy R5 CosmosDB Site'
   dependsOn:
@@ -180,49 +274,10 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - redeployStu3
-  - redeployStu3Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
-
-- stage: testR4
-  displayName: 'Run R4 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - redeployR4
-  - redeployR4Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
-
-- stage: testR4B
-  displayName: 'Run R4B Tests'
-  dependsOn:
-  - BuildUnitTests
-  - redeployR4B
-  - redeployR4BSql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - redeployR5
   - redeployR5Sql
   jobs:
@@ -231,7 +286,9 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
+# *********************** Finalize ***********************
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
@@ -244,11 +301,3 @@ stages:
     parameters:
       sourceTag: $(ImageTag)
       targetTag: 'master'
-
-- stage: cleanStorageAccounts
-  displayName: 'Clean Storage Accounts'
-  dependsOn: []
-  jobs:
-  - template: ./jobs/clean-storage-accounts.yml
-    parameters:
-      environmentName: $(DeploymentEnvironmentName)

@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Globalization;
+using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +26,8 @@ using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Telemetry;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
@@ -31,10 +36,13 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Net.Http.Headers;
 using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
+using TelemetryConfiguration = Microsoft.Health.Fhir.Core.Configs.TelemetryConfiguration;
 
 namespace Microsoft.Health.Fhir.Web
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Internal framework instantiation.")]
     public class Startup
     {
         private static string instanceId;
@@ -65,21 +73,10 @@ namespace Microsoft.Health.Fhir.Web
                 .AddConvertData()
                 .AddMemberMatch();
 
-            string dataStore = Configuration["DataStore"];
-            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
-            {
-                fhirServerBuilder.Services.Add<AzureApiForFhirRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
-                fhirServerBuilder.AddCosmosDb();
-            }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
-            {
-                fhirServerBuilder.Services.Add<AzureHealthDataServicesRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
-                fhirServerBuilder.AddSqlServer(config =>
-                {
-                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
-                });
-                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-            }
+            // Set the runtime configuration for the up and running service.
+            IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
+
+            AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -92,7 +89,7 @@ namespace Microsoft.Health.Fhir.Web
             need to ensure that the schema is initialized before the background workers are started.
             The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
-            fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+            fhirServerBuilder.AddBackgroundWorkers(runtimeConfiguration);
 
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
@@ -101,8 +98,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
-                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                        ForwardedHeaders.XForwardedProto;
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit
@@ -117,8 +113,46 @@ namespace Microsoft.Health.Fhir.Web
                 services.AddPrometheusMetrics(Configuration);
             }
 
-            AddApplicationInsightsTelemetry(services);
-            AddAzureMonitorOpenTelemetry(services);
+            AddTelemetryProvider(services);
+        }
+
+        private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
+        {
+            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddCosmosDb();
+            }
+            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
+                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+            }
+        }
+
+        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
+        {
+            IFhirRuntimeConfiguration runtimeConfiguration = null;
+
+            string dataStore = Configuration["DataStore"];
+            if (KnownDataStores.IsCosmosDbDataStore(dataStore))
+            {
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            }
+            else if (KnownDataStores.IsSqlServerDataStore(dataStore))
+            {
+                runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid data store type '{dataStore}'.");
+            }
+
+            fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
+
+            return runtimeConfiguration;
         }
 
         private void AddTaskHostingService(IServiceCollection services)
@@ -161,7 +195,7 @@ namespace Microsoft.Health.Fhir.Web
                     string instanceKey = KnownHeaders.InstanceId;
                     if (!context.Response.Headers.ContainsKey(instanceKey))
                     {
-                        context.Response.Headers.Add(instanceKey, new StringValues(instanceId));
+                        context.Response.Headers[instanceKey] = new StringValues(instanceId);
                     }
                 }
 
@@ -173,24 +207,53 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             app.UsePrometheusHttpMetrics();
-            app.UseFhirServer();
-            app.UseDevelopmentIdentityProviderIfConfigured();
+            app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
         }
 
         /// <summary>
         /// Adds ApplicationInsights for telemetry and logging.
         /// </summary>
-        private void AddApplicationInsightsTelemetry(IServiceCollection services)
+        private static void AddApplicationInsightsTelemetry(IServiceCollection services, TelemetryConfiguration configuration)
         {
-            string instrumentationKey = Configuration["ApplicationInsights:InstrumentationKey"];
-
-            if (!string.IsNullOrWhiteSpace(instrumentationKey) && string.IsNullOrWhiteSpace(Configuration["AzureMonitor:ConnectionString"]))
+            if (configuration.Provider == TelemetryProvider.ApplicationInsights
+                && (!string.IsNullOrWhiteSpace(configuration.InstrumentationKey) || !string.IsNullOrWhiteSpace(configuration.ConnectionString)))
             {
                 services.AddHttpContextAccessor();
-                services.AddApplicationInsightsTelemetry(instrumentationKey);
+                services.AddApplicationInsightsTelemetry(options =>
+                {
+                    if (!string.IsNullOrWhiteSpace(configuration.InstrumentationKey))
+                    {
+#pragma warning disable CS0618 // Type or member is obsolete
+                        options.InstrumentationKey = configuration.InstrumentationKey;
+#pragma warning restore CS0618 // Type or member is obsolete
+                    }
+                    else
+                    {
+                        options.ConnectionString = configuration.ConnectionString;
+                    }
+                });
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();
-                services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
+                services.AddLogging(loggingBuilder =>
+                {
+                    loggingBuilder.AddApplicationInsights(
+                        options =>
+                        {
+                            if (!string.IsNullOrWhiteSpace(configuration.InstrumentationKey))
+                            {
+#pragma warning disable CS0618 // Type or member is obsolete
+                                options.InstrumentationKey = configuration.InstrumentationKey;
+#pragma warning restore CS0618 // Type or member is obsolete
+                            }
+                            else
+                            {
+                                options.ConnectionString = configuration.ConnectionString;
+                            }
+                        },
+                        options =>
+                        {
+                        });
+                });
             }
         }
 
@@ -206,6 +269,8 @@ namespace Microsoft.Health.Fhir.Web
                 {
                     options.Authority = securityConfiguration.Authentication.Authority;
                     options.Audience = securityConfiguration.Authentication.Audience;
+                    options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
+                    options.MapInboundClaims = false;
                     options.RequireHttpsMetadata = true;
                     options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
                 });
@@ -214,24 +279,26 @@ namespace Microsoft.Health.Fhir.Web
         /// <summary>
         /// Adds AzureMonitorOpenTelemetry for telemetry and logging.
         /// </summary>
-        private void AddAzureMonitorOpenTelemetry(IServiceCollection services)
+        private static void AddAzureMonitorOpenTelemetry(IServiceCollection services, TelemetryConfiguration configuration)
         {
-            string connectionString = Configuration["AzureMonitor:ConnectionString"];
-
-            if (!string.IsNullOrWhiteSpace(connectionString))
+            if (configuration.Provider == TelemetryProvider.OpenTelemetry && !string.IsNullOrWhiteSpace(configuration.ConnectionString))
             {
+                services.AddHttpContextAccessor();
                 services.AddOpenTelemetry()
-                    .UseAzureMonitor(options => options.ConnectionString = connectionString)
-                    .ConfigureResource(resourceBuilder =>
+                    .UseAzureMonitor(options =>
+                    {
+                        options.ConnectionString = configuration.ConnectionString;
+                    })
+                    .ConfigureResource(builder =>
                     {
                         var resourceAttributes = new Dictionary<string, object>()
                         {
                             { "service.name", "Microsoft FHIR Server" },
                         };
 
-                        resourceBuilder.AddAttributes(resourceAttributes);
+                        builder.AddAttributes(resourceAttributes);
                     });
-                services.Configure<AspNetCoreInstrumentationOptions>(options =>
+                services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
                     {
                         options.RecordException = true;
                         options.EnrichWithHttpRequest = (activity, request) =>
@@ -239,10 +306,66 @@ namespace Microsoft.Health.Fhir.Web
                             if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
                             {
                                 string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
-                                activity.AddTag(propertyName, userAgent);
+                                activity?.SetTag(propertyName, userAgent);
+                            }
+                        };
+                        options.EnrichWithHttpResponse = (activity, response) =>
+                        {
+                            var request = response?.HttpContext?.Request;
+                            if (request != null)
+                            {
+                                var name = request.Path.Value;
+                                if (request.RouteValues != null
+                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
+                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
+                                {
+                                    name = $"{controller}/{action}";
+                                    var parameterArray = request.RouteValues.Keys?.Where(
+                                        k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
+                                        .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+                                        .ToArray();
+                                    if (parameterArray != null && parameterArray.Any())
+                                    {
+                                        name += $" [{string.Join("/", parameterArray)}]";
+                                    }
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(name))
+                                {
+                                    activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
+                                }
                             }
                         };
                     });
+                services.Configure<OpenTelemetryLoggerOptions>(options =>
+                    {
+                        options.AddProcessor(sp =>
+                        {
+                            var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+                            var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
+                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
+                        });
+                    });
+            }
+        }
+
+        /// <summary>
+        /// Adds the telemetry provider.
+        /// </summary>
+        private void AddTelemetryProvider(IServiceCollection services)
+        {
+            var configuration = new TelemetryConfiguration();
+            Configuration.GetSection("Telemetry").Bind(configuration);
+            services.AddTransient<IMeterFactory, DummyMeterFactory>();
+
+            switch (configuration.Provider)
+            {
+                case TelemetryProvider.ApplicationInsights:
+                    Startup.AddApplicationInsightsTelemetry(services, configuration);
+                    break;
+                case TelemetryProvider.OpenTelemetry:
+                    Startup.AddAzureMonitorOpenTelemetry(services, configuration);
+                    break;
             }
         }
     }

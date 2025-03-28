@@ -4,13 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -28,6 +34,60 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
     public class ImportProcessingJobTests
     {
         [Fact]
+        public void GivenTextWithDifferentEndOfLines_WhenAccessingByOffsets_AllLinesAreRead()
+        {
+            var input = $"A123456789{"\n"}B123456789{"\r\n"}C123456789{"\n"}D123456789{"\r\n"}E123456789{"\n"}F123456789{"\r\n"}";
+            var blobLength = input.Length;
+            for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
+            {
+                var outputLines = 0;
+                var outputString = new StringBuilder();
+                foreach (var offset in ImportOrchestratorJob.GetOffsets(blobLength, bytesToRead))
+                {
+                    using var reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input)));
+                    reader.BaseStream.Position = offset;
+                    foreach (var line in ImportResourceLoader.ReadLines(offset, bytesToRead, reader))
+                    {
+                        outputLines++;
+                        outputString.Append(line.Line);
+                    }
+                }
+
+                Assert.Equal(input.Replace("\r\n", string.Empty).Replace("\n", string.Empty), outputString.ToString());
+                Assert.Equal(6, outputLines);
+            }
+        }
+
+        [Fact]
+        public void GivenText_WhenAccessingByOffsets_AllLinesAreRead()
+        {
+            foreach (var endOfLine in new[] { "\n", "\r\n" })
+            {
+                // this will also check that empty lines are not read
+                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}{endOfLine}E123456789{endOfLine}";
+                var blobLength = 50L + (5 * endOfLine.Length);
+                for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
+                {
+                    var outputLines = 0;
+                    var outputString = new StringBuilder();
+                    foreach (var offset in ImportOrchestratorJob.GetOffsets(blobLength, bytesToRead))
+                    {
+                        using var reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input)));
+                        reader.BaseStream.Position = offset;
+                        foreach (var line in ImportResourceLoader.ReadLines(offset, bytesToRead, reader))
+                        {
+                            outputLines++;
+                            outputString.Append(line.Line);
+                        }
+                    }
+
+                    Assert.Equal(input.Replace(endOfLine, string.Empty), outputString.ToString());
+                    Assert.Equal(5, outputLines);
+                }
+            }
+        }
+
+        [Fact]
         public async Task GivenImportInput_WhenStartFromClean_ThenAllResoruceShouldBeImported()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
@@ -36,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
+        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenJobExecutionExceptionShouldBeThrown()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
@@ -47,6 +107,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -69,21 +132,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     return new ImportProcessingProgress();
                 });
 
-            Progress<string> progress = new Progress<string>();
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
-            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), progress, CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         [Fact]
@@ -98,8 +163,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     if (callInfo[2] != null) // always true
@@ -111,13 +179,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 });
 
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
-            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), new Progress<string>(), CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
@@ -131,6 +202,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -152,7 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                             null,
                             "SearchParam");
 
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, false, false, resourceWrapper));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, false, false, false, resourceWrapper));
                         await resourceChannel.Writer.WriteAsync(new ImportResource(1, 0, "Error"));
                         resourceChannel.Writer.Complete();
                     });
@@ -160,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
@@ -180,11 +254,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return progress;
                 });
 
-            string progressResult = null;
-            var progress = new Progress<string>((r) => { progressResult = r; });
-            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory);
+            var job = new ImportProcessingJob(mediator, queueClient, loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory, auditLogger);
 
-            string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
+            string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);

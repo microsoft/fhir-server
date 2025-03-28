@@ -5,19 +5,26 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
 public class JobGroupWrapper : SystemData
 {
-    public const string JobInfoPartitionKey = "__jobs__";
+    private const string JobInfoPartitionKey = "__jobs__";
 
     [JsonProperty("groupId")]
     public string GroupId { get; set; }
 
     [JsonProperty(KnownDocumentProperties.PartitionKey)]
-    public string PartitionKey { get; } = JobInfoPartitionKey;
+    public string PartitionKey
+    {
+        get
+        {
+            return GetJobInfoPartitionKey(QueueType);
+        }
+    }
 
     [JsonProperty("queueType")]
     public byte QueueType { get; set; }
@@ -33,4 +40,9 @@ public class JobGroupWrapper : SystemData
 
     [JsonProperty("ttl")]
     public long TimeToLive { get; set; }
+
+    public static string GetJobInfoPartitionKey(byte type)
+    {
+        return $"{JobInfoPartitionKey}{type}__";
+    }
 }

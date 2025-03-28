@@ -10,13 +10,17 @@ namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
     public class BundleResponse
     {
-        public BundleResponse(ResourceElement bundle)
+        public BundleResponse(ResourceElement bundle, BundleResponseInfo info)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
+            EnsureArg.IsNotNull(info, nameof(info));
 
             Bundle = bundle;
+            Info = info;
         }
 
         public ResourceElement Bundle { get; }
+
+        public BundleResponseInfo Info { get; }
     }
 }

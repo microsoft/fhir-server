@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SqlServerFhirResourceChangeCaptureFixture()
         {
-            _databaseName = $"FHIRRESOURCECHANGEINTTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            _databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"ChangeCapture");
             _coreFeatureConfigOptions = Options.Create(new CoreFeatureConfiguration() { SupportsResourceChangeCapture = true });
             _sqlFixture = new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, _databaseName, _coreFeatureConfigOptions);
             _storageFixture = new FhirStorageTestsFixture(_sqlFixture);
@@ -54,7 +54,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public async Task DisposeAsync()
         {
-            await (_storageFixture?.DisposeAsync() ?? Task.CompletedTask);
+            if (_storageFixture != null)
+            {
+                await _storageFixture.DisposeAsync();
+            }
         }
     }
 }

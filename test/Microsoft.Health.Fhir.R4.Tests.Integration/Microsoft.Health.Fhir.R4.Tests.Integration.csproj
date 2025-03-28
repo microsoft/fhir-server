@@ -2,6 +2,9 @@
   <PropertyGroup>
     <RootNamespace>Microsoft.Health.Fhir.Tests.Integration</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>R4</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
@@ -13,6 +16,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Xunit.SkippableFact" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />

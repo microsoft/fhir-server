@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -26,17 +27,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
     {
         private readonly ISearchService _searchService;
         private readonly IQueryStringParser _queryStringParser;
+        private readonly ILogger<ResourceReferenceResolver> _logger;
 
-        public ResourceReferenceResolver(ISearchService searchService, IQueryStringParser queryStringParser)
+        public ResourceReferenceResolver(
+            ISearchService searchService,
+            IQueryStringParser queryStringParser,
+            ILogger<ResourceReferenceResolver> logger)
         {
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(queryStringParser, nameof(queryStringParser));
-
-            _searchService = searchService;
-            _queryStringParser = queryStringParser;
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _queryStringParser = EnsureArg.IsNotNull(queryStringParser, nameof(queryStringParser));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ResolveReferencesAsync(Resource resource, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
+        public async Task ResolveReferencesAsync(Resource resource, IDictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
 
@@ -67,12 +70,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
                         var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
-                        if (results == null || results.Count != 1)
+                        if (results == null || results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count() != 1)
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
                         }
 
-                        string resourceId = results.First().Resource.ResourceId;
+                        string resourceId = results.First(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Resource.ResourceId;
 
                         referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 
@@ -93,7 +96,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken)).Results;
+            var matches = (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, logger: _logger))
+                .Results
+                .Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                .ToList();
+
+            return matches;
         }
     }
 }

@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
-        private static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll);
-        private static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit);
+        protected static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll);
+        protected static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
 
-        private static IList<SearchParamTableExpression> SortIncludeIterateExpressions(IList<SearchParamTableExpression> expressions)
+        protected static List<SearchParamTableExpression> SortIncludeIterateExpressions(List<SearchParamTableExpression> expressions)
         {
             // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
             // The search queries are acyclic.
@@ -121,8 +121,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "This is a public signature.")]
             public IDictionary<SearchParamTableExpression, IList<SearchParamTableExpression>> OutgoingEdges { get; private set; }
 
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "This is a public signature.")]
             public IDictionary<SearchParamTableExpression, int> IncomingEdgesCount { get; private set; }
 
             public IEnumerable<SearchParamTableExpression> NodesWithoutIncomingEdges

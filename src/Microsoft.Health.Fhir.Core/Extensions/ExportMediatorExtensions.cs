@@ -28,6 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string containerName,
             string formatName,
             bool isParallel,
+            bool includeDeleted,
+            bool includeHistory,
+            uint maxCount,
             string anonymizationConfigurationCollectionReference,
             string anonymizationConfigLocation,
             string anonymizationConfigFileETag,
@@ -36,7 +39,23 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, till, filters, groupId, containerName, formatName, isParallel, anonymizationConfigurationCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
+            var request = new CreateExportRequest(
+                                requestUri: requestUri,
+                                requestType: requestType,
+                                resourceType: resourceType,
+                                since: since,
+                                till: till,
+                                filters: filters,
+                                groupId: groupId,
+                                containerName: containerName,
+                                formatName: formatName,
+                                isParallel: isParallel,
+                                maxCount: maxCount,
+                                includeDeleted: includeDeleted,
+                                includeHistory: includeHistory,
+                                anonymizationConfigurationCollectionReference: anonymizationConfigurationCollectionReference,
+                                anonymizationConfigurationLocation: anonymizationConfigLocation,
+                                anonymizationConfigurationFileETag: anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

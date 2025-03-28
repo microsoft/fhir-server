@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -24,6 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSetMergeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
@@ -53,8 +54,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);
@@ -81,8 +82,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);
@@ -103,8 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);

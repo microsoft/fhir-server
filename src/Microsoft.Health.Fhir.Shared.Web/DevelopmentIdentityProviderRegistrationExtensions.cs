@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Web
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
         private const string WrongAudienceClient = "wrongAudienceClient";
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Web
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
-        private static IReadOnlyCollection<ApiScope> GenerateSmartClinicalScopes()
+        private static List<ApiScope> GenerateSmartClinicalScopes()
         {
             ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
@@ -171,8 +172,11 @@ namespace Microsoft.Health.Fhir.Web
 
             scopes.Add(new ApiScope("patient/*.*"));
             scopes.Add(new ApiScope("user/*.*"));
+            scopes.Add(new ApiScope("system/*.*"));
+            scopes.Add(new ApiScope("system/*.read"));
             scopes.Add(new ApiScope("patient/*.read"));
             scopes.Add(new ApiScope("user/*.write"));
+            scopes.Add(new ApiScope("user/*.read"));
 
             foreach (var resourceType in resourceTypes)
             {
@@ -182,12 +186,14 @@ namespace Microsoft.Health.Fhir.Web
                 scopes.Add(new ApiScope($"user/{resourceType}.read"));
                 scopes.Add(new ApiScope($"patient/{resourceType}.write"));
                 scopes.Add(new ApiScope($"user/{resourceType}.write"));
+                scopes.Add(new ApiScope($"system/{resourceType}.write"));
+                scopes.Add(new ApiScope($"system/{resourceType}.read"));
             }
 
             return scopes;
         }
 
-        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId, string host)
+        private static ClientClaim[] CreateFhirUserClaims(string userId, string host)
         {
             string userType = null;
 
@@ -204,11 +210,11 @@ namespace Microsoft.Health.Fhir.Web
                 userType = "System";
             }
 
-            return new ClientClaim[]
-            {
+            return
+            [
                 new ClientClaim("appid", userId),
                 new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
-            };
+            ];
         }
 
         private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource

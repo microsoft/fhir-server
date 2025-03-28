@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         }
 
         [Fact]
-        public void GivenAFhirResult_WhenHeadersThatAlreadyExistsInResponseArePassed_ThenDuplicteHeadersAreRemoved()
+        public async Task GivenAFhirResult_WhenHeadersThatAlreadyExistsInResponseArePassed_ThenDuplicteHeadersAreRemoved()
         {
             var result = FhirResult.Gone();
             var context = new ActionContext
@@ -90,11 +90,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             ServiceProvider provider = collection.BuildServiceProvider();
             context.HttpContext.RequestServices = provider;
 
-            result.Headers.Add("testKey1", "3");
-            result.Headers.Add("testKey2", "2");
-            context.HttpContext.Response.Headers.Add("testKey2", "1");
+            result.Headers["testKey1"] = "3";
+            result.Headers["testKey2"] = "2";
+            context.HttpContext.Response.Headers["testKey2"] = "1";
 
-            result.ExecuteResultAsync(context);
+            await result.ExecuteResultAsync(context);
 
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());

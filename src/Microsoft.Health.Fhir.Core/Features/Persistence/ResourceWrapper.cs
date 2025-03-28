@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -57,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
-            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
             ResourceId = resourceId;
             Version = versionId;

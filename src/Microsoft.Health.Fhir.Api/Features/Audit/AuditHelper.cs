@@ -16,9 +16,9 @@ using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// </summary>
     public class AuditHelper : IAuditHelper
     {
+        internal const string ProcessingDurationMs = "processingDurationMs";
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         internal const string UnknownOperationType = "Unknown";
 
@@ -80,7 +81,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <param name="httpContext">The HTTP context.</param>
         /// <param name="claimsExtractor">The extractor used to extract claims.</param>
         /// <param name="shouldCheckForAuthXFailure">Only emit LogExecuted messages if this is an authentication error (401), since others would already have been logged.</param>
-        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false)
+        /// <param name="durationMs">Backend duration of the request processed in milliseconds.</param>
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false, long? durationMs = null)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
@@ -88,11 +90,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
             if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
             {
-                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
+                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor, durationMs);
             }
         }
 
-        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor, long? durationMs = null)
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
@@ -116,6 +118,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     sanitizedOperationType = UnknownOperationType;
                 }
 
+                Dictionary<string, string> additionalProperties = null;
+                if (durationMs != null)
+                {
+                    additionalProperties = new Dictionary<string, string>();
+                    additionalProperties[ProcessingDurationMs] = durationMs.ToString();
+                }
+
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -128,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     customHeaders: _auditHeaderReader.Read(httpContext),
                     operationType: sanitizedOperationType,
                     callerAgent: DefaultCallerAgent,
-                    additionalProperties: null);
+                    additionalProperties: additionalProperties);
             }
         }
 
@@ -136,9 +145,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// Return all the values of constants of the specified type
         /// </summary>
         /// <returns>List of constant values</returns>
-        private static IList<string> GetAnonymousOperations()
+        private static List<string> GetAnonymousOperations()
         {
-            IList<string> anonymousOperations = new List<string>();
+            List<string> anonymousOperations = new List<string>();
             FieldInfo[] fieldInfos = typeof(FhirAnonymousOperationType).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
             // Go through the list and only pick out the constants

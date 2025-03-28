@@ -13,7 +13,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const string _consistencyLevelHeaderName = "x-ms-consistency-level";
         private const string _sessionTokenHeaderName = "x-ms-session-token";
 
-        private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
+        private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames<ConsistencyLevel>().Select(v => $"'{v}'"));
         private readonly Func<IScoped<Container>> _client;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;

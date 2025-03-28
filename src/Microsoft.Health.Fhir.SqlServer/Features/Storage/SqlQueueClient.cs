@@ -10,22 +10,28 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlQueueClient : IQueueClient, INotificationHandler<StorageInitializedNotification>
+    public class SqlQueueClient : IQueueClient
     {
+        private readonly SchemaInformation _schemaInformation;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
-        private bool _storageReady;
+
+        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        {
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
 
         public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
@@ -35,44 +41,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
-            try
-            {
-                using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
-                cmd.Parameters.AddWithValue("@QueueType", queueType);
-                cmd.Parameters.AddWithValue("@GroupId", groupId);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "CancelJobByGroupIdAsync failed.");
-                if (ex.IsRetriable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            cmd.Parameters.AddWithValue("@GroupId", groupId);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         public async Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken)
         {
-            try
-            {
-                using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
-                cmd.Parameters.AddWithValue("@QueueType", queueType);
-                cmd.Parameters.AddWithValue("@JobId", jobId);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "CancelJobByIdAsync failed.");
-                if (ex.IsRetriable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            cmd.Parameters.AddWithValue("@JobId", jobId);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
@@ -153,7 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return jobInfo;
         }
 
-        public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
@@ -164,21 +144,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
-            sqlCommand.Parameters.AddWithValue("@IsCompleted", isCompleted);
 
             try
             {
                 return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
             }
-            catch (SqlException sqlEx)
+            catch (SqlException sqlEx) when (forceOneActiveJobGroup && sqlEx.State == 127)
             {
-                if (sqlEx.State == 127)
-                {
-                    throw new JobManagement.JobConflictException(sqlEx.Message);
-                }
-
-                throw;
+                throw new JobConflictException(sqlEx.Message);
             }
+        }
+
+        public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+            new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, [new StringListRow(definition)]);
+            sqlCommand.Parameters.AddWithValue("@GroupId", groupId);
+            sqlCommand.Parameters.AddWithValue("@Status", jobStatus);
+            if (startDate.HasValue)
+            {
+                sqlCommand.Parameters.AddWithValue("@StartDate", startDate.Value);
+            }
+
+            sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", false);
+            if (result != null)
+            {
+                sqlCommand.Parameters.AddWithValue("@Result", result);
+            }
+
+            return (await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken))[0];
         }
 
         public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
@@ -203,17 +198,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
-        // should repurpose to check storage ready
         public bool IsInitialized()
         {
-            return _storageReady;
-        }
+            if (_schemaInformation == null)
+            {
+                throw new InvalidOperationException("This method cannot be called with schema information = null");
+            }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("SqlQueueClient: Storage initialized");
-            _storageReady = true;
-            return Task.CompletedTask;
+            return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
@@ -232,28 +224,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
                 cmd.Parameters.AddWithValue("@JobId", jobInfo.Id);
                 cmd.Parameters.AddWithValue("@Version", jobInfo.Version);
-                if (jobInfo.Data.HasValue)
-                {
-                    cmd.Parameters.AddWithValue("@Data", jobInfo.Data.Value);
-                }
-                else
-                {
-                    cmd.Parameters.AddWithValue("@Data", DBNull.Value);
-                }
-
-                if (jobInfo.Result != null)
-                {
-                    cmd.Parameters.AddWithValue("@CurrentResult", jobInfo.Result);
-                }
-
                 var cancelParam = new SqlParameter("@CancelRequested", SqlDbType.Bit) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(cancelParam);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true); // this should be fire and forget
                 cancel = (bool)cancelParam.Value;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to put job heartbeat.");
+                _logger.LogJobWarning(ex, jobInfo, "Failed to put job heartbeat.");
             }
 
             return cancel;

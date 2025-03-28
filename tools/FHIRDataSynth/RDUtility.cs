@@ -44,7 +44,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: {ex.Message}");
+                Console.WriteLine($"ERROR: {ex}");
             }
         }
 
@@ -134,7 +134,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: {ex.Message}");
+                Console.WriteLine($"ERROR: {ex}");
             }
         }
 
@@ -161,7 +161,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR: {ex.Message}");
+                Console.WriteLine($"ERROR: {ex}");
             }
         }
 

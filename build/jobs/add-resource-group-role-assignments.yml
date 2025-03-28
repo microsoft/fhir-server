@@ -1,0 +1,35 @@
+parameters:
+- name: azureSubscription
+  type: string
+- name: resourceGroupName
+  type: string
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Add Resource Group Role Assignments'
+  inputs:
+    azureSubscription: ${{ parameters.azureSubscription }}
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $account = Get-AzContext
+      $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
+      
+      $resourceGroupResourceId = (Get-AzResourceGroup -Name ${{ parameters.resourceGroupName }}).ResourceId
+      
+      # Read and write PR storage accounts
+      New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
+
+      # Control Plane Actions on PR Cosmos accounts
+      $cosmosContributorRoleDefinitionId = "230815da-be43-4aae-9cb4-875f7bd000aa"
+      New-AzRoleAssignment `
+          -ObjectId $principalId `
+          -RoleDefinitionId $cosmosContributorRoleDefinitionId `
+          -Scope $resourceGroupResourceId
+
+      # Push on PR ACRs
+      $acrPushRoleDefinitionId = "8311e382-0749-4cb8-b61a-304f252e45ec"
+      New-AzRoleAssignment `
+          -ObjectId $principalId `
+          -RoleDefinitionId $acrPushRoleDefinitionId `
+          -Scope $resourceGroupResourceId

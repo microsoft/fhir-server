@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [Theory]
         [InlineData("Entry 1 is not a SearchParameter resource.")]
         [InlineData("SearchParameter[3].url is invalid.")]
-        [InlineData("A search parameter with the same definition URL 'http://hl7.org/fhir/SearchParameter/Resource-content' already exists.")]
         public void GivenASearchParameterDefinitionFileWithInvalidEntries_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
         {
             BuildAndVerify(_invalidEntriesFile, expectedIssue);

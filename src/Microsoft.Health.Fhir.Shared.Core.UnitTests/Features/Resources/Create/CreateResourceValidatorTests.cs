@@ -63,13 +63,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             var resource = bundle.ToResourceElement()
                             .UpdateId(id);
 
-            var createResourceRequest = new CreateResourceRequest(resource, bundleOperationId: null);
+            var createResourceRequest = new CreateResourceRequest(resource, bundleResourceContext: null);
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 3);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null")));
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters"));
         }
 
         [InlineData(true, null, true)]
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 config);
             var resource = Samples.GetDefaultObservation();
 
-            var createResourceRequest = new CreateResourceRequest(resource, bundleOperationId: null);
+            var createResourceRequest = new CreateResourceRequest(resource, bundleResourceContext: null);
             validator.Validate(createResourceRequest);
 
             if (shouldCallProfileValidation)

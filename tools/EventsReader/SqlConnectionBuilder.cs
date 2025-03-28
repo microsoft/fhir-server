@@ -6,9 +6,9 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer;
 
-namespace Microsoft.Health.Internal.Fhir.EventsReader
+namespace Microsoft.Health.Internal.Fhir.Sql
 {
-    public class SqlConnectionBuilder : ISqlConnectionBuilder
+    internal class SqlConnectionBuilder : ISqlConnectionBuilder
     {
         private readonly string _connectionString;
 
@@ -17,12 +17,28 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             _connectionString = connectionString;
         }
 
-        #pragma warning disable CA2000
+        public string DefaultDatabase { get; }
+
+        public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+        {
+            return new SqlConnection(_connectionString);
+        }
 
         public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
         {
-            await Task.CompletedTask;
-            return new SqlConnection(_connectionString);
+            return await Task.FromResult(new SqlConnection(_connectionString));
+        }
+
+        public async Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+        {
+            var builder = new SqlConnectionStringBuilder(_connectionString);
+            builder.ApplicationIntent = ApplicationIntent.ReadOnly;
+            return await Task.FromResult(new SqlConnection(builder.ToString()));
+        }
+
+        public Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+        {
+            throw new NotImplementedException();
         }
     }
 }

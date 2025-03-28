@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error parsing launch parameters: {Message}", ex.Message);
+                _logger.LogError(ex, "Error parsing launch parameters: {Message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidLaunchContext, ex);
             }
 
@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error decoding compound code: {Message}", ex.Message);
+                _logger.LogError(ex, "Error decoding compound code: {Message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidCompoundCode, ex);
             }
 

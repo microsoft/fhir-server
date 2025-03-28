@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -28,12 +29,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class TransactionBundleValidatorTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ILogger<TransactionBundleValidator> _logger = Substitute.For<ILogger<TransactionBundleValidator>>();
+        private readonly ILogger<ResourceReferenceResolver> _loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _idDictionary;
 
         public TransactionBundleValidatorTests()
         {
-            _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser()));
+            _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser(), _loggerResourceReferenceResolver), _logger);
             _idDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 

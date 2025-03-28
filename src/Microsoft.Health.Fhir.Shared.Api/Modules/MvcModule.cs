@@ -6,29 +6,20 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class MvcModule : IStartupModule
     {
-        private readonly EmbeddedFileProvider _embeddedFileProvider;
-
-        public MvcModule()
-        {
-            _embeddedFileProvider = new EmbeddedFileProvider(typeof(CodePreviewModel).Assembly);
-        }
-
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
@@ -42,18 +33,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.ConstraintMap.Add(KnownRoutes.CompartmentResourceTypeRouteConstraint, typeof(CompartmentResourceTypesRouteConstraint));
             });
 
-            // Adds provider to serve embedded razor views
-            services.Configure<MvcRazorRuntimeCompilationOptions>(options =>
-            {
-                options.FileProviders.Add(_embeddedFileProvider);
-            });
-
             services.PostConfigure<MvcOptions>(options =>
             {
                 options.ModelBinderProviders.Insert(0, new PartialDateTimeBinderProvider());
 
                 // This filter should run first because it populates data for FhirRequestContext.
-                options.Filters.Add(typeof(FhirRequestContextRouteDataPopulatingFilterAttribute), 0);
+                options.Filters.Add<FhirRequestContextRouteDataPopulatingFilterAttribute>(0);
             });
 
             services.AddHttpContextAccessor();

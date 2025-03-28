@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesCommitTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint = NULL, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0, @SurrogateIdRangeFirstValue bigint = NULL -- TODO: Remove after deployment
+CREATE PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
@@ -9,8 +9,6 @@ DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
        ,@IsCompletedBefore bit
        ,@Rows int
        ,@msg varchar(1000)
-
-SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
 
 DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)+' OC='+isnull(convert(varchar,@OverrideIsControlledByClientCheck),'NULL')
 

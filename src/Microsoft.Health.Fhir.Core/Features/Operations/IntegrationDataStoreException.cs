@@ -19,6 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             StatusCode = statusCode;
         }
 
+        public IntegrationDataStoreException(Exception innerException, HttpStatusCode statusCode)
+            : base(innerException?.Message, innerException)
+        {
+            Debug.Assert(innerException != null, "Exception should not be null.");
+
+            StatusCode = statusCode;
+        }
+
         public HttpStatusCode StatusCode { get; }
     }
 }

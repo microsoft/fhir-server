@@ -22,9 +22,6 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'tool'
-- name: sqlServerAdminPassword
-  type: string
-  default: ''
 - name: sqlServerName
   type: string
   default: ''
@@ -44,7 +41,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
       azureSubscription: $(ConnectedServiceName)
@@ -62,11 +59,13 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+        $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
         $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
-        $webAppName = "${{ parameters.webAppName }}"
+        $webAppName = "${{ parameters.webAppName }}".ToLower()
+        Write-Host "Web App Name: $webAppName"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
@@ -82,39 +81,68 @@ jobs:
             enableImport = $true
             backgroundTaskCount = 5
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
+            registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
         }
      
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
-            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}"
+            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 
+        $deploymentName = $webAppName
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+
         Write-Host "Check for keyvaults in removed state..."
         if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
         {
-            Remove-AzKeyVault -VaultName $webAppName -InRemovedState -Location $(ResourceGroupRegion) -Force
-            Write-Host "Deleted KeyVault in RemovedState."
+            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion)
+            Write-Host "KeyVault $webAppName is restored"
         }
 
         Write-Host "Provisioning Resource Group"
-        Write-Host $webAppName
-        Write-Host "${{ parameters.resourceGroup }}"
-        try {
-        New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
-        }catch {
-          if("${{ parameters.sql }}" -eq "true"){
-            $templateParameters["sqlServerNewOrExisting"] = "new"
-            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
+
+        # Check if a deployment with the specified name already exists
+        $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
+
+        # If the deployment exists and is ongoing, wait for it to complete
+        if ($existingDeployment -and ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")) {
+            Write-Host "Waiting for existing deployment '$deploymentName' to complete..."
+            do {
+                Start-Sleep -Seconds 10
+                $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName
+            } while ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")
+            Write-Host "Existing deployment completed."
+        }
+        else
+        {
+          try {
+            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+          } catch {
+            if ("${{ parameters.sql }}" -eq "true") {
+              $templateParameters["sqlServerNewOrExisting"] = "new"
+              New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+            }
           }
         }
-        
-        Write-Host "Setting Key Vault access"
-        Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId b542f965-4eec-4682-8999-78dd501df864 -PermissionsToSecrets list,get
+
+        if("${{ parameters.sql }}" -eq "false"){
+            Write-Host "Add DevOps MI permission to Cosmos database"
+
+            $account = Get-AzContext
+            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
+
+            New-AzCosmosDBSqlRoleAssignment `
+              -AccountName $webAppName `
+              -ResourceGroupName $resourceGroupName `
+              -Scope "/" `
+              -PrincipalId $principalId `
+              -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
+        }
 
   - template: ./provision-healthcheck.yml
     parameters: 

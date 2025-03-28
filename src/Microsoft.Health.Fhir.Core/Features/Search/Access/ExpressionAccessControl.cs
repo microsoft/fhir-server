@@ -66,7 +66,7 @@ public class ExpressionAccessControl
         }
     }
 
-    private static bool ResourceTypeAllowedByClinicalScopes(ICollection<string> validResourceTypes, string resourceType)
+    private static bool ResourceTypeAllowedByClinicalScopes(HashSet<string> validResourceTypes, string resourceType)
     {
         if (validResourceTypes != null && (validResourceTypes.Contains(KnownResourceTypes.All) || validResourceTypes.Contains(resourceType)))
         {

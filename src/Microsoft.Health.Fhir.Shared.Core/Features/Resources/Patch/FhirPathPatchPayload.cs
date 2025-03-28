@@ -17,13 +17,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class FhirPathPatchPayload : PatchPayload
     {
-        public FhirPathPatchPayload(Parameters fhirPatchParameters)
+        public FhirPathPatchPayload(Hl7.Fhir.Model.Parameters fhirPatchParameters)
         {
             EnsureArg.IsNotNull(fhirPatchParameters, nameof(fhirPatchParameters));
             FhirPatchParameters = fhirPatchParameters;
         }
 
-        public Parameters FhirPatchParameters { get; }
+        public Hl7.Fhir.Model.Parameters FhirPatchParameters { get; }
 
         internal override ResourceElement GetPatchedResourceElement(ResourceWrapper resourceToPatch)
         {

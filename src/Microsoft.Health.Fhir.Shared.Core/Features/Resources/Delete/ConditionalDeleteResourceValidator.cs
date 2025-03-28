@@ -6,6 +6,7 @@
 using System.Globalization;
 using EnsureThat;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class ConditionalDeleteResourceValidator : AbstractValidator<ConditionalDeleteResourceRequest>
     {
-        public ConditionalDeleteResourceValidator(IOptions<CoreFeatureConfiguration> configuration, IModelInfoProvider modelInfoProvider)
+        public ConditionalDeleteResourceValidator(IOptions<CoreFeatureConfiguration> configuration, IModelInfoProvider modelInfoProvider, ILogger<ConditionalDeleteResourceValidator> logger)
         {
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
 
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 {
                     if (conditionalParameters.Count == 0)
                     {
+                        logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
                         context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, context.InstanceToValidate.ResourceType));
                     }
                 });

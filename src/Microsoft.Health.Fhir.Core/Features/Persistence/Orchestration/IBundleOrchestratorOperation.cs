@@ -28,5 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         Task<UpsertOutcome> AppendResourceAsync(ResourceWrapperOperation resource, IFhirDataStore dataStore, CancellationToken cancellationToken);
 
         Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken);
+
+        void Cancel(string reason);
     }
 }

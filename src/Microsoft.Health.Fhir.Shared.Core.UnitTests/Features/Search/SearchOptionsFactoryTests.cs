@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SearchParameterNames.ResourceTypeUri.AbsoluteUri }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
@@ -108,6 +109,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(5, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", "0"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.True(options.CountOnly);
+        }
+
+        [Theory]
+        [InlineData("a")]
+        [InlineData("1.1")]
+        public void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", value),
+            };
+
+            Assert.Throws<System.FormatException>(() => CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters));
         }
 
         [Fact]
@@ -339,8 +373,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateMultiaryExpression(
@@ -363,8 +397,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
@@ -382,8 +416,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                invalidCompartmentType,
-                "123"));
+                compartmentType: invalidCompartmentType,
+                compartmentId: "123"));
 
             Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
         }
@@ -398,8 +432,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: ResourceType.Claim.ToString(),
                 queryParameters: null,
-                CompartmentType.Patient.ToString(),
-                invalidCompartmentId));
+                compartmentType: CompartmentType.Patient.ToString(),
+                compartmentId: invalidCompartmentId));
 
             Assert.Equal("Compartment id is null or empty.", exception.Message);
         }
@@ -487,13 +521,86 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData(ResourceVersionType.Latest)]
+        [InlineData(ResourceVersionType.History)]
+        [InlineData(ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
+        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
+        {
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
+            Assert.NotNull(options);
+            Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
+            Assert.Empty(options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenMultipleIncludesContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
+        {
+            const string encodedContinuationToken = "MTIz";
+
+            Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                },
+                isIncludesOperation: true));
+        }
+
+        [Theory]
+        [InlineData(true, 0)]
+        [InlineData(false, 1)]
+        public void GivenIncludesContinuationToken_WhenCreated_ThenOperationOutcomeIssueShouldBeAddedForNonIncludesOperation(bool isIncludesOperation, int operationOutcomeIssueCount)
+        {
+            const string ct = "123";
+            var options = CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ct)),
+                },
+                isIncludesOperation: isIncludesOperation);
+
+            var expectedCt = isIncludesOperation ? ct : null;
+            Assert.Equal(expectedCt, options.IncludesContinuationToken);
+            Assert.Equal(
+                operationOutcomeIssueCount,
+                _defaultFhirRequestContext.BundleIssues.Count(x => x.Diagnostics == Core.Resources.IncludesContinuationTokenIgnored));
+        }
+
+        [Theory]
+        [InlineData(100, 100)]
+        [InlineData(null, 500)]
+        [InlineData(int.MaxValue, 1000)]
+        public void GivenAnIncludesCount_WhenCreated_ThenCorrectIncludeCountShouldBeSet(int? valueToSet, int valueExpected)
+        {
+            var parameters = valueToSet.HasValue
+                ? new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.IncludesCount, valueToSet.Value.ToString()) }
+                : null;
+            SearchOptions options = CreateSearchOptions(queryParameters: parameters);
+
+            Assert.NotNull(options);
+            Assert.Equal(valueExpected, options.IncludeCount);
+        }
+
+        [Fact]
+        public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
+        {
+            Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
-            string compartmentId = null)
+            string compartmentId = null,
+            bool isIncludesOperation = false)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
         }
     }
 }
