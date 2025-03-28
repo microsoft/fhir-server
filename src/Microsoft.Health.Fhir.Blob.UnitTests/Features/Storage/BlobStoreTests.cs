@@ -238,9 +238,6 @@ public class BlobStoreTests
         var expectedValue = resourceWrappersMetaData[rawResourcePositionInBlob].RawResource;
 
         var memoryStream = GetBlobDownloadStreamingPartialResult(key.RawResourceOffset);
-        var streamingResult = BlobsModelFactory.BlobDownloadStreamingResult(
-            content: memoryStream,
-            details: BlobsModelFactory.BlobDownloadDetails());
 
         client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
 
