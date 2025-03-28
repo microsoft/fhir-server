@@ -26,5 +26,5 @@ public interface IRawResourceStore
     /// <param name="rawResourceLocators">The raw resources to read, including storage identifier and offset.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A dictionary, where the key contains thestorage identifier and offset of the raw resource. Value is the raw resource.</returns>
-    Task<Dictionary<RawResourceLocator, RawResource>> ReadRawResourcesAsync(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken);
+    Task<Dictionary<RawResourceLocator, string>> ReadRawResourcesAsync(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken);
 }
