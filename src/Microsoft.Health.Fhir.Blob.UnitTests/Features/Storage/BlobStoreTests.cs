@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -16,9 +15,6 @@ using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
-using DotLiquid.Util;
-using Microsoft.Extensions.Azure;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
@@ -224,57 +220,6 @@ public class BlobStoreTests
         Assert.Throws<ArgumentException>(() => BlobUtility.ComputeHashPrefixForBlobName(0));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    public async Task GivenResourceStore_WhenSingleDownloadSucceeds_ThenValidatePositionalRawResourceInBlob(int rawResourcePositionInBlob)
-    {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
-
-        // Validate nth element
-        var key = new RawResourceLocator(resourceWrappersMetaData[rawResourcePositionInBlob].ResourceStorageIdentifier, resourceWrappersMetaData[rawResourcePositionInBlob].ResourceStorageOffset);
-        var expectedValue = resourceWrappersMetaData[rawResourcePositionInBlob].RawResource;
-
-        var memoryStream = GetBlobDownloadStreamingPartialResult(key.RawResourceOffset);
-
-        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
-
-        var resultResource = await blobFileStore.ReadRawResourceAsync(key.RawResourceStorageIdentifier, key.RawResourceOffset, CancellationToken.None);
-        Assert.NotNull(resultResource);
-        Assert.Equal(expectedValue.Data, resultResource.Data);
-    }
-
-    [Fact]
-    public async Task GivenResourceStore_WhenMultipleDownloadSucceeds_ThenValidateRawResources()
-    {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
-        var resourceLocators = new List<RawResourceLocator>();
-
-        foreach (ResourceWrapper wrapper in resourceWrappersMetaData)
-        {
-            resourceLocators.Add(new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset));
-        }
-
-        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
-        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
-
-        var rawResourceResults = await blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
-        Assert.NotNull(rawResourceResults);
-        Assert.Equal(resourceWrappersMetaData.Count, rawResourceResults.Count);
-
-        foreach (ResourceWrapper wrapper in resourceWrappersMetaData)
-        {
-            var key = new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
-            var expectedResource = resourceWrappersMetaData.First(x => x.ResourceStorageIdentifier == key.RawResourceStorageIdentifier && x.ResourceStorageOffset == key.RawResourceOffset);
-            var responseResource = rawResourceResults[key];
-            Assert.NotNull(responseResource);
-            Assert.Equal(expectedResource.RawResource.Data, responseResource.Data);
-        }
-    }
-
     [Fact]
     public void TestGetBlobOffsetCombinations()
     {
@@ -302,39 +247,61 @@ public class BlobStoreTests
         Assert.Equal(2, resultDictionary[SecondaryStorageIdentifier].Count);
     }
 
-    [Fact]
-    public async Task TestFindResourcesInStreamAsync()
-    {
-        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
-
-        var offsetList = resourceWrappersMetaData.Select(x => x.ResourceStorageOffset).ToList();
-        var results = await BlobRawResourceStore.FindResourcesInStreamAsync(GetBlobDownloadStreamingPartialResult(0), DefaultStorageIdentifier, offsetList);
-        Assert.NotNull(results);
-
-        foreach (int offset in offsetList)
-        {
-            var key = new RawResourceLocator(DefaultStorageIdentifier, offset);
-            var actualData = results[key].Data;
-            var expectedData = resourceWrappersMetaData.First(x => x.ResourceStorageOffset == offset).RawResource.Data;
-
-            Assert.Equal(expectedData, actualData);
-        }
-    }
-
     private MemoryStream GetBlobDownloadStreamingPartialResult(int offset = 0)
     {
-        // Read file stream.txt
+        var memoryStream = new MemoryStream();
         using (var stream = new FileStream(_resourceFilePath, FileMode.Open, FileAccess.Read))
         {
             stream.Seek(offset, SeekOrigin.Begin);
-
-            // Create a MemoryStream and copy the file stream to it
-            var memoryStream = new MemoryStream();
             stream.CopyTo(memoryStream);
-            memoryStream.Position = 0; // Reset the position for further use
+        }
 
-            // Ensure UTF-8 encoding can be applied elsewhere
-            return memoryStream; // Return the MemoryStream for manipulation by other methods
+        memoryStream.Position = 0; // Reset the position for further use
+        return memoryStream; // Return the MemoryStream for manipulation by other methods
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task GivenResourceStore_WhenReadingSingleResource_ThenValidateContent(int resourceNumber)
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
+
+        var key = new RawResourceLocator(resourceWrappersMetaData[resourceNumber].ResourceStorageIdentifier, resourceWrappersMetaData[resourceNumber].ResourceStorageOffset);
+        var expectedContent = resourceWrappersMetaData[resourceNumber].RawResource.Data;
+
+        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
+        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
+
+        var result = await blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { key }, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(expectedContent, result[key]);
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenReadingMultipleResources_ThenValidateContents()
+    {
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
+
+        var resourceLocators = resourceWrappersMetaData.Select(wrapper => new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset)).ToList();
+        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
+        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
+
+        var result = await blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(resourceWrappersMetaData.Count, result.Count);
+
+        foreach (var wrapper in resourceWrappersMetaData)
+        {
+            var key = new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
+            Assert.True(result.ContainsKey(key));
+            Assert.Equal(wrapper.RawResource.Data, result[key]);
         }
     }
 }
