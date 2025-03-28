@@ -5,12 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 using System.Threading;
 using Azure.Identity;
 using MediatR;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -39,6 +36,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
@@ -59,6 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string MasterDatabaseName = "master";
 
         private readonly string _initialConnectionString;
+        private readonly BlobRawResourceStoreTestsFixture _blobRawResourceStoreTestsFixture;
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
@@ -78,12 +77,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
 
-        public SqlServerFhirStorageTestsFixture()
-            : this(SchemaVersionConstants.Max, GetDatabaseName())
+        public SqlServerFhirStorageTestsFixture(DataStore dataStore)
+            : this(SchemaVersionConstants.Max, GetDatabaseName(), dataStore)
         {
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> options)
+            : this(maximumSupportedSchemaVersion, databaseName, options.Value.SupportsRawResourceInBlob ? DataStore.SqlServerBlobEnabled : DataStore.SqlServerBlobDisabled, options)
+        {
+            // switch (options.Value.SupportsRawResourceInBlob)
+            // {
+            //    case true:
+            //        options.Value.SupportsRawResourceInBlob = true;
+            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobEnabled, options);
+            //        break;
+            //    case false:
+            //        options.Value.SupportsRawResourceInBlob = false;
+            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobDisabled, options);
+            //        break;
+            //    default:
+            //        throw new ArgumentOutOfRangeException(nameof(options), options, null);
+            // }
+        }
+
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, DataStore dataStore, IOptions<CoreFeatureConfiguration> options = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
@@ -102,7 +119,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
-            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
+            switch (dataStore)
+            {
+                case DataStore.SqlServerBlobDisabled:
+                    _options = options ?? Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = false });
+                    break;
+                case DataStore.SqlServerBlobEnabled:
+                    _options = options ?? Options.Create(new CoreFeatureConfiguration { SupportsRawResourceInBlob = true });
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
+            }
+
+            _blobRawResourceStoreTestsFixture = new BlobRawResourceStoreTestsFixture();
+
+            // This is needed to perform a check based on blob storage support
+            CoreFeatures = _options;
         }
 
         public string TestConnectionString { get; private set; }
@@ -126,6 +158,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SchemaInformation SchemaInformation { get; private set; }
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
+
+        public IOptions<CoreFeatureConfiguration> CoreFeatures { get; private set; }
 
         internal static string GetDatabaseName(string test = null)
         {
@@ -157,6 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
+            collection.AddSingleton(_options);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
             _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
@@ -232,6 +267,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
+            await _blobRawResourceStoreTestsFixture.InitializeAsync();
+
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -245,7 +282,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
+                _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore implementation here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -317,6 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+            await _blobRawResourceStoreTestsFixture.DisposeAsync();
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
@@ -416,6 +455,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(IOptions<CoreFeatureConfiguration>))
+            {
+                return _options;
             }
 
             return null;

@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static BlobContainerClient _adlsContainer;
         private static bool _adlsIsSet;
 
+        // TODO: This class will be removed once all blob operations move to BlobRawResourceStore
         public SqlAdlsClient(ISqlRetryService sqlRetryService, ILogger logger)
         {
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var db = sqlRetryService.Database.Length < 50 ? sqlRetryService.Database : sqlRetryService.Database.Substring(0, 50);
-                        _adlsContainerName = $"fhir-adls-{db.Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()}";
+                        _adlsContainerName = "fhirresources";
 
                         var uriStr = GetStorageParameter(sqlRetryService, logger, "MergeResources.AdlsAccountUri");
                         if (uriStr != null)

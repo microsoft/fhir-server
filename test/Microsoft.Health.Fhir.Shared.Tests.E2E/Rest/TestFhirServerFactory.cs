@@ -56,7 +56,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 case DataStore.CosmosDb:
                     return EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}");
-                case DataStore.SqlServer:
+                case DataStore.SqlServerBlobEnabled:
+                    return EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}_Sql");
+                case DataStore.SqlServerBlobDisabled:
                     return EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}_Sql");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);

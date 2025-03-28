@@ -10,10 +10,14 @@ namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
     [Flags]
     public enum DataStore
     {
-        CosmosDb = 1,
+        CosmosDb = 1,                    // 0001
 
-        SqlServer = 2,
+        SqlServerBlobDisabled = 2,        // 0010
 
-        All = CosmosDb | SqlServer,
+        SqlServerBlobEnabled = 4,       // 0100
+
+        SqlServer = SqlServerBlobDisabled | SqlServerBlobEnabled,  // 0110
+
+        All = CosmosDb | SqlServerBlobDisabled | SqlServerBlobEnabled, // 0111
     }
 }

@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
             {
-                fhirServerBuilder.AddSqlServer(config =>
+                fhirServerBuilder.AddSqlServer(Configuration, config =>
                 {
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
