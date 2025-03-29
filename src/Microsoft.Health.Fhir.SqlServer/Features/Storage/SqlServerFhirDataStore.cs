@@ -721,10 +721,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (enlistInTransaction)
             {
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
-                cmd.Connection = conn.SqlConnection;
-                cmd.Transaction = conn.SqlTransaction;
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
+                ////using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
+                ////cmd.Connection = conn.SqlConnection;
+                ////cmd.Transaction = conn.SqlTransaction;
+                ////await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
             else
             {
