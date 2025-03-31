@@ -16,6 +16,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -690,6 +691,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Equal(70, results.Results.Count());
+        }
+
+        [SkippableTheory]
+        [InlineData("patient", HttpStatusCode.BadRequest)]
+        [InlineData("Patient", HttpStatusCode.OK)]
+        public async Task GivenGetResourceRequest_WhenResourceTypeWithWrongCasing_BadRequestShouldBeReturned(string resourceType, HttpStatusCode statusCode)
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            try
+            {
+                var response = await _fixture.GetResourceHandler.Handle(
+                    new GetResourceRequest(new ResourceKey(resourceType, "smart-patient-B"), bundleResourceContext: null),
+                    CancellationToken.None);
+                Assert.True(statusCode == HttpStatusCode.OK);
+            }
+            catch (ResourceNotSupportedException)
+            {
+                Assert.True(statusCode == HttpStatusCode.BadRequest);
+            }
         }
 
         private async Task<UpsertOutcome> PutResource(Resource resource)

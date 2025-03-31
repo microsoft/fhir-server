@@ -55,6 +55,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
 
             var key = request.ResourceKey;
+            if (!string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
+            {
+                throw new ResourceNotSupportedException(key.ResourceType);
+            }
 
             ResourceWrapper currentDoc = null;
 
