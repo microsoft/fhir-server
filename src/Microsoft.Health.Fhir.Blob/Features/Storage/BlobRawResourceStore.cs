@@ -106,59 +106,13 @@ public class BlobRawResourceStore : IRawResourceStore
         return rawResources;
     }
 
-    // Read a resource form a blob storage, using offset to skip other documents
-    internal async Task<RawResource> ReadRawResourceAsync(long storageIdentifier, int offset, CancellationToken cancellationToken = default)
-    {
-        EnsureArg.IsGte(storageIdentifier, 0, nameof(storageIdentifier));
-        EnsureArg.IsGte(offset, 0, nameof(offset));
-
-        Stopwatch timer = Stopwatch.StartNew();
-        _logger.LogInformation($"Reading raw resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-
-        BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
-        var blobReadOptions = new BlobOpenReadOptions(false) { Position = offset };
-
-        string result = await ExecuteAsync(
-        func: async () =>
-        {
-            using (Stream blobStream = await blobClient.OpenReadAsync(blobReadOptions, cancellationToken))
-            {
-                using (StreamReader reader = new StreamReader(blobStream, new UTF8Encoding(false)))
-                {
-                    // Read to the end of line
-                    string resource = await reader.ReadLineAsync();
-
-                    if (string.IsNullOrEmpty(resource))
-                    {
-                        throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-                    }
-
-                    return resource;
-                }
-            }
-        },
-        operationName: nameof(ReadRawResourceAsync));
-
-        timer.Stop();
-        _logger.LogInformation($"Successfully read raw resource from blob storage for storage identifier: {blobClient.Name} in {timer.ElapsedMilliseconds} ms");
-
-        return new RawResource(result, Core.Models.FhirResourceFormat.Json, false);
-    }
-
-    public async Task<Dictionary<RawResourceLocator, RawResource>> ReadRawResourcesAsync(IReadOnlyList<Core.Features.Persistence.RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken)
+    public async Task<Dictionary<RawResourceLocator, string>> ReadRawResourcesAsync(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(rawResourceLocators, nameof(rawResourceLocators));
-        var completeRawResources = new Dictionary<RawResourceLocator, RawResource>();
-
-        if (rawResourceLocators.Count == 1)
-        {
-            var singleRawResource = await ReadRawResourceAsync(rawResourceLocators[0].RawResourceStorageIdentifier, rawResourceLocators[0].RawResourceOffset, cancellationToken);
-            completeRawResources.Add(new RawResourceLocator(rawResourceLocators[0].RawResourceStorageIdentifier, rawResourceLocators[0].RawResourceOffset), singleRawResource);
-            return completeRawResources;
-        }
+        var completeRawResources = new Dictionary<RawResourceLocator, string>();
 
         Stopwatch timer = Stopwatch.StartNew();
-        _logger.LogInformation($"Reading {rawResourceLocators} raw resources from blob storage");
+        _logger.LogInformation($"Reading {rawResourceLocators.Count} raw resources from blob storage");
 
         var blobOffsetDictionary = GetBlobOffsetCombinations(rawResourceLocators);
 
@@ -168,27 +122,71 @@ public class BlobRawResourceStore : IRawResourceStore
             tasks.Add(Task.Run(
                 async () =>
                 {
-                    // if offset list is more than 1, read entire file, otherwise, just get the line
-                    if (storageIdentifier.Value.Count > 1)
-                    {
-                        // read the entire file
-                        var fileStream = await ReadBlobContainer(storageIdentifier.Key, 0, cancellationToken);
-                        var currentBlobResources = await FindResourcesInStreamAsync(fileStream, storageIdentifier.Key, storageIdentifier.Value);
+                    // read the entire file
+                    BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier.Key);
+                    BlobOpenReadOptions readOptions = new BlobOpenReadOptions(false) { Position = 0 };
 
-                        foreach (var resource in currentBlobResources)
-                        {
-                            completeRawResources.Add(resource.Key, resource.Value);
-                        }
-                    }
-                    else
+                    Stream fileStream = await ExecuteAsync(
+                    func: async () =>
                     {
-                        // read the line for 1 resource
-                        var singleRawResource = await ReadRawResourceAsync(storageIdentifier.Key, storageIdentifier.Value[0], cancellationToken);
-                        completeRawResources.Add(new RawResourceLocator(storageIdentifier.Key, storageIdentifier.Value[0]), singleRawResource);
+                        return await blobClient.OpenReadAsync(readOptions, cancellationToken);
+                    },
+                    operationName: nameof(ReadRawResourcesAsync));
+
+                    var currentBlobResources = await FindResourcesInStreamAsync(fileStream, storageIdentifier.Key, storageIdentifier.Value);
+
+                    foreach (var resource in currentBlobResources)
+                    {
+                        completeRawResources.Add(resource.Key, resource.Value);
                     }
                 },
                 cancellationToken));
         }
+
+        /* Gunjit's version
+         var tasks = blobOffsetDictionary.Select(async storageIdentifier =>
+        {
+            BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier.Key);
+            var blobReadOptions = new BlobOpenReadOptions(false);
+
+            await ExecuteAsync(
+                async () =>
+            {
+                using (Stream blobStream = await blobClient.OpenReadAsync(blobReadOptions, cancellationToken))
+                {
+                    using (StreamReader reader = new StreamReader(blobStream, Encoding.UTF8))
+                    {
+                        foreach (var offset in storageIdentifier.Value.OrderBy(o => o))
+                        {
+                            blobStream.Seek(offset, SeekOrigin.Begin);
+                            reader.DiscardBufferedData(); // Clear StreamReader's buffer to align with the new stream position
+
+#if NET8_0_OR_GREATER
+                            string resource = await reader.ReadLineAsync(cancellationToken);
+#else
+                            string resource = await reader.ReadLineAsync();
+#endif
+
+                            if (string.IsNullOrEmpty(resource))
+                            {
+                                throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier.Key} with offset {offset}");
+                            }
+
+                            lock (completeRawResources)
+                            {
+                                completeRawResources.Add(
+                                    new RawResourceLocator(storageIdentifier.Key, offset),
+                                    resource);
+                            }
+                        }
+                    }
+                }
+
+                return Task.CompletedTask;
+            },
+                nameof(ReadRawResourcesAsync));
+        });
+         */
 
         // Wait for all tasks to complete
         await Task.WhenAll(tasks);
@@ -199,9 +197,9 @@ public class BlobRawResourceStore : IRawResourceStore
         return completeRawResources;
     }
 
-    internal static async Task<Dictionary<RawResourceLocator, RawResource>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
+    internal static async Task<Dictionary<RawResourceLocator, string>> FindResourcesInStreamAsync(Stream completeBlobStream, long storageIdentifier, IList<int> offsets)
     {
-        var completeRawResourcesInBlob = new Dictionary<RawResourceLocator, RawResource>();
+        var completeRawResourcesInBlob = new Dictionary<RawResourceLocator, string>();
         Stream blobStream = completeBlobStream;
 
         // Order offsets in ascending order
@@ -230,42 +228,11 @@ public class BlobRawResourceStore : IRawResourceStore
                     throw new RawResourceStoreException($"Failed to read line from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
                 }
 
-                completeRawResourcesInBlob.Add(
-                    new RawResourceLocator(storageIdentifier, offset),
-                    new RawResource(resource, Core.Models.FhirResourceFormat.Json, false));
+                completeRawResourcesInBlob.Add(new RawResourceLocator(storageIdentifier, offset), resource);
             }
         }
 
         return completeRawResourcesInBlob;
-    }
-
-    protected async Task<Stream> ReadBlobContainer(long storageIdentifier, int offset, CancellationToken cancellationToken)
-    {
-        BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
-        BlobOpenReadOptions readOptions = new BlobOpenReadOptions(false) { Position = offset };
-
-        Stream result = await ExecuteAsync(
-        func: async () =>
-        {
-            return await blobClient.OpenReadAsync(readOptions, cancellationToken);
-
-            /*using (Stream response = await blobClient.OpenReadAsync(readOptions, cancellationToken))
-            {
-                using (StreamReader reader = new StreamReader(response))
-                {
-                    string content = await reader.ReadToEndAsync();
-                    if (content is null)
-                    {
-                        throw new RawResourceStoreException($"Failed to read resource from blob storage for storage identifier: {storageIdentifier} with offset {offset}");
-                    }
-
-                    return content;
-                }
-            }*/
-        },
-        operationName: nameof(ReadBlobContainer));
-
-        return result;
     }
 
     internal static Dictionary<long, List<int>> GetBlobOffsetCombinations(IReadOnlyList<RawResourceLocator> rawResourcesLocators)
