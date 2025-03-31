@@ -58,6 +58,11 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            // The authorization configuration must be registered for OpenIddictApplicationCreater.
+            var authorizationConfiguration = new AuthorizationConfiguration();
+            configuration.GetSection("FhirServer:Security:Authorization").Bind(authorizationConfiguration);
+            services.AddSingleton(authorizationConfiguration);
+
             var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
             services.AddSingleton(Options.Create(developmentIdentityProviderConfiguration));
