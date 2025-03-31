@@ -46,9 +46,10 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Windows_dotnet8
+  - job: Linux_dotnet8
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -101,7 +102,6 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
-      multiplePlatforms: false
 
 - stage: provisionEnvironment
   displayName: Provision Environment

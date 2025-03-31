@@ -47,6 +47,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"{Name}: starting...");
+
+            // TODO: Replace by permanent hard delete logic. Skip for now to leave transactions as they are
+            if (SqlAdlsClient.Container != null)
+            {
+                _logger.LogInformation($"{Name}: SqlAdlsClient.Container != null, skipping for now...");
+                return;
+            }
+
             var lastTranId = await GetLastCleanedUpTransactionIdAsync(cancellationToken);
             var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
             _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");

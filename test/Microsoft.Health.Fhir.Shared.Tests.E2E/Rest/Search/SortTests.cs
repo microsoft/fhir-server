@@ -1134,10 +1134,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
         }
 
+        [Theory]
+        [InlineData("birthdate", false)]
+        [InlineData("-birthdate", true)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatients_WhenSearchedWithSortAndAllResourcesRetrievedInFirstPhase_SearchResultShouldNotHaveContinuationToken(string sortParameterName, bool addBirthdate)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedPatientsWithBirthDates(tag, addBirthdate);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_count={patients.Length}");
+            Assert.Equal(patients.Length, response.Resource.Entry.Count);
+            Assert.Null(response.Resource.NextLink);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, DateTime.Now.Subtract(TimeSpan.FromDays(90))),
                 p => SetPatientInfo(p, "Portland", "Williams", tag, DateTime.Now.Subtract(TimeSpan.FromDays(60))),
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
@@ -1149,7 +1163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, new DateTime(1940, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "Williamas", tag, new DateTime(1942, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
@@ -1166,10 +1180,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<TResource[]> CreateResourcesAsync<TResource>(params Action<TResource>[] resourceCustomizer)
+            where TResource : Resource, new()
+        {
+            TResource[] resources = new TResource[resourceCustomizer.Length];
+
+            for (int i = 0; i < resources.Length; i++)
+            {
+                TResource resource = new TResource();
+
+                resourceCustomizer[i](resource);
+                using var response = await Client.CreateAsync(resource);
+                resources[i] = response;
+
+                await Task.Delay(100); // this delay prevents out of sync timestamps when loading to cosmos database
+            }
+
+            return resources;
+        }
+
         private async Task<Patient[]> CreatePaginatedPatientsWithMissingBirthDates(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Robinson", tag),
                 p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Williamas", tag),
                 p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
@@ -1189,7 +1222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
         {
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag),
                 p => SetPatientInfo(p, "Portland", "Williams", tag),
                 p => SetPatientInfo(p, "Portland", "James", tag),
@@ -1199,9 +1232,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<Patient[]> CreatePaginatedPatientsWithBirthDates(string tag, bool addBirthdate = true)
+        {
+            if (addBirthdate)
+            {
+                return await CreateResourcesAsync<Patient>(
+                    p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
+                    p => SetPatientInfo(p, "Seattle", "Alex", tag, new DateTime(1943, 11, 23)),
+                    p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
+                    p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
+                    p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
+                    p => SetPatientInfo(p, "Portland", "Lone", tag, new DateTime(1950, 05, 12)),
+                    p => SetPatientInfo(p, "Seattle", "Sophie", tag, new DateTime(1953, 05, 12)),
+                    p => SetPatientInfo(p, "Portland", "Peter", tag, new DateTime(1956, 06, 12)),
+                    p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
+                    p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
+            }
+
+            return await CreateResourcesAsync<Patient>(
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "James", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Alex", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Rock", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Mike", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Christie", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Lone", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Sophie", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Peter", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Cathy", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Jones", tag));
+        }
+
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Portland", "Williams", tag),
                 p => SetPatientInfo(p, "Vancouver", family: null, tag),
                 p => SetPatientInfo(p, "Bellingham", family: null, tag),
@@ -1215,7 +1278,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            Patient[] patients = await CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Portland", new List<string>() { "Rasputin", "Alex" }, tag),
                 p => SetPatientInfo(p, "Portland", new List<string>() { "Christie", "James", "Rock" }, tag),
                 p => SetPatientInfo(p, "Seattle", new List<string>() { "Robinson", "Ragnarok" }, tag),
