@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string MaxCount = "_maxCount";
 
         public const string NotReferenced = "_not-referenced";
-      
+
         /// <summary>
         /// The $includes continuation token parameter.
         /// </summary>
