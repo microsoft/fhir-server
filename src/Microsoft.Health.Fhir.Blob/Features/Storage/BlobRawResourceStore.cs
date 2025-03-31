@@ -80,13 +80,8 @@ public class BlobRawResourceStore : IRawResourceStore
             await writer.WriteLineAsync(line);
         }
 
-        // Validate .net version
-#if NET8_0_OR_GREATER
         await writer.FlushAsync(cancellationToken);
-#else
-        await writer.FlushAsync();
-#endif
-
+        await stream.FlushAsync(cancellationToken);
         BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
         var blobUploadOptions = new BlobUploadOptions { TransferOptions = _options.Upload };
 

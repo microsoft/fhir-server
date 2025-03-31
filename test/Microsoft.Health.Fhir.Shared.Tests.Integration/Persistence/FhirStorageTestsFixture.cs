@@ -19,10 +19,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -46,7 +48,6 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -70,7 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             : this(dataStore switch
             {
                 Common.FixtureParameters.DataStore.CosmosDb => new CosmosDbFhirStorageTestsFixture(),
-                Common.FixtureParameters.DataStore.SqlServer => new SqlServerFhirStorageTestsFixture(),
+                Common.FixtureParameters.DataStore.SqlServerBlobEnabled => new SqlServerFhirStorageTestsFixture(dataStore),
+                Common.FixtureParameters.DataStore.SqlServerBlobDisabled => new SqlServerFhirStorageTestsFixture(dataStore),
                 _ => throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null),
             })
         {
@@ -128,6 +130,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
 
         public GetResourceHandler GetResourceHandler { get; set; }
+
+        public IOptions<CoreFeatureConfiguration> CoreFeatures => _fixture.GetRequiredService<IOptions<CoreFeatureConfiguration>>();
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 

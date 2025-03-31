@@ -3,16 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -20,6 +18,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
+[FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.SearchParameterStatus)]
 public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServerFhirStorageTestsFixture>

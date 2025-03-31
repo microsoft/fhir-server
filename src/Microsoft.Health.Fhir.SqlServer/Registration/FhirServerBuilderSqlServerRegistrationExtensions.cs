@@ -9,8 +9,11 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Blob.Registration;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -38,7 +41,7 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
@@ -194,6 +197,14 @@ namespace Microsoft.Extensions.DependencyInjection
             foreach (TypeRegistrationBuilder job in jobs)
             {
                 job.AsDelegate<Func<IJob>>();
+            }
+
+            // Only register blob store if the feature is enabled
+            CoreFeatureConfiguration coreFeatureConfiguration = new();
+            configuration.GetSection(CoreFeatureConfiguration.SectionName).Bind(coreFeatureConfiguration);
+            if (coreFeatureConfiguration.SupportsRawResourceInBlob)
+            {
+                fhirServerBuilder.AddBlobStore(configuration);
             }
 
             return fhirServerBuilder;

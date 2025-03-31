@@ -21,6 +21,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     /// <summary>
     /// Integration tests for a resource change capture feature.
     /// </summary>
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]

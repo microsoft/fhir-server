@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     try
                     {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName, DataStore.SqlServerBlobDisabled));
                         await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            await Parallel.ForEachAsync(versions, new ParallelOptions { MaxDegreeOfParallelism = 2}, async (version, cancel) =>
+            await Parallel.ForEachAsync(versions, new ParallelOptions { MaxDegreeOfParallelism = 2 }, async (version, cancel) =>
             {
                 if (version >= Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5) && version <= SchemaVersionConstants.Max)
                 {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName, DataStore.SqlServerBlobDisabled));
                         await fhirStorageTestsFixture.InitializeAsync();
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -139,7 +139,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
                 schemaVersion,
-                databaseName));
+                databaseName,
+                DataStore.SqlServerBlobDisabled));
 
             try
             {
