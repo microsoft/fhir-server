@@ -85,9 +85,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -99,7 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false)
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -120,6 +121,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string continuationToken = null;
             string feedRange = null;
 
+            // $includes related parameters
+            string includesContinuationToken = null;
+            int? includesCount = null;
+
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
@@ -138,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                    continuationToken = ContinuationTokenEncoder.Decode(query.Item2);
                     setDefaultBundleTotal = false;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.FeedRange, StringComparison.OrdinalIgnoreCase))
@@ -226,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (string.Equals(query.Item2, "*:*", StringComparison.OrdinalIgnoreCase))
                     {
                         notReferencedSearch = true;
-                    }
+                                            }
                     else
                     {
                         _contextAccessor.RequestContext?.BundleIssues.Add(
@@ -234,6 +239,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
                                 Core.Resources.NotReferencedParameterInvalidValue));
+                     }
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase))
+                {
+                    // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
+                    if (includesContinuationToken != null)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.IncludesContinuationToken));
+                    }
+
+                    if (isIncludesOperation)
+                    {
+                        includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
+                        setDefaultBundleTotal = false;
+                    }
+                    else
+                    {
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                Core.Resources.IncludesContinuationTokenIgnored));
+                    }
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesCount, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (int.TryParse(query.Item2, out int count) && count > 0)
+                    {
+                        includesCount = count;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(Core.Resources.InvalidSearchIncludesCountSpecified);
                     }
                 }
                 else
@@ -251,7 +290,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            if (isIncludesOperation && string.IsNullOrEmpty(includesContinuationToken))
+            {
+                throw new BadRequestException(Core.Resources.MissingIncludesContinuationToken);
+            }
+
             searchOptions.ContinuationToken = continuationToken;
+            searchOptions.IncludesContinuationToken = includesContinuationToken;
+            searchOptions.IncludesOperationSupported = _featureConfiguration.SupportsIncludes;
             searchOptions.FeedRange = feedRange;
 
             if (setDefaultBundleTotal)
@@ -293,7 +339,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
-            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+            if (includesCount.HasValue && includesCount <= _featureConfiguration.MaxIncludeCountPerSearch)
+            {
+                searchOptions.IncludeCount = includesCount.Value;
+            }
+            else
+            {
+                if (includesCount.HasValue)
+                {
+                    searchOptions.IncludeCount = _featureConfiguration.MaxIncludeCountPerSearch;
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterIncludesCountExceedLimit, _featureConfiguration.MaxIncludeCountPerSearch, includesCount)));
+                }
+                else
+                {
+                    searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+                }
+            }
 
             if (searchParams.Elements?.Any() == true && searchParams.Summary != null && searchParams.Summary != SummaryType.False)
             {

@@ -19,13 +19,13 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
-using Endpoint = Microsoft.AspNetCore.Http.Endpoint;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 {
@@ -35,7 +35,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
     {
         private const string Scheme = "http";
         private const string Host = "test";
-        private const string ContinuationTokenQueryParamName = "ct";
+        private const string ContinuationTokenQueryParamName = KnownQueryParameterNames.ContinuationToken;
+        private const string IncludesContinuationTokenQueryParamName = KnownQueryParameterNames.IncludesContinuationToken;
         private const string DefaultRouteName = "Route";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -341,16 +342,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
+        [Fact]
+        public void GivenAnIncludesContinuationToken_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
+        {
+            string inputQueryString = "?param1=value1&param2=value2";
+            Tuple<string, string>[] unsupportedSearchParams = null;
+            string includesContinuationToken = "includescontinue";
+            Dictionary<string, object> expectedRouteValues = new Dictionary<string, object>()
+            {
+                { "param1", new StringValues("value1") },
+                { "param2", new StringValues("value2") },
+                { IncludesContinuationTokenQueryParamName, includesContinuationToken },
+            };
+
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues, includesContinuationToken);
+        }
+
         private void TestAndValidateRouteWithQueryParameter(
             string inputQueryString,
             IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder,
             Tuple<string, string>[] unsupportedSearchParams,
             string continuationToken,
-            Dictionary<string, object> expectedRouteValues)
+            Dictionary<string, object> expectedRouteValues,
+            string includesContinuationToken = null)
         {
             _httpContext.Request.QueryString = new QueryString(inputQueryString);
 
-            _urlResolver.ResolveRouteUrl(unsupportedSearchParams, resultSortOrder, continuationToken);
+            _urlResolver.ResolveRouteUrl(
+                unsupportedSearchParams: unsupportedSearchParams,
+                resultSortOrder: resultSortOrder,
+                continuationToken: continuationToken,
+                includesContinuationToken: includesContinuationToken);
 
             ValidateUrlRouteContext(
                 routeValuesValidator: routeValues =>
