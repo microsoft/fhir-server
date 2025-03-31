@@ -189,12 +189,12 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(existingConfiguration, nameof(existingConfiguration));
 
             string testEnvironmentFilePath = existingConfiguration["TestAuthEnvironment:FilePath"];
-            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath);
             if (string.IsNullOrWhiteSpace(testEnvironmentFilePath))
             {
                 return configurationBuilder;
             }
 
+            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath);
             if (!File.Exists(testEnvironmentFilePath))
             {
                 return configurationBuilder;

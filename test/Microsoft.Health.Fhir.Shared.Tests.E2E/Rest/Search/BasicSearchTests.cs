@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?gender=female&organization:missing=false&_tag={tag}", patientWithReference);
         }
 
-        [Fact(Skip = "An unhandled exception being thrown in OpenIddict libraries before the request reaches the Fhir search endpoint. We contacted the OpenIddict owner and are waiting for bug to be fixed. Disabled until the issue is resolved.")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()
