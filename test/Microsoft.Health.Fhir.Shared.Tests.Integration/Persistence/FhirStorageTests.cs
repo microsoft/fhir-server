@@ -139,7 +139,7 @@ WAITFOR DELAY '00:00:01'
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
 
             // make sure waits were recorded
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction') RAISERROR('Waits were not recorded', 18, 127)");
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction' AND Status = 'Error') RAISERROR('Waits were not recorded', 18, 127)");
         }
 
         [Fact]
