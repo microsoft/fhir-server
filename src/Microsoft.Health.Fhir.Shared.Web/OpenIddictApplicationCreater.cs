@@ -19,7 +19,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Microsoft.Health.Fhir.Shared.Web
 {
-    internal class OpenIddictApplicationCreater : IHostedService
+    internal class OpenIddictApplicationCreater : BackgroundService
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;
         private readonly IServiceProvider _serviceProvider;
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Web
             _serviceProvider = serviceProvider;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             await using var scope = _serviceProvider.CreateAsyncScope();
 
@@ -57,8 +57,6 @@ namespace Microsoft.Health.Fhir.Shared.Web
                 scopeManager,
                 cancellationToken);
         }
-
-        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         private Task RegisterApplicationsAsync(
             IOpenIddictApplicationManager applicationManager,
