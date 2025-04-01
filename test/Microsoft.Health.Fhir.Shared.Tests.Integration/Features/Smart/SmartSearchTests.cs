@@ -705,7 +705,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             try
             {
-                var response = await _fixture.GetResourceHandler.Handle(
+                await _fixture.GetResourceHandler.Handle(
                     new GetResourceRequest(new ResourceKey(resourceType, "smart-patient-B"), bundleResourceContext: null),
                     CancellationToken.None);
                 Assert.True(statusCode == HttpStatusCode.OK);
