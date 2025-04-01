@@ -280,6 +280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     GroupId = groupId,
                     ImportMode = coordDefinition.ImportMode,
                     AllowNegativeVersions = coordDefinition.AllowNegativeVersions,
+                    ErrorContainerName = coordDefinition.ErrorContainerName,
                 };
 
                 definitions.Add(importJobPayload);

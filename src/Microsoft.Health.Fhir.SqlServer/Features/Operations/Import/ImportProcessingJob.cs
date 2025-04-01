@@ -89,7 +89,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
+                IImportErrorStore importErrorStore;
+                string errorFileName = GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id);
+
+                if (string.IsNullOrEmpty(definition.ErrorContainerName))
+                {
+                    importErrorStore = await _importErrorStoreFactory.InitializeAsync(errorFileName, cancellationToken);
+                }
+                else
+                {
+                    importErrorStore = await _importErrorStoreFactory.InitializeAsync(definition.ErrorContainerName, errorFileName, cancellationToken);
+                }
+
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
