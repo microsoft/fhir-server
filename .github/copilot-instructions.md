@@ -9,7 +9,6 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
 - Follow the project's coding standards, which adhere to C#, .NET conventions, and Azure development best practices.
 - Ensure solutions strictly align with Fast Healthcare Interoperability Resources (FHIR) standards.
 - Prioritize security, compliance, maintainability, and performance in all implementations.
-- Search and consult the online FHIR Standards documentation if you're unsure about any specification issue: https://www.hl7.org/fhir/
 
 ---
 
@@ -45,8 +44,8 @@ Here's a high-level overview of key directories and their purposes. Consider how
 - **.vscode/**: Visual Studio Code settings.
 - **build/**: Scripts and tools for Azure DevOps Pipelines (YAML).
 - **docs/**: Project documentation, including setup guides and architectural diagrams.
-  - **arch/**: Project documentation, Archtectural Design Records for understanding design decisions.
-  - **arch/Readme.md: ADR instructions and template.
+  - **arch/**: Project documentation, Architectural Design Records for understanding design decisions.
+  - **arch/Readme.md**: ADR instructions and template.
   - **rest/**: Sample FHIR HTTP Rest requests demonstrating various FHIR functionality.
   - **flow diagrams/**: Mermaid diagrams to understand the project's architecture, layers, and request flows.
 - **release/**: Release assets and notes.
@@ -99,6 +98,8 @@ Here's a high-level overview of key directories and their purposes. Consider how
 ## Other special functions
 - Async Requests and Jobs in FHIR Server, Bulk operations such as Import, Export and Reindex use these.
   - To create background jobs (async requests) in FHIR, use the steps and tool provided in ./tools/AsyncJobGenerator
+
+---
 
 ## Security and Compliance
 
