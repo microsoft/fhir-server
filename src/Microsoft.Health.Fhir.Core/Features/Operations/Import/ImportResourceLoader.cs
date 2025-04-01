@@ -151,6 +151,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new FormatException("Resource type not match.");
                 }
+
+                if (importResource.ResourceWrapper != null && importResource.ResourceWrapper.ResourceTypeName.Equals("SearchParameter", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("SearchParameter resources cannot be processed by import.");
+                }
             }
             catch (Exception ex)
             {

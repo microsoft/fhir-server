@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
@@ -203,6 +204,21 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
         {
             throw new NotImplementedException();
         }

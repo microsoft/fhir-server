@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool HasParametersToHash => _setToHash.Count > 0;
 
         /// <summary>
-        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId. Do not add ResourceId to hash.
         /// </summary>
         /// <typeparam name="T">The CLR column type</typeparam>
         /// <param name="column">The table column the parameter is bound to.</param>
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId. Do not add ResourceId to hash.
         /// </summary>
         /// <param name="column">The table column the parameter is bound to.</param>
         /// <param name="value">The parameter value</param>
@@ -71,7 +71,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SqlParameter parameter = _inner.AddParameter(column, value);
-            if (includeInHash)
+            if (includeInHash
+                && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name
+                && column.Metadata.Name != VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)
             {
                 _setToHash.Add(parameter);
             }

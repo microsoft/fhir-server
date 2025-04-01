@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Core.Registration
 
         public bool IsSelectiveSearchParameterSupported => false;
 
-        public bool IsExportBackgroundWorkerSupported => true;
-
         public bool IsCustomerKeyValidationBackgroundWorkerSupported => false;
 
         public bool IsTransactionSupported => false;
 
         public bool IsLatencyOverEfficiencySupported => true;
+
+        public bool IsQueryCacheSupported => false;
     }
 }

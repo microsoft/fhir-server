@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         return true;
                     }
 
-                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, parameter.searchParameter.Code) };
+                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Microsoft.Health.Fhir.Core.Resources.SearchSortParameterNotSupported, parameter.searchParameter.Code) };
                     return false;
                 default:
-                    errorMessages = new[] { Core.Resources.MultiSortParameterNotSupported };
+                    errorMessages = new[] { Microsoft.Health.Fhir.Core.Resources.MultiSortParameterNotSupported };
                     return false;
             }
         }

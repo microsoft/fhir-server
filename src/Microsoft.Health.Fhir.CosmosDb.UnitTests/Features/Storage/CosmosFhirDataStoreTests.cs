@@ -11,9 +11,11 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -21,6 +23,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -30,7 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -73,7 +76,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
                 _bundleOrchestrator,
@@ -281,6 +284,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             }
 
             await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAHardDeleteRequest_WhenPartiallySuccessful_ThenAnExceptionIsThrown()
+        {
+            var resourceKey = new ResourceKey(KnownResourceTypes.Patient, "test");
+
+            var scripts = Substitute.For<Scripts>();
+            scripts.ExecuteStoredProcedureAsync<int>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<object[]>(), cancellationToken: Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var response = Substitute.For<StoredProcedureExecuteResponse<int>>();
+                response.Resource.Returns(1);
+                return Task.FromResult(response);
+            });
+            _container.Value.Scripts.Returns(scripts);
+
+            await Assert.ThrowsAsync<IncompleteDeleteException>(() => _dataStore.HardDeleteAsync(resourceKey, false, true, CancellationToken.None));
         }
 
         private void CreateResponses(int pageSize, string continuationToken, params FeedResponse<int>[] responses)

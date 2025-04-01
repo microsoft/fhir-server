@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 }
             }
 
-            var fhirResults = new List<Parameters.ParameterComponent>();
+            var fhirResults = new List<Hl7.Fhir.Model.Parameters.ParameterComponent>();
 
             if (resourcesDeleted.Count > 0)
             {
@@ -153,14 +153,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
                 if (tuples.Any())
                 {
-                    var parameterComponent = new Parameters.ParameterComponent
+                    var parameterComponent = new Hl7.Fhir.Model.Parameters.ParameterComponent
                     {
                         Name = ResourceDeletedCountName,
                     };
 
                     foreach (var tuple in tuples)
                     {
-                        parameterComponent.Part.Add(new Parameters.ParameterComponent
+                        parameterComponent.Part.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
                             Name = tuple.Item1,
                             Value = tuple.Item2,

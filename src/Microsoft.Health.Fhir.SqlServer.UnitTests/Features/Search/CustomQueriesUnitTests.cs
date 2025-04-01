@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     public class CustomQueriesUnitTests
     {
         [Fact]
-        public void GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
+        public async Task GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
         {
             // set wait time to 2 seconds;
             CustomQueries.WaitTime = 1;
@@ -36,21 +36,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
-            Task.Delay(1100).Wait();
-
+            await Task.Delay(1100);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
 
             connection.Received(2).CreateCommand();
         }
 
         [Fact]
-        public void GivenCustomQueryClass_WithGivenSprocName_DictionaryWillPopulateCorrectly()
+        public async Task GivenCustomQueryClass_WithGivenSprocName_DictionaryWillPopulateCorrectly()
         {
             // set wait time to 1 second
             CustomQueries.WaitTime = 1;
 
             // Wait long enough to ensure we query the DB
-            Task.Delay(1100).Wait();
+            await Task.Delay(1100);
 
             var connection = Substitute.For<IDbConnection>();
             var command = Substitute.For<IDbCommand>();

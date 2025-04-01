@@ -6,7 +6,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _partitionKey = new PartitionKey(_document.PartitionKey);
         }
 
-        public async Task PerformTestAsync(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration, CancellationToken cancellationToken = default)
+        public async Task PerformTestAsync(Container container, CancellationToken cancellationToken = default)
         {
             var requestOptions = new ItemRequestOptions
             {
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             };
 
             // Upsert '__healthcheck__' record.
-            var resourceResponse = await container.UpsertItemAsync(
+            ItemResponse<HealthCheckDocument> resourceResponse = await container.UpsertItemAsync(
                 _document,
                 _partitionKey,
                 requestOptions,

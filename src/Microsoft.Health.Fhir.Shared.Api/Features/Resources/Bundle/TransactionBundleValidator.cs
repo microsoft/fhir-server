@@ -9,12 +9,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -124,6 +123,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request?.Url;
+            var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
+            if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, requestVerb));
+            }
+
             HTTPVerb? requestMethod = entry.Request?.Method;
 
             if (string.IsNullOrWhiteSpace(requestUrl))

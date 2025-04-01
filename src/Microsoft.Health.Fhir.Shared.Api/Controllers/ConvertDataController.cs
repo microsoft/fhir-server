@@ -15,12 +15,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ValidateModelState]
     public class ConvertDataController : Controller
     {
+        private static readonly FhirBoolean _defaultFhirBoolean = new FhirBoolean();
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
         private readonly ConvertDataConfiguration _config;
@@ -76,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string inputData = ReadStringParameter(inputParams, ConvertDataProperties.InputData);
             string templateCollectionReference = ReadStringParameter(inputParams, ConvertDataProperties.TemplateCollectionReference);
             string rootTemplate = ReadStringParameter(inputParams, ConvertDataProperties.RootTemplate);
+            bool treatDatesAsStrings = ReadBoolParameter(inputParams, ConvertDataProperties.JsonDeserializationTreatDatesAsStrings);
             Liquid.Converter.Models.DataType inputDataType = ReadEnumParameter<Liquid.Converter.Models.DataType>(inputParams, ConvertDataProperties.InputDataType);
 
             // Validate template reference format.
@@ -98,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
             }
 
-            var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate);
+            var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);
             ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
 
             return new ContentResult
@@ -158,6 +160,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return paramValue;
         }
 
+        private static bool ReadBoolParameter(Parameters parameters, string paramName)
+        {
+            var paramValue = parameters.GetSingleValue<FhirBoolean>(paramName) ?? _defaultFhirBoolean;
+            return paramValue.Value ?? false;
+        }
+
         private static T ReadEnumParameter<T>(Parameters parameters, string paramName)
         {
             var param = parameters?.Parameter.Find(p =>
@@ -180,6 +188,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 ConvertDataProperties.InputDataType,
                 ConvertDataProperties.TemplateCollectionReference,
                 ConvertDataProperties.RootTemplate,
+                ConvertDataProperties.JsonDeserializationTreatDatesAsStrings,
             };
 
             return supportedParams;

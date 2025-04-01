@@ -20,20 +20,21 @@ internal static class IdHelper
 {
     private const int ShiftFactor = 3;
 
-    internal static readonly DateTime MaxDateTime = new DateTime(long.MaxValue >> ShiftFactor, DateTimeKind.Utc).TruncateToMillisecond().AddTicks(-1);
+    internal static readonly DateTimeOffset MaxDateTime = new DateTime(long.MaxValue >> ShiftFactor, DateTimeKind.Utc).TruncateToMillisecond().AddTicks(-1);
 
-    public static long DateToId(this DateTime dateTime)
+    public static long ToId(this DateTimeOffset dateTimeOffset)
     {
-        EnsureArg.IsLte(dateTime, MaxDateTime, nameof(dateTime));
-        long id = dateTime.TruncateToMillisecond().Ticks << ShiftFactor;
+        EnsureArg.IsLte(dateTimeOffset, MaxDateTime, nameof(dateTimeOffset));
+        long id = dateTimeOffset.UtcDateTime.TruncateToMillisecond().Ticks << ShiftFactor;
 
         Debug.Assert(id >= 0, "The ID should not have become negative");
         return id;
     }
 
-    public static DateTime IdToDate(this long resourceSurrogateId)
+    public static DateTimeOffset ToDate(this long resourceSurrogateId)
     {
         var dateTime = new DateTime(resourceSurrogateId >> ShiftFactor, DateTimeKind.Utc);
-        return dateTime.TruncateToMillisecond();
+        var offset = new DateTimeOffset(dateTime.TruncateToMillisecond(), TimeSpan.Zero);
+        return offset;
     }
 }

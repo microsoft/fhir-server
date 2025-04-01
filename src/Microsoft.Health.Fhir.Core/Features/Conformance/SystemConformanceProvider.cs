@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            IEnumerable<IProvideCapability> providers = providerFactory.Value;
+                            var providers = providerFactory.Value.ToList();
                             foreach (IProvideCapability provider in providers)
                             {
                                 Stopwatch watch = Stopwatch.StartNew();
@@ -209,11 +209,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
                         _logger.LogError("SystemConformanceProvider is already disposed. SystemConformanceProvider's BackgroudLoop is completed.");
+                        return;
                     }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
@@ -238,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     _builder.SyncProfiles();
                 }
 
-                await (_metadataSemaphore?.WaitAsync(CancellationToken.None) ?? Task.CompletedTask);
+                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
                 try
                 {
                     _metadata = null;
@@ -266,6 +267,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             _logger.LogInformation("SystemConformanceProvider: DisposeAsync invoked.");
 
+            if (_disposed)
+            {
+                _logger.LogInformation("SystemConformanceProvider: Instance is already disposed.");
+                return;
+            }
+
             if (!_cancellationTokenSource.IsCancellationRequested)
             {
                 await _cancellationTokenSource.CancelAsync();
@@ -273,7 +280,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_rebuilder != null)
             {
-                await _rebuilder;
+                try
+                {
+                    await _rebuilder;
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("DisposeAsync detected OperationCanceledException while awaiting background loop. Exiting cleanly.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error while disposing SystemConformanceProvider.");
+                }
             }
 
             _cancellationTokenSource.Dispose();

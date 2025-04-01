@@ -31,7 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -190,15 +190,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                            resource.Wrapper,
-                            resource.WeakETag,
-                            resource.AllowCreate,
-                            resource.KeepHistory,
-                            innerCt,
-                            resource.RequireETagOnUpdate);
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        innerCt,
+                        resource.RequireETagOnUpdate);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (CosmosException cme) when (cme.StatusCode == HttpStatusCode.Forbidden && cme.SubStatusCode == 1014)
+                {
+                    // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-forbidden#partition-key-exceeding-storage
+
+                    _logger.LogWarning(cme, "PreconditionFailed: Partition reached maximum size.");
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(Resources.MaxPartitionSizeErrorMessage)));
                 }
                 catch (RequestRateExceededException rateExceededException)
                 {
@@ -220,9 +227,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
+            bool isBundleParallelOperation =
+                _bundleOrchestrator.IsEnabled &&
+                resource.BundleResourceContext != null &&
+                resource.BundleResourceContext.IsParallelBundle;
 
-            if (isBundleOperation)
+            if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 
@@ -268,7 +278,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
             {
-                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+                throw new MissingSearchIndicesException(string.Format(Microsoft.Health.Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
@@ -308,11 +318,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                 {
                     _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                 }
 
                 _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
             }
 
             while (true)
@@ -337,13 +347,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     if (weakETag != null)
                     {
                         _logger.LogInformation("ResourceNotFound: ResourceNotFoundByIdAndVersion");
-                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                        throw new ResourceNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                     }
 
                     if (!allowCreate)
                     {
                         _logger.LogInformation("MethodNotAllowed: ResourceCreationNotAllowed");
-                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                        throw new MethodNotAllowedException(Microsoft.Health.Fhir.Core.Resources.ResourceCreationNotAllowed);
                     }
 
                     throw;
@@ -359,7 +369,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
 
                     _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
@@ -430,7 +440,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             continue;
                         }
 
-                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                        throw new TransactionFailureException(transactionalBatchResponse.ErrorMessage);
                     }
                 }
                 else
@@ -489,7 +499,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -497,15 +507,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug("Obliterating {ResourceType}/{Id}. Keep current version: {KeepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
-                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
+                StoredProcedureExecuteResponse<int> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
                         keepCurrentVersion,
+                        allowPartialSuccess,
                         ct),
                     cancellationToken);
 
-                _logger.LogDebug("Hard-deleted {Count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {Resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
+                if (response.Resource > 0)
+                {
+                    _logger.LogInformation("Partial success of delete operation. Deleted {NumDeleted} versions of the resource.", response.Resource);
+                    throw new IncompleteDeleteException(response.Resource);
+                }
             }
             catch (CosmosException exception)
             {
@@ -557,8 +572,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        _logger.LogError(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
 
                     case HttpStatusCode.ServiceUnavailable:
                         _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
@@ -664,7 +679,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     var prevPage = page;
-                    page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() => cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token));
 
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {
@@ -855,7 +870,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException ex)
             {
-                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Failed to obtain provisioned RU throughput. Error: {Message}", ex.Message);
                 return null;
             }
         }

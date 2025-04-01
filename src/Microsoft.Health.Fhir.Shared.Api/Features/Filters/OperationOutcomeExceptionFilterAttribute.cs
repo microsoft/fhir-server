@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -111,6 +112,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
+                    case IncompleteDeleteException:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
+                        break;
                     case BadRequestException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
@@ -128,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
                     case CustomerManagedKeyException _:
+                    case ServerSideRequestForgeryException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
@@ -234,6 +239,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             else if (context.Exception is System.OperationCanceledException)
             {
                 context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is System.OverflowException)
+            {
+                context.Result = CreateOperationOutcomeResult(context.Exception.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.TooLong, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception.InnerException != null)

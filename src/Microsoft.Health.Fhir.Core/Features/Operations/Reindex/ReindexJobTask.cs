@@ -474,7 +474,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // For cases like retry or stale query we don't want to start another chain.
                     if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
-                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
+                        var encodedContinuationToken = ContinuationTokenEncoder.Encode(results.ContinuationToken);
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
                         {
                             LastModified = Clock.UtcNow,
@@ -802,7 +802,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <summary>
         /// Gets called from <see cref="CheckJobCompletionStatus"/> and only gets called when all queryList items are status of completed
         /// </summary>
-        /// <returns>Task<(int totalCount, List<string></returns>
+        /// <returns>Count and resource types.</returns>
         private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount()
         {
             int totalCount = 0;

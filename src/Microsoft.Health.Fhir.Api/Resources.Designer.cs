@@ -268,6 +268,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import request cannot have duplicate files. Found duplicates: {0}. .
+        /// </summary>
+        public static string ImportRequestDuplicateInputFiles {
+            get {
+                return ResourceManager.GetString("ImportRequestDuplicateInputFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {
@@ -327,6 +336,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidBundleEntry {
             get {
                 return ResourceManager.GetString("InvalidBundleEntry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is invalid using the request method {1}..
+        /// </summary>
+        public static string InvalidBundleEntryRequest {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntryRequest", resourceCulture);
             }
         }
         
@@ -511,6 +529,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to inputParams not found, request body must be a valid Parameters resource..
+        /// </summary>
+        public static string MissingInputParams {
+            get {
+                return ResourceManager.GetString("MissingInputParams", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
@@ -520,11 +547,29 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request host cannot be used as it is not routable..
+        /// </summary>
+        public static string NonroutableHost {
+            get {
+                return ResourceManager.GetString("NonroutableHost", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Hard delete must be requested in order to purge history..
         /// </summary>
         public static string NoSoftPurge {
             get {
                 return ResourceManager.GetString("NoSoftPurge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not able to create final result. Retry the operation..
+        /// </summary>
+        public static string NotAbleToCreateTheFinalResultsOfAnOperation {
+            get {
+                return ResourceManager.GetString("NotAbleToCreateTheFinalResultsOfAnOperation", resourceCulture);
             }
         }
         
@@ -561,6 +606,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string OperationNotImplemented {
             get {
                 return ResourceManager.GetString("OperationNotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested operation is not supported..
+        /// </summary>
+        public static string OperationNotSupported {
+            get {
+                return ResourceManager.GetString("OperationNotSupported", resourceCulture);
             }
         }
         
@@ -763,7 +817,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
+        ///   Looks up a localized string similar to Value supplied, {0},  for the &quot;{1}&quot; header is not supported..
         /// </summary>
         public static string UnsupportedHeaderValue {
             get {

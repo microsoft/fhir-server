@@ -231,6 +231,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             catch (RequestRateExceededException rree)
             {
                 _logger.LogWarning(rree, "[JobId:{JobId}] Job failed due to RequestRateExceeded.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rree.Message, HttpStatusCode.TooManyRequests);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
@@ -291,6 +294,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (OutOfMemoryException ex)
+            {
+                // The job has encountered an error it cannot recover from.
+                // Try to update the job to failed state.
+                _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
@@ -333,7 +345,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 dataSize,
                 isAnonymizedExport);
 
-            await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
+            try
+            {
+                await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
+            }
+            catch (ObjectDisposedException ode)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ode, $"{nameof(ObjectDisposedException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}. Cancellation was requested.");
+                }
+                else
+                {
+                    _logger.LogCritical(ode, $"{nameof(ObjectDisposedException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}.");
+                    throw;
+                }
+            }
+            catch (OperationCanceledException oce)
+            {
+                _logger.LogWarning(oce, $"{nameof(OperationCanceledException)}. Unable to publish {nameof(ExportTaskMetricsNotification)}. Cancellation was requested.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, $"Unable to publish {nameof(ExportTaskMetricsNotification)}.");
+                throw;
+            }
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
@@ -541,10 +577,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult.Results, anonymizer);
+                    ProcessSearchResults(searchResult?.Results.ToList(), anonymizer);
                 }
 
-                if (searchResult.ContinuationToken == null)
+                if (searchResult?.ContinuationToken == null)
                 {
                     break;
                 }
@@ -699,40 +735,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
-            foreach (SearchResultEntry result in searchResults)
+            // Testing to see if the returned enumerable is a list so we can remove items from it. This helps conserve memory by not keeping entries that have already been processed.
+            // Since the search service isn't guaranteed to return a list, we need to handle both cases.
+            if (searchResults is not List<SearchResultEntry>)
             {
-                ResourceWrapper resourceWrapper = result.Resource;
-                ResourceElement overrideDataElement = null;
-                var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
-
-                if (anonymizer != null)
+                foreach (var result in searchResults)
                 {
-                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
-                    try
-                    {
-                        overrideDataElement = anonymizer.Anonymize(overrideDataElement);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new FailedToAnonymizeResourceException(ex.Message, ex);
-                    }
+                    ProcessSearchResult(result, anonymizer);
                 }
-                else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
-                {
-                    // For older records in Cosmos the metadata isn't included in the raw resource
-                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
-                }
-
-                var outputData = result.Resource.RawResource.Data;
-
-                // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
-                if (overrideDataElement is not null)
-                {
-                    outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
-                }
-
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
             }
+            else
+            {
+                var searchResultsList = searchResults as List<SearchResultEntry>;
+                while (searchResultsList.Any())
+                {
+                    var result = searchResultsList.First();
+                    ProcessSearchResult(result, anonymizer);
+                    searchResultsList.Remove(result);
+                }
+            }
+        }
+
+        private void ProcessSearchResult(SearchResultEntry result, IAnonymizer anonymizer)
+        {
+            ResourceWrapper resourceWrapper = result.Resource;
+            ResourceElement overrideDataElement = null;
+            var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
+
+            if (anonymizer != null)
+            {
+                overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
+                try
+                {
+                    overrideDataElement = anonymizer.Anonymize(overrideDataElement);
+                }
+                catch (Exception ex)
+                {
+                    throw new FailedToAnonymizeResourceException(ex.Message, ex);
+                }
+            }
+            else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
+            {
+                // For older records in Cosmos the metadata isn't included in the raw resource
+                overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
+            }
+
+            var outputData = result.Resource.RawResource.Data;
+
+            // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
+            if (overrideDataElement is not null)
+            {
+                outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
+            }
+
+            _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
         }
 
         private async Task ProcessProgressChange(
@@ -744,7 +800,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(ContinuationTokenConverter.Encode(continuationToken));
+            progress.UpdateContinuationToken(ContinuationTokenEncoder.Encode(continuationToken));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)

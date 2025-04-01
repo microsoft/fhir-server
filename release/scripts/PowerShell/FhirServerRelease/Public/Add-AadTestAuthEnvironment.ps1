@@ -64,7 +64,7 @@ function Add-AadTestAuthEnvironment {
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
-        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -EnableRbacAuthorization | Out-Null
+        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
     }
 
     $retryCount = 0
@@ -82,6 +82,19 @@ function Add-AadTestAuthEnvironment {
 
     $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
 
+      $parameters = @{
+        Name = 'AzureVault'
+        ModuleName = 'Az.KeyVault'
+        VaultParameters = @{
+            AZKVaultName = $KeyVaultName
+            SubscriptionId = (Get-AzContext).Subscription.Id
+        }
+        DefaultVault = $true
+    }
+
+    # Register the vault to store the secret values
+    Register-SecretVault @parameters
+
     Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
@@ -89,6 +102,10 @@ function Add-AadTestAuthEnvironment {
     }
     elseif ($azContext.Account.Type -eq "ServicePrincipal") {
         Write-Host "Current context is service principal: $($azContext.Account.Id)"
+        $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
+    }
+    elseif ($azContext.Account.Type -eq "ClientAssertion") {
+        Write-Host "Current context is ClientAssertion: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
     }
     else {
@@ -156,14 +173,16 @@ function Add-AadTestAuthEnvironment {
 
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
-            $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
+            Set-Secret -Name secretSecure -Secret $aadClientApplication.AppSecret
+            $secretSecureString = Get-Secret -Name secretSecure
 
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
 
-            $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
+            Set-Secret -Name secretSecure -Secret $newPassword.Value
+            $secretSecureString = Get-Secret -Name secretSecure 
         }
 
         if ($publicClient) {
@@ -179,7 +198,8 @@ function Add-AadTestAuthEnvironment {
             appId       = $aadClientApplication.AppId
         }
 
-        $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
+        Set-Secret -Name appIdSecure -Secret $aadClientApplication.AppId
+        $appIdSecureString = Get-Secret -Name appIdSecure
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
 

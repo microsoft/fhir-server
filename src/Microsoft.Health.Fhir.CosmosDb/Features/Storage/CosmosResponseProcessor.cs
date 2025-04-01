@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
-                exception = new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestNotValidException(Microsoft.Health.Fhir.Core.Resources.InvalidContinuationToken);
             }
             else if (statusCode == HttpStatusCode.RequestEntityTooLarge
                      || (statusCode == HttpStatusCode.BadRequest && errorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
@@ -78,14 +78,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // There are multiple known failures relating to RequestEntityTooLarge.
                 // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
                 // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
-                exception = new Core.Exceptions.RequestEntityTooLargeException();
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestEntityTooLargeException();
             }
             else if (statusCode == HttpStatusCode.Forbidden)
             {
                 int? subStatusValue = headers.GetSubStatusValue();
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
-                    exception = new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    exception = new Microsoft.Health.Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
                 }
             }
 

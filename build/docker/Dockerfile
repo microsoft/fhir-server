@@ -1,8 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.202-cbl-mariner2.0 AS build
+# --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.202-azurelinux3.0 AS build
+ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
-
-RUN groupadd nonroot -g 1000 && useradd -r -M -s /sbin/nologin -g nonroot -c nonroot nonroot -u 998
 
 WORKDIR /repo
 
@@ -41,6 +41,12 @@ COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
 COPY ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj \
      ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj
 
+COPY ./src/Microsoft.Health.Fhir.CosmosDb.Core/Microsoft.Health.Fhir.CosmosDb.Core.csproj \
+     ./src/Microsoft.Health.Fhir.CosmosDb.Core/Microsoft.Health.Fhir.CosmosDb.Core.csproj
+
+COPY ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.CosmosDb.Initialization.csproj \
+     ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.CosmosDb.Initialization.csproj
+
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj
 
@@ -61,15 +67,17 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Clie
 
 COPY ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems
-RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj
+
+RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -a $TARGETARCH
 
 # now copy over everything else and publish
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net8.0
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-cbl-mariner2.0 AS runtime
+# Implicitly uses the target platform for the runtime image.
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.3-azurelinux3.0 AS runtime
 
 ARG FHIR_VERSION
 
@@ -79,9 +87,6 @@ RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean al
 # See https://github.com/dotnet/SqlClient/issues/220
 RUN tdnf install icu -y && \
   tdnf clean all
-
-COPY --from=build /etc/group /etc/group
-COPY --from=build /etc/passwd /etc/passwd
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080

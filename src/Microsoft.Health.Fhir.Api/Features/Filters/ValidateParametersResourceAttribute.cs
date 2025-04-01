@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             context.ActionArguments?.TryGetValue("inputParams", out inputResource);
             if (inputResource == null)
             {
-                throw new MissingMethodException("Controller method does not contain parameter named 'inputParams'");
+                throw new RequestNotValidException(Api.Resources.MissingInputParams);
             }
 
             if (inputResource is not Parameters)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, inputResource.GetType().ToString()));
+                throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedResourceType, inputResource.GetType().ToString()));
             }
         }
     }

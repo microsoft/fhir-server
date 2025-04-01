@@ -15,13 +15,18 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
@@ -34,7 +39,9 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Registration;
 using Microsoft.Health.JobManagement;
 using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
@@ -77,6 +84,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 })
                 .Singleton()
                 .AsSelf();
+
+            services.AddSingleton<IParameterStore, CosmosParameterStore>();
 
             services.Add<CosmosContainerProvider>()
                 .Singleton()
@@ -159,23 +168,44 @@ namespace Microsoft.Extensions.DependencyInjection
                         cosmosCollectionConfiguration,
                         config,
                         upgradeManager,
-                        retryExceptionPolicyFactory,
                         cosmosClientTestProvider,
                         loggerFactory.CreateLogger<CollectionInitializer>());
                 })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
-            services.Add<StoredProcedureInstaller>()
-                .Transient()
-                .AsService<ICollectionUpdater>();
 
-            services.Add<FhirCollectionSettingsUpdater>()
+            services.Add<DataPlaneStoredProcedureInstaller>()
                 .Transient()
-                .AsService<ICollectionUpdater>();
+                .AsService<IStoredProcedureInstaller>();
 
             services.Add<CosmosDbSearchParameterStatusInitializer>()
                 .Transient()
-                .AsService<ICollectionUpdater>();
+                .AsService<ICollectionDataUpdater>();
+
+            services.Add<ResourceManagerCollectionSetup>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<DataPlaneCollectionSetup>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add(c =>
+                {
+                    CosmosDataStoreConfiguration config = c.GetRequiredService<CosmosDataStoreConfiguration>();
+
+                    if (config.AllowDatabaseCreation || config.AllowCollectionSetup)
+                    {
+                        return config.UseManagedIdentity
+                            ? (ICollectionSetup)c.GetRequiredService<ResourceManagerCollectionSetup>()
+                            : c.GetRequiredService<DataPlaneCollectionSetup>();
+                    }
+
+                    // If collection setup is not required then return the noop implementation.
+                    return new DefaultCollectionSetup();
+                })
+                .Singleton()
+                .AsService<ICollectionSetup>();
 
             services.TypesInSameAssemblyAs<IStoredProcedure>()
                 .AssignableTo<IStoredProcedure>()
@@ -183,12 +213,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsService<IStoredProcedure>();
 
+            services.AddCosmosDbInitializationDependencies();
+
             services.Add<CosmosFhirOperationDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.AddFactory<IScoped<ILegacyExportOperationDataStore>>();
 
             services.Add<FhirCosmosClientInitializer>()
                 .Singleton()
@@ -240,6 +270,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces()
                 .AsFactory<IScoped<IQueueClient>>();
 
+            services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
+               .Transient()
+               .AsSelf();
+
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<CosmosExportOrchestratorJob>()
                 .AssignableTo<IJob>()
                 .Transient()
@@ -249,13 +283,6 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 job.AsDelegate<Func<IJob>>();
             }
-
-            services
-                .RemoveServiceTypeExact<LegacyExportJobWorker, INotificationHandler<StorageInitializedNotification>>()
-                .Add<LegacyExportJobWorker>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             return fhirServerBuilder;
         }

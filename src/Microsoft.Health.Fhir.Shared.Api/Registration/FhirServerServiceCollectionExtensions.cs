@@ -9,12 +9,10 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using EnsureThat;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Authorization;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
@@ -24,16 +22,15 @@ using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
-using Newtonsoft.Json.Serialization;
 using Polly;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -120,6 +117,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 }
             }
 
+            AddMetricEmitter(services);
+
             return new FhirServerBuilder(services);
         }
 
@@ -138,11 +137,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
-            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
-            {
-                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            }
-
             return fhirServerBuilder;
         }
 
@@ -156,6 +150,18 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
 
             return fhirServerBuilder;
+        }
+
+        /// <summary>
+        /// Registers the default metric emitter.
+        /// </summary>
+        private static void AddMetricEmitter(IServiceCollection services)
+        {
+            // Register the metric handlers used by the service.
+            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
+            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
+            services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

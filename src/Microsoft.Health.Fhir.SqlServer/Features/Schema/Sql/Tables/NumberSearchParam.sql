@@ -5,11 +5,8 @@
     SearchParamId smallint NOT NULL,
     SingleValue decimal(36,18) NULL,
     LowValue decimal(36,18) NOT NULL,
-    HighValue decimal(36,18) NOT NULL,
-    IsHistory bit NOT NULL
+    HighValue decimal(36,18) NOT NULL
 )
-
-ALTER TABLE dbo.NumberSearchParam ADD CONSTRAINT DF_NumberSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.NumberSearchParam SET ( LOCK_ESCALATION = AUTO )
 

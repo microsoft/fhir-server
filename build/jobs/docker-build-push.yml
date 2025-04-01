@@ -6,6 +6,8 @@ parameters:
   type: string
 - name: tag
   type: string
+- name: buildPlatform
+  type: string
 
 jobs:
 - job: '${{parameters.version}}_Docker'
@@ -13,28 +15,33 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: DockerCompose@0
+  - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
-      action: Build services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: |
-        FHIR_VERSION=${{parameters.version}}
-        ASSEMBLY_VER=$(assemblySemFileVer)
-      projectName: ${{parameters.version}}
-      additionalImageTags: ${{parameters.tag}}
+      azureSubscription: $(azureSubscriptionEndpoint)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        set -euo pipefail
 
-  - task: DockerCompose@0
-    displayName: 'Push FHIR ${{parameters.version}} Server Image'
-    inputs:
-      action: Push services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: |
-        FHIR_VERSION=${{parameters.version}}
-        ASSEMBLY_VER=$(assemblySemFileVer)
-      projectName: ${{parameters.version}}
-      additionalImageTags: ${{parameters.tag}}
+        # Images variables are defined in azdo library variable group
+        echo "Creating builder using cached buildkit mirror..."
+        docker buildx create --name fhir-multi-platform --use \
+            --driver docker-container --driver-opt image=$(mobyBuildkitImage)
+        
+        echo "Setting up QEMU for cross-platform builds..."
+        docker run --rm --privileged $(multiarchQemuImage) --reset -p yes
+        
+        echo "Inspecting builder to confirm setup..."
+        docker buildx inspect fhir-multi-platform --bootstrap
+
+        echo "Building FHIR ${{ parameters.version }} for platform ${{ parameters.buildPlatform }}..."
+        TAG="$(azureContainerRegistry)/${{ parameters.version }}_fhir-server:${{ parameters.tag }}"
+        az acr login --name $(azureContainerRegistryName)
+        docker buildx build --tag ${TAG,,} \
+                      --file ./build/docker/Dockerfile \
+                      --builder fhir-multi-platform \
+                      --platform ${{ parameters.buildPlatform }} \
+                      --build-arg FHIR_VERSION=${{ parameters.version }} \
+                      --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
+                      --push .

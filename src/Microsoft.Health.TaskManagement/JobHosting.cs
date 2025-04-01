@@ -36,24 +36,16 @@ namespace Microsoft.Health.JobManagement
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
 
-        public short MaxRunningJobCount { get; set; } = Constants.DefaultMaxRunningJobCount;
-
         public int JobHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultJobHeartbeatTimeoutThresholdInSeconds;
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
-        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
-        {
-            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
-        }
-
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
+        public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
 
             // parallel dequeue
-            for (var thread = 0; thread < MaxRunningJobCount; thread++)
+            for (var thread = 0; thread < runningJobCount; thread++)
             {
                 workers.Add(Task.Run(async () =>
                 {
@@ -108,8 +100,15 @@ namespace Microsoft.Health.JobManagement
                         }
                         else
                         {
-                            _logger.LogInformation("Empty queue. Delaying until next iteration.");
-                            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                            try
+                            {
+                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                            }
                         }
                     }
                 }));
@@ -117,7 +116,15 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                await Task.WhenAny(workers.ToArray()); // If any worker crashes exit.
+                 // If any worker crashes or complete after cancellation due to shutdown,
+                 // cancel all workers and wait for completion so they don't crash unnecessarily.
+                await Task.WhenAny(workers.ToArray());
+#if NET6_0
+                cancellationTokenSource.Cancel();
+#else
+                await cancellationTokenSource.CancelAsync();
+#endif
+                await Task.WhenAll(workers.ToArray());
             }
             catch (Exception ex)
             {
@@ -163,13 +170,6 @@ namespace Microsoft.Health.JobManagement
 
                 jobInfo.Result = await runningJob;
             }
-            catch (RetriableJobException ex)
-            {
-                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-
-                // Not complete the job for retriable exception.
-                return;
-            }
             catch (JobExecutionException ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
@@ -178,7 +178,7 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {
@@ -187,9 +187,9 @@ namespace Microsoft.Health.JobManagement
 
                 return;
             }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
+            catch (OperationCanceledException ex)
             {
-                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
                 try
@@ -243,19 +243,6 @@ namespace Microsoft.Health.JobManagement
             var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
             // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
-            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        [Obsolete("Heartbeats should only update timestamp, results should only be written when job reaches terminal state.")]
-        public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(action, nameof(action));
-
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);

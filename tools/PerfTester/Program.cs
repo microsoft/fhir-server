@@ -48,14 +48,16 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
 
         private static SqlRetryService _sqlRetryService;
-        private static SqlStoreClient<SqlServerFhirDataStore> _store;
+        private static SqlStoreClient _store;
 
         public static void Main()
         {
             Console.WriteLine("!!!See App.config for the details!!!");
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance);
+
+            DumpResourceIds();
 
             if (_callType == "GetDate" || _callType == "LogEvent")
             {
@@ -64,9 +66,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 return;
             }
 
-            if (_callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
+            if (_callType == "SingleId" || _callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
             {
-                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelHttpPuts();
                 return;
             }
@@ -84,8 +86,6 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
                 return;
             }
-
-            DumpResourceIds();
 
             var resourceIds = GetRandomIds();
             SwitchToResourceTable();
@@ -188,6 +188,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0L;
             var resources = 0;
             long sumLatency = 0;
+            var singleId = Guid.NewGuid().ToString();
             BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
@@ -201,7 +202,11 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     return;
                 }
 
-                var resourceIdInput = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? resourceIds[callId].ResourceId : Guid.NewGuid().ToString();
+                var resourceIdInput = _callType == "SingleId"
+                                    ? singleId
+                                    : _callType == "HttpUpdate" || _callType == "BundleUpdate"
+                                          ? resourceIds[callId].ResourceId
+                                          : Guid.NewGuid().ToString();
 
                 var swLatency = Stopwatch.StartNew();
                 var json = lineItem.Item2.First();
@@ -304,7 +309,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                     else if (_callType.StartsWith("SearchByIds"))
                     {
-                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId));
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId)?.ToList());
                         if (status != "OK")
                         {
                             Interlocked.Increment(ref errors);
@@ -788,7 +793,7 @@ END
             return status;
         }
 
-        private static string GetResources(string resourceType, IEnumerable<string> resourceIds)
+        private static string GetResources(string resourceType, System.Collections.Generic.IReadOnlyCollection<string> resourceIds)
         {
             var maxRetries = 3;
             var retries = 0;

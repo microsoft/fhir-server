@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             }
                             catch (Exception ex)
                             {
-                                logger.LogWarning("Error refreshing CustomQuery cache.  This will try again on next search execution.  Error: {ExceptionMessage}", ex.Message);
+                                logger.LogWarning(ex, "Error refreshing CustomQuery cache.  This will try again on next search execution.  Error: {ExceptionMessage}", ex.Message);
                             }
                         }
                     }

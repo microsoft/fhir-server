@@ -10,7 +10,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Delete AAD apps'
     inputs:
       azureSubscription: $(ConnectedServiceName)

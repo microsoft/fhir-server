@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 if (testPatient != null)
                 {
-                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, CancellationToken.None);
+                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, false, CancellationToken.None);
                 }
             }
         }
@@ -110,7 +110,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 if (testPatient != null)
                 {
-                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, CancellationToken.None);
+                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, false, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenAReindexWithHistory_WhenEmptyPageEncountered_EmptyDataNotReturned()
+        {
+            ResourceWrapper testPatient = null;
+
+            try
+            {
+                UpsertOutcome outcome = await AddPatientHistorical("10");
+                outcome = await AddPatientHistorical("11");
+                outcome = await AddPatientHistorical("12");
+                outcome = await AddPatientHistorical("13");
+                outcome = await AddPatientHistorical("14");
+                testPatient = outcome.Wrapper;
+
+                var queryParametersList = new List<Tuple<string, string>>()
+                {
+                    Tuple.Create(KnownQueryParameterNames.Count, "1"),
+                    Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
+                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                };
+
+                // Pass in a different hash value
+                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None);
+
+                Assert.Equal("14", testPatient.Version);
+
+                Assert.Single(searchResult.Results);
+            }
+            finally
+            {
+                if (testPatient != null)
+                {
+                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, false, CancellationToken.None);
                 }
             }
         }
@@ -136,6 +175,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             wrapper.SearchParameterHash = "hash";
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+        }
+
+        private async Task<UpsertOutcome> AddPatientHistorical(string version)
+        {
+            var json = Samples.GetJson("Patient");
+            json = json.Replace("\"family\": \"Chalmers\"", "\"family\": \"Chalmers" + version + "\"");
+            var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var resourceElement = Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, version, DateTimeOffset.UtcNow);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue("alpha")) };
+
+            var wrapper = new ResourceWrapper(
+                resourceElement,
+                rawResource,
+                resourceRequest,
+                false,
+                searchIndices,
+                compartmentIndices,
+                new List<KeyValuePair<string, string>>(),
+                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+            wrapper.SearchParameterHash = "hash";
+
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
         }
     }
 }
