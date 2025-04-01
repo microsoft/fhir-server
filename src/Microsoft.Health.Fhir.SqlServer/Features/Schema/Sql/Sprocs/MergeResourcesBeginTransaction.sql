@@ -1,16 +1,15 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @RaiseExceptionOnOverload bit = 0
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate,121),'NULL')+' E='+convert(varchar,@RaiseExceptionOnOverload)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate,121),'NULL')
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
        ,@OptimalConcurrency int = isnull((SELECT Number FROM Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'), 256)
-       ,@WaitMilliseconds smallint = 100 -- this value should be on par with single resource write
-       ,@TotalWaitMilliseconds int = 0
+       ,@CurrentConcurrency int
        ,@msg varchar(1000)
 
 BEGIN TRY
@@ -18,17 +17,11 @@ BEGIN TRY
 
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
-  -- total wait should be less than 30 sec default timeout 
-  WHILE @TotalWaitMilliseconds < 10000 * (1 + rand()) AND @OptimalConcurrency < (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
+  SET @CurrentConcurrency = (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
+  IF @CurrentConcurrency > @OptimalConcurrency
   BEGIN
-    IF @RaiseExceptionOnOverload = 1
-      THROW 50410, 'Number of concurrent calls to MergeResources is above optimal.', 1 
-
-    SET @msg = '00:00:00.'+format(@WaitMilliseconds, 'd3')
-    WAITFOR DELAY @msg
-    SET @TotalWaitMilliseconds += @WaitMilliseconds
-    SET @WaitMilliseconds = @WaitMilliseconds * (2.5 + rand())
-    IF @WaitMilliseconds > 999 SET @WaitMilliseconds = 999
+    SET @msg = 'Number of concurrent MergeResources calls = '+convert(varchar,@CurrentConcurrency)+' is above optimal = '+convert(varchar,@OptimalConcurrency)+'.';
+    THROW 50410, @msg, 1 
   END
 
   SET @FirstValueVar = NULL
@@ -45,12 +38,6 @@ BEGIN TRY
   INSERT INTO dbo.Transactions
          (  SurrogateIdRangeFirstValue,   SurrogateIdRangeLastValue,                      HeartbeatDate )
     SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
-  
-  IF @TotalWaitMilliseconds > 0
-  BEGIN
-    SET @msg = 'Waits[msec]='+convert(varchar,@TotalWaitMilliseconds)
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@msg
-  END
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
