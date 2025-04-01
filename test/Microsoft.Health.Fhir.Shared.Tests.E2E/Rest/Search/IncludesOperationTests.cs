@@ -78,8 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patientResources,
                 relatedResources,
                 _fixture.PatientResources.Count,
-                _fixture.RelatedResources.Count,
-                supportsIncludes);
+                _fixture.RelatedResources.Count);
             ValidateLinks(
                 response,
                 KnownResourceTypes.Patient,
@@ -195,8 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             IList<Resource> patientResources,
             IList<Resource> relatedResources,
             int totalPatientResourceCount,
-            int totalRelatedResourceCount,
-            bool supportsIncludes)
+            int totalRelatedResourceCount)
         {
             var expectedResources = patientResources.Concat(relatedResources).ToList();
             var actualResources = response.Resource.Entry
@@ -218,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     x => x.Issue.Any(
                         y => y.Severity == OperationOutcome.IssueSeverity.Warning
                             && y.Code == OperationOutcome.IssueType.Incomplete
-                            && (y.Diagnostics?.Equals(supportsIncludes ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
+                            && (y.Diagnostics?.Equals(Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
             }
         }
 
