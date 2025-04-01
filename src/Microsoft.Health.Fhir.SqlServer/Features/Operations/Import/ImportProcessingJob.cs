@@ -178,6 +178,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
+            catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = "Error container name contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed. The name must begin and end with a letter or a number. The name can't contain two consecutive hyphens.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(error.ErrorMessage, error, ex);
+            }
+            catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name length is not within the permissible limits", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = "The error container name must be between 3 and 63 characters long.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(error.ErrorMessage, error, ex);
+            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
