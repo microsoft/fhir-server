@@ -246,14 +246,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
-                    {
-                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: timeoutRetries={{TimeoutRetries}}", timeoutRetries);
-                        await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
-                        await Task.Delay(5000, cancellationToken);
-                        continue;
-                    }
-
                     var sqlEx = e as SqlException;
                     if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
@@ -262,6 +254,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
                         await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
                         delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
+                        continue;
+                    }
+
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
