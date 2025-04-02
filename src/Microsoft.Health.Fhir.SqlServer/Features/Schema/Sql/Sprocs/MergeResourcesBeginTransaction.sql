@@ -8,6 +8,9 @@ DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
+       -- Optimal concurrency slowly increases with transaction size growth. For single resource transactions optimal value is ~64.
+       -- For large transactions (1000 resources) typical for $import it is ~256. 
+       -- Transaction size is hard to get in efficient way, so I choose 256 as default.
        ,@OptimalConcurrency int = isnull((SELECT Number FROM Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'), 256)
        ,@CurrentConcurrency int
        ,@msg varchar(1000)
