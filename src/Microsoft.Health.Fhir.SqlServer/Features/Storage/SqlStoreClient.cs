@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -117,20 +118,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var resourceRefsByFile = resourceRefs.GroupBy(_ => _.FileId);
+            var tasks = new List<Task>();
+
             foreach (var file in resourceRefsByFile)
             {
                 var blobName = SqlServerFhirDataStore.GetBlobNameForRaw(file.Key);
                 var blobClient = SqlAdlsClient.Container.GetBlobClient(blobName);
-                using var stream = await blobClient.OpenReadAsync();
-                using var reader = new StreamReader(stream);
+
                 foreach (var offset in file)
                 {
-                    reader.DiscardBufferedData();
-                    stream.Position = offset.OffsetInFile;
-                    var line = await reader.ReadLineAsync();
-                    results.Add((file.Key, offset.OffsetInFile), line);
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        var blobDownloadInfo = await blobClient.DownloadAsync(new HttpRange(offset.OffsetInFile, offset.ResourceLength));
+                        using var reader = new StreamReader(blobDownloadInfo.Value.Content);
+                        var line = await reader.ReadToEndAsync();
+                        lock (results)
+                        {
+                            results.Add((file.Key, offset.OffsetInFile), line);
+                        }
+                    }));
                 }
             }
+
+            await Task.WhenAll(tasks);
 
             return results;
         }
