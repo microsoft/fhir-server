@@ -40,5 +40,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merg
         /// Reasource record offset in adls file
         /// </summary>
         public int? OffsetInFile { get; internal set; }
+
+        /// <summary>
+        /// Length of the resource
+        /// </summary>
+        public int ResourceLength { get; set; }
     }
 }

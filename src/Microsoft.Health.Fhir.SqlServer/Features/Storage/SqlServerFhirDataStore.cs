@@ -180,7 +180,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.FileId = transactionId;
                         resource.OffsetInFile = offset;
                         var line = resource.ResourceWrapper.RawResource.Data;
-                        offset += Encoding.UTF8.GetByteCount(line) + eol;
+                        var resourceLength = Encoding.UTF8.GetByteCount(line);
+                        resource.ResourceLength = resourceLength;
+                        offset += resourceLength + eol;
+
                         await writer.WriteLineAsync(line);
                     }
 
