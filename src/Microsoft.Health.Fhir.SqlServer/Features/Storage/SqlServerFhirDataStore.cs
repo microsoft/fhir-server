@@ -734,7 +734,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
+                var mergeOutcome = await MergeAsync(new[] { resource }, new MergeOptions(resource.BundleResourceContext != null), cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)
