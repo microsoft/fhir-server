@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public sealed class MergeOptions
     {
-        public MergeOptions(bool enlistTransaction = true)
+        public MergeOptions(bool enlistTransaction = false)
         {
             EnlistInTransaction = enlistTransaction;
         }
