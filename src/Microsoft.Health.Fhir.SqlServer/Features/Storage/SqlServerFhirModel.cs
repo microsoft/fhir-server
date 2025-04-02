@@ -456,10 +456,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfCurrentSchemaVersionIsNull();
 
+            if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
+            {
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for minimum supported schema version");
+                throw new ServiceUnavailableException();
+            }
+
             if (_highestInitializedVersion < _schemaInformation.Current)
             {
-                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
-                throw new ServiceUnavailableException();
+                _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
             }
         }
 

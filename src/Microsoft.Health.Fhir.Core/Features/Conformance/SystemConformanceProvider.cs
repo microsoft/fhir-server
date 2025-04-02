@@ -280,7 +280,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_rebuilder != null)
             {
-                await _rebuilder;
+                try
+                {
+                    await _rebuilder;
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("DisposeAsync detected OperationCanceledException while awaiting background loop. Exiting cleanly.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error while disposing SystemConformanceProvider.");
+                }
             }
 
             _cancellationTokenSource.Dispose();

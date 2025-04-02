@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
-        private async Task DeleteBlobFromAdlsAsync(long transactionId, CancellationToken cancellationToken)
+        internal async Task DeleteBlobFromAdlsAsync(long transactionId, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();

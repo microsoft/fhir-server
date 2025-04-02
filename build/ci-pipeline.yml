@@ -74,9 +74,10 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Windows_dotnet8
+  - job: Linux_dotnet8
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -130,7 +131,6 @@ stages:
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
-      multiplePlatforms: true
 
 # *********************** Stu3 ***********************
 - stage: redeployStu3
