@@ -55,10 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
 
             var key = request.ResourceKey;
-            if (!string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
-            {
-                throw new ResourceNotSupportedException(key.ResourceType);
-            }
 
             ResourceWrapper currentDoc = null;
 
@@ -78,6 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
+                {
+                    throw new ResourceNotSupportedException(key.ResourceType);
+                }
+
                 currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
             }
 

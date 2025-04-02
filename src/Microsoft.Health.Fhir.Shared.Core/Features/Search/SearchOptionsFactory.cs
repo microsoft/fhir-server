@@ -379,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             else
             {
                 parsedResourceTypes[0] = resourceType;
-                if (!ModelInfoProvider.IsKnownResource(resourceType, false))
+                if (!ModelInfoProvider.IsKnownResource(resourceType))
                 {
                     throw new ResourceNotSupportedException(resourceType);
                 }
