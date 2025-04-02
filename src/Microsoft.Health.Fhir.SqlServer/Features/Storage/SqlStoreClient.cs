@@ -13,6 +13,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
+using Azure.Storage.Blobs.Models;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -129,9 +130,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     tasks.Add(Task.Run(async () =>
                     {
-                        var blobDownloadInfo = await blobClient.DownloadAsync(new HttpRange(offset.OffsetInFile, offset.ResourceLength));
-                        using var reader = new StreamReader(blobDownloadInfo.Value.Content);
-                        var line = await reader.ReadToEndAsync();
+                        var options = new BlobDownloadOptions() { Range = new HttpRange(offset.OffsetInFile, offset.ResourceLength) };
+                        var blobDownloadInfo = await blobClient.DownloadContentAsync(options);
+                        var line = blobDownloadInfo.Value.Content.ToString();
                         lock (results)
                         {
                             results.Add((file.Key, offset.OffsetInFile), line);
