@@ -54,7 +54,7 @@ jobs:
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
-            if(process.env.NO_MILESTONE) {
+            if(!!process.env.NO_MILESTONE) {
               errors += '- Add a milestone to the PR for the sprint that it is merged (i.e. add S47). \n';
             }
 
