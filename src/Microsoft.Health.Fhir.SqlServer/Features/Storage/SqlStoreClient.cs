@@ -9,6 +9,7 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -234,6 +235,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
+            var delayOnOverloadMilliseconds = 100;
             while (true)
             {
                 try
