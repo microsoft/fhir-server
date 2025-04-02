@@ -70,13 +70,15 @@ public class BlobRawResourceStore : IRawResourceStore
             {
                 resource.ResourceStorageIdentifier = storageIdentifier;
                 resource.ResourceStorageOffset = -1; // -1 indicates that the resource is not stored in blob storage.
+                resource.ResourceLength = 0;
                 continue;
             }
 
             resource.ResourceStorageIdentifier = storageIdentifier;
             resource.ResourceStorageOffset = offset;
+            resource.ResourceLength = Encoding.UTF8.GetByteCount(line);
 
-            offset += Encoding.UTF8.GetByteCount(line) + EndOfLine;
+            offset += resource.ResourceLength.Value + EndOfLine;
             await writer.WriteLineAsync(line);
         }
 

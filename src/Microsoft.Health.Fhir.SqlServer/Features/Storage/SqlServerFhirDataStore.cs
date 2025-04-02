@@ -171,11 +171,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResources = resources.Select(r => r.ResourceWrapper).ToList();
 
             await _blobRawResourceStore.WriteRawResourcesAsync(rawResources, transactionId, cancellationToken);
-            for (int i = 0; i < resources.Count; i++)
-            {
-                resources[i].ResourceStorageOffset = rawResources[i].ResourceStorageOffset;
-                resources[i].ResourceStorageIdentifier = rawResources[i].ResourceStorageIdentifier;
-            }
         }
 
         // TODO: This method will be removed once we move all operations to raw resource store
