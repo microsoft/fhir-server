@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -129,8 +130,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitNotReferenced(NotReferencedExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            // Need to add a target table alias, it isn't working right without it.
-            var referenceTargetTableAlias = string.IsNullOrEmpty(context.TableAlias) ? string.Empty : context.TableAlias + ".";
+            // This expression needs a table alias as it is using a subquery.
+            EnsureArg.IsNotNullOrEmpty(context.TableAlias, nameof(context.TableAlias));
+
+            var referenceTargetTableAlias = context.TableAlias + ".";
             var referenceSourceTableAlias = "refSource";
 
             context.StringBuilder.AppendLine("NOT EXISTS").AppendLine("(");
