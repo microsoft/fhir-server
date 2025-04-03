@@ -73,6 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _searchService = Substitute.For<ISearchService>();
 
+            _fhirDataStore.DataStoreType.Returns(KnownDataStores.SqlServer);
+
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
@@ -432,9 +434,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 var patient = Samples.GetDefaultPatient();
                 var resource = CreateMockResourceWrapper(patient, false);
 
-                _fhirDataStore.DataStoreType.Returns(KnownDataStores.SqlServer);
                 _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resource);
-
                 await _mediator.GetResourceAsync(new ResourceKey(resourceType, id));
 
                 Assert.True(validResourceType);
