@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using Polly;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -746,7 +747,7 @@ WAITFOR DELAY '00:00:01'
             Assert.Equal(createdId2, getResult2.Id);
         }
 
-        [Fact(Skip = "Not valid as transactions can only be set in scope of bundles")]
+        [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
@@ -754,34 +755,36 @@ WAITFOR DELAY '00:00:01'
 
             using (_ = _fixture.TransactionHandler.BeginTransaction())
             {
-                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                createdId = saveResult.RawResourceElement.Id;
-
-                Assert.NotEqual(string.Empty, createdId);
+                createdId = Guid.NewGuid().ToString();
+                var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(createdId), true, true, null, false, false, null);
+                var result = (await _dataStore.MergeAsync([resOp], new MergeOptions(true), CancellationToken.None)).First();
+                Assert.Equal(createdId, result.Key.Id);
+                Assert.Equal(SaveOutcomeType.Created, result.Value.UpsertOutcome.OutcomeType);
             }
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId)); });
         }
 
-        [Fact(Skip = "Not valid as transactions can only be set in scope of bundles")]
+        [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionFailsFailedRequest_ThenNothingShouldCommit()
         {
             string createdId = string.Empty;
-            string randomNotFoundId = Guid.NewGuid().ToString();
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 async () =>
                 {
                     using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
                     {
-                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                        createdId = saveResult.RawResourceElement.Id;
+                        createdId = Guid.NewGuid().ToString();
+                        var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(createdId), true, true, null, false, false, null);
+                        var result = (await _dataStore.MergeAsync([resOp], new MergeOptions(true), CancellationToken.None)).First();
+                        Assert.Equal(createdId, result.Key.Id);
+                        Assert.Equal(SaveOutcomeType.Created, result.Value.UpsertOutcome.OutcomeType);
 
-                        Assert.NotEqual(string.Empty, createdId);
-
-                        await Mediator.GetResourceAsync(new ResourceKey<Observation>(randomNotFoundId));
+                        // run get outside of current transaction -> not found
+                        await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId));
 
                         transactionScope.Complete();
                     }
