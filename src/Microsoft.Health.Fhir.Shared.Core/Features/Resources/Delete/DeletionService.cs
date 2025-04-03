@@ -136,6 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
                     versionType: request.VersionType,
                     onlyIds: true,
+                    isIncludesOperation: request.IsIncludesRequest,
                     logger: _logger);
             }
 
@@ -145,10 +146,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var deleteTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            if (AreIncludeResultsTruncated())
+            if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
             {
-                var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                // var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
+                // throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+
+                try
+                {
+                    ConditionalDeleteResourceRequest clonedRequest = request.Clone();
+                    clonedRequest.IsIncludesRequest = true;
+                    var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
+                    {
+                        (KnownQueryParameterNames.ContinuationToken, ct),
+                    };
+                    clonedRequest.ConditionalParameters = cloneList;
+                    var subresult = await DeleteMultipleAsync(clonedRequest, cancellationToken);
+                    if (subresult != null)
+                    {
+
+                    }
+                }
+                catch (IncompleteOperationException<Dictionary<string, long>>)
+                {
+
+                }
             }
 
             // Delete the matched results...
@@ -193,13 +214,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 ct,
                                 request.VersionType,
                                 onlyIds: true,
+                                isIncludesOperation: request.IsIncludesRequest,
                                 logger: _logger);
                         }
 
                         if (AreIncludeResultsTruncated())
                         {
-                            tooManyIncludeResults = true;
-                            break;
+                            try
+                            {
+                                ConditionalDeleteResourceRequest clonedRequest = request.Clone();
+                                clonedRequest.IsIncludesRequest = true;
+                                var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
+                                {
+                                    (KnownQueryParameterNames.ContinuationToken, ct),
+                                };
+                                clonedRequest.ConditionalParameters = cloneList;
+                                var subresult = await DeleteMultipleAsync(clonedRequest, cancellationToken);
+                            }
+                            catch (IncompleteOperationException<Dictionary<string, long>>)
+                            {
+
+                            }
                         }
                     }
                     else
