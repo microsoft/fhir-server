@@ -7,15 +7,13 @@ namespace Microsoft.Health.Fhir.Blob.Features.Common;
 
 internal class BlobStoreConfigurationSection : IStoreConfigurationSection
 {
-    internal BlobStoreConfigurationSection()
+    public BlobStoreConfigurationSection()
     {
         ConfigurationSectionName = BlobConstants.BlobStoreConfigurationSection;
         ContainerConfigurationName = BlobConstants.BlobContainerConfigurationName;
     }
 
-    public new string ContainerConfigurationName { get; }
+    public override string ContainerConfigurationName { get; }
 
-    public new string ConfigurationSectionName { get; }
-
-    public string ContainerName { get; set; }
+    public override string ConfigurationSectionName { get; }
 }

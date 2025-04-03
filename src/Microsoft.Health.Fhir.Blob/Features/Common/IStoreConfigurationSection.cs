@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Blob.Features.Common;
 
 public class IStoreConfigurationSection
 {
-    public string ConfigurationSectionName { get; }
+    public virtual string ConfigurationSectionName { get; }
 
-    public string ContainerConfigurationName { get; }
+    public virtual string ContainerConfigurationName { get; }
 }

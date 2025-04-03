@@ -31,14 +31,10 @@ public static class FhirServerBlobRegistrationExtensions
             .AddOptions<BlobOperationOptions>()
             .Bind(blobConfig.GetSection(nameof(BlobServiceClientOptions.Operations)));
 
-        services.AddOptions<BlobStoreConfigurationSection>()
-            .Bind(blobConfig.GetSection(BlobConstants.BlobStoreConfigurationSection));
-
         services.AddOptions<BlobContainerConfiguration>(BlobConstants.BlobContainerConfigurationName)
             .Bind(configuration.GetSection(BlobConstants.BlobStoreConfigurationSection));
 
         services.AddSingleton<BlobStoreConfigurationSection>()
-            .AddTransient<IStoreConfigurationSection>(sp => sp.GetRequiredService<BlobStoreConfigurationSection>())
             .AddBlobContainerInitialization(x => blobConfig
                 .GetSection(BlobInitializerOptions.DefaultSectionName)
                 .Bind(x))
