@@ -7,7 +7,6 @@ namespace Microsoft.Health.Fhir.Blob.Features.Common;
 
 public static class BlobConstants
 {
-    // public const string BlobRawResourceContainerName = "fhirresources";
-    public const string BlobStoreConfigurationSection = "FhirResourceStore";
+    public const string BlobStoreConfigurationSection = "BlobStore:FhirResourceStore";
     public const string BlobContainerConfigurationName = "fhirBlob";
 }

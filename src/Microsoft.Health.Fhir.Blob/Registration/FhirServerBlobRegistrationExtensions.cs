@@ -31,9 +31,6 @@ public static class FhirServerBlobRegistrationExtensions
             .AddOptions<BlobOperationOptions>()
             .Bind(blobConfig.GetSection(nameof(BlobServiceClientOptions.Operations)));
 
-        services.AddOptions<BlobContainerConfiguration>(BlobConstants.BlobContainerConfigurationName)
-            .Bind(configuration.GetSection(BlobConstants.BlobStoreConfigurationSection));
-
         services.AddSingleton<BlobStoreConfigurationSection>()
             .AddBlobContainerInitialization(x => blobConfig
                 .GetSection(BlobInitializerOptions.DefaultSectionName)

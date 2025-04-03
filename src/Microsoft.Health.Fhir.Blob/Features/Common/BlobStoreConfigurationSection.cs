@@ -5,6 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Blob.Features.Common;
 
+/// <summary>
+/// This class is used to pass the named blob container configuration section to the blob health check.
+/// </summary>
 public class BlobStoreConfigurationSection
 {
     public BlobStoreConfigurationSection()
