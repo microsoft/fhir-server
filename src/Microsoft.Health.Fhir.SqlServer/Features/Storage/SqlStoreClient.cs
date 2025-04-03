@@ -9,6 +9,7 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -234,6 +235,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
+            var delayOnOverloadMilliseconds = 100;
             while (true)
             {
                 try
@@ -243,9 +245,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
+                    var sqlEx = e as SqlException;
+                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: MergeResources concurrent calls is above optimal. Delay={delayOnOverloadMilliseconds} milliseconds.");
+
+                        // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
+                        await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
+                        delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
+                        continue;
+                    }
+
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: timeoutRetries={{TimeoutRetries}}", timeoutRetries);
                         await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
                         await Task.Delay(5000, cancellationToken);
                         continue;
