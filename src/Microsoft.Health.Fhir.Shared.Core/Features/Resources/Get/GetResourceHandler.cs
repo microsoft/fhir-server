@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
             else
             {
-                if (!string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
+                if (KnownDataStores.IsSqlServerDataStore(FhirDataStore.DataStoreType) && !string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
                 {
                     throw new ResourceNotSupportedException(key.ResourceType);
                 }
