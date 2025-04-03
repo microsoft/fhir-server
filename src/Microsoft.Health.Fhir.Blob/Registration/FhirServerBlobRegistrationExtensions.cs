@@ -59,7 +59,7 @@ public static class FhirServerBlobRegistrationExtensions
                 .Bind(x));
 
         services
-            .AddBlobHealthCheck<FhirBlobHealthCheck<BlobStoreConfigurationSection>>("FhirBlobHealthCheck");
+            .AddBlobHealthCheck<FhirBlobHealthCheck>("FhirBlobHealthCheck");
 
         return fhirServerBuilder;
     }

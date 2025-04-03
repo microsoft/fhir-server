@@ -15,8 +15,7 @@ using Microsoft.Health.Fhir.Blob.Features.Common;
 
 namespace Microsoft.Health.Fhir.Blob.Features.Health;
 
-public class FhirBlobHealthCheck<TStoreConfigurationSection> : BlobHealthCheck
-    where TStoreConfigurationSection : IStoreConfigurationSection
+public class FhirBlobHealthCheck : BlobHealthCheck
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="DicomBlobHealthCheck{TStoreConfigurationSection}"/> class.
@@ -30,10 +29,10 @@ public class FhirBlobHealthCheck<TStoreConfigurationSection> : BlobHealthCheck
     public FhirBlobHealthCheck(
         BlobServiceClient client,
         IOptionsSnapshot<BlobContainerConfiguration> namedBlobContainerConfigurationAccessor,
-        TStoreConfigurationSection storeConfigurationSection,
+        BlobStoreConfigurationSection storeConfigurationSection,
         IBlobClientTestProvider testProvider,
         ValueCache<CustomerKeyHealth> customerKeyHealthCache,
-        ILogger<FhirBlobHealthCheck<TStoreConfigurationSection>> logger)
+        ILogger<FhirBlobHealthCheck> logger)
         : base(
               client,
               namedBlobContainerConfigurationAccessor,
