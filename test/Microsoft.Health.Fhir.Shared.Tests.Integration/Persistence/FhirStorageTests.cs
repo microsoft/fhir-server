@@ -706,7 +706,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(createdId2, getResult2.Id);
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid as transactions can only be set in scope of bundles")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
@@ -724,7 +724,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId)); });
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid as transactions can only be set in scope of bundles")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionFailsFailedRequest_ThenNothingShouldCommit()
         {
