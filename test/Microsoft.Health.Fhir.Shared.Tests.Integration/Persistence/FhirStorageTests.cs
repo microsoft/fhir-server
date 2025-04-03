@@ -113,9 +113,11 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task DatabaseMergeThrottling()
+        public async Task DatabaseMergeThrottling(bool useDefaultMergeOptions)
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
 
@@ -128,12 +130,21 @@ CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE -- This should ma
 AS
 WAITFOR DELAY '00:00:01'
                     ");
+            var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
             await Parallel.ForAsync(0, 8, async (i, cancell) =>
             {
                 var iInt = i;
                 Thread.Sleep(100 * iInt); // do not start all merges at once
-                var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
-                await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // throttling works only w/o C# transaction, hence MergeOptions(false)
+                if (useDefaultMergeOptions)
+                {
+                    patient.Id = Guid.NewGuid().ToString();
+                    await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // thought it uses default merge options but it should not enlist in transaction anymore
+                }
+                else
+                {
+                    var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
+                    await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // throttling works only w/o C# transaction, hence MergeOptions(false)
+                }
             });
             await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
