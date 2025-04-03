@@ -7,7 +7,10 @@ using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Blob.Configs;
+using Microsoft.Health.Blob.Features.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Blob.Features.Common;
+using Microsoft.Health.Fhir.Blob.Features.Health;
 using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -21,10 +24,27 @@ public static class FhirServerBlobRegistrationExtensions
         EnsureArg.IsNotNull(configuration, nameof(configuration));
         IServiceCollection services = fhirServerBuilder.Services;
 
+        var config = new BlobStoreConfigurationSection();
+
         IConfigurationSection blobConfig = configuration.GetSection(BlobServiceClientOptions.DefaultSectionName);
         services
             .AddOptions<BlobOperationOptions>()
             .Bind(blobConfig.GetSection(nameof(BlobServiceClientOptions.Operations)));
+
+        services.AddOptions<BlobStoreConfigurationSection>()
+            .Bind(blobConfig.GetSection(BlobConstants.BlobStoreConfigurationSection));
+
+        services.AddOptions<BlobContainerConfiguration>(BlobConstants.BlobContainerConfigurationName)
+            .Bind(configuration.GetSection(BlobConstants.BlobStoreConfigurationSection));
+
+        services.AddSingleton<BlobStoreConfigurationSection>()
+            .AddTransient<IStoreConfigurationSection>(sp => sp.GetRequiredService<BlobStoreConfigurationSection>())
+            .AddBlobContainerInitialization(x => blobConfig
+                .GetSection(BlobInitializerOptions.DefaultSectionName)
+                .Bind(x))
+            .ConfigureContainer(config.ContainerConfigurationName, x => configuration
+                .GetSection(config.ConfigurationSectionName)
+                .Bind(x));
 
         services.Add<BlobStoreClient>()
             .Singleton()
@@ -42,6 +62,19 @@ public static class FhirServerBlobRegistrationExtensions
                 .GetSection(BlobInitializerOptions.DefaultSectionName)
                 .Bind(x));
 
+        services
+            .AddBlobHealthCheck<FhirBlobHealthCheck<BlobStoreConfigurationSection>>("FhirBlobHealthCheck");
+
         return fhirServerBuilder;
+    }
+
+    internal static IServiceCollection AddBlobHealthCheck<TBlobHealthCheck>(this IServiceCollection services, string name)
+        where TBlobHealthCheck : BlobHealthCheck
+    {
+        services
+            .AddHealthChecks()
+            .AddCheck<TBlobHealthCheck>(name: name);
+
+        return services;
     }
 }
