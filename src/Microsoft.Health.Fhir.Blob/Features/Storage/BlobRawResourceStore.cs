@@ -51,6 +51,7 @@ public class BlobRawResourceStore : IRawResourceStore
     public async Task<IReadOnlyList<ResourceWrapper>> WriteRawResourcesAsync(IReadOnlyList<ResourceWrapper> rawResources, long storageIdentifier, CancellationToken cancellationToken = default)
     {
         EnsureArg.IsNotNull(rawResources, nameof(rawResources));
+        EnsureArg.IsGt(rawResources.Count, 0);
         EnsureArg.IsGte(storageIdentifier, 0, nameof(storageIdentifier));
 
         Stopwatch timer = Stopwatch.StartNew();
@@ -105,6 +106,7 @@ public class BlobRawResourceStore : IRawResourceStore
     public async Task<Dictionary<RawResourceLocator, string>> ReadRawResourcesAsync(IReadOnlyList<RawResourceLocator> rawResourceLocators, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(rawResourceLocators, nameof(rawResourceLocators));
+        EnsureArg.IsGte(rawResourceLocators.Count, 0);
         var completeRawResources = new Dictionary<RawResourceLocator, string>();
 
         Stopwatch timer = Stopwatch.StartNew();
@@ -112,6 +114,9 @@ public class BlobRawResourceStore : IRawResourceStore
 
         var tasks = rawResourceLocators.Select(async resourceLocator =>
         {
+            EnsureArg.IsGt(resourceLocator.RawResourceStorageIdentifier, 0);
+            EnsureArg.IsGt(resourceLocator.RawResourceLength, 0);
+            EnsureArg.IsGte(resourceLocator.RawResourceLength, 0);
             BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(resourceLocator.RawResourceStorageIdentifier);
             var options = new BlobDownloadOptions() { Range = new HttpRange(resourceLocator.RawResourceOffset, resourceLocator.RawResourceLength) };
 

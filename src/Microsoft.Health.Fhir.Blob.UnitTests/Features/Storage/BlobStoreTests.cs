@@ -96,31 +96,6 @@ public class BlobStoreTests
         return resourceWrapper;
     }
 
-    /// <summary>
-    /// Creates a test resource wrapper with the specified storage identifier and offset.
-    /// </summary>
-    /// <param name="storageIdentifier">The storage identifier for the resource.</param>
-    /// <param name="offset">The offset within the storage for the resource.</param>
-    /// <returns>A <see cref="ResourceWrapper"/> instance with the specified storage identifier and offset.</returns>
-    internal static ResourceWrapper CreateTestResourceWrapper(long storageIdentifier, int offset)
-    {
-        var resourceWrapper = new ResourceWrapper(
-            "resourceId",
-            "versionId",
-            "resourceTypeName",
-            null,
-            null,
-            DateTimeOffset.UtcNow,
-            false,
-            null,
-            null,
-            null);
-
-        resourceWrapper.ResourceStorageIdentifier = storageIdentifier;
-        resourceWrapper.ResourceStorageOffset = offset;
-        return resourceWrapper;
-    }
-
     internal IReadOnlyList<ResourceWrapper> GetResourceWrappersWithData()
     {
         var resourceWrappers = new List<ResourceWrapper>();
@@ -165,7 +140,8 @@ public class BlobStoreTests
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(new System.Exception());
 
-        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
+        var resources = GetResourceWrappersWithData();
+        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
 
         Assert.Equal(Resources.RawResourceStoreOperationFailed, ex.Message);
     }
@@ -195,6 +171,7 @@ public class BlobStoreTests
     {
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
 
+        var resources = GetResourceWrappersWithData();
         RequestFailedException requestFailedAuthException = new RequestFailedException(
             status: 400,
             message: "auth failed simulation",
@@ -203,7 +180,7 @@ public class BlobStoreTests
 
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
 
-        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(Substitute.For<IReadOnlyList<ResourceWrapper>>(), DefaultStorageIdentifier, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
         Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed), ex.Message);
     }
 
@@ -299,5 +276,45 @@ public class BlobStoreTests
             Assert.Equal(resourceWrappersMetaData[i].ResourceStorageIdentifier, resourceLocators[i].RawResourceStorageIdentifier);
             Assert.Equal(resourceWrappersMetaData[i].ResourceStorageOffset, resourceLocators[i].RawResourceOffset);
         }
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenWritingEmptyResourceList_ThenThrowArgumentException()
+    {
+        // Arrange
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => blobFileStore.WriteRawResourcesAsync(new List<ResourceWrapper>(), DefaultStorageIdentifier, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenWritingValidResources_ThenValidateStorageDetails()
+    {
+        // Arrange
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
+
+        var resourceWrappers = GetResourceWrappersWithData();
+
+        // Act
+        var result = await blobFileStore.WriteRawResourcesAsync(resourceWrappers, DefaultStorageIdentifier, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(resourceWrappers.Count, result.Count);
+        Assert.All(result, r => Assert.Equal(DefaultStorageIdentifier, r.ResourceStorageIdentifier));
+    }
+
+    [Fact]
+    public async Task GivenResourceStore_WhenReadingNonExistentResource_ThenThrowResourceNotFoundException()
+    {
+        // Arrange
+        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
+
+        var nonExistentKey = new RawResourceLocator(-1, -1, -1); // Invalid key
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { nonExistentKey }, CancellationToken.None));
     }
 }
