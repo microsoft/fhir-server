@@ -89,7 +89,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
+                IImportErrorStore importErrorStore;
+                string errorFileName = GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id);
+
+                if (string.IsNullOrEmpty(definition.ErrorContainerName))
+                {
+                    importErrorStore = await _importErrorStoreFactory.InitializeAsync(errorFileName, cancellationToken);
+                }
+                else
+                {
+                    importErrorStore = await _importErrorStoreFactory.InitializeAsync(definition.ErrorContainerName, errorFileName, cancellationToken);
+                }
+
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
@@ -166,6 +177,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
+            }
+            catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = "Error container name contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed. The name must begin and end with a letter or a number. The name can't contain two consecutive hyphens.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(error.ErrorMessage, error, ex);
+            }
+            catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name length is not within the permissible limits", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogJobError(ex, jobInfo, ex.Message);
+                var error = new ImportJobErrorResult() { ErrorMessage = "The error container name must be between 3 and 63 characters long.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(error.ErrorMessage, error, ex);
             }
             catch (Exception ex)
             {
