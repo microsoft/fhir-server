@@ -74,6 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
             else
             {
+                if (KnownDataStores.IsSqlServerDataStore(FhirDataStore.DataStoreType) && !string.IsNullOrWhiteSpace(key?.ResourceType) && !ModelInfoProvider.IsKnownResource(key.ResourceType, false))
+                {
+                    throw new ResourceNotSupportedException(key.ResourceType);
+                }
+
                 currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
             }
 

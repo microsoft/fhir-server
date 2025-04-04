@@ -21,6 +21,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -71,6 +72,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _searchService = Substitute.For<ISearchService>();
+
+            _fhirDataStore.DataStoreType.Returns(KnownDataStores.SqlServer);
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
@@ -419,6 +422,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
+        }
+
+        [Theory]
+        [InlineData("Patient", "1234", true)]
+        [InlineData("patient", "1234", false)]
+        public async Task GivenAFhirMediator_GettingAnResourceByWrongCasingResurceType_ThenAResponseShouldBeBadRequest(string resourceType, string id, bool validResourceType)
+        {
+            try
+            {
+                var patient = Samples.GetDefaultPatient();
+                var resource = CreateMockResourceWrapper(patient, false);
+
+                _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resource);
+                await _mediator.GetResourceAsync(new ResourceKey(resourceType, id));
+
+                Assert.True(validResourceType);
+                await _fhirDataStore.Received(1).GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+            }
+            catch (ResourceNotSupportedException)
+            {
+                Assert.False(validResourceType);
+                await _fhirDataStore.DidNotReceiveWithAnyArgs().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+            }
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

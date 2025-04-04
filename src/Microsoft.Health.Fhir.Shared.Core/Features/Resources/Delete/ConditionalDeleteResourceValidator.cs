@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
 
             RuleFor(x => x.ResourceType)
-                .Must(modelInfoProvider.IsKnownResource)
+                .Must(x => modelInfoProvider.IsKnownResource(x))
                 .WithMessage(request => string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourceNotSupported, request.ResourceType));
 
             RuleFor(x => x.ConditionalParameters)
