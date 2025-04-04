@@ -77,8 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 response,
                 patientResources,
                 relatedResources,
-                _fixture.PatientResources.Count,
-                _fixture.RelatedResources.Count);
+                supportsIncludes);
             ValidateLinks(
                 response,
                 KnownResourceTypes.Patient,
@@ -193,8 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirResponse<Bundle> response,
             IList<Resource> patientResources,
             IList<Resource> relatedResources,
-            int totalPatientResourceCount,
-            int totalRelatedResourceCount)
+            bool supportsIncludes)
         {
             var expectedResources = patientResources.Concat(relatedResources).ToList();
             var actualResources = response.Resource.Entry
@@ -204,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(
                 actualResources,
                 x => expectedResources.Any(y => y.IsExactly(x)));
-            if (patientResources.Count < totalPatientResourceCount || relatedResources.Count < totalRelatedResourceCount)
+            if (actualResources.Count < expectedResources.Count)
             {
                 var operationOutcomeResources = response.Resource.Entry
                     .Select(x => x.Resource)
@@ -216,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     x => x.Issue.Any(
                         y => y.Severity == OperationOutcome.IssueSeverity.Warning
                             && y.Code == OperationOutcome.IssueType.Incomplete
-                            && (y.Diagnostics?.Equals(Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
+                            && (y.Diagnostics?.Equals(supportsIncludes ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase) ?? false)));
             }
         }
 
