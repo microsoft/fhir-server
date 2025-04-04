@@ -146,29 +146,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var deleteTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+            // If there is more than one page of results included then delete all included results for the first page of resources.
             if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
             {
-                // var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                // throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
-
                 try
                 {
                     ConditionalDeleteResourceRequest clonedRequest = request.Clone();
                     clonedRequest.IsIncludesRequest = true;
                     var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
                     {
-                        (KnownQueryParameterNames.ContinuationToken, ct),
+                        Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                     };
                     clonedRequest.ConditionalParameters = cloneList;
                     var subresult = await DeleteMultipleAsync(clonedRequest, cancellationToken);
+
                     if (subresult != null)
                     {
-
+                        resourceTypesDeleted = (Dictionary<string, long>)subresult;
                     }
                 }
-                catch (IncompleteOperationException<Dictionary<string, long>>)
+                catch (IncompleteOperationException<Dictionary<string, long>> ex)
                 {
-
+                    _logger.LogError(ex, "Error with include delete");
+                    throw new IncompleteOperationException<Dictionary<string, long>>(ex, ex.PartialResults);
                 }
             }
 
@@ -218,7 +218,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 logger: _logger);
                         }
 
-                        if (AreIncludeResultsTruncated())
+                        // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
+                        if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
                         {
                             try
                             {
@@ -226,14 +227,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 clonedRequest.IsIncludesRequest = true;
                                 var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
                                 {
-                                    (KnownQueryParameterNames.ContinuationToken, ct),
+                                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                                 };
                                 clonedRequest.ConditionalParameters = cloneList;
                                 var subresult = await DeleteMultipleAsync(clonedRequest, cancellationToken);
-                            }
-                            catch (IncompleteOperationException<Dictionary<string, long>>)
-                            {
 
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { (Dictionary<string, long>)subresult });
+                            }
+                            catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                            {
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { ex.PartialResults });
+                                _logger.LogError(ex, "Error with include delete");
+                                throw;
                             }
                         }
                     }

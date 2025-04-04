@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         {
             return new ConditionalDeleteResourceRequest(
                 ResourceType,
-                ConditionalParameters,
+                new List<Tuple<string, string>>(ConditionalParameters),
                 DeleteOperation,
                 MaxDeleteCount,
                 BundleResourceContext,
