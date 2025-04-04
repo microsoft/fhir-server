@@ -138,12 +138,12 @@ WAITFOR DELAY '00:00:01'
                 if (useDefaultMergeOptions)
                 {
                     patient.Id = Guid.NewGuid().ToString();
-                    await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // thought it uses default merge options but it should not enlist in transaction anymore
+                    await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // try enlist in tran w/o tran scope
                 }
                 else
                 {
                     var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
-                    await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // throttling works only w/o C# transaction, hence MergeOptions(false)
+                    await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // do not enlist in tran
                 }
             });
             await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
