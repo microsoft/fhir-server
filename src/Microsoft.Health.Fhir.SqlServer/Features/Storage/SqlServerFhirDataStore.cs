@@ -16,6 +16,7 @@ using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -55,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlStoreClient _sqlStoreClient;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly SqlTransactionHandler _sqlTransactionHandler;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
@@ -72,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IBundleOrchestrator bundleOrchestrator,
             ISqlRetryService sqlRetryService,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            SqlTransactionHandler sqlTransactionHandler,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
@@ -87,6 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _sqlStoreClient = EnsureArg.IsNotNull(storeClient, nameof(storeClient));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlTransactionHandler = EnsureArg.IsNotNull(sqlTransactionHandler, nameof(sqlTransactionHandler));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -719,7 +723,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
 
-            if (enlistInTransaction)
+            if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
             {
                 using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
                 cmd.Connection = conn.SqlConnection;

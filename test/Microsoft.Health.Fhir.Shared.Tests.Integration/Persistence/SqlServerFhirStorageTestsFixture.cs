@@ -239,6 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 bundleOrchestrator,
                 SqlRetryService,
                 SqlConnectionWrapperFactory,
+                SqlTransactionHandler,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
