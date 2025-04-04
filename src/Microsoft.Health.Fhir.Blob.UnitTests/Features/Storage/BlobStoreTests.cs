@@ -37,7 +37,14 @@ public class BlobStoreTests
 
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
-    internal static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
+
+    private readonly BlobRawResourceStore _blobFileStore;
+    private readonly TestBlobClient _client;
+
+    public BlobStoreTests()
+    {
+        InitializeBlobStore(out _blobFileStore, out _client);
+    }
 
     internal static void InitializeBlobStore(out BlobRawResourceStore blobStore, out TestBlobClient blobClient)
     {
@@ -75,28 +82,7 @@ public class BlobStoreTests
         return resourceWrapper;
     }
 
-    internal static ResourceWrapper CreateTestResourceWrapper(long storageIdentifier, int offset, string rawResourceContent)
-    {
-        var rawResource = Substitute.For<RawResource>(rawResourceContent, FhirResourceFormat.Json, false);
-        var resourceWrapper = new ResourceWrapper(
-            "resourceId",
-            "versionId",
-            "resourceTypeName",
-            rawResource,
-            null,
-            DateTimeOffset.UtcNow,
-            false,
-            null,
-            null,
-            null);
-
-        resourceWrapper.ResourceStorageIdentifier = storageIdentifier;
-        resourceWrapper.ResourceStorageOffset = offset;
-        resourceWrapper.ResourceLength = Encoding.UTF8.GetByteCount(rawResourceContent);
-        return resourceWrapper;
-    }
-
-    internal IReadOnlyList<ResourceWrapper> GetResourceWrappersWithData()
+    internal IReadOnlyList<ResourceWrapper> GetResourceWrappersWithData(bool forReadTest = false)
     {
         var resourceWrappers = new List<ResourceWrapper>();
         using var stream = GetBlobDownloadStreamingPartialResult(0);
@@ -106,42 +92,27 @@ public class BlobStoreTests
 
         while ((line = reader.ReadLine()) != null)
         {
-            characterPosition += Encoding.UTF8.GetByteCount(line) + EndOfLine;
             var resourceWrapper = CreateTestResourceWrapper(line);
             resourceWrappers.Add(resourceWrapper);
+            if (forReadTest)
+            {
+                resourceWrapper.ResourceStorageIdentifier = DefaultStorageIdentifier;
+                resourceWrapper.ResourceStorageOffset = characterPosition;
+                resourceWrapper.ResourceLength = Encoding.UTF8.GetByteCount(line);
+                characterPosition += Encoding.UTF8.GetByteCount(line) + BlobRawResourceStore.EndOfLine;
+            }
         }
 
         return resourceWrappers;
     }
 
-    internal static IReadOnlyList<ResourceWrapper> GetResourceWrappersMetaData(IReadOnlyList<ResourceWrapper> resources)
-    {
-        var resourceWrappersWithMetadata = new List<ResourceWrapper>();
-        int lastOffset = 0;
-
-        for (int i = 0; i < resources.Count; i++)
-        {
-            var tempResourceWrapper = CreateTestResourceWrapper(DefaultStorageIdentifier, lastOffset, resources[i].RawResource.Data);
-            resourceWrappersWithMetadata.Add(tempResourceWrapper);
-
-            // No need to process length of last resource, since offset for next resource doesn't exist
-            if (i < resources.Count - 1)
-            {
-                lastOffset = lastOffset + resources[i].RawResource.Data.Length + BlobRawResourceStore.EndOfLine;
-            }
-        }
-
-        return resourceWrappersWithMetadata;
-    }
-
     [Fact]
     public async Task GivenResourceStore_WhenUploadFails_ThenThrowExceptionWithRightMessage()
     {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(new System.Exception());
+        _client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(new System.Exception());
 
         var resources = GetResourceWrappersWithData();
-        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => _blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
 
         Assert.Equal(Resources.RawResourceStoreOperationFailed, ex.Message);
     }
@@ -149,11 +120,10 @@ public class BlobStoreTests
     [Fact]
     public async Task GivenResourceStore_WhenUploadSucceeds_ThenValidateStorageDetails()
     {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
+        _client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
 
         var resources = GetResourceWrappersWithData();
-        var result = await blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None);
+        var result = await _blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None);
 
         int offset = 0;
         Assert.NotNull(result);
@@ -162,15 +132,13 @@ public class BlobStoreTests
             Assert.Equal(DefaultStorageIdentifier, result[i].ResourceStorageIdentifier);
             Assert.Equal(offset, result[i].ResourceStorageOffset);
             Assert.Equal(Encoding.UTF8.GetByteCount(resources[i].RawResource.Data), result[i].ResourceLength);
-            offset += Encoding.UTF8.GetByteCount(resources[i].RawResource.Data) + EndOfLine;
+            offset += Encoding.UTF8.GetByteCount(resources[i].RawResource.Data) + BlobRawResourceStore.EndOfLine;
         }
     }
 
     [Fact]
     public async Task GivenResourceStore_WhenUploadFails_ThenThrowExceptionWithRightMessageAndErrorCode()
     {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-
         var resources = GetResourceWrappersWithData();
         RequestFailedException requestFailedAuthException = new RequestFailedException(
             status: 400,
@@ -178,9 +146,9 @@ public class BlobStoreTests
             errorCode: BlobErrorCode.AuthenticationFailed.ToString(),
             innerException: new Exception("super secret inner info"));
 
-        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
+        _client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Throws(requestFailedAuthException);
 
-        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<RawResourceStoreException>(() => _blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None));
         Assert.Equal(string.Format(CultureInfo.InvariantCulture, Resources.RawResourceStoreOperationFailedWithError, BlobErrorCode.AuthenticationFailed), ex.Message);
     }
 
@@ -220,8 +188,7 @@ public class BlobStoreTests
     public async Task GivenResourceStore_WhenReadingSingleResource_ThenValidateContent()
     {
         // Arrange
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
+        var resourceWrappersMetaData = GetResourceWrappersWithData(true);
 
         var key = new RawResourceLocator(
             resourceWrappersMetaData[0].ResourceStorageIdentifier,
@@ -233,12 +200,12 @@ public class BlobStoreTests
         var response = Substitute.For<Response<BlobDownloadResult>>();
         response.Value.Returns(blobDownloadResult);
 
-        client.BlockBlobClient
+        _client.BlockBlobClient
             .DownloadContentAsync(Arg.Any<BlobDownloadOptions>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(response));
 
         // Act
-        var result = await blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { key }, CancellationToken.None);
+        var result = await _blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { key }, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
@@ -249,8 +216,7 @@ public class BlobStoreTests
     [Fact]
     public async Task GivenResourceStore_WhenReadingMultipleResources_ThenValidateContents()
     {
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
+        var resourceWrappersMetaData = GetResourceWrappersWithData(true);
 
         var resourceLocators = resourceWrappersMetaData.Select(wrapper => new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset, wrapper.ResourceLength)).ToList();
         var responses = resourceWrappersMetaData.Select(wrapper =>
@@ -261,11 +227,11 @@ public class BlobStoreTests
             return response;
         }).ToList();
 
-        client.BlockBlobClient
+        _client.BlockBlobClient
             .DownloadContentAsync(Arg.Any<BlobDownloadOptions>(), Arg.Any<CancellationToken>())
             .Returns(responses[0], responses[1], responses[2]);
 
-        var result = await blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
+        var result = await _blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(resourceWrappersMetaData.Count, result.Count);
@@ -282,23 +248,21 @@ public class BlobStoreTests
     public async Task GivenResourceStore_WhenWritingEmptyResourceList_ThenThrowArgumentException()
     {
         // Arrange
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => blobFileStore.WriteRawResourcesAsync(new List<ResourceWrapper>(), DefaultStorageIdentifier, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _blobFileStore.WriteRawResourcesAsync(new List<ResourceWrapper>(), DefaultStorageIdentifier, CancellationToken.None));
     }
 
     [Fact]
     public async Task GivenResourceStore_WhenWritingValidResources_ThenValidateStorageDetails()
     {
         // Arrange
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
-        client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
+        _client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
 
         var resourceWrappers = GetResourceWrappersWithData();
 
         // Act
-        var result = await blobFileStore.WriteRawResourcesAsync(resourceWrappers, DefaultStorageIdentifier, CancellationToken.None);
+        var result = await _blobFileStore.WriteRawResourcesAsync(resourceWrappers, DefaultStorageIdentifier, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
@@ -310,11 +274,10 @@ public class BlobStoreTests
     public async Task GivenResourceStore_WhenReadingNonExistentResource_ThenThrowResourceNotFoundException()
     {
         // Arrange
-        InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
 
         var nonExistentKey = new RawResourceLocator(-1, -1, -1); // Invalid key
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { nonExistentKey }, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { nonExistentKey }, CancellationToken.None));
     }
 }
