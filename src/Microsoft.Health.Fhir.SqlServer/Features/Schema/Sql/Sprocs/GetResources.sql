@@ -29,6 +29,7 @@ BEGIN TRY
             ,SearchParamHash
             ,FileId
             ,OffsetInFile
+            ,ResourceLength
         FROM (SELECT * FROM @ResourceKeys) A
              INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
              INNER LOOP JOIN dbo.Resource C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.Version = A.Version
@@ -46,6 +47,7 @@ BEGIN TRY
                     ,SearchParamHash
                     ,FileId
                     ,OffsetInFile
+                    ,ResourceLength
                 FROM (SELECT * FROM @ResourceKeys WHERE Version IS NOT NULL) A
                      INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
                      INNER LOOP JOIN dbo.Resource C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.Version = A.Version
@@ -61,6 +63,7 @@ BEGIN TRY
                     ,SearchParamHash
                     ,FileId
                     ,OffsetInFile
+                    ,ResourceLength
                 FROM (SELECT * FROM @ResourceKeys WHERE Version IS NULL) A
                      INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
                      INNER LOOP JOIN dbo.CurrentResources C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt AND C.IsHistory = 0
@@ -79,6 +82,7 @@ BEGIN TRY
           ,SearchParamHash
           ,FileId
           ,OffsetInFile
+          ,ResourceLength
       FROM (SELECT * FROM @ResourceKeys) A
            INNER LOOP JOIN dbo.ResourceIdIntMap B WITH (INDEX = U_ResourceIdIntMap_ResourceId_ResourceTypeId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
            INNER LOOP JOIN dbo.CurrentResources C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = B.ResourceIdInt

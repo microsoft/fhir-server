@@ -210,6 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     StringBuilder.Append(", ").Append(VLatest.Resource.FileId, resourceTableAlias);
                     StringBuilder.Append(", ").Append(VLatest.Resource.OffsetInFile, resourceTableAlias);
+                    StringBuilder.Append(", ").Append(VLatest.Resource.ResourceLength, resourceTableAlias);
                 }
 
                 if (IsSortValueNeeded(context))

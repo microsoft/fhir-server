@@ -24,6 +24,7 @@ BEGIN TRY
         ,MatchedRawResource = D.RawResource
         ,MatchedFileId = D.FileId
         ,MatchedOffsetInFile = D.OffsetInFile
+        ,MatchedResourceLength = D.ResourceLength
         -- ResourceIndex allows to deal with more than one late arrival per resource 
     FROM (SELECT TOP (@DummyTop) A.*, M.ResourceIdInt, ResourceIndex = convert(int,row_number() OVER (PARTITION BY A.ResourceTypeId, A.ResourceId ORDER BY ResourceSurrogateId DESC)) 
             FROM @ResourceDateKeys A

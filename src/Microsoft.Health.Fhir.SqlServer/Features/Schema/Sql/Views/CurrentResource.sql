@@ -15,6 +15,7 @@ SELECT A.ResourceTypeId
       ,HistoryTransactionId
       ,FileId
       ,OffsetInFile
+        ,ResourceLength
   FROM dbo.CurrentResources A
        LEFT OUTER JOIN dbo.RawResources B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
        LEFT OUTER JOIN dbo.ResourceIdIntMap C ON C.ResourceTypeId = A.ResourceTypeId AND C.ResourceIdInt = A.ResourceIdInt

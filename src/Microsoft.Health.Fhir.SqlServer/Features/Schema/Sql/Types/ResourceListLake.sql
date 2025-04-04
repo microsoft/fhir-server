@@ -16,6 +16,7 @@ CREATE TYPE dbo.ResourceListLake AS TABLE
    ,SearchParamHash      varchar(64)         NULL
    ,FileId               bigint              NULL
    ,OffsetInFile         int                 NULL
+   ,ResourceLength       int              NULL
 
     PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
    ,UNIQUE (ResourceTypeId, ResourceId, Version)
