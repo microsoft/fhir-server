@@ -37,9 +37,7 @@ public class BlobStoreTests
 
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
     protected const long DefaultStorageIdentifier = 101010101010;
-    protected const long SecondaryStorageIdentifier = 202020202020;
     internal static readonly int EndOfLine = Encoding.UTF8.GetByteCount(Environment.NewLine);
-    internal static readonly byte FirstOffset = 3;
 
     internal static void InitializeBlobStore(out BlobRawResourceStore blobStore, out TestBlobClient blobClient)
     {
@@ -129,7 +127,7 @@ public class BlobStoreTests
         using var stream = GetBlobDownloadStreamingPartialResult(0);
         using var reader = new StreamReader(stream, new UTF8Encoding(false));
         string line;
-        int characterPosition = FirstOffset;
+        int characterPosition = 0;
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -144,7 +142,7 @@ public class BlobStoreTests
     internal static IReadOnlyList<ResourceWrapper> GetResourceWrappersMetaData(IReadOnlyList<ResourceWrapper> resources)
     {
         var resourceWrappersWithMetadata = new List<ResourceWrapper>();
-        int lastOffset = FirstOffset;
+        int lastOffset = 0;
 
         for (int i = 0; i < resources.Count; i++)
         {
