@@ -81,13 +81,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public long ResourceSurrogateId { get; internal set; }
 
         [JsonIgnore]
-        public long? ResourceStorageIdentifier { get; set; }
+        public long ResourceStorageIdentifier { get; set; }
 
         [JsonIgnore]
-        public int? ResourceStorageOffset { get; set; }
+        public int ResourceStorageOffset { get; set; }
 
         [JsonIgnore]
-        public int? ResourceLength { get; set; }
+        public int ResourceLength { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModified)]
         public DateTimeOffset LastModified { get; internal set; }

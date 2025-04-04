@@ -94,9 +94,16 @@ public class BlobStoreTests
 
         resourceWrapper.ResourceStorageIdentifier = storageIdentifier;
         resourceWrapper.ResourceStorageOffset = offset;
+        resourceWrapper.ResourceLength = Encoding.UTF8.GetByteCount(rawResourceContent);
         return resourceWrapper;
     }
 
+    /// <summary>
+    /// Creates a test resource wrapper with the specified storage identifier and offset.
+    /// </summary>
+    /// <param name="storageIdentifier">The storage identifier for the resource.</param>
+    /// <param name="offset">The offset within the storage for the resource.</param>
+    /// <returns>A <see cref="ResourceWrapper"/> instance with the specified storage identifier and offset.</returns>
     internal static ResourceWrapper CreateTestResourceWrapper(long storageIdentifier, int offset)
     {
         var resourceWrapper = new ResourceWrapper(
@@ -171,17 +178,18 @@ public class BlobStoreTests
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
 
-        var result = await blobFileStore.WriteRawResourcesAsync(GetResourceWrappersWithData(), DefaultStorageIdentifier, CancellationToken.None);
+        var resources = GetResourceWrappersWithData();
+        var result = await blobFileStore.WriteRawResourcesAsync(resources, DefaultStorageIdentifier, CancellationToken.None);
 
+        int offset = 0;
         Assert.NotNull(result);
-        Assert.Equal(DefaultStorageIdentifier, result[0].ResourceStorageIdentifier);
-        Assert.Equal(DefaultStorageIdentifier, result[1].ResourceStorageIdentifier);
-        Assert.Equal(0, result[0].ResourceStorageOffset);
-
-        var expectedOffset = result[0].RawResource.Data.Length + BlobRawResourceStore.EndOfLine;
-
-        // This offset is based on the test data in the resources.ndjson file.
-        Assert.Equal(expectedOffset, result[1].ResourceStorageOffset);
+        for (int i = 0; i < result.Count; i++)
+        {
+            Assert.Equal(DefaultStorageIdentifier, result[i].ResourceStorageIdentifier);
+            Assert.Equal(offset, result[i].ResourceStorageOffset);
+            Assert.Equal(Encoding.UTF8.GetByteCount(resources[i].RawResource.Data), result[i].ResourceLength);
+            offset += Encoding.UTF8.GetByteCount(resources[i].RawResource.Data) + EndOfLine;
+        }
     }
 
     [Fact]
@@ -220,33 +228,6 @@ public class BlobStoreTests
         Assert.Throws<ArgumentException>(() => BlobUtility.ComputeHashPrefixForBlobName(0));
     }
 
-    [Fact]
-    public void TestGetBlobOffsetCombinations()
-    {
-        var rawResources = new List<RawResourceLocator>();
-
-        var tempRawResource = new RawResourceLocator(DefaultStorageIdentifier, 0);
-        rawResources.Add(tempRawResource);
-
-        tempRawResource = new RawResourceLocator(SecondaryStorageIdentifier, 9000);
-        rawResources.Add(tempRawResource);
-
-        tempRawResource = new RawResourceLocator(DefaultStorageIdentifier, 6000);
-        rawResources.Add(tempRawResource);
-
-        tempRawResource = new RawResourceLocator(SecondaryStorageIdentifier, 3700);
-        rawResources.Add(tempRawResource);
-
-        tempRawResource = new RawResourceLocator(DefaultStorageIdentifier, 2500);
-        rawResources.Add(tempRawResource);
-
-        var resultDictionary = BlobRawResourceStore.GetBlobOffsetCombinations(rawResources);
-        Assert.NotNull(resultDictionary);
-        Assert.Equal(2, resultDictionary.Count);
-        Assert.Equal(3, resultDictionary[DefaultStorageIdentifier].Count);
-        Assert.Equal(2, resultDictionary[SecondaryStorageIdentifier].Count);
-    }
-
     private MemoryStream GetBlobDownloadStreamingPartialResult(int offset = 0)
     {
         var memoryStream = new MemoryStream();
@@ -260,26 +241,34 @@ public class BlobStoreTests
         return memoryStream; // Return the MemoryStream for manipulation by other methods
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    public async Task GivenResourceStore_WhenReadingSingleResource_ThenValidateContent(int resourceNumber)
+    [Fact]
+    public async Task GivenResourceStore_WhenReadingSingleResource_ThenValidateContent()
     {
+        // Arrange
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
 
-        var key = new RawResourceLocator(resourceWrappersMetaData[resourceNumber].ResourceStorageIdentifier, resourceWrappersMetaData[resourceNumber].ResourceStorageOffset);
-        var expectedContent = resourceWrappersMetaData[resourceNumber].RawResource.Data;
+        var key = new RawResourceLocator(
+            resourceWrappersMetaData[0].ResourceStorageIdentifier,
+            resourceWrappersMetaData[0].ResourceStorageOffset,
+            resourceWrappersMetaData[0].ResourceLength);
 
-        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
-        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
+        var blobDownloadResult = BlobsModelFactory.BlobDownloadResult(content: BinaryData.FromString(resourceWrappersMetaData[0].RawResource.Data));
 
+        var response = Substitute.For<Response<BlobDownloadResult>>();
+        response.Value.Returns(blobDownloadResult);
+
+        client.BlockBlobClient
+            .DownloadContentAsync(Arg.Any<BlobDownloadOptions>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(response));
+
+        // Act
         var result = await blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { key }, CancellationToken.None);
 
+        // Assert
         Assert.NotNull(result);
         Assert.Single(result);
-        Assert.Equal(expectedContent, result[key]);
+        Assert.Equal(resourceWrappersMetaData[0].RawResource.Data, result.First().Value);
     }
 
     [Fact]
@@ -288,20 +277,29 @@ public class BlobStoreTests
         InitializeBlobStore(out BlobRawResourceStore blobFileStore, out TestBlobClient client);
         var resourceWrappersMetaData = GetResourceWrappersMetaData(GetResourceWrappersWithData());
 
-        var resourceLocators = resourceWrappersMetaData.Select(wrapper => new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset)).ToList();
-        var memoryStream = GetBlobDownloadStreamingPartialResult(0);
-        client.BlockBlobClient.OpenReadAsync(Arg.Any<BlobOpenReadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult((Stream)memoryStream));
+        var resourceLocators = resourceWrappersMetaData.Select(wrapper => new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset, wrapper.ResourceLength)).ToList();
+        var responses = resourceWrappersMetaData.Select(wrapper =>
+        {
+            var blobDownloadResult = BlobsModelFactory.BlobDownloadResult(content: BinaryData.FromString(wrapper.RawResource.Data));
+            var response = Substitute.For<Response<BlobDownloadResult>>();
+            response.Value.Returns(blobDownloadResult);
+            return response;
+        }).ToList();
+
+        client.BlockBlobClient
+            .DownloadContentAsync(Arg.Any<BlobDownloadOptions>(), Arg.Any<CancellationToken>())
+            .Returns(responses[0], responses[1], responses[2]);
 
         var result = await blobFileStore.ReadRawResourcesAsync(resourceLocators, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(resourceWrappersMetaData.Count, result.Count);
 
-        foreach (var wrapper in resourceWrappersMetaData)
+        for (int i = 0; i < resourceWrappersMetaData.Count; i++)
         {
-            var key = new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
-            Assert.True(result.ContainsKey(key));
-            Assert.Equal(wrapper.RawResource.Data, result[key]);
+            Assert.Equal(resourceWrappersMetaData[i].RawResource.Data, result[resourceLocators[i]]);
+            Assert.Equal(resourceWrappersMetaData[i].ResourceStorageIdentifier, resourceLocators[i].RawResourceStorageIdentifier);
+            Assert.Equal(resourceWrappersMetaData[i].ResourceStorageOffset, resourceLocators[i].RawResourceOffset);
         }
     }
 }

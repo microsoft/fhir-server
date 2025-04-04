@@ -4,24 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence;
 
 public class RawResourceLocator
 {
-    public RawResourceLocator(long storageId, int offset)
+    public RawResourceLocator(long storageId, int offset, int resourceLength)
     {
         RawResourceStorageIdentifier = storageId;
         RawResourceOffset = offset;
+        RawResourceLength = resourceLength;
     }
 
     public long RawResourceStorageIdentifier { get; set; }
 
     public int RawResourceOffset { get; set; }
+
+    public int RawResourceLength { get; set; }
 
     public override bool Equals(object obj)
     {
