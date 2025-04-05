@@ -68,17 +68,13 @@ public class BlobRawResourceStore : IRawResourceStore
             // Although RawResource ctor does not allow null or empty data, we are checking here to be safe.
             if (string.IsNullOrEmpty(line))
             {
-                resource.ResourceStorageIdentifier = storageIdentifier;
-                resource.ResourceStorageOffset = -1; // -1 indicates that the resource is not stored in blob storage.
-                resource.ResourceLength = -1;
+                resource.RawResourceLocator = new RawResourceLocator(-1, -1, -1);
                 continue;
             }
 
-            resource.ResourceStorageIdentifier = storageIdentifier;
-            resource.ResourceStorageOffset = offset;
-            resource.ResourceLength = Encoding.UTF8.GetByteCount(line);
+            resource.RawResourceLocator = new RawResourceLocator(storageIdentifier, offset, Encoding.UTF8.GetByteCount(line));
 
-            offset += resource.ResourceLength + EndOfLine;
+            offset += resource.RawResourceLocator.RawResourceLength + EndOfLine;
             await writer.WriteLineAsync(line);
         }
 

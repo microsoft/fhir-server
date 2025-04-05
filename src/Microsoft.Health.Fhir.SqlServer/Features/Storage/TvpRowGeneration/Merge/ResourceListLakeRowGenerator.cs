@@ -34,7 +34,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListLakeRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, merge.ResourceWrapper.ResourceStorageIdentifier > 0 ? null : stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash, merge.ResourceWrapper.ResourceStorageIdentifier, merge.ResourceWrapper.ResourceStorageOffset, merge.ResourceWrapper.ResourceLength);
+                yield return new ResourceListLakeRow(
+                    _model.GetResourceTypeId(wrapper.ResourceTypeName),
+                    merge.ResourceWrapper.ResourceSurrogateId,
+                    wrapper.ResourceId,
+                    int.Parse(wrapper.Version),
+                    merge.HasVersionToCompare,
+                    wrapper.IsDeleted,
+                    wrapper.IsHistory,
+                    merge.KeepHistory,
+                    merge.ResourceWrapper.RawResourceLocator.RawResourceStorageIdentifier > 0 ? null : stream,
+                    wrapper.RawResource.IsMetaSet,
+                    wrapper.Request?.Method,
+                    wrapper.SearchParameterHash,
+                    merge.ResourceWrapper.RawResourceLocator.RawResourceStorageIdentifier,
+                    merge.ResourceWrapper.RawResourceLocator.RawResourceOffset,
+                    merge.ResourceWrapper.RawResourceLocator.RawResourceLength);
             }
         }
     }

@@ -96,9 +96,7 @@ public class BlobStoreTests
             resourceWrappers.Add(resourceWrapper);
             if (forReadTest)
             {
-                resourceWrapper.ResourceStorageIdentifier = DefaultStorageIdentifier;
-                resourceWrapper.ResourceStorageOffset = characterPosition;
-                resourceWrapper.ResourceLength = Encoding.UTF8.GetByteCount(line);
+                resourceWrapper.RawResourceLocator = new RawResourceLocator(DefaultStorageIdentifier, characterPosition, Encoding.UTF8.GetByteCount(line));
                 characterPosition += Encoding.UTF8.GetByteCount(line) + BlobRawResourceStore.EndOfLine;
             }
         }
@@ -129,9 +127,9 @@ public class BlobStoreTests
         Assert.NotNull(result);
         for (int i = 0; i < result.Count; i++)
         {
-            Assert.Equal(DefaultStorageIdentifier, result[i].ResourceStorageIdentifier);
-            Assert.Equal(offset, result[i].ResourceStorageOffset);
-            Assert.Equal(Encoding.UTF8.GetByteCount(resources[i].RawResource.Data), result[i].ResourceLength);
+            Assert.Equal(DefaultStorageIdentifier, result[i].RawResourceLocator.RawResourceStorageIdentifier);
+            Assert.Equal(offset, result[i].RawResourceLocator.RawResourceOffset);
+            Assert.Equal(Encoding.UTF8.GetByteCount(resources[i].RawResource.Data), result[i].RawResourceLocator.RawResourceLength);
             offset += Encoding.UTF8.GetByteCount(resources[i].RawResource.Data) + BlobRawResourceStore.EndOfLine;
         }
     }
@@ -191,9 +189,9 @@ public class BlobStoreTests
         var resourceWrappersMetaData = GetResourceWrappersWithData(true);
 
         var key = new RawResourceLocator(
-            resourceWrappersMetaData[0].ResourceStorageIdentifier,
-            resourceWrappersMetaData[0].ResourceStorageOffset,
-            resourceWrappersMetaData[0].ResourceLength);
+            resourceWrappersMetaData[0].RawResourceLocator.RawResourceStorageIdentifier,
+            resourceWrappersMetaData[0].RawResourceLocator.RawResourceOffset,
+            resourceWrappersMetaData[0].RawResourceLocator.RawResourceLength);
 
         var blobDownloadResult = BlobsModelFactory.BlobDownloadResult(content: BinaryData.FromString(resourceWrappersMetaData[0].RawResource.Data));
 
@@ -218,7 +216,7 @@ public class BlobStoreTests
     {
         var resourceWrappersMetaData = GetResourceWrappersWithData(true);
 
-        var resourceLocators = resourceWrappersMetaData.Select(wrapper => new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset, wrapper.ResourceLength)).ToList();
+        var resourceLocators = resourceWrappersMetaData.Select(wrapper => wrapper.RawResourceLocator).ToList();
         var responses = resourceWrappersMetaData.Select(wrapper =>
         {
             var blobDownloadResult = BlobsModelFactory.BlobDownloadResult(content: BinaryData.FromString(wrapper.RawResource.Data));
@@ -239,8 +237,8 @@ public class BlobStoreTests
         for (int i = 0; i < resourceWrappersMetaData.Count; i++)
         {
             Assert.Equal(resourceWrappersMetaData[i].RawResource.Data, result[resourceLocators[i]]);
-            Assert.Equal(resourceWrappersMetaData[i].ResourceStorageIdentifier, resourceLocators[i].RawResourceStorageIdentifier);
-            Assert.Equal(resourceWrappersMetaData[i].ResourceStorageOffset, resourceLocators[i].RawResourceOffset);
+            Assert.Equal(resourceWrappersMetaData[i].RawResourceLocator.RawResourceStorageIdentifier, resourceLocators[i].RawResourceStorageIdentifier);
+            Assert.Equal(resourceWrappersMetaData[i].RawResourceLocator.RawResourceOffset, resourceLocators[i].RawResourceOffset);
         }
     }
 
@@ -267,7 +265,7 @@ public class BlobStoreTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(resourceWrappers.Count, result.Count);
-        Assert.All(result, r => Assert.Equal(DefaultStorageIdentifier, r.ResourceStorageIdentifier));
+        Assert.All(result, r => Assert.Equal(DefaultStorageIdentifier, r.RawResourceLocator.RawResourceStorageIdentifier));
     }
 
     [Fact]
