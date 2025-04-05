@@ -280,4 +280,40 @@ public class BlobStoreTests
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { nonExistentKey }, CancellationToken.None));
     }
+
+    /// <summary>
+    /// This test ensures that hashing function does not change over time. This will be important once the blob functionality has been enabled in prod for a customer
+    /// because this is what helps us identify the blob name for a given storage identifier.
+    /// The value that is being checked here is based on the hash function that is used in the BlobUtility class.
+    /// </summary>
+    /// <param name="input">The storage identifier to hash.</param>
+    /// <param name="expectedHash">The expected hash value.</param>
+    [Theory]
+    [InlineData(1234567890, "443")]
+    public void GivenStorageIdentifier_HashDoesNotChange(long input, string expectedHash)
+    {
+        string hash = BlobUtility.ComputeHashPrefixForBlobName(input);
+        Assert.Equal(expectedHash, hash);
+    }
+
+    /// <summary>
+    /// This test checks that the hash function generates a wide variety of hashes for different storage identifiers.
+    /// Checking that at least 100 unique hashes are generated for 1000 random storage identifiers.
+    /// </summary>
+    [Fact]
+    public void GivenStorageIdentifiers_HashFunctionGeneratesWideVarietyOfHashes()
+    {
+        var uniqueHashes = new HashSet<string>();
+        var random = new Random();
+
+        for (int i = 0; i < 1000; i++)
+        {
+            long randomIdentifier = random.NextInt64(5000000, long.MaxValue);
+            string hash = BlobUtility.ComputeHashPrefixForBlobName(randomIdentifier);
+            uniqueHashes.Add(hash);
+        }
+
+        // Assert that we have a wide variety of unique hashes
+        Assert.True(uniqueHashes.Count >= 100, $"Expected more than 100 unique hashes, but got {uniqueHashes.Count}");
+    }
 }
