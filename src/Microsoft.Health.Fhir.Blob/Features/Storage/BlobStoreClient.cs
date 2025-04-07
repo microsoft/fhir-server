@@ -27,7 +27,7 @@ public class BlobStoreClient : IBlobClient
         ILogger<BlobStoreClient> logger)
     {
         _blobServiceClient = EnsureArg.IsNotNull(blobServiceClient, nameof(blobServiceClient));
-        _containerName = BlobConstants.BlobRawResourceContainerName;
+        _containerName = EnsureArg.IsNotNull(optionsMonitor.Get(BlobConstants.BlobContainerConfigurationName).ContainerName, nameof(optionsMonitor));
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         _logger.LogInformation("Blob store client registered.");
     }
