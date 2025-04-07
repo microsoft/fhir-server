@@ -126,7 +126,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // TODO: Cleanup SqlAdlsClient class and its references when all the blob operations have been moved to blob library
-            _ = new SqlAdlsClient(_sqlRetryService, _logger);
+            if (coreFeatures.Value.SupportsRawResourceInBlob)
+            {
+                _ = new SqlAdlsClient(_sqlRetryService, _logger);
+            }
+
+            // Here, we need not check if blob is enabled as it will be set to null
             _blobRawResourceStore = blobRawResourceStore;
         }
 
@@ -775,7 +780,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await WriteRawResourcesToStore(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
             {
                 new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }
@@ -862,7 +867,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
-                if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+                if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
                 {
                     new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 }

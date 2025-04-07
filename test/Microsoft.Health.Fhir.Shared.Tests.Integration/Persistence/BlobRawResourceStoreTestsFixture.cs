@@ -35,7 +35,7 @@ internal class BlobRawResourceStoreTestsFixture : IAsyncLifetime
     public async Task DisposeAsync()
     {
         // await _blobServiceClient.GetBlobContainerClient(_optionsMonitor.CurrentValue.ContainerName).DeleteIfExistsAsync();
-        // TODO: This is a temporary workaround to avoid container being deleted by tests running in parallel.
+        // TODO: This is a temporary workaround to avoid container being deleted by tests running in parallel. Once read path is available, each test can use a separate container.
         await Task.Delay(100);
     }
 
