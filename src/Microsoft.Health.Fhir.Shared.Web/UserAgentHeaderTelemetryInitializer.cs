@@ -12,7 +12,7 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Shared.Web
 {
-    public class UserAgentHeaderTelemetryInitializer : ITelemetryInitializer
+    internal sealed class UserAgentHeaderTelemetryInitializer : ITelemetryInitializer
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
 

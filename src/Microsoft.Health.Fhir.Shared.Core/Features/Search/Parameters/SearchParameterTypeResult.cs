@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             Path = path;
             Definition = definition;
 
-            FhirNodeType = ((FhirTypeAttribute)ClassMapping.NativeType.GetCustomAttribute(typeof(FhirTypeAttribute))).Name;
+            FhirNodeType = ClassMapping.NativeType.GetCustomAttribute<FhirTypeAttribute>().Name;
         }
 
         public ClassMapping ClassMapping { get; set; }

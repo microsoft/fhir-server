@@ -7,17 +7,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;
@@ -29,20 +30,21 @@ public class CosmosQueueClient : IQueueClient
     private readonly Func<IScoped<Container>> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
-    private static readonly AsyncPolicy _retryPolicy = Policy
-        .Handle<RetriableJobException>()
-        .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
-        .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
+    private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+    private readonly AsyncPolicy _retryPolicy;
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
         ICosmosQueryFactory queryFactory,
-        ICosmosDbDistributedLockFactory distributedLockFactory)
+        ICosmosDbDistributedLockFactory distributedLockFactory,
+        RetryExceptionPolicyFactory retryExceptionPolicyFactory)
     {
         _containerFactory = EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
         _queryFactory = EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
         _distributedLockFactory = EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
+        _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
+
+        _retryPolicy = _retryExceptionPolicyFactory.BackgroundWorkerRetryPolicy;
     }
 
     public bool IsInitialized() => true;
@@ -53,7 +55,6 @@ public class CosmosQueueClient : IQueueClient
         string[] definitions,
         long? groupId,
         bool forceOneActiveJobGroup,
-        bool isCompleted,
         CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(definitions, nameof(definitions));
@@ -121,18 +122,18 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, isCompleted, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, bool isCompleted, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -151,7 +152,7 @@ public class CosmosQueueClient : IQueueClient
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = isCompleted ? (byte)JobStatus.Completed : (byte)JobStatus.Created,
+                Status = (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
@@ -520,29 +521,41 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
-        using IScoped<Container> container = _containerFactory.Invoke();
+        IScoped<Container> container = null;
 
-        ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
-            container.Value,
-            new CosmosQueryContext(
-                sqlQuerySpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
-
-        var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response;
-
-        while (itemCount == null || items.Count < itemCount.Value)
+        try
         {
-            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
-            items.AddRange(response);
-
-            if (string.IsNullOrEmpty(response.ContinuationToken))
-            {
-                break;
-            }
+            container = _containerFactory.Invoke();
+        }
+        catch (ObjectDisposedException ode)
+        {
+            throw new ServiceUnavailableException(Resources.NotAbleToExecuteQuery, ode);
         }
 
-        return items;
+        using (container)
+        {
+            ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
+                container.Value,
+                new CosmosQueryContext(
+                    sqlQuerySpec,
+                    new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
+
+            var items = new List<JobGroupWrapper>();
+            FeedResponse<JobGroupWrapper> response;
+
+            while (itemCount == null || items.Count < itemCount.Value)
+            {
+                response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+                items.AddRange(response);
+
+                if (string.IsNullOrEmpty(response.ContinuationToken))
+                {
+                    break;
+                }
+            }
+
+            return items;
+        }
     }
 
     private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
@@ -558,14 +571,6 @@ public class CosmosQueueClient : IQueueClient
                     ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
                     cancellationToken: cancellationToken));
         }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
-        {
-            throw new RetriableJobException("Job precondition failed.", ex);
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
-        {
-            throw new RetriableJobException("Service too busy.", ex);
-        }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {
             throw new JobExecutionException("Job data too large.", ex);
@@ -574,7 +579,7 @@ public class CosmosQueueClient : IQueueClient
 
     private static long GetLongId()
     {
-        return Clock.UtcNow.DateTime.DateToId() + RandomNumberGenerator.GetInt32(100, 999);
+        return Clock.UtcNow.ToId() + RandomNumberGenerator.GetInt32(100, 999);
     }
 
     /// <summary>

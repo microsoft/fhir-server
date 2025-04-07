@@ -11,14 +11,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
 {
     public static class FhirParametersExtensions
     {
-        public static Parameters AddPatchParameter(this Parameters parameters, string operationType, string path = "", string name = "", object value = null)
+        public static Hl7.Fhir.Model.Parameters AddPatchParameter(this Hl7.Fhir.Model.Parameters parameters, string operationType, string path = "", string name = "", object value = null)
         {
-            var component = new Parameters.ParameterComponent
+            var component = new Hl7.Fhir.Model.Parameters.ParameterComponent
             {
                 Name = "operation",
-                Part = new List<Parameters.ParameterComponent>
+                Part = new List<Hl7.Fhir.Model.Parameters.ParameterComponent>
                     {
-                        new Parameters.ParameterComponent
+                        new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
                             Name = "type",
                             Value = new FhirString(operationType),
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             if (!string.IsNullOrEmpty(path))
             {
                 component.Part.Add(
-                    new Parameters.ParameterComponent
+                    new Hl7.Fhir.Model.Parameters.ParameterComponent
                     {
                         Name = "path",
                         Value = new FhirString(path),
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             if (!string.IsNullOrEmpty(name))
             {
                 component.Part.Add(
-                    new Parameters.ParameterComponent
+                    new Hl7.Fhir.Model.Parameters.ParameterComponent
                     {
                         Name = "name",
                         Value = new FhirString(name),
@@ -51,25 +51,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
                 if (value is DataType valueDataType)
                 {
                     component.Part.Add(
-                        new Parameters.ParameterComponent
+                        new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
                             Name = "value",
                             Value = valueDataType,
                         });
                 }
-                else if (value is Parameters.ParameterComponent valueParameter)
+                else if (value is Hl7.Fhir.Model.Parameters.ParameterComponent valueParameter)
                 {
                     component.Part.Add(
-                        new Parameters.ParameterComponent
+                        new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
                             Name = "value",
-                            Part = new List<Parameters.ParameterComponent> { valueParameter },
+                            Part = new List<Hl7.Fhir.Model.Parameters.ParameterComponent> { valueParameter },
                         });
                 }
-                else if (value is List<Parameters.ParameterComponent> valueParameterList)
+                else if (value is List<Hl7.Fhir.Model.Parameters.ParameterComponent> valueParameterList)
                 {
                     component.Part.Add(
-                        new Parameters.ParameterComponent
+                        new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
                             Name = "value",
                             Part = valueParameterList,
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
                 }
                 else
                 {
-                    throw new ArgumentOutOfRangeException($"Value must be of type {typeof(DataType)} or {typeof(Parameters.ParameterComponent)}.");
+                    throw new ArgumentOutOfRangeException($"Value must be of type {typeof(DataType)} or {typeof(Hl7.Fhir.Model.Parameters.ParameterComponent)}.");
                 }
             }
 

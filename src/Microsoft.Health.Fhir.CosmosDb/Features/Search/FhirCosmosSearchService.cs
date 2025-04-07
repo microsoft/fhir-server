@@ -23,7 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ILogger<FhirCosmosSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore)
+            : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 if (includeExpressions.Any(e => e.Iterate) || revIncludeExpressions.Any(e => e.Iterate))
                 {
                     // We haven't implemented this yet.
+                    _logger.LogWarning("Bad Request (IncludeIterateNotSupported)");
                     throw new BadRequestException(Resources.IncludeIterateNotSupported);
                 }
             }
@@ -204,6 +205,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return searchResult;
+        }
+
+        public override Task<SearchResult> SearchAsync(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            if (isIncludesOperation)
+            {
+                throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
+            }
+
+            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
@@ -294,12 +312,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     chainedOptions,
                     queryTimeout.Token))
                 {
+                    _logger.LogWarning("Invalid Search Operation (ChainedExpressionSubqueryLimit)");
                     throw new InvalidSearchOperationException(string.Format(CultureInfo.InvariantCulture, Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
                 }
             }
             catch (OperationCanceledException)
             {
-                throw new RequestTooCostlyException(Core.Resources.ConditionalRequestTooCostly);
+                _logger.LogWarning("Request Too Costly (ConditionalRequestTooCostly)");
+                throw new RequestTooCostlyException(Microsoft.Health.Fhir.Core.Resources.ConditionalRequestTooCostly);
             }
 
             if (!chainedResults.Any())
@@ -496,6 +516,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         }
                         catch (ArgumentException)
                         {
+                            _logger.LogWarning("Bad Request (InvalidFeedRange)");
                             throw new BadRequestException(Resources.InvalidFeedRange);
                         }
                     }
@@ -516,7 +537,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
 
-                        _logger.LogInformation(
+                        _logger.LogWarning(
                             "Failed to fill items, found {ItemCount}, needed {DesiredItemCount}. Physical partition count {PhysicalPartitionCount}",
                             results.Count,
                             desiredItemCount,
@@ -551,9 +572,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.NotSupported,
-                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+                        string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
 
-                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
+                throw new InvalidSearchOperationException(string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
             }
 
             return (int)count;
@@ -567,7 +589,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Warning,
                         OperationOutcomeConstants.IssueType.Incomplete,
-                        Core.Resources.TruncatedIncludeMessage));
+                        Microsoft.Health.Fhir.Core.Resources.TruncatedIncludeMessage));
             }
 
             return new SearchResult(

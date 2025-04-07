@@ -10,10 +10,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -93,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
+        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenJobExecutionExceptionShouldBeThrown()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
@@ -104,6 +107,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -126,20 +132,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     return new ImportProcessingProgress();
                 });
 
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
-            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         [Fact]
@@ -154,8 +163,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     if (callInfo[2] != null) // always true
@@ -167,13 +179,142 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 });
 
             ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
-                                    loggerFactory);
+                                    loggerFactory,
+                                    auditLogger);
 
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenImportInputWithErrorContainerName_WhenExecuted_ThenErrorContainerNameShouldBeUsed()
+        {
+            // Arrange
+            ImportProcessingJobDefinition inputData = GetInputData();
+            inputData.ErrorContainerName = "custom-error-container";
+            ImportProcessingJobResult result = new ImportProcessingJobResult();
+
+            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
+            IImporter importer = Substitute.For<IImporter>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
+
+            // Setup the mock loader to return a channel and task
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
+                    Task loadTask = Task.CompletedTask;
+                    resourceChannel.Writer.Complete();
+                    return (resourceChannel, loadTask);
+                });
+
+            // Setup the import error store
+            importErrorStore.ErrorFileLocation.Returns("error-location");
+
+            // Setup the error store factory with custom container
+            importErrorStoreFactory.InitializeAsync(
+                Arg.Is<string>(container => container == "custom-error-container"),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(new ImportProcessingProgress());
+
+            var job = new ImportProcessingJob(
+                mediator,
+                queueClient,
+                loader,
+                importer,
+                importErrorStoreFactory,
+                contextAccessor,
+                loggerFactory,
+                auditLogger);
+
+            // Act
+            await job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None);
+
+            // Assert
+            await importErrorStoreFactory.Received(1).InitializeAsync(
+                Arg.Is<string>(container => container == "custom-error-container"),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenImportInputWithoutErrorContainerName_WhenExecuted_ThenDefaultErrorContainerShouldBeUsed()
+        {
+            // Arrange
+            ImportProcessingJobDefinition inputData = GetInputData();
+            inputData.ErrorContainerName = null; // No custom error container name
+            ImportProcessingJobResult result = new ImportProcessingJobResult();
+
+            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
+            IImporter importer = Substitute.For<IImporter>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
+
+            // Setup the mock loader to return a channel and task
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
+                    Task loadTask = Task.CompletedTask;
+                    resourceChannel.Writer.Complete();
+                    return (resourceChannel, loadTask);
+                });
+
+            // Setup the import error store
+            importErrorStore.ErrorFileLocation.Returns("error-location");
+
+            // Setup the error store factory without custom container (default method)
+            importErrorStoreFactory.InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(new ImportProcessingProgress());
+
+            var job = new ImportProcessingJob(
+                mediator,
+                queueClient,
+                loader,
+                importer,
+                importErrorStoreFactory,
+                contextAccessor,
+                loggerFactory,
+                auditLogger);
+
+            // Act
+            await job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None);
+
+            // Assert
+            await importErrorStoreFactory.Received(1).InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+            // And verify the overload with container name was NOT called
+            await importErrorStoreFactory.DidNotReceive().InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
         }
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
@@ -187,6 +328,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -216,7 +360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
@@ -236,7 +380,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return progress;
                 });
 
-            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory);
+            var job = new ImportProcessingJob(mediator, queueClient, loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory, auditLogger);
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);

@@ -14,18 +14,17 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -114,10 +113,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
 
+                        DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
+
                         await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
                         watch.Stop();
                         _logger.LogInformation("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
+                        _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
                     }
                     catch (FhirTransactionFailedException ex)
                     {
@@ -264,6 +270,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     HttpContext httpContext = request.HttpContext;
+
+                    // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
+                    httpContext.RequestAborted = cancellationToken;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))
                     {
@@ -274,6 +283,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         request,
                         httpVerb,
                         httpContext,
+                        BundleProcessingLogic.Parallel,
                         bundleOperation,
                         originalFhirRequestContext,
                         auditEventTypeMapping,
@@ -359,15 +369,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
             {
                 HttpVerb = httpVerb;
+                ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
+
+            public string ResourceType { get; private set; }
 
             public RouteContext Context { get; private set; }
 

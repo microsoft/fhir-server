@@ -20,7 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             Uri inputSource,
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
-            ImportMode importMode)
+            ImportMode importMode,
+            bool allowNegativeVersions = false,
+            string errorContainerName = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -30,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             Input = input;
             StorageDetail = storageDetail;
             ImportMode = importMode;
+            AllowNegativeVersions = allowNegativeVersions;
+            ErrorContainerName = errorContainerName;
         }
 
         /// <summary>
@@ -61,5 +65,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Import mode
         /// </summary>
         public ImportMode ImportMode { get; }
+
+        /// <summary>
+        /// Flag indicating how late arivals are handled.
+        /// Late arrival is a resource with explicit last updated and no explicit version. Its last updated is less than last updated on current version in the database.
+        /// If late arrival conflicts with exting resource versions in the database, it is currently marked as a conflict and not ingested.
+        /// With this flag set to true, it can be ingested with negative version value.
+        /// </summary>
+        public bool AllowNegativeVersions { get; set; }
+
+        /// <summary>
+        /// Custom container name for error logs. If not specified, the default container will be used.
+        /// </summary>
+        public string ErrorContainerName { get; }
     }
 }

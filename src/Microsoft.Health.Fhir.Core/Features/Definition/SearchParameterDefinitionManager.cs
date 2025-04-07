@@ -19,9 +19,11 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -39,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ILogger _logger;
+
+        private bool _initialized = false;
 
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
@@ -83,13 +87,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
-            await LoadSearchParamsFromDataStore(cancellationToken);
+            try
+            {
+                _initialized = true;
+                await LoadSearchParamsFromDataStore(cancellationToken);
 
-            await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+            }
+            catch
+            {
+                _initialized = false;
+                throw;
+            }
+        }
+
+        public void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                _logger.LogWarning("Search parameters are not initialized.");
+
+                // throw new InitializationException("Failed to initialize search parameters");
+            }
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
@@ -100,6 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string resourceType, string code)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> lookup) &&
                 lookup.TryGetValue(code, out SearchParameterInfo searchParameter))
             {
@@ -111,14 +138,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
+            EnsureInitialized();
             searchParameter = null;
 
             return TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
                 searchParameters.TryGetValue(code, out searchParameter);
         }
 
+        public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
+        {
+            EnsureInitialized();
+            searchParameter = null;
+
+            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
+                searchParameters.TryGetValue(code, out searchParameter))
+            {
+                if (excludePendingDelete && searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                {
+                    searchParameter = null;
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
+            EnsureInitialized();
             if (UrlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
                 return value;
@@ -129,11 +178,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value)
         {
+            EnsureInitialized();
             return UrlLookup.TryGetValue(definitionUri, out value);
+        }
+
+        public bool TryGetSearchParameter(string definitionUri, bool excludePendingDelete, out SearchParameterInfo value)
+        {
+            EnsureInitialized();
+            if (UrlLookup.TryGetValue(definitionUri, out value))
+            {
+                if (excludePendingDelete && value.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                {
+                    value = null;
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
+            EnsureInitialized();
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
@@ -199,11 +267,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 throw new ResourceNotFoundException(string.Format(Core.Resources.CustomSearchParameterNotfound, url));
             }
 
-            // for search parameters with a base resource type we need to delete the search parameter
-            // from all derived types as well, so we iterate across all resources
-            foreach (var resourceType in TypeLookup.Keys)
+            // find all derived resources from the list of base resources
+            var allResourceTypes = GetDerivedResourceTypes(searchParameterInfo.BaseResourceTypes);
+            foreach (var resourceType in allResourceTypes)
             {
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
+                if (removedParam.Url != searchParameterInfo.Url)
+                {
+                    _logger.LogError("Error, Search Param {RemovedParam} removed from Search Param Definition manager.  It does not match deleted Search Param {Url}", removedParam.Url, url);
+                }
             }
 
             if (calculateHash)
@@ -212,17 +284,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
+        {
+            if (UrlLookup.TryGetValue(url, out var searchParameterInfo))
+            {
+                searchParameterInfo.SearchParameterStatus = desiredStatus;
+            }
+        }
+
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
-            CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+            var retry = 0;
+            while (retry < 3)
+            {
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
+                    CalculateSearchParameterHash();
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error calculating search parameter hash. Retry {retry}");
+                    retry++;
+                }
+            }
+
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
-            await EnsureInitializedAsync(cancellationToken);
+            var retry = 0;
+            while (retry < 3)
+            {
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
+                    await EnsureInitializedAsync(cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error initializing search parameters. Retry {retry}");
+                    retry++;
+                }
+            }
+
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
@@ -280,6 +392,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
             while (continuationToken != null);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
+        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            var completeResourceList = new HashSet<string>(resourceTypes);
+
+            foreach (var baseResourceType in resourceTypes)
+            {
+                if (baseResourceType == KnownResourceTypes.Resource)
+                {
+                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                    // We added all possible resource types, so no need to continue
+                    break;
+                }
+
+                if (baseResourceType == KnownResourceTypes.DomainResource)
+                {
+                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                    // Remove types that inherit from Resource directly
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                    completeResourceList.UnionWith(domainResourceChildResourceTypes);
+                }
+            }
+
+            return completeResourceList;
         }
     }
 }

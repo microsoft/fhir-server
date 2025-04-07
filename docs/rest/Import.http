@@ -69,6 +69,10 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                     "valueUri": "{{storageUri}}/{{observationFilename}}"
                 }
             ]
+        },
+        {
+            "name": "errorContainerName",
+            "valueString": "import-error-logs"
         }
     ]
 }

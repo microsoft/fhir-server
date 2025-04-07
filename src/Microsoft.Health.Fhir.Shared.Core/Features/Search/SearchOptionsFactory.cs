@@ -38,8 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ExpressionAccessControl _expressionAccess;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
-        private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
+        private SearchParameterInfo _resourceTypeSearchParameter;
         private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
 
         public SearchOptionsFactory(
@@ -66,13 +66,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
-
-            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false)
+        private SearchParameterInfo ResourceTypeSearchParameter
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds);
+            get
+            {
+                if (_resourceTypeSearchParameter == null)
+                {
+#if Stu3 || R4 || R4B
+                    _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+#else
+                    _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+#endif
+                }
+
+                return _resourceTypeSearchParameter;
+            }
+        }
+
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false)
+        {
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -84,7 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false)
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -105,9 +121,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string continuationToken = null;
             string feedRange = null;
 
+            // $includes related parameters
+            string includesContinuationToken = null;
+            int? includesCount = null;
+
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            bool notReferencedSearch = false;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
@@ -122,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                    continuationToken = ContinuationTokenEncoder.Decode(query.Item2);
                     setDefaultBundleTotal = false;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.FeedRange, StringComparison.OrdinalIgnoreCase))
@@ -203,6 +224,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(ex.Message);
                     }
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.NotReferenced, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Currently the only supported value for _not-referenced is "*:*".
+                    // If this feature is enhanced in the future to allow for checking if specific references are not present, this will need to be updated.
+                    if (string.Equals(query.Item2, "*:*", StringComparison.OrdinalIgnoreCase))
+                    {
+                        notReferencedSearch = true;
+                                            }
+                    else
+                    {
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                Core.Resources.NotReferencedParameterInvalidValue));
+                     }
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase))
+                {
+                    // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
+                    if (includesContinuationToken != null)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.IncludesContinuationToken));
+                    }
+
+                    if (isIncludesOperation)
+                    {
+                        includesContinuationToken = ContinuationTokenEncoder.Decode(query.Item2);
+                        setDefaultBundleTotal = false;
+                    }
+                    else
+                    {
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                Core.Resources.IncludesContinuationTokenIgnored));
+                    }
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesCount, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (int.TryParse(query.Item2, out int count) && count > 0)
+                    {
+                        includesCount = count;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(Core.Resources.InvalidSearchIncludesCountSpecified);
+                    }
+                }
                 else
                 {
                     // Parse the search parameters.
@@ -218,7 +290,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            if (isIncludesOperation && string.IsNullOrEmpty(includesContinuationToken))
+            {
+                throw new BadRequestException(Core.Resources.MissingIncludesContinuationToken);
+            }
+
             searchOptions.ContinuationToken = continuationToken;
+            searchOptions.IncludesContinuationToken = includesContinuationToken;
+            searchOptions.IncludesOperationSupported = _featureConfiguration.SupportsIncludes;
             searchOptions.FeedRange = feedRange;
 
             if (setDefaultBundleTotal)
@@ -260,7 +339,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
-            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+            if (includesCount.HasValue && includesCount <= _featureConfiguration.MaxIncludeCountPerSearch)
+            {
+                searchOptions.IncludeCount = includesCount.Value;
+            }
+            else
+            {
+                if (includesCount.HasValue)
+                {
+                    searchOptions.IncludeCount = _featureConfiguration.MaxIncludeCountPerSearch;
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterIncludesCountExceedLimit, _featureConfiguration.MaxIncludeCountPerSearch, includesCount)));
+                }
+                else
+                {
+                    searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+                }
+            }
 
             if (searchParams.Elements?.Any() == true && searchParams.Summary != null && searchParams.Summary != SummaryType.False)
             {
@@ -275,7 +373,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
-            ResourceType[] parsedResourceTypes = new[] { ResourceType.DomainResource };
+            string[] parsedResourceTypes = new[] { KnownResourceTypes.DomainResource };
 
             var searchExpressions = new List<Expression>();
             if (string.IsNullOrWhiteSpace(resourceType))
@@ -288,17 +386,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resourceTypes = searchParams.Parameters
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
-                    .Where(type => ModelInfoProvider.IsKnownResource(type))
-                    .Select(x =>
-                    {
-                        if (!Enum.TryParse(x, out ResourceType parsedType))
-                        {
-                            // Should never get here
-                            throw new ResourceNotSupportedException(x);
-                        }
-
-                        return parsedType;
-                    })
+                    .Where(ModelInfoProvider.IsKnownResource)
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
@@ -308,12 +396,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else
             {
-                if (!Enum.TryParse(resourceType, out parsedResourceTypes[0]))
+                parsedResourceTypes[0] = resourceType;
+                if (!ModelInfoProvider.IsKnownResource(resourceType))
                 {
                     throw new ResourceNotSupportedException(resourceType);
                 }
 
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
+                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
             CheckFineGrainedAccessControl(searchExpressions);
@@ -388,6 +477,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            if (notReferencedSearch)
+            {
+                searchExpressions.Add(Expression.NotReferenced());
+            }
+
             if (searchExpressions.Count == 1)
             {
                 searchOptions.Expression = searchExpressions[0];
@@ -400,7 +494,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
             var searchSortErrors = new List<string>();
-            if (searchParams.Sort?.Count > 0)
+
+            // Sort is unneded for summary count
+            if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;
@@ -512,10 +608,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     includeResourceTypeList = new[] { includeResourceType };
                 }
 
-                IEnumerable<string> allowedResourceTypesByScope = null;
+                IReadOnlyCollection<string> allowedResourceTypesByScope = null;
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                 {
-                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource).ToList();
                 }
 
                 var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
@@ -676,11 +772,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (clinicalScopeResources.Any())
                     {
-                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
                     }
                     else // block all queries
                     {
-                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
                     }
                 }
             }

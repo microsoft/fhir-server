@@ -303,8 +303,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
+#if Stu3 || R4 || R4B
             string query = $"_tag={Fixture.Tag}&_revinclude=Device:patient";
-
+#else
+            string query = $"_tag={Fixture.Tag}&_revinclude=DeviceAssociation:patient";
+#endif
             await SearchAndValidateBundleAsync(
                 ResourceType.Patient,
                 query,
@@ -671,7 +674,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
-            string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             await SearchAndValidateBundleAsync(
                 ResourceType.CareTeam,
@@ -682,7 +685,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
-                Fixture.TaylorPractitioner);
+                Fixture.TaylorPractitioner,
+                Fixture.Organization,
+                Fixture.Practitioner);
         }
 
         [Fact]
@@ -759,7 +764,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -779,7 +784,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -818,7 +823,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationDispense,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
 #endif
@@ -1076,7 +1081,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.Medication,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
@@ -1259,6 +1264,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)] // Cosmos doesn't support the sort parameter
+        public async Task GivenAnIncludeSearchWithSortAndResourcesWithAndWithoutTheIncludeParameter_WhenSearched_ThenCorrectResultsAreReturned()
+        {
+            string query = $"_include=MedicationDispense:prescription&_sort=-whenprepared&_count=3&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            Assert.Equal("self", bundle.Link[0].Relation);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispenseWithoutRequest,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest);
         }
 
         // This will not work for circular reference

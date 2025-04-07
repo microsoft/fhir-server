@@ -13,12 +13,14 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSqlCompatibilityTests
@@ -32,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds()
         {
-            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("Compatibility");
             var insertedElements = new List<string>();
 
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
@@ -91,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 if (version >= Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5) && version <= SchemaVersionConstants.Max)
                 {
-                    string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                    string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Compatibility_V{version}");
                     FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
@@ -133,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
 
-            string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Compatibility_Sort");
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
                 schemaVersion,

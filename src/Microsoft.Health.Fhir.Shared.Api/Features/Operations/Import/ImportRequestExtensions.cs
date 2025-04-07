@@ -14,101 +14,113 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 {
     public static class ImportRequestExtensions
     {
-        public const string InputFormatParamterName = "inputFormat";
+        public const string InputFormatParameterName = "inputFormat";
         public const string DefaultInputFormat = "application/fhir+ndjson";
-        public const string InputSourceParamterName = "inputSource";
-        public const string InputParamterName = "input";
-        public const string TypeParamterName = "type";
-        public const string UrlParamterName = "url";
-        public const string EtagParamterName = "etag";
-        public const string StorageDetailParamterName = "storageDetail";
-        public const string ModeParamterName = "mode";
-        public const string ForceParamterName = "force";
+        public const string InputSourceParameterName = "inputSource";
+        public const string InputParameterName = "input";
+        public const string TypeParameterName = "type";
+        public const string UrlParameterName = "url";
+        public const string EtagParameterName = "etag";
+        public const string StorageDetailParameterName = "storageDetail";
+        public const string ModeParameterName = "mode";
+        public const string ForceParameterName = "force";
+        public const string AllowNegativeVersionsParameterName = "allowNegativeVersions";
+        public const string ErrorContainerNameParameterName = "errorContainerName";
         public const string DefaultStorageDetailType = "azure-blob";
 
         public static Parameters ToParameters(this ImportRequest importRequest)
         {
-            Parameters paramters = new Parameters();
+            Parameters parameters = new Parameters();
 
             if (string.IsNullOrEmpty(importRequest.InputFormat))
             {
-                paramters.Add(InputFormatParamterName, new FhirString(DefaultInputFormat));
+                parameters.Add(InputFormatParameterName, new FhirString(DefaultInputFormat));
             }
             else
             {
-                paramters.Add(InputFormatParamterName, new FhirString(importRequest.InputFormat));
+                parameters.Add(InputFormatParameterName, new FhirString(importRequest.InputFormat));
             }
 
             if (importRequest.InputSource != null)
             {
-                paramters.Add(InputSourceParamterName, new FhirUri(importRequest.InputSource));
+                parameters.Add(InputSourceParameterName, new FhirUri(importRequest.InputSource));
             }
 
             if (importRequest.Input != null)
             {
                 foreach (InputResource importResource in importRequest.Input)
                 {
-                    ParameterComponent inputResourceComponent = new ParameterComponent() { Name = InputParamterName };
-                    paramters.Parameter.Add(inputResourceComponent);
+                    ParameterComponent inputResourceComponent = new ParameterComponent() { Name = InputParameterName };
+                    parameters.Parameter.Add(inputResourceComponent);
 
                     if (!string.IsNullOrEmpty(importResource.Type))
                     {
-                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = TypeParamterName, Value = new FhirString(importResource.Type) });
+                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = TypeParameterName, Value = new FhirString(importResource.Type) });
                     }
 
                     if (!string.IsNullOrEmpty(importResource.Etag))
                     {
-                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = EtagParamterName, Value = new FhirString(importResource.Etag) });
+                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = EtagParameterName, Value = new FhirString(importResource.Etag) });
                     }
 
                     if (importResource.Url != null)
                     {
-                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = UrlParamterName, Value = new FhirUri(importResource.Url) });
+                        inputResourceComponent.Part.Add(new ParameterComponent() { Name = UrlParameterName, Value = new FhirUri(importResource.Url) });
                     }
                 }
             }
 
-            ParameterComponent storageDetailsParameterComponent = new ParameterComponent() { Name = StorageDetailParamterName };
+            ParameterComponent storageDetailsParameterComponent = new ParameterComponent() { Name = StorageDetailParameterName };
             if (!string.IsNullOrWhiteSpace(importRequest.StorageDetail?.Type))
             {
-                storageDetailsParameterComponent.Part.Add(new ParameterComponent() { Name = TypeParamterName, Value = new FhirString(importRequest.StorageDetail.Type) });
+                storageDetailsParameterComponent.Part.Add(new ParameterComponent() { Name = TypeParameterName, Value = new FhirString(importRequest.StorageDetail.Type) });
             }
 
-            paramters.Parameter.Add(storageDetailsParameterComponent);
+            parameters.Parameter.Add(storageDetailsParameterComponent);
 
             if (!string.IsNullOrEmpty(importRequest.Mode))
             {
-                paramters.Add(ModeParamterName, new FhirString(importRequest.Mode));
+                parameters.Add(ModeParameterName, new FhirString(importRequest.Mode));
             }
 
             if (importRequest.Force)
             {
-                paramters.Add(ForceParamterName, new FhirBoolean(true));
+                parameters.Add(ForceParameterName, new FhirBoolean(true));
             }
 
-            return paramters;
+            if (importRequest.AllowNegativeVersions)
+            {
+                parameters.Add(AllowNegativeVersionsParameterName, new FhirBoolean(true));
+            }
+
+            if (!string.IsNullOrEmpty(importRequest.ErrorContainerName))
+            {
+                parameters.Add(ErrorContainerNameParameterName, new FhirString(importRequest.ErrorContainerName));
+            }
+
+            return parameters;
         }
 
         public static ImportRequest ExtractImportRequest(this Parameters parameters)
         {
             ImportRequest importRequest = new ImportRequest();
 
-            if (parameters.TryGetStringValue(InputFormatParamterName, out string inputFormat))
+            if (parameters.TryGetStringValue(InputFormatParameterName, out string inputFormat))
             {
                 importRequest.InputFormat = inputFormat;
             }
 
-            if (parameters.TryGetUriValue(InputSourceParamterName, out Uri uriValue))
+            if (parameters.TryGetUriValue(InputSourceParameterName, out Uri uriValue))
             {
                 importRequest.InputSource = uriValue;
             }
 
             var inputResources = new List<InputResource>();
-            foreach (ParameterComponent paramComponent in parameters.Get(InputParamterName))
+            foreach (ParameterComponent paramComponent in parameters.Get(InputParameterName))
             {
-                ParameterComponent typeParam = paramComponent.Part?.Where(p => TypeParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
-                ParameterComponent urlParam = paramComponent.Part?.Where(p => UrlParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
-                ParameterComponent etagParam = paramComponent.Part?.Where(p => EtagParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
+                ParameterComponent typeParam = paramComponent.Part?.Where(p => TypeParameterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
+                ParameterComponent urlParam = paramComponent.Part?.Where(p => UrlParameterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
+                ParameterComponent etagParam = paramComponent.Part?.Where(p => EtagParameterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
 
                 InputResource inputResource = new InputResource();
 
@@ -133,8 +145,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             importRequest.Input = inputResources;
             importRequest.StorageDetail = new ImportRequestStorageDetail();
 
-            ParameterComponent storageDetailsComponent = parameters.GetSingle(StorageDetailParamterName);
-            ParameterComponent storageTypeParam = storageDetailsComponent?.Part?.Where(p => TypeParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
+            ParameterComponent storageDetailsComponent = parameters.GetSingle(StorageDetailParameterName);
+            ParameterComponent storageTypeParam = storageDetailsComponent?.Part?.Where(p => TypeParameterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
             if (storageTypeParam.TryGetStringValue(out string storageType))
             {
                 importRequest.StorageDetail.Type = storageType;
@@ -144,14 +156,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 importRequest.StorageDetail.Type = DefaultStorageDetailType;
             }
 
-            if (parameters.TryGetStringValue(ModeParamterName, out string mode))
+            if (parameters.TryGetStringValue(ModeParameterName, out string mode))
             {
                 importRequest.Mode = mode;
             }
 
-            if (parameters.TryGetBooleanValue(ForceParamterName, out bool force))
+            if (parameters.TryGetBooleanValue(ForceParameterName, out bool force))
             {
                 importRequest.Force = force;
+            }
+
+            if (parameters.TryGetBooleanValue(AllowNegativeVersionsParameterName, out bool allow))
+            {
+                importRequest.AllowNegativeVersions = allow;
+            }
+
+            if (parameters.TryGetStringValue(ErrorContainerNameParameterName, out string errorContainerName))
+            {
+                importRequest.ErrorContainerName = errorContainerName;
             }
 
             return importRequest;

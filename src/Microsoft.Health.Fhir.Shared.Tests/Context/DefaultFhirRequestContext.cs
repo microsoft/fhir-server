@@ -54,22 +54,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             KeyValuePair<string, StringValues>[] responseHeaders = new KeyValuePair<string, StringValues>[ResponseHeaders.Count];
             ResponseHeaders.CopyTo(responseHeaders, 0);
 
-            var clone = new FhirRequestContext(
-                Method,
-                Uri.ToString(),
-                BaseUri.ToString(),
-                CorrelationId,
-                requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
-                responseHeaders: new Dictionary<string, StringValues>(responseHeaders));
-
+            var clone = new DefaultFhirRequestContext();
+            clone.Method = Method ?? "GET";
+            clone.Uri = Uri ?? new Uri("https://localhost/");
+            clone.BaseUri = BaseUri;
+            clone.CorrelationId = CorrelationId;
+            clone.RequestHeaders = new Dictionary<string, StringValues>(requestHeaders);
+            clone.ResponseHeaders = new Dictionary<string, StringValues>(responseHeaders);
             clone.RouteName = RouteName;
             clone.AuditEventType = AuditEventType;
-            clone.Principal = Principal.Clone();
+            clone.Principal = Principal?.Clone() ?? new ClaimsPrincipal();
             clone.ResourceType = ResourceType;
             clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;
-            clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
+            clone.AccessControlContext = AccessControlContext == null ? new AccessControlContext() : (AccessControlContext)AccessControlContext.Clone();
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {

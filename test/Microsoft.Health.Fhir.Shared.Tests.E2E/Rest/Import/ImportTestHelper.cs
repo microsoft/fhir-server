@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             Uri checkLocation = await CreateImportTaskAsync(testFhirClient, request);
 
-            while ((await testFhirClient.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((await testFhirClient.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -209,12 +209,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private static BlobServiceClient GetBlobServiceClient(ImportTestStorageAccount storageAccount)
         {
-            return AzureStorageBlobHelper.CreateBlobServiceClient(storageAccount.StorageUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+            return AzureStorageBlobHelper.GetBlobServiceClient(storageAccount.StorageUri);
         }
 
         private static BlobClient GetBlobClient(Uri blobUri, ImportTestStorageAccount storageAccount)
         {
-            return AzureStorageBlobHelper.CreateBlobClient(blobUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+            return AzureStorageBlobHelper.GetBlobClient(blobUri);
         }
     }
 }

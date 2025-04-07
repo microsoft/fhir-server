@@ -36,5 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public ImplementationGuidesConfiguration ImplementationGuides { get; } = new ImplementationGuidesConfiguration();
 
         public EncryptionConfiguration Encryption { get; } = new EncryptionConfiguration();
+
+        public ResourceManagerConfig ResourceManager { get; } = new ResourceManagerConfig();
     }
 }

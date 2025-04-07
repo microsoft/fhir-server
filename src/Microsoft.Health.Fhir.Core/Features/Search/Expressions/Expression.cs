@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate">If this is include has :iterate (:recurse) modifier.</param>
         /// <returns>A <see cref="IncludeExpression"/> that represents an include on <paramref name="targetResourceType" /> through <paramref name="referenceSearchParameter" />.</returns>
-        public static IncludeExpression Include(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
+        public static IncludeExpression Include(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IReadOnlyCollection<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
             return new IncludeExpression(resourceTypes, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate, null);
         }
@@ -309,6 +309,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public static SmartCompartmentSearchExpression SmartCompartmentSearch(string compartmentType, string compartmentId, params string[] filteredResourceTypes)
         {
             return new SmartCompartmentSearchExpression(compartmentType, compartmentId, filteredResourceTypes);
+        }
+
+        public static NotReferencedExpression NotReferenced()
+        {
+            return new NotReferencedExpression();
         }
 
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);

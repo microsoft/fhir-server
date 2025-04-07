@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <param name="resourceVersionTypes">Which version types (latest, soft-deleted, history) to include in search.</param>
         /// <param name="onlyIds">Whether to return only the resource ids, not the full resource</param>
+        /// <param name="isIncludesOperation">Whether the search is to query remaining include resources.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchAsync(
             string resourceType,
@@ -32,7 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false);
+            bool onlyIds = false,
+            bool isIncludesOperation = false);
 
         /// <summary>
         /// Searches the resources using the <paramref name="searchOptions"/>.

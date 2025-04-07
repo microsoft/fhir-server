@@ -10,14 +10,22 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public sealed class BundleResourceContext
     {
-        public BundleResourceContext(HTTPVerb httpVerb, Guid bundleOperationId)
+        public BundleResourceContext(BundleProcessingLogic processingLogic, HTTPVerb httpVerb, Guid bundleOperationId)
         {
+            ProcessingLogic = processingLogic;
             HttpVerb = httpVerb;
             BundleOperationId = bundleOperationId;
         }
 
+        public BundleProcessingLogic ProcessingLogic { get; }
+
         public HTTPVerb HttpVerb { get; }
 
         public Guid BundleOperationId { get; }
+
+        public bool IsParallelBundle
+        {
+            get { return ProcessingLogic == BundleProcessingLogic.Parallel; }
+        }
     }
 }

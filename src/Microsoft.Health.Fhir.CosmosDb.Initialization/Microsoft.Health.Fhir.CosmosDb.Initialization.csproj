@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+
+  <ItemGroup>
+    <PackageReference Include="Azure.ResourceManager.CosmosDB" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Remove="Features\Storage\StoredProcedures\UpdateUnsupportedSearchParametersToUnsupported\updateUnsupportedSearchParameters.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireReindexJobs\acquireReindexJobs.js" />
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\HardDelete\hardDelete.js" />
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\Replace\replaceSingleResource.js" />
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\UpdateUnsupportedSearchParametersToUnsupported\updateUnsupportedSearchParameters.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj" />
+  </ItemGroup>
+
+</Project>

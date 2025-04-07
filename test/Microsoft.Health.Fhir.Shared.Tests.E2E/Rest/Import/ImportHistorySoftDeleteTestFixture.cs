@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1)),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8)),
                 });
         }
 
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8), versionId: "1"),
                 });
         }
 
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 new()
                 {
                     CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8), versionId: "1"),
                 });
         }
 
@@ -147,13 +148,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 new(),
                 new()
                 {
+                    //// Both versions imported. Final state: isDeleted = true.
                     CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
                     CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
+                    //// Both versions imported. Final state: isDeleted = true
                     CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
                     CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
-
+                    //// Both versions imported. Final state: isDeleted = false
                     CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
                     CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow),
+                    //// Both versions imported. Final state: isDeleted = false
                     CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow),
                     CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
 
@@ -189,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             if (lastUpdated is not null)
             {
-                rtn.Meta = new Meta { LastUpdated = lastUpdated };
+                rtn.Meta = new Meta { LastUpdated = lastUpdated.Value.DateTime.TruncateToMillisecond() };
             }
 
             if (versionId is not null)

@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(2, tasks.Sum(task => task.Result.Count));
 
             // Only 1 of the tasks should be fulfilled.
-            Assert.Equal(2, tasks[0].Result.Count ^ tasks[1].Result.Count);
+            Assert.Equal(2, (await tasks[0]).Count ^ (await tasks[1]).Count);
 
             async Task<IReadOnlyCollection<ReindexJobWrapper>> WaitAndAcquireReindexJobsAsync()
             {

@@ -110,5 +110,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expression">The expression to visit.</param>
         /// <param name="context">The input</param>
         TOutput VisitIn<T>(InExpression<T> expression, TContext context);
+
+        /// <summary>
+        /// Visits the <see cref="NotReferencedExpression"/>
+        /// </summary>
+        /// <param name="expression">The expression to visit</param>
+        /// <param name="context">The input</param>
+        TOutput VisitNotReferenced(NotReferencedExpression expression, TContext context);
     }
 }

@@ -11,16 +11,18 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbSearchParameterStatusInitializer : ICollectionUpdater
+    public class CosmosDbSearchParameterStatusInitializer : ICollectionDataUpdater
     {
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly UpdateUnsupportedSearchParameters _updateSP = new();
 
         public CosmosDbSearchParameterStatusInitializer(
             FilebasedSearchParameterStatusDataStore.Resolver filebasedSearchParameterStatusDataStoreResolver,
@@ -69,6 +71,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     await transaction.ExecuteAsync(cancellationToken);
                 }
+            }
+            else
+            {
+                await _updateSP.Execute(container.Scripts, cancellationToken);
             }
         }
     }

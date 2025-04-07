@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Fhir.Core;
@@ -68,6 +69,90 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
+        [Theory]
+        [InlineData(5)] // should succeed
+        [InlineData(35)] // shoul fail
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task RetriesOnConflict(int requestedExceptions)
+        {
+            try
+            {
+                await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
+                await _fixture.SqlHelper.ExecuteSqlCmd(@$"
+CREATE TRIGGER Resource_Trigger ON Resource FOR INSERT
+AS
+IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 'Error') < {requestedExceptions}
+  INSERT INTO Resource SELECT * FROM inserted -- this will cause dup key exception which is treated as a conflict
+                    ");
+
+                var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
+                patient.Id = Guid.NewGuid().ToString();
+                try
+                {
+                    await Mediator.UpsertResourceAsync(patient.ToResourceElement());
+                    if (requestedExceptions > 30)
+                    {
+                        Assert.Fail("This point should not be reached");
+                    }
+                }
+                catch (SqlException e)
+                {
+                    if (requestedExceptions > 30)
+                    {
+                        Assert.Contains("Resource has been recently updated or added", e.Message);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+            finally
+            {
+                await _fixture.SqlHelper.ExecuteSqlCmd("IF object_id('Resource_Trigger') IS NOT NULL DROP TRIGGER Resource_Trigger");
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task DatabaseMergeThrottling(bool useDefaultMergeOptions)
+        {
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
+
+            // set optimal threashold to low value to see waits.
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 1");
+
+            // make merge calls longer
+            await _fixture.SqlHelper.ExecuteSqlCmd(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE -- This should make commit in MergeResources to run longer
+AS
+WAITFOR DELAY '00:00:01'
+                    ");
+            var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
+            await Parallel.ForAsync(0, 8, async (i, cancell) =>
+            {
+                var iInt = i;
+                Thread.Sleep(100 * iInt); // do not start all merges at once
+                if (useDefaultMergeOptions)
+                {
+                    patient.Id = Guid.NewGuid().ToString();
+                    await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // try enlist in tran w/o tran scope
+                }
+                else
+                {
+                    var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
+                    await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // do not enlist in tran
+                }
+            });
+            await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
+            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
+
+            // make sure waits were recorded
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction' AND Status = 'Error') RAISERROR('Waits were not recorded', 18, 127)");
+        }
+
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task TimeTravel()
@@ -81,7 +166,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Mediator.UpsertResourceAsync(patient.ToResourceElement());
 
             await Task.Delay(100); // avoid time -> surrogate id -> time round trip error
-            var till = DateTime.UtcNow;
+            var till = DateTimeOffset.UtcNow;
 
             var results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
@@ -105,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Empty(results.Results);
 
             // add magic parameters
-            var maxId = till.DateToId();
+            var maxId = till.ToId();
             var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
@@ -131,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.False(resource.IsHistory); // current
 
             // use surr id interval that covers all changes
-            maxId = DateTime.UtcNow.DateToId();
+            maxId = DateTimeOffset.UtcNow.ToId();
             range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
@@ -401,9 +486,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             foreach (var item in list)
             {
-                Assert.Equal(SaveOutcomeType.Updated, item.Result.Outcome);
+                Assert.Equal(SaveOutcomeType.Updated, (await item).Outcome);
 
-                deserializedList.Add(item.Result.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer));
+                deserializedList.Add((await item).RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer));
             }
 
             var allObservations = deserializedList.Select(x => ((Quantity)x.Value).Value.GetValueOrDefault()).Distinct();
@@ -1096,7 +1181,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
                 Type = type,
-                Base = new List<ResourceType?> { ResourceType.Patient },
+#if Stu3 || R4 || R4B
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+#else
+                Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
+#endif
                 Expression = expression,
                 Name = searchParamName,
                 Code = searchParamName,
@@ -1127,7 +1216,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
-            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;

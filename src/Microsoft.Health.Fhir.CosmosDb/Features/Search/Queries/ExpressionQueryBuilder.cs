@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitSortParameter(SortExpression expression, Context context)
         {
-            throw new SearchOperationNotSupportedException(Core.Resources.SortNotSupported);
+            throw new SearchOperationNotSupportedException(Microsoft.Health.Fhir.Core.Resources.SortNotSupported);
         }
 
         public object VisitMissingField(MissingFieldExpression expression, Context context)
@@ -396,6 +396,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             _queryBuilder.Append(context.InstanceVariableName).Append('.').Append(GetFieldName(expression, context)).Append(')');
 
             return null;
+        }
+
+        public object VisitNotReferenced(NotReferencedExpression expression, Context context)
+        {
+            throw new NotImplementedException(Resources.NotReferecedNotImplemented);
         }
 
         private static string GetFieldName(IFieldExpression fieldExpression, Context state)

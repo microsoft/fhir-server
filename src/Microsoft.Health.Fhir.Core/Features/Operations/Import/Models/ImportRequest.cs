@@ -37,8 +37,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         public string Mode { get; set; }
 
         /// <summary>
+        /// Flag indicating how late arivals are handled.
+        /// Late arrival is a resource with explicit last updated and no explicit version. Its last updated is less than last updated on current version in the database.
+        /// If late arrival conflicts with exting resource versions in the database, it is currently marked as a conflict and not ingested.
+        /// With this flag set to true, it can be ingested with negative version value.
+        /// </summary>
+        public bool AllowNegativeVersions { get; set; }
+
+        /// <summary>
         /// Force import, ignore server status and import mode check
         /// </summary>
         public bool Force { get; set; }
+
+        /// <summary>
+        /// Custom container name for error logs. If not specified, the default container will be used.
+        /// </summary>
+        public string ErrorContainerName { get; set; }
     }
 }

@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         switch (accessLevel)
                         {
                             case "read":
-                                permittedDataActions = DataActions.Read;
+                                permittedDataActions = DataActions.Read | DataActions.Export;
                                 break;
                             case "write":
                                 permittedDataActions = DataActions.Write;
@@ -152,14 +152,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         {
                             if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                                throw new BadHttpRequestException(string.Format(Api.Resources.FhirUserClaimMustBeURL, fhirUser));
                             }
                         }
                         catch (ArgumentNullException)
                         {
                             if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
+                                throw new BadHttpRequestException(Api.Resources.FhirUserClaimCannotBeNull);
                             }
                         }
                     }

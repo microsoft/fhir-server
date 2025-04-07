@@ -20,9 +20,14 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+#if !Stu3 && !R4 && !R4B
+using Microsoft.Health.Fhir.R5.Core.Extensions;
+#endif
+
 using Constants = Microsoft.Health.Fhir.Core.Features.Search.Parameters.Constants;
 using Task = System.Threading.Tasks.Task;
 
@@ -105,12 +110,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // If a search parameter with the same uri exists already
-                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
+                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
                     {
                         // And if this is a request to create a new search parameter
                         if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
                         {
-                            _logger.LogInformation("Requested to create a new Search parameter but Search parameter definition has a duplicate url. url: {Url}", searchParam.Url);
+                            if (searchParameterInfo.SearchParameterStatus != SearchParameterStatus.PendingDelete
+                                && searchParameterInfo.SearchParameterStatus != SearchParameterStatus.Deleted)
+                            {
+                                _logger.LogInformation("Requested to create a new Search parameter but Search parameter definition has a duplicate url. url: {Url}", searchParam.Url);
 
                             // We have a conflict
                             validationFailures.Add(

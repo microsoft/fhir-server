@@ -185,10 +185,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ThrowIfCurrentSchemaVersionIsNull();
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
-            await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
+            await Initialize((int)_schemaInformation.Current, CancellationToken.None);
         }
 
-        public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
+        public async Task Initialize(int version, CancellationToken cancellationToken)
         {
             // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
@@ -207,10 +207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await InitializeBase(cancellationToken);
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
-            if (runAllInitialization)
-            {
-                await InitializeSearchParameterStatuses(cancellationToken);
-            }
+            await InitializeSearchParameterStatuses(cancellationToken);
 
             _highestInitializedVersion = version;
 
@@ -368,46 +365,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
+                _logger.LogInformation("Initializing search parameters statuses.");
                 sqlCommandWrapper.CommandText = @"
-                        SET XACT_ABORT ON
-                        BEGIN TRANSACTION
-                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-    
+                        SET XACT_ABORT ON;
+                        BEGIN TRANSACTION;
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
+
                         UPDATE dbo.SearchParam
-                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        SET Status = ISNULL(dbo.SearchParam.Status, sps.Status), LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
-                        COMMIT TRANSACTION";
+                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
+
+                        SELECT @RowsAffected = @@ROWCOUNT;
+                        COMMIT TRANSACTION;";
 
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
-
-                if (_schemaInformation.Current < (int)SchemaVersion.V52)
-                {
-                    foreach (var status in statuses)
-                    {
-                        if (status.Status == SearchParameterStatus.Unsupported)
-                        {
-                            status.Status = SearchParameterStatus.Disabled;
-                        }
-                    }
-                }
 
                 var collection = new SearchParameterStatusCollection();
                 collection.AddRange(statuses);
 
                 var tableValuedParameter = new SqlParameter
-                {
-                    ParameterName = "searchParamStatuses",
-                    SqlDbType = SqlDbType.Structured,
-                    Value = collection,
-                    Direction = ParameterDirection.Input,
-                    TypeName = "dbo.SearchParamTableType_1",
-                };
-
-                if (_schemaInformation.Current >= (int)SchemaVersion.V52)
-                {
-                    tableValuedParameter = new SqlParameter
                     {
                         ParameterName = "searchParamStatuses",
                         SqlDbType = SqlDbType.Structured,
@@ -415,10 +394,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         Direction = ParameterDirection.Input,
                         TypeName = "dbo.SearchParamTableType_2",
                     };
-                }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
+                sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });
+
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                int rowsAffected = (int)sqlCommandWrapper.Parameters["@RowsAffected"].Value;
+                _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", rowsAffected);
             }
         }
 
@@ -473,10 +456,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfCurrentSchemaVersionIsNull();
 
+            if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
+            {
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for minimum supported schema version");
+                throw new ServiceUnavailableException();
+            }
+
             if (_highestInitializedVersion < _schemaInformation.Current)
             {
-                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
-                throw new ServiceUnavailableException();
+                _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
             }
         }
 

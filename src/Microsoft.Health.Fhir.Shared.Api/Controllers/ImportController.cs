@@ -113,7 +113,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.Input,
                  importRequest.StorageDetail,
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
-                 HttpContext.RequestAborted);
+                 HttpContext.RequestAborted,
+                 importRequest.AllowNegativeVersions,
+                 importRequest.ErrorContainerName);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
@@ -198,6 +200,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            var duplicateInputUrls = input.GroupBy(item => item.Url).Where(group => group.Count() > 1).Select(group => group.Key);
+
+            if (duplicateInputUrls.Any())
+            {
+                var duplicateUrlString = string.Join(", ", duplicateInputUrls);
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestDuplicateInputFiles, duplicateUrlString));
+            }
+
             foreach (var item in input)
             {
                 if (!string.IsNullOrEmpty(item.Type) && !Enum.IsDefined(typeof(ResourceType), item.Type))
@@ -209,6 +219,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
+            }
+
+            if (input.Any(i => i.Type == "SearchParameter"))
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, "SearchParameter"));
             }
         }
     }

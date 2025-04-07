@@ -83,25 +83,16 @@
     },
     "container": [
         {
-            "identifier": [
-                {
-                    "value": "48736-15394-75465"
-                }
-            ],
-            "description": "Green Gel tube",
-            "type": {
-                "text": "Vacutainer"
-            },
-            "capacity": {
-                "value": 10,
-                "unit": "mL"
+            "device": {
+                "identifier": [
+                    {
+                        "value": "48736-15394-75465"
+                    }
+                ]
             },
             "specimenQuantity": {
                 "value": 6,
                 "unit": "mL"
-            },
-            "additiveReference": {
-                "reference": "#hep"
             }
         }
     ],

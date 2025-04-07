@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -17,7 +18,9 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -27,41 +30,64 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// </summary>
     public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
+        private const int CollectionSettingsVersion = 3;
         private readonly ILogger<CosmosContainerProvider> _logger;
         private readonly IMediator _mediator;
+        private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
         private Lazy<Container> _container;
         private readonly RetryableInitializationOperation _initializationOperation;
         private readonly CosmosClient _client;
+        private readonly Func<CancellationToken, Task> _containerTestFactory;
 
         public CosmosContainerProvider(
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
+            ICollectionSetup collectionSetup,
+            ICollectionDataUpdater collectionDataUpdater,
+            RetryExceptionPolicyFactory retryPolicyFactory,
             ILogger<CosmosContainerProvider> logger,
             IMediator mediator,
-            IEnumerable<ICollectionInitializer> collectionInitializers)
+            IEnumerable<ICollectionInitializer> collectionInitializers,
+            ICosmosDbDistributedLockFactory distributedLockFactory,
+            ICosmosClientTestProvider cosmosClientTestProvider)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
+            EnsureArg.IsNotNull(collectionSetup, nameof(collectionSetup));
+            EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
+            EnsureArg.IsNotNull(retryPolicyFactory, nameof(retryPolicyFactory));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
+
             _logger = logger;
             _mediator = mediator;
+            _distributedLockFactory = distributedLockFactory;
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
 
-            _initializationOperation = new RetryableInitializationOperation(
-                () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
-
-            _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
+            Func<Container> initializationFactory = () => cosmosClientInitializer.CreateFhirContainer(
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
-                collectionId));
+                collectionId);
+
+            _container = new Lazy<Container>(initializationFactory);
+
+            _containerTestFactory = ct => cosmosClientTestProvider.PerformTestAsync(
+                initializationFactory.Invoke(),
+                ct);
+
+            _initializationOperation = new RetryableInitializationOperation(async () =>
+            {
+                await InitializeDataStoreAsync(collectionSetup, collectionDataUpdater, cosmosDataStoreConfiguration, retryPolicyFactory, collectionInitializers);
+            });
         }
 
-        public Container Container
+        private Container Container
         {
             get
             {
@@ -73,6 +99,71 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 return _container.Value;
+            }
+        }
+
+        private async Task InitializeDataStoreAsync(
+            ICollectionSetup collectionSetup,
+            ICollectionDataUpdater collectionDataUpdater,
+            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            RetryExceptionPolicyFactory retryPolicyFactory,
+            IEnumerable<ICollectionInitializer> collectionInitializers)
+        {
+            try
+            {
+                using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+
+                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
+
+                try
+                {
+                    await _containerTestFactory.Invoke(cancellationTokenSource.Token);
+                }
+                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _logger.LogInformation("The database or collection does not exist, setup is required.");
+
+                    if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
+                    {
+                        await collectionSetup.CreateDatabaseAsync(retryPolicyFactory.RetryPolicy, cancellationTokenSource.Token);
+                    }
+
+                    if (cosmosDataStoreConfiguration.AllowCollectionSetup)
+                    {
+                        await collectionSetup.CreateCollectionAsync(collectionInitializers, retryPolicyFactory.RetryPolicy, cancellationTokenSource.Token);
+                    }
+                }
+
+                // When the collection exists we can start a distributed lock to ensure only one instance of the service does the rest of the setup
+                ICosmosDbDistributedLock setupLock = _distributedLockFactory.Create(_container.Value, nameof(InitializeDataStoreAsync));
+
+                await setupLock.AcquireLock(cancellationTokenSource.Token);
+                try
+                {
+                    if (cosmosDataStoreConfiguration.AllowCollectionSetup)
+                    {
+                        await collectionSetup.InstallStoredProcs(cancellationTokenSource.Token);
+
+                        (bool updateRequired, CollectionVersion version) = await IsUpdateRequiredAsync(_container.Value, cancellationTokenSource.Token);
+                        if (updateRequired)
+                        {
+                            await collectionSetup.UpdateFhirCollectionSettingsAsync(version, cancellationTokenSource.Token);
+                            await SaveCollectionVersion(_container.Value, version, cancellationTokenSource.Token);
+                        }
+                    }
+
+                    await collectionDataUpdater.ExecuteAsync(_container.Value, cancellationTokenSource.Token);
+                }
+                finally
+                {
+                    await setupLock.ReleaseLock();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogLevel logLevel = LogLevel.Critical;
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} Initialization has failed.", cosmosDataStoreConfiguration.DatabaseId);
+                throw;
             }
         }
 
@@ -135,6 +226,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return new NonDisposingScope(Container);
+        }
+
+        private static async Task<(bool UpdateRequired, CollectionVersion Version)> IsUpdateRequiredAsync(Container container, CancellationToken cancellationToken)
+        {
+            CollectionVersion thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
+            return (thisVersion.Version < CollectionSettingsVersion, thisVersion);
+        }
+
+        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken)
+        {
+            FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
+                new QueryDefinition("SELECT * FROM root r"),
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition),
+                });
+
+            FeedResponse<CollectionVersion> result = await query.ReadNextAsync(cancellationToken);
+
+            return result.FirstOrDefault() ?? new CollectionVersion();
+        }
+
+        private static async Task SaveCollectionVersion(Container container, CollectionVersion collectionVersion, CancellationToken cancellationToken)
+        {
+            collectionVersion.Version = CollectionSettingsVersion;
+            await container.UpsertItemAsync(collectionVersion, new PartitionKey(collectionVersion.PartitionKey), cancellationToken: cancellationToken);
         }
     }
 }

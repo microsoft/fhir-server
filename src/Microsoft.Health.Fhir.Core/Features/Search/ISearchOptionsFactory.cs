@@ -15,7 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false);
+            bool onlyIds = false,
+            bool isIncludesOperation = false);
 
         SearchOptions Create(
             string compartmentType,
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false);
+            bool onlyIds = false,
+            bool isIncludesOperation = false);
     }
 }

@@ -61,9 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
-        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// This setting is currently set by:
+        ///     x-ms-query-latency-over-efficiency
+        ///     x-conditionalquery-processing-logic
+        /// It is used to hint that the request should run with a max parallel setting.
         /// </summary>
         public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
+        /// This setting is controlled by the x-ms-query-cache-enabled header. It controls whether to use the query cache or not.
+        /// </summary>
+        public const string QueryCaching = "_queryCaching";
 
         /// <summary>
         /// The anonymization configuration
@@ -102,7 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string Identifier = "identifier";
 
-        public const string HardDelete = "_hardDelete";
+        public const string BulkHardDelete = "_hardDelete";
+
+        public const string HardDelete = "hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
 
@@ -115,5 +125,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// Used by export to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
+
+        public const string NotReferenced = "_not-referenced";
+
+        /// <summary>
+        /// The $includes continuation token parameter.
+        /// </summary>
+        public const string IncludesContinuationToken = "includesCt";
+
+        /// <summary>
+        /// The $includes count parameter.
+        /// </summary>
+        public const string IncludesCount = "_includesCount";
     }
 }

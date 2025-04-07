@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -33,6 +34,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerWatchdogTests : IClassFixture<SqlServerFhirStorageTestsFixture>
@@ -46,15 +48,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [Fact]
-        public async Task Defrag()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task Defrag(bool indexRebuildIsEnabled)
         {
+            // ebale logging
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search') A");
+            const string indexRebuildIsEnabledId = "Defrag.IndexRebuild.IsEnabled";
+            ExecuteSql("DELETE FROM dbo.Parameters WHERE Id = '" + indexRebuildIsEnabledId + "'");
+            if (indexRebuildIsEnabled)
+            {
+                ExecuteSql("INSERT INTO dbo.Parameters (Id, Number) SELECT Id = '" + indexRebuildIsEnabledId + "', 1");
+            }
+
             // populate data
             ExecuteSql(@"
 BEGIN TRANSACTION
-CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))
-INSERT INTO DefragTestTable (Data) SELECT TOP 100000 '' FROM syscolumns A1, syscolumns A2
-DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
+IF object_id('DefragTestTable') IS NOT NULL DROP TABLE DefragTestTable
+CREATE TABLE DefragTestTable (ResourceTypeId smallint, Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id, ResourceTypeId) ON PartitionScheme_ResourceTypeId (ResourceTypeId))
+INSERT INTO DefragTestTable (ResourceTypeId, Data) SELECT TOP 100000 96,'' FROM syscolumns A1, syscolumns A2
+DELETE FROM DefragTestTable WHERE ResourceTypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
 COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
@@ -75,12 +89,12 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.StartAsync(cts.Token);
+            Task wsTask = wd.ExecuteAsync(cts.Token);
 
-            var startTime = DateTime.UtcNow;
+            DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -88,7 +102,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var completed = CheckQueue(current);
             while (!completed && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
                 completed = CheckQueue(current);
             }
 
@@ -98,7 +112,8 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var sizeAfter = GetSize();
             Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wsTask;
         }
 
         [Fact]
@@ -122,12 +137,12 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.StartAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -135,13 +150,14 @@ END
 
             while ((GetCount("EventLog") > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 1000, "Count is low");
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -189,12 +205,18 @@ END
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(true, 1, 2, cts.Token);
-            var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+            DateTime startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -208,7 +230,8 @@ END
 
             Assert.Equal(1, GetCount("NumberSearchParam")); // wd rolled forward transaction
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         [Fact]
@@ -219,12 +242,18 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-            await wd.StartAsync(true, 1, 2, cts.Token);
-            var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.2));
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2), cts.Token);
             }
 
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
@@ -245,7 +274,7 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
@@ -258,7 +287,7 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
@@ -271,13 +300,14 @@ END
             startTime = DateTime.UtcNow;
             while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(tran3.TransactionId, visibility);
 
-            wd.Dispose();
+            await cts.CancelAsync();
+            await wdTask;
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
@@ -350,7 +380,7 @@ END
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND CreateDate > @Current ORDER BY JobId DESC", conn);
+            using var cmd = new SqlCommand("SELECT TOP 1000 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND CreateDate > @Current ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
             cmd.Parameters.AddWithValue("@Current", current);
             using SqlDataReader reader = cmd.ExecuteReader();
