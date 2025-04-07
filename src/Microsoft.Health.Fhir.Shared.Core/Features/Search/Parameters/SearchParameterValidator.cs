@@ -120,11 +120,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             {
                                 _logger.LogInformation("Requested to create a new Search parameter but Search parameter definition has a duplicate url. url: {Url}", searchParam.Url);
 
-                            // We have a conflict
-                            validationFailures.Add(
-                                new ValidationFailure(
-                                    nameof(searchParam.Url),
-                                    string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                                // We have a conflict
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                        nameof(searchParam.Url),
+                                        string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                            }
                         }
                     }
                     else

@@ -86,10 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
-                if (!supportedResult.Supported)
-                {
-                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.NoConverterForSearchParamType, searchParameterInfo.Type, searchParameterInfo.Expression));
-                }
+                    if (!supportedResult.Supported)
+                    {
+                        throw new SearchParameterNotSupportedException(string.Format(Core.Resources.NoConverterForSearchParamType, searchParameterInfo.Type, searchParameterInfo.Expression));
+                    }
 
                     // check data store specific support for SearchParameter
                     if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
