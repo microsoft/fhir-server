@@ -149,8 +149,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                     return true;
                 });
-
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _authorizationService,
+                _searchParameterDefinitionManager,
+                _modelInfoProvider,
+                _fhirRequestContextAccessor,
+                _searchParameterConflictingCodeValidator,
+                NullLogger<SearchParameterValidator>.Instance);
             if (searchParameterStatus == SearchParameterStatus.PendingDelete)
             {
                 // Expecting no exception being thrown.
