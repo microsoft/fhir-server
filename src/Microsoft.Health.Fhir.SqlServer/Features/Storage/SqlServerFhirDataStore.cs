@@ -87,7 +87,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _sqlStoreClient = EnsureArg.IsNotNull(storeClient, nameof(storeClient));
