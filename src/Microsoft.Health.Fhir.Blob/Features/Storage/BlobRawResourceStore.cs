@@ -80,7 +80,7 @@ public class BlobRawResourceStore : IRawResourceStore
 
         await writer.FlushAsync(cancellationToken);
         await stream.FlushAsync(cancellationToken);
-        BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(storageIdentifier);
+        BlockBlobClient blobClient = GetBlockBlobClient(storageIdentifier);
         var blobUploadOptions = new BlobUploadOptions { TransferOptions = _options.Upload };
 
         // upload the file to blob storage
@@ -112,8 +112,8 @@ public class BlobRawResourceStore : IRawResourceStore
         {
             EnsureArg.IsGt(resourceLocator.RawResourceStorageIdentifier, 0);
             EnsureArg.IsGt(resourceLocator.RawResourceLength, 0);
-            EnsureArg.IsGte(resourceLocator.RawResourceLength, 0);
-            BlockBlobClient blobClient = GetNewInstanceBlockBlobClient(resourceLocator.RawResourceStorageIdentifier);
+            EnsureArg.IsGte(resourceLocator.RawResourceOffset, 0);
+            BlockBlobClient blobClient = GetBlockBlobClient(resourceLocator.RawResourceStorageIdentifier);
             var options = new BlobDownloadOptions() { Range = new HttpRange(resourceLocator.RawResourceOffset, resourceLocator.RawResourceLength) };
 
             Response<BlobDownloadResult> blobResult = await ExecuteAsync(
@@ -135,7 +135,7 @@ public class BlobRawResourceStore : IRawResourceStore
         return completeRawResources;
     }
 
-    protected BlockBlobClient GetNewInstanceBlockBlobClient(long storageIdentifier)
+    protected BlockBlobClient GetBlockBlobClient(long storageIdentifier)
     {
         string blobName = GetBlobName(storageIdentifier);
         return _blobClient.BlobContainerClient.GetBlockBlobClient(blobName);
@@ -146,6 +146,14 @@ public class BlobRawResourceStore : IRawResourceStore
         return $"{BlobUtility.ComputeHashPrefixForBlobName(storageIdentifier)}/{storageIdentifier}.ndjson";
     }
 
+    /// <summary>
+    /// This is a common method that can be used for various blob operations and all blob operation related exceptions can be handled in one place.
+    /// </summary>
+    /// <typeparam name="T">Result type</typeparam>
+    /// <param name="func">Action to execute</param>
+    /// <param name="operationName">Operation name</param>
+    /// <returns>Task{T}</returns>
+    /// <exception cref="RawResourceStoreException">Any blob operation related exception is converted into this exception type</exception>
     private async Task<T> ExecuteAsync<T>(
         Func<Task<T>> func,
         string operationName)

@@ -317,7 +317,7 @@ CREATE TABLE dbo.Resource (
     HistoryTransactionId BIGINT          NULL,
     FileId               BIGINT          NULL,
     OffsetInFile         INT             NULL,
-    ResourceLength       INT             NULL CONSTRAINT PKC_Resource_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    ResourceLength       INT             NULL
 );
 
 CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId

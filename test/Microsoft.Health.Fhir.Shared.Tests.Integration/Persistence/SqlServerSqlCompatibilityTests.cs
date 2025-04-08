@@ -20,7 +20,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    // [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSqlCompatibilityTests
@@ -131,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [Theory]
+        [SkippableTheory]
         [ClassData(typeof(SqlServerDataStoreValues))]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful(DataStore dataStore)
         {

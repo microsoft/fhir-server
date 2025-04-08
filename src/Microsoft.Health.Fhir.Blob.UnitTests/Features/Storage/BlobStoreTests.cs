@@ -34,12 +34,10 @@ namespace Microsoft.Health.Fhir.Blob.UnitTests.Features.Storage;
 public class BlobStoreTests
 {
     private static readonly string _resourceFilePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "resources.ndjson");
-
     private static readonly RecyclableMemoryStreamManager RecyclableMemoryStreamManagerInstance = new RecyclableMemoryStreamManager();
-    protected const long DefaultStorageIdentifier = 101010101010;
-
     private readonly BlobRawResourceStore _blobFileStore;
     private readonly TestBlobClient _client;
+    protected const long DefaultStorageIdentifier = 101010101010;
 
     public BlobStoreTests()
     {
@@ -82,6 +80,11 @@ public class BlobStoreTests
         return resourceWrapper;
     }
 
+    /// <summary>
+    /// This method creates a list of ResourceWrapper objects with data for testing purposes.
+    /// </summary>
+    /// <param name="forReadTest">Generates data for read related unit tests when true, for write tests otherwise</param>
+    /// <returns>Read only list of resource wrappers</returns>
     internal IReadOnlyList<ResourceWrapper> GetResourceWrappersWithData(bool forReadTest = false)
     {
         var resourceWrappers = new List<ResourceWrapper>();
@@ -202,10 +205,8 @@ public class BlobStoreTests
             .DownloadContentAsync(Arg.Any<BlobDownloadOptions>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(response));
 
-        // Act
         var result = await _blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { key }, CancellationToken.None);
 
-        // Assert
         Assert.NotNull(result);
         Assert.Single(result);
         Assert.Equal(resourceWrappersMetaData[0].RawResource.Data, result.First().Value);
@@ -245,24 +246,18 @@ public class BlobStoreTests
     [Fact]
     public async Task GivenResourceStore_WhenWritingEmptyResourceList_ThenThrowArgumentException()
     {
-        // Arrange
-
-        // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _blobFileStore.WriteRawResourcesAsync(new List<ResourceWrapper>(), DefaultStorageIdentifier, CancellationToken.None));
     }
 
     [Fact]
     public async Task GivenResourceStore_WhenWritingValidResources_ThenValidateStorageDetails()
     {
-        // Arrange
         _client.BlockBlobClient.UploadAsync(Arg.Any<Stream>(), Arg.Any<BlobUploadOptions>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Substitute.For<Response<BlobContentInfo>>()));
 
         var resourceWrappers = GetResourceWrappersWithData();
 
-        // Act
         var result = await _blobFileStore.WriteRawResourcesAsync(resourceWrappers, DefaultStorageIdentifier, CancellationToken.None);
 
-        // Assert
         Assert.NotNull(result);
         Assert.Equal(resourceWrappers.Count, result.Count);
         Assert.All(result, r => Assert.Equal(DefaultStorageIdentifier, r.RawResourceLocator.RawResourceStorageIdentifier));
@@ -271,11 +266,8 @@ public class BlobStoreTests
     [Fact]
     public async Task GivenResourceStore_WhenReadingNonExistentResource_ThenThrowResourceNotFoundException()
     {
-        // Arrange
-
         var nonExistentKey = new RawResourceLocator(-1, -1, -1); // Invalid key
 
-        // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _blobFileStore.ReadRawResourcesAsync(new List<RawResourceLocator> { nonExistentKey }, CancellationToken.None));
     }
 
@@ -288,7 +280,7 @@ public class BlobStoreTests
     /// <param name="expectedHash">The expected hash value.</param>
     [Theory]
     [InlineData(1234567890, "443")]
-    public void GivenStorageIdentifier_HashDoesNotChange(long input, string expectedHash)
+    public void GivenStorageIdentifier_HashIsConsistent(long input, string expectedHash)
     {
         string hash = BlobUtility.ComputeHashPrefixForBlobName(input);
         Assert.Equal(expectedHash, hash);
@@ -296,7 +288,7 @@ public class BlobStoreTests
 
     /// <summary>
     /// This test checks that the hash function generates a wide variety of hashes for different storage identifiers.
-    /// Checking that at least 100 unique hashes are generated for 1000 random storage identifiers.
+    /// Checking that at least 500 unique hashes are generated for 10000 random values.
     /// </summary>
     [Fact]
     public void GivenStorageIdentifiers_HashFunctionGeneratesWideVarietyOfHashes()
@@ -304,14 +296,14 @@ public class BlobStoreTests
         var uniqueHashes = new HashSet<string>();
         var random = new Random();
 
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < 10000; i++)
         {
-            long randomIdentifier = random.NextInt64(5000000, long.MaxValue);
+            long randomIdentifier = random.NextInt64(1, long.MaxValue);
             string hash = BlobUtility.ComputeHashPrefixForBlobName(randomIdentifier);
             uniqueHashes.Add(hash);
         }
 
         // Assert that we have a wide variety of unique hashes
-        Assert.True(uniqueHashes.Count >= 100, $"Expected more than 100 unique hashes, but got {uniqueHashes.Count}");
+        Assert.True(uniqueHashes.Count >= 500, $"Expected more than 500 unique hashes, but got {uniqueHashes.Count}");
     }
 }

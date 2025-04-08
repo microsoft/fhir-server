@@ -42,15 +42,6 @@ BEGIN
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.columns 
-               WHERE Name = N'ResourceLength' AND Object_ID = Object_ID(N'dbo.Resource'))
-BEGIN
-    ALTER TABLE dbo.Resource
-    ADD ResourceLength INT NULL;
-END
-GO
-
-
 ALTER VIEW dbo.Resource
 AS 
 SELECT A.ResourceTypeId

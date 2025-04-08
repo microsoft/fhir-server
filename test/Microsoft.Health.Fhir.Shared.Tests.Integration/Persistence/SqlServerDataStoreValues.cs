@@ -9,6 +9,9 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
+/// <summary>
+/// Provides a set of data stores for testing SQL Server functionality. This is used when the SQL Server data store fixture is directly initialized by the test code with specific DB version instead of using <see cref="SqlServerFhirStorageTestsFixture"/> attribute.
+/// </summary>
 public class SqlServerDataStoreValues : IEnumerable<object[]>
 {
     public IEnumerator<object[]> GetEnumerator()

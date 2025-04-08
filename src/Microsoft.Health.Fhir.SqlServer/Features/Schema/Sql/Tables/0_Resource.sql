@@ -17,11 +17,13 @@ CREATE TABLE dbo.CurrentResource
    ,HistoryTransactionId        bigint                  NULL
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
-    ,ResourceLength             int                  NULL
+   ,ResourceLength              int                     NULL
 )
 GO
+
 DROP TABLE dbo.CurrentResource
 GO
+
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL
@@ -39,14 +41,14 @@ CREATE TABLE dbo.Resource
    ,HistoryTransactionId        bigint                  NULL
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
-   ,ResourceLength              int                  NULL
-    
-     CONSTRAINT PKC_Resource_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,ResourceLength              int                     NULL
 )
 CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON Resource (ResourceTypeId) -- index definition does not matter as it is not used in new schema and left here just to generate same queries accessing old schema during upgrade.
 GO
+
 DROP TABLE dbo.Resource
 GO
+
 CREATE TABLE dbo.ResourceIdIntMap
 (
     ResourceTypeId  smallint    NOT NULL
@@ -59,6 +61,7 @@ CREATE TABLE dbo.ResourceIdIntMap
 
 ALTER TABLE dbo.ResourceIdIntMap SET ( LOCK_ESCALATION = AUTO )
 GO
+
 CREATE TABLE dbo.RawResources
 (
     ResourceTypeId              smallint                NOT NULL
@@ -70,6 +73,7 @@ CREATE TABLE dbo.RawResources
 
 ALTER TABLE dbo.RawResources SET ( LOCK_ESCALATION = AUTO )
 GO
+
 CREATE TABLE dbo.CurrentResources
 (
     ResourceTypeId              smallint                NOT NULL
@@ -85,7 +89,7 @@ CREATE TABLE dbo.CurrentResources
    ,HistoryTransactionId        bigint                  NULL
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
-    ,ResourceLength             int                  NULL
+   ,ResourceLength              int                     NULL
 
     CONSTRAINT PKC_CurrentResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -113,7 +117,7 @@ CREATE TABLE dbo.HistoryResources
    ,HistoryTransactionId        bigint                  NULL
    ,FileId                      bigint                  NULL
    ,OffsetInFile                int                     NULL
-    ,ResourceLength             int                  NULL
+   ,ResourceLength              int                     NULL
 
     CONSTRAINT PKC_HistoryResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)

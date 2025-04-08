@@ -782,7 +782,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
             {
-                new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                new ResourceListWithLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }
             else
             {
@@ -869,7 +869,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
                 if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
                 {
-                    new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                    new ResourceListWithLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 }
                 else
                 {

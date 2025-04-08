@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.ClientModel;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,9 +11,7 @@ using System.Data;
 using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +43,6 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
-using static System.Net.WebRequestMethods;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -1532,7 +1528,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
-            var rawResources = await SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value, EnsureArg.IsNotNull(_.ResourceLength).Value)).ToList());
+            var rawResources = await SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(resource => (EnsureArg.IsNotNull(resource.FileId).Value, EnsureArg.IsNotNull(resource.OffsetInFile).Value, EnsureArg.IsNotNull(resource.ResourceLength).Value)).ToList());
             foreach (var tmpResource in tmpResources)
             {
                 if (!onlyIds)

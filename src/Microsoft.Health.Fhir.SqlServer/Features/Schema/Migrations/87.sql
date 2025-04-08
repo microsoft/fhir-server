@@ -163,8 +163,7 @@ CREATE TYPE dbo.ResourceListLake AS TABLE (
     RequestMethod        VARCHAR (10)    NULL,
     SearchParamHash      VARCHAR (64)    NULL,
     FileId               BIGINT          NULL,
-    OffsetInFile         INT             NULL,
-    ResourceLength       INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
+    OffsetInFile         INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
     UNIQUE (ResourceTypeId, ResourceId, Version));
 
 CREATE TYPE dbo.ResourceWriteClaimList AS TABLE (
@@ -291,8 +290,7 @@ CREATE TABLE dbo.CurrentResource (
     TransactionId        BIGINT          NULL,
     HistoryTransactionId BIGINT          NULL,
     FileId               BIGINT          NULL,
-    OffsetInFile         INT             NULL,
-    ResourceLength       INT             NULL
+    OffsetInFile         INT             NULL
 );
 
 
@@ -316,8 +314,7 @@ CREATE TABLE dbo.Resource (
     TransactionId        BIGINT          NULL,
     HistoryTransactionId BIGINT          NULL,
     FileId               BIGINT          NULL,
-    OffsetInFile         INT             NULL,
-    ResourceLength       INT             NULL CONSTRAINT PKC_Resource_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    OffsetInFile         INT             NULL
 );
 
 CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
@@ -363,8 +360,7 @@ CREATE TABLE dbo.CurrentResources (
     TransactionId        BIGINT       NULL,
     HistoryTransactionId BIGINT       NULL,
     FileId               BIGINT       NULL,
-    OffsetInFile         INT          NULL,
-    ResourceLength       INT          NULL CONSTRAINT PKC_CurrentResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    OffsetInFile         INT          NULL CONSTRAINT PKC_CurrentResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_CurrentResources_IsHistory CHECK (IsHistory = 0),
     CONSTRAINT U_CurrentResources_ResourceIdInt_ResourceTypeId UNIQUE (ResourceIdInt, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
@@ -397,8 +393,7 @@ CREATE TABLE dbo.HistoryResources (
     TransactionId        BIGINT       NULL,
     HistoryTransactionId BIGINT       NULL,
     FileId               BIGINT       NULL,
-    OffsetInFile         INT          NULL,
-    ResourceLength       INT          NULL CONSTRAINT PKC_HistoryResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    OffsetInFile         INT          NULL CONSTRAINT PKC_HistoryResources_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_HistoryResources_IsHistory CHECK (IsHistory = 1),
     CONSTRAINT U_HistoryResources_ResourceIdInt_Version_ResourceTypeId UNIQUE (ResourceIdInt, Version, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
@@ -2923,8 +2918,7 @@ BEGIN TRY
                    IsRawResourceMetaSet,
                    SearchParamHash,
                    FileId,
-                   OffsetInFile,
-                   ResourceLength
+                   OffsetInFile
             FROM   (SELECT *
                     FROM   @ResourceKeys) AS A
                    INNER LOOP JOIN
@@ -2949,8 +2943,7 @@ BEGIN TRY
                            IsRawResourceMetaSet,
                            SearchParamHash,
                            FileId,
-                           OffsetInFile,
-                           ResourceLength
+                           OffsetInFile
                     FROM   (SELECT *
                             FROM   @ResourceKeys
                             WHERE  Version IS NOT NULL) AS A
@@ -2974,8 +2967,7 @@ BEGIN TRY
                            IsRawResourceMetaSet,
                            SearchParamHash,
                            FileId,
-                           OffsetInFile,
-                           ResourceLength
+                           OffsetInFile
                     FROM   (SELECT *
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
@@ -3004,8 +2996,7 @@ BEGIN TRY
                IsRawResourceMetaSet,
                SearchParamHash,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   (SELECT *
                 FROM   @ResourceKeys) AS A
                INNER LOOP JOIN
@@ -3049,8 +3040,7 @@ BEGIN TRY
                SearchParamHash,
                RequestMethod,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   dbo.Resource
         WHERE  TransactionId = @TransactionId
                AND (IsHistory = 0
@@ -3127,8 +3117,7 @@ BEGIN TRY
                SearchParamHash,
                RawResource,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   dbo.Resource
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceSurrogateId BETWEEN @StartId AND @EndId
@@ -3148,8 +3137,7 @@ BEGIN TRY
                SearchParamHash,
                RawResource,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   @SurrogateIds
                INNER JOIN
                dbo.Resource
@@ -3172,8 +3160,7 @@ BEGIN TRY
                SearchParamHash,
                RawResource,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   dbo.Resource
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceSurrogateId BETWEEN @StartId AND @EndId
@@ -3192,8 +3179,7 @@ BEGIN TRY
                SearchParamHash,
                RawResource,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   @SurrogateIds
                INNER JOIN
                dbo.Resource
@@ -3306,8 +3292,7 @@ BEGIN TRY
            isnull(D.Version, 0) AS MatchedVersion,
            D.RawResource AS MatchedRawResource,
            D.FileId AS MatchedFileId,
-           D.OffsetInFile AS MatchedOffsetInFile,
-           D.ResourceLength AS MatchedResourceLength
+           D.OffsetInFile AS MatchedOffsetInFile
     FROM   (SELECT TOP (@DummyTop) A.*,
                                    M.ResourceIdInt,
                                    CONVERT (INT, row_number() OVER (PARTITION BY A.ResourceTypeId, A.ResourceId ORDER BY ResourceSurrogateId DESC)) AS ResourceIndex
@@ -3794,8 +3779,7 @@ BEGIN TRY
         RequestMethod        VARCHAR (10)    NULL,
         SearchParamHash      VARCHAR (64)    NULL,
         FileId               BIGINT          NULL,
-        OffsetInFile         INT             NULL,
-        ResourceLength       INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
+        OffsetInFile         INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
         UNIQUE (ResourceTypeId, ResourceIdInt, Version));
     DECLARE @ReferenceSearchParamsWithIds AS TABLE (
         ResourceTypeId          SMALLINT      NOT NULL,
@@ -3907,7 +3891,7 @@ BEGIN TRY
         END
     IF EXISTS (SELECT *
                FROM   @ResourcesLake)
-        INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile, ResourceLength)
+        INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile)
         SELECT A.ResourceTypeId,
                A.ResourceId,
                isnull(C.ResourceIdInt, B.ResourceIdInt),
@@ -3922,8 +3906,7 @@ BEGIN TRY
                IsRawResourceMetaSet,
                SearchParamHash,
                FileId,
-               OffsetInFile,
-               ResourceLength
+               OffsetInFile
         FROM   @ResourcesLake AS A
                LEFT OUTER JOIN
                @InsertedIdsResource AS B
@@ -3934,7 +3917,7 @@ BEGIN TRY
                ON C.ResourceTypeId = A.ResourceTypeId
                   AND C.ResourceId = A.ResourceId;
     ELSE
-        INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile, ResourceLength)
+        INSERT INTO @ResourcesWithIds (ResourceTypeId, ResourceId, ResourceIdInt, Version, HasVersionToCompare, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, KeepHistory, RawResource, IsRawResourceMetaSet, SearchParamHash, FileId, OffsetInFile)
         SELECT A.ResourceTypeId,
                A.ResourceId,
                isnull(C.ResourceIdInt, B.ResourceIdInt),
@@ -3948,7 +3931,6 @@ BEGIN TRY
                RawResource,
                IsRawResourceMetaSet,
                SearchParamHash,
-               NULL,
                NULL,
                NULL
         FROM   @Resources AS A
@@ -4232,7 +4214,7 @@ BEGIN TRY
                    ResourceIdInt,
                    ResourceId
             FROM   @InsertedIdsReference;
-            INSERT INTO dbo.Resource (ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, FileId, OffsetInFile, ResourceLength)
+            INSERT INTO dbo.Resource (ResourceTypeId, ResourceIdInt, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, FileId, OffsetInFile)
             SELECT ResourceTypeId,
                    ResourceIdInt,
                    Version,
@@ -4245,8 +4227,7 @@ BEGIN TRY
                    SearchParamHash,
                    @TransactionId,
                    FileId,
-                   OffsetInFile,
-                   ResourceLength
+                   OffsetInFile
             FROM   @ResourcesWithIds;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
@@ -6088,8 +6069,7 @@ SELECT A.ResourceTypeId,
        TransactionId,
        HistoryTransactionId,
        FileId,
-       OffsetInFile,
-       ResourceLength
+       OffsetInFile
 FROM   dbo.CurrentResources AS A
        LEFT OUTER JOIN
        dbo.RawResources AS B
@@ -6144,8 +6124,7 @@ SELECT A.ResourceTypeId,
        TransactionId,
        HistoryTransactionId,
        FileId,
-       OffsetInFile,
-       ResourceLength
+       OffsetInFile
 FROM   dbo.CurrentResources AS A
        LEFT OUTER JOIN
        dbo.RawResources AS B
@@ -6170,8 +6149,7 @@ SELECT A.ResourceTypeId,
        TransactionId,
        HistoryTransactionId,
        FileId,
-       OffsetInFile,
-       ResourceLength
+       OffsetInFile
 FROM   dbo.HistoryResources AS A
        LEFT OUTER JOIN
        dbo.RawResources AS B
@@ -6194,7 +6172,7 @@ CREATE TRIGGER dbo.ResourceIns
                   RawResource
            FROM   Inserted
            WHERE  RawResource IS NOT NULL;
-           INSERT INTO dbo.CurrentResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile, ResourceLength)
+           INSERT INTO dbo.CurrentResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile)
            SELECT ResourceTypeId,
                   ResourceSurrogateId,
                   ResourceIdInt,
@@ -6206,11 +6184,10 @@ CREATE TRIGGER dbo.ResourceIns
                   TransactionId,
                   HistoryTransactionId,
                   FileId,
-                  OffsetInFile,
-                  ResourceLength
+                  OffsetInFile
            FROM   Inserted
            WHERE  IsHistory = 0;
-           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile, ResourceLength)
+           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile)
            SELECT ResourceTypeId,
                   ResourceSurrogateId,
                   ResourceIdInt,
@@ -6222,8 +6199,7 @@ CREATE TRIGGER dbo.ResourceIns
                   TransactionId,
                   HistoryTransactionId,
                   FileId,
-                  OffsetInFile,
-                  ResourceLength
+                  OffsetInFile
            FROM   Inserted
            WHERE  IsHistory = 1;
        END
@@ -6325,7 +6301,7 @@ CREATE TRIGGER dbo.ResourceUpd
                           WHERE  B.ResourceTypeId = A.ResourceTypeId
                                  AND B.ResourceSurrogateId = A.ResourceSurrogateId
                                  AND B.IsHistory = 1);
-           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile, ResourceLength)
+           INSERT INTO dbo.HistoryResources (ResourceTypeId, ResourceSurrogateId, ResourceIdInt, Version, IsDeleted, RequestMethod, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId, FileId, OffsetInFile)
            SELECT ResourceTypeId,
                   ResourceSurrogateId,
                   ResourceIdInt,
@@ -6337,8 +6313,7 @@ CREATE TRIGGER dbo.ResourceUpd
                   TransactionId,
                   HistoryTransactionId,
                   FileId,
-                  OffsetInFile,
-                  ResourceLength
+                  OffsetInFile
            FROM   Inserted
            WHERE  IsHistory = 1;
        END

@@ -13,7 +13,7 @@ using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ResourceListLakeRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, ResourceListLakeRow>
+    internal class ResourceListLakeRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, ResourceListWithLakeRow>
     {
         private readonly ISqlServerFhirModel _model;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public IEnumerable<ResourceListLakeRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
+        public IEnumerable<ResourceListWithLakeRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
         {
             foreach (var merge in mergeWrappers)
             {
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListLakeRow(
+                yield return new ResourceListWithLakeRow(
                     _model.GetResourceTypeId(wrapper.ResourceTypeName),
                     merge.ResourceWrapper.ResourceSurrogateId,
                     wrapper.ResourceId,

@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var bytes = reader.GetSqlBytes(6);
             var fileId = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9) : null; // TODO: Remove field count check after Lake schema deployment
             var offsetInFile = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10) : null;
-            var resourceLength = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.ResourceLength, readRequestMethod ? 12 : 11) : null; // TODO: Remove field count check after Lake schema deployment
+            var resourceLength = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.ResourceLength, readRequestMethod ? 12 : 11) : null; // TODO: Remove field count check after Lake schema deployment
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;

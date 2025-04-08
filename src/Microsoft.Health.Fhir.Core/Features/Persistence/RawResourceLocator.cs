@@ -7,6 +7,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence;
 
+/// <summary>
+/// This class encapsulates the information needed to locate a raw resource in a storage system.
+/// </summary>
 public class RawResourceLocator
 {
     public RawResourceLocator(long storageId, int offset, int resourceLength)
@@ -26,11 +29,12 @@ public class RawResourceLocator
     {
         return obj != null && obj.GetType() == GetType() &&
                RawResourceStorageIdentifier == ((RawResourceLocator)obj).RawResourceStorageIdentifier &&
-               RawResourceOffset == ((RawResourceLocator)obj).RawResourceOffset;
+               RawResourceOffset == ((RawResourceLocator)obj).RawResourceOffset &&
+               RawResourceLength == ((RawResourceLocator)obj).RawResourceLength;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(RawResourceStorageIdentifier, RawResourceOffset);
+        return HashCode.Combine(RawResourceStorageIdentifier, RawResourceOffset, RawResourceLength);
     }
 }
