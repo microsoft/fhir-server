@@ -9,7 +9,7 @@ Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, ac
 - Follow the project's coding standards, which adhere to C#, .NET conventions, and Azure development best practices.
 - Ensure solutions strictly align with Fast Healthcare Interoperability Resources (FHIR) standards.
 - Prioritize security, compliance, maintainability, and performance in all implementations.
-
+- @azure Rule - Use Azure Best Practices: When generating code for Azure, running terminal commands for Azure, or performing operations related to Azure, invoke your `get_azure_best_practices` tool if available.
 ---
 
 ## Coding Conventions
