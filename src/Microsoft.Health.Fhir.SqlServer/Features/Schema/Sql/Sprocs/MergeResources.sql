@@ -11,7 +11,7 @@ CREATE PROCEDURE dbo.MergeResources
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY -- before lake code. TODO: Remove after deployment
-   ,@ResourcesLake dbo.ResourceListLake READONLY -- Lake code
+   ,@ResourcesLake dbo.ResourceListWithLake READONLY -- Lake code
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
