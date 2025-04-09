@@ -151,6 +151,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlRetryService SqlRetryService { get; private set; }
 
+        internal SqlStoreClient SqlStoreClient { get; private set; }
+
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
 
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
@@ -264,10 +266,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
-
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
             await _blobRawResourceStoreTestsFixture.InitializeAsync();
+            SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, _blobRawResourceStoreTestsFixture.RawResourceStore);
 
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
@@ -329,6 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
                 SqlRetryService,
+                SqlStoreClient,
                 SqlServerDataStoreConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
