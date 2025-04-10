@@ -781,6 +781,9 @@
   <data name="TooManyParameters" xml:space="preserve">
     <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
   </data>
+  <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
+    <value>Not referenced only supports the value *:*</value>
+  </data>
   <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
     <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
   </data>

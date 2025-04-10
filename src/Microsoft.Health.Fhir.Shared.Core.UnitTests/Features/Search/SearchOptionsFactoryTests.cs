@@ -538,6 +538,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenNotReferencedParameter_WhenCreated_ThenProperExpressionIsAdded()
+        {
+            SearchOptions options = CreateSearchOptions(
+                resourceType: ResourceType.Patient.ToString(),
+                queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "*:*") });
+            Assert.NotNull(options);
+            Assert.NotNull(options.Expression);
+            Assert.Contains((options.Expression as MultiaryExpression).Expressions, expression => expression is NotReferencedExpression);
+        }
+
+        [Fact]
+        public void GivenNotReferencedParameterWithInvalidValue_WhenCreated_ThenExceptionIsThrown()
+        {
+            CreateSearchOptions(
+                resourceType: ResourceType.Patient.ToString(),
+                queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "invalid") });
+
+            Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(Core.Resources.NotReferencedParameterInvalidValue));
+        }
+
+        [Fact]
         public void GivenMultipleIncludesContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
         {
             const string encodedContinuationToken = "MTIz";
@@ -573,7 +594,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [Theory]
         [InlineData(100, 100)]
-        [InlineData(null, 500)]
+        [InlineData(null, 1000)]
         [InlineData(int.MaxValue, 1000)]
         public void GivenAnIncludesCount_WhenCreated_ThenCorrectIncludeCountShouldBeSet(int? valueToSet, int valueExpected)
         {

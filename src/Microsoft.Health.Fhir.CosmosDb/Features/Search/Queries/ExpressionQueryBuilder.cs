@@ -398,6 +398,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        public object VisitNotReferenced(NotReferencedExpression expression, Context context)
+        {
+            throw new NotImplementedException(Resources.NotReferecedNotImplemented);
+        }
+
         private static string GetFieldName(IFieldExpression fieldExpression, Context state)
         {
             string overrideValue = state.FieldNameOverride?.Invoke(fieldExpression.FieldName, fieldExpression.ComponentIndex);
