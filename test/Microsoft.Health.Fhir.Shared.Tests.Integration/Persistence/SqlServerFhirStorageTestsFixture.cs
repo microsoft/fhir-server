@@ -85,19 +85,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> options)
             : this(maximumSupportedSchemaVersion, databaseName, options.Value.SupportsRawResourceInBlob ? DataStore.SqlServerBlobEnabled : DataStore.SqlServerBlobDisabled, options)
         {
-            // switch (options.Value.SupportsRawResourceInBlob)
-            // {
-            //    case true:
-            //        options.Value.SupportsRawResourceInBlob = true;
-            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobEnabled, options);
-            //        break;
-            //    case false:
-            //        options.Value.SupportsRawResourceInBlob = false;
-            //        new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, GetDatabaseName(), DataStore.SqlServerBlobDisabled, options);
-            //        break;
-            //    default:
-            //        throw new ArgumentOutOfRangeException(nameof(options), options, null);
-            // }
         }
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, DataStore dataStore, IOptions<CoreFeatureConfiguration> options = null)
@@ -131,7 +118,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
             }
 
-            _blobRawResourceStoreTestsFixture = new BlobRawResourceStoreTestsFixture();
+            if (_options.Value.SupportsRawResourceInBlob)
+            {
+                _blobRawResourceStoreTestsFixture = new BlobRawResourceStoreTestsFixture();
+            }
 
             // This is needed to perform a check based on blob storage support
             CoreFeatures = _options;
@@ -267,9 +257,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
+            
+            if (CoreFeatures.Value.SupportsRawResourceInBlob)
+            {
+                await _blobRawResourceStoreTestsFixture.InitializeAsync();
+                SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, _blobRawResourceStoreTestsFixture.RawResourceStore);
+            }
+            else
+            {
+                SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
+            }
 
-            await _blobRawResourceStoreTestsFixture.InitializeAsync();
-            SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, _blobRawResourceStoreTestsFixture.RawResourceStore);
 
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
@@ -285,7 +283,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
-                _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore implementation here
+                _blobRawResourceStoreTestsFixture is null ? null : _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore implementation here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -358,7 +356,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
-            await _blobRawResourceStoreTestsFixture.DisposeAsync();
+            if (CoreFeatures.Value.SupportsRawResourceInBlob)
+            {
+                await _blobRawResourceStoreTestsFixture.DisposeAsync();
+            }
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)

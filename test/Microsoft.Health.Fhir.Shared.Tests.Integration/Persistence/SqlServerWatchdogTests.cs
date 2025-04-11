@@ -29,7 +29,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
-using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -241,9 +240,10 @@ END
         {
             try
             {
-                var refs = new List<(long, int)>();
-                refs.Add((tranId, 0));
-                var results = await _fixture.SqlStoreClient.GetRawResourcesFromAdls(refs, new CancellationTokenSource().Token);
+                var refs = new List<(long, int, int)>();
+                refs.Add((tranId, 0, 0));
+                var results = await SqlStoreClient.GetRawResourcesFromAdls(refs);
+                
                 return results.Count;
             }
             catch (Exception e)

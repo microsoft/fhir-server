@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -82,10 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public long ResourceSurrogateId { get; internal set; }
 
         [JsonIgnore]
-        public long ResourceStorageIdentifier { get; set; }
-
-        [JsonIgnore]
-        public int ResourceStorageOffset { get; set; }
+        public RawResourceLocator RawResourceLocator { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModified)]
         public DateTimeOffset LastModified { get; internal set; }
