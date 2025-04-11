@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
+                SqlStoreClient,
                 _blobRawResourceStoreTestsFixture is null ? null : _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore implementation here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
