@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlStoreClient _sqlStoreClient;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
@@ -87,6 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ISqlRetryService sqlRetryService,
+            SqlStoreClient storeClient,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -99,6 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            EnsureArg.IsNotNull(storeClient, nameof(storeClient));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
@@ -116,6 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
+            _sqlStoreClient = storeClient;
             _queryHashCalculator = queryHashCalculator;
             _parameterStore = parameterStore;
             _logger = logger;
@@ -1528,7 +1532,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
-            var rawResources = await SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(resource => (EnsureArg.IsNotNull(resource.FileId).Value, EnsureArg.IsNotNull(resource.OffsetInFile).Value, EnsureArg.IsNotNull(resource.ResourceLength).Value)).ToList());
+            IReadOnlyList<(long, int)> locators = tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList();
+            var rawResources = await _sqlStoreClient.GetRawResourcesFromAdls(locators, cancellationToken);
+
             foreach (var tmpResource in tmpResources)
             {
                 if (!onlyIds)
@@ -1536,7 +1542,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     var rawResource = new Lazy<string>(() =>
                     {
                         var decompressed = tmpResource.SqlBytes.IsNull
-                                            ? rawResources[(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value)]
+                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value)]
                                             : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                         if (string.IsNullOrEmpty(decompressed))
