@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
-            
+
             if (CoreFeatures.Value.SupportsRawResourceInBlob)
             {
                 await _blobRawResourceStoreTestsFixture.InitializeAsync();
@@ -267,7 +267,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
             }
-
 
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
