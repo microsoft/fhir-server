@@ -1532,8 +1532,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
-            IReadOnlyList<(long, int)> locators = tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList();
-            var rawResources = await _sqlStoreClient.GetRawResourcesFromAdls(locators, cancellationToken);
+            IReadOnlyList<RawResourceLocator> locators = tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => new RawResourceLocator(_.FileId.Value, _.OffsetInFile.Value, _.ResourceLength.Value)).ToList();
+            var rawResources = await _sqlStoreClient.GetRawResourcesFromAdls(locators);
 
             foreach (var tmpResource in tmpResources)
             {
@@ -1542,7 +1542,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     var rawResource = new Lazy<string>(() =>
                     {
                         var decompressed = tmpResource.SqlBytes.IsNull
-                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value)]
+                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value, EnsureArg.IsNotNull(tmpResource.ResourceLength).Value)]
                                             : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                         if (string.IsNullOrEmpty(decompressed))
