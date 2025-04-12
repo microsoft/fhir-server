@@ -100,8 +100,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             foreach (var wrapper in wrappers)
             {
-                var key = new RawResourceLocator(EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value, EnsureArg.IsNotNull(wrapper.ResourceLength).Value);
-                wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[key] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
+                if (!wrapper.SqlBytes.IsNull)
+                {
+                    wrapper.Wrapper.RawResource = new RawResource(ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
+                }
+                else
+                {
+                    var key = new RawResourceLocator(wrapper.FileId.Value, wrapper.OffsetInFile.Value, wrapper.ResourceLength.Value);
+                    wrapper.Wrapper.RawResource = new RawResource(rawResources[key], FhirResourceFormat.Json, wrapper.IsMetaSet);
+                }
             }
 
             return wrappers.Where(_ => includeInvisible || _.Wrapper.RawResource.Data != InvisibleResource).Select(_ => _.Wrapper).ToList();

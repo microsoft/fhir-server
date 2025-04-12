@@ -60,7 +60,7 @@ public class BlobRawResourceStore : IRawResourceStore
         // prepare the file to store
         int offset = 0;
         using RecyclableMemoryStream stream = _recyclableMemoryStreamManager.GetStream();
-        using StreamWriter writer = new StreamWriter(stream, Encoding.UTF8);
+        using StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false));
         foreach (var resource in rawResources)
         {
             var line = resource.RawResource.Data;
