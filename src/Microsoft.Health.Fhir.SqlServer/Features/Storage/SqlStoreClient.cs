@@ -17,7 +17,9 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
 
@@ -30,12 +32,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
+        private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation = null)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = schemaInformation;
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -230,6 +234,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
             }
 
+            if (_schemaInformation != null && _schemaInformation.Current.HasValue && _schemaInformation.Current.Value >= SchemaVersionConstants.MergeThrottling)
+            {
+                cmd.Parameters.AddWithValue("@EnableThrottling", true);
+            }
+
             // Code below has retries on execution timeouts.
             // Reason: GP databases are created with single data file. When database is heavily loaded by writes, single data file leads to long (up to several minutes) IO waits.
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
@@ -252,7 +261,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
                         await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
+                        if (delayOnOverloadMilliseconds > 60000) // 1 minute
+                        {
+                            cmd.Parameters.AddWithValue("@EnableThrottling", false);
+                        }
+
                         delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
+
                         continue;
                     }
 
