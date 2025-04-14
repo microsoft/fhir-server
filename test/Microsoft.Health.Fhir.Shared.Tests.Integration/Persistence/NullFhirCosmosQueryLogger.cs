@@ -20,5 +20,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public void LogQueryExecutionResult(string activityId, double requestCharge, string continuationToken, int count, double durationMs, string partitionKeyRangeId, Exception exception = null)
         {
         }
+
+        public void LogQueryDiagnostics(string activityId, CosmosDiagnostics diagnostics = null, Exception exception = null)
+        {
+        }
+
+        public void LogQueryClientElapsedTime(string activityId, string clientElapsedTime = null, Exception exception = null)
+        {
+        }
     }
 }
