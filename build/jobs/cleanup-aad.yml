@@ -18,6 +18,7 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         Install-Module Microsoft.Graph -Force
+        Install-Module AzureAD -Force
         
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
