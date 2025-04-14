@@ -118,14 +118,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
                 responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
 
-            if (_cosmosDataStoreConfiguration.LogSDKDiagnostics)
+            if (_cosmosDataStoreConfiguration.LogSdkDiagnostics)
             {
                 _queryLogger.LogQueryDiagnostics(responseMessage.Headers.ActivityId, responseMessage.Diagnostics);
             }
 
-            if (_cosmosDataStoreConfiguration.LogSDKClientElapsedTime)
+            if (_cosmosDataStoreConfiguration.LogSdkClientElapsedTime && responseMessage.Diagnostics != null)
             {
-                _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics?.GetClientElapsedTime().ToString());
+                _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
             }
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;

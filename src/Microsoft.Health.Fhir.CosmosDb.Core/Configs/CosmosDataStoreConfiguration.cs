@@ -92,13 +92,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
         /// <summary>
         /// Option to print Diagnostics returned from Cosmos SDK for each response
         /// </summary>
-        public bool LogSDKDiagnostics { get; set; } = false;
+        public bool LogSdkDiagnostics { get; set; } = false;
 
         /// <summary>
-        ///     This represent the end to end elapsed time of the request. If the request is
-        ///     still in progress it will return the current elapsed time since the start of
-        ///     the request.
+        /// This represent the end to end elapsed time of the request. If the request is
+        /// still in progress it will return the current elapsed time since the start of
+        /// the request.
         /// </summary>
-        public bool LogSDKClientElapsedTime { get; set; } = false;
+        public bool LogSdkClientElapsedTime { get; set; } = false;
     }
 }

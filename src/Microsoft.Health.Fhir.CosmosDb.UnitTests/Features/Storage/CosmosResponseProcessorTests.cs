@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-        private CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         public CosmosResponseProcessorTests()
         {
