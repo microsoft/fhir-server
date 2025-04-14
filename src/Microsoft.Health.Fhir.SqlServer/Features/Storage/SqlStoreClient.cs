@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation = null)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -229,6 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
+            SqlParameter enableThrottling = null;
             if (heartbeatDate.HasValue)
             {
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
@@ -236,7 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_schemaInformation != null && _schemaInformation.Current.HasValue && _schemaInformation.Current.Value >= SchemaVersionConstants.MergeThrottling)
             {
-                cmd.Parameters.AddWithValue("@EnableThrottling", true);
+                enableThrottling = cmd.Parameters.AddWithValue("@EnableThrottling", true);
             }
 
             // Code below has retries on execution timeouts.
@@ -263,6 +264,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
                         if (delayOnOverloadMilliseconds > 60000) // 1 minute
                         {
+                            cmd.Parameters.Remove(enableThrottling);
                             cmd.Parameters.AddWithValue("@EnableThrottling", false);
                         }
 
