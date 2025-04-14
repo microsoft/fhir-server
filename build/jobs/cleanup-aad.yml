@@ -18,7 +18,6 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         Install-Module AzureAD -Force
-        Install-Module -Name Microsoft.Graph.Beta.Applications 
         
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"

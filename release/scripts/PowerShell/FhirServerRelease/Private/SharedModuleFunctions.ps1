@@ -32,7 +32,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience
     )
-    Install-Module -Name Microsoft.Graph.Beta.Applications 
+    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
     return Get-MgBetaApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
