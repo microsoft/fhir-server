@@ -1539,10 +1539,19 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 if (!onlyIds)
                 {
+                    RawResourceLocator locator = null;
+
+                    // Assign the raw resource locator to the ResourceWrapper property
+                    if (tmpResource.SqlBytes.IsNull)
+                    {
+                        locator = new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value, EnsureArg.IsNotNull(tmpResource.ResourceLength).Value);
+                        tmpResource.Entry.Resource.RawResourceLocator = locator;
+                    }
+
                     var rawResource = new Lazy<string>(() =>
                     {
                         var decompressed = tmpResource.SqlBytes.IsNull
-                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value, EnsureArg.IsNotNull(tmpResource.ResourceLength).Value)]
+                                            ? rawResources[locator]
                                             : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                         if (string.IsNullOrEmpty(decompressed))
