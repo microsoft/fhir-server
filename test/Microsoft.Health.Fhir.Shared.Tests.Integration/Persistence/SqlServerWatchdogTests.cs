@@ -243,8 +243,11 @@ END
             {
                 var refs = new List<(long, int)>();
                 refs.Add((tranId, 0));
-                var results = await _fixture.SqlStoreClient.GetRawResourcesFromAdls(refs, new CancellationTokenSource().Token);
-                return results.Count;
+                using (var cts = new CancellationTokenSource())
+                {
+                    var results = await _fixture.SqlStoreClient.GetRawResourcesFromAdls(refs, cts.Token);
+                    return results.Count;
+                }
             }
             catch (Exception e)
             {

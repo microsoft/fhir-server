@@ -99,18 +99,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappersAsync(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var rawResources = await GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList(), cancellationToken);
+            var rawResources = await GetRawResourcesFromAdls(wrappers.Where(wrapper => wrapper.SqlBytes.IsNull).Select(wrapper => (EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value)).ToList(), cancellationToken);
             foreach (var wrapper in wrappers)
             {
                 var key = new RawResourceLocator(EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value);
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[key] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
             }
 
-            return wrappers.Where(_ => includeInvisible || _.Wrapper.RawResource.Data != InvisibleResource).Select(_ => _.Wrapper).ToList();
+            return wrappers.Where(visible => includeInvisible || visible.Wrapper.RawResource.Data != InvisibleResource).Select(wrapper => wrapper.Wrapper).ToList();
         }
 
         internal async Task<IDictionary<RawResourceLocator, string>> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(_blobRawResourceStore, nameof(_blobRawResourceStore));
+            EnsureArg.IsNotNull(resourceRefs, nameof(resourceRefs));
+
             var results = new Dictionary<RawResourceLocator, string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
             {
@@ -151,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
-            var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_.ResourceTypeId, _.Id, _.ResourceSurrogateId));
+            var tvpRows = keys.Select(versions => new ResourceDateKeyListRow(versions.ResourceTypeId, versions.Id, versions.ResourceSurrogateId));
             new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
             var table = VLatest.Resource;
             var tmpResources = await cmd.ExecuteReaderAsync(
@@ -181,18 +184,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 },
                 _logger,
                 cancellationToken);
-            var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)).ToList();
+            var refs = tmpResources.Where(resource => resource.Matched.Version != null && resource.Matched.Bytes.IsNull).Select(resource => (EnsureArg.IsNotNull(resource.Matched.FileId).Value, EnsureArg.IsNotNull(resource.Matched.OffsetInFile).Value)).ToList();
             var rawResources = await GetRawResourcesFromAdls(refs, cancellationToken);
-            var resources = tmpResources.Select(_ =>
+            var resources = tmpResources.Select(versionedResource =>
             {
                 RawResource rawResource = null;
-                if (_.Matched.Version != null)
+                if (versionedResource.Matched.Version != null)
                 {
-                    var key = new RawResourceLocator(EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value);
-                    rawResource = new RawResource(_.Matched.Bytes.IsNull ? rawResources[key] : ReadCompressedRawResource(_.Matched.Bytes, decompress), FhirResourceFormat.Json, false);
+                    var key = new RawResourceLocator(EnsureArg.IsNotNull(versionedResource.Matched.FileId).Value, EnsureArg.IsNotNull(versionedResource.Matched.OffsetInFile).Value);
+                    rawResource = new RawResource(versionedResource.Matched.Bytes.IsNull ? rawResources[key] : ReadCompressedRawResource(versionedResource.Matched.Bytes, decompress), FhirResourceFormat.Json, false);
                 }
 
-                return (_.DateKey, (_.Matched.Version, rawResource));
+                return (versionedResource.DateKey, (versionedResource.Matched.Version, rawResource));
             }).ToList();
             return resources;
         }
