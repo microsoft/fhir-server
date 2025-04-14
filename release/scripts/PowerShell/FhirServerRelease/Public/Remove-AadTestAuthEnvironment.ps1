@@ -41,8 +41,6 @@ function Remove-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
-    Write-Host "FHIR service audience $fhirServiceAudience"
-
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
     if ($application) {

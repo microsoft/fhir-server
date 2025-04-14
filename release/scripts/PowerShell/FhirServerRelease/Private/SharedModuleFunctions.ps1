@@ -33,7 +33,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [string]$FhirServiceAudience
     )
 
-    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
+    return Get-MgBetaApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -57,8 +57,8 @@ function Get-ServiceAudience {
         [string]$TenantId
     )
  
-     Write-Host "$ServiceName $ServiceName"
-     Write-Host "$TenantId $TenantId"
+     Write-Host "ServiceName $ServiceName"
+     Write-Host "TenantId $TenantId"
 
     # AppId Uri in single tenant applications will require use of default scheme or verified domains
     # It needs to be in one of the many formats mentioned in https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-breaking-changes
