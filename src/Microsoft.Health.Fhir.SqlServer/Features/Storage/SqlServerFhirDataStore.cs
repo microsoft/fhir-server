@@ -855,7 +855,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || SqlAdlsClient.Container != null;
+            var makeResourceInvisible = _coreFeatures.SupportsResourceChangeCapture || _coreFeatures.SupportsRawResourceInBlob;
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, makeResourceInvisible, cancellationToken);
         }
 

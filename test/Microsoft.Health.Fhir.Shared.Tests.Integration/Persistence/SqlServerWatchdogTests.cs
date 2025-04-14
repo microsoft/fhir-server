@@ -243,7 +243,7 @@ END
             try
             {
                 var refs = new List<RawResourceLocator>();
-                refs.Add(new RawResourceLocator(tranId, 0, 0));
+                refs.Add(new RawResourceLocator(tranId, 0, length));
                 var results = await _fixture.SqlStoreClient.GetRawResourcesFromAdls(refs);
                 return results.Count;
             }

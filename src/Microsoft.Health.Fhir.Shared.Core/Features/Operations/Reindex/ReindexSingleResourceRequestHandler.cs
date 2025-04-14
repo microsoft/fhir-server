@@ -118,7 +118,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 originalResource.CompartmentIndices,
                 originalResource.LastModifiedClaims,
                 hashValue,
-                originalResource.ResourceSurrogateId);
+                originalResource.ResourceSurrogateId,
+                originalResource.RawResourceLocator);
 
             await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, CancellationToken.None);
         }

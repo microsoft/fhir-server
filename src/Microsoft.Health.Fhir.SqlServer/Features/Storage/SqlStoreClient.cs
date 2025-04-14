@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var key = new RawResourceLocator(wrapper.FileId.Value, wrapper.OffsetInFile.Value, wrapper.ResourceLength.Value);
                     wrapper.Wrapper.RawResource = new RawResource(rawResources[key], FhirResourceFormat.Json, wrapper.IsMetaSet);
+                    wrapper.Wrapper.RawResourceLocator = key;
                 }
             }
 
