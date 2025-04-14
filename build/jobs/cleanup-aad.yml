@@ -25,7 +25,7 @@ jobs:
         $tenantId = "$(tenant-id)"
 
         $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-        $resource = "https://graph.windows.net/"
+        $resource = "https://graph.microsoft.com"
 
         $body = @{
             grant_type    = "client_credentials"
