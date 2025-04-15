@@ -51,7 +51,7 @@ function Remove-AadTestAuthEnvironment {
 
     $securedSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
 
-    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $securedSecret
 
     
     Install-Module -Name Microsoft.Graph -Force
