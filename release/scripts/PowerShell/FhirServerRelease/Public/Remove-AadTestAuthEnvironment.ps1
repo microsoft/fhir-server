@@ -81,7 +81,7 @@ function Remove-AadTestAuthEnvironment {
         
         if ($aadClientApplication) {
             Write-Host "Removing application $displayName"
-            Remove-AzureAdApplication -ObjectId $aadClientApplication.ObjectId | Out-Null
+            Remove-AzureAdApplication -ObjectId $aadClientApplication.Id | Out-Null
         }
     }
 }
