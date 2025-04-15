@@ -22,8 +22,8 @@ function Get-AzureAdApplicationByDisplayName {
         [ValidateNotNullOrEmpty()]
         [string]$DisplayName
     )
-
-    Get-AzureAdApplication -Filter "DisplayName eq '$DisplayName'"
+    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    return Get-MgBetaApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
