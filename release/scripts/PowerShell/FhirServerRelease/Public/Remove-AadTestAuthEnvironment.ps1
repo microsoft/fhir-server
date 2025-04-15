@@ -62,7 +62,7 @@ function Remove-AadTestAuthEnvironment {
 
     if ($application) {
         Write-Host "Removing API application $fhirServiceAudience"
-        Remove-AzureAdApplication -ObjectId $application.ObjectId | Out-Null
+        Remove-AzureAdApplication -ObjectId $application.Id | Out-Null
     }
 
     foreach ($user in $testAuthEnvironment.Users) {
