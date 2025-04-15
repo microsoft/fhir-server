@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int Merge = (int)SchemaVersion.V50;
         public const int IncrementalImport = (int)SchemaVersion.V53;
         public const int LakePrerequisite = (int)SchemaVersion.V84;
+        public const int MergeThrottling = (int)SchemaVersion.V87;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
