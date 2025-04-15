@@ -267,7 +267,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
                         if (totaldelayOnOverloadMilliseconds > 60000)
                         {
-                            cmd.Parameters.Remove(enableThrottling); // default for enableThrottling is false
+                            cmd.Parameters.Remove(enableThrottling); // default for @EnableThrottling is false
                         }
 
                         continue;
