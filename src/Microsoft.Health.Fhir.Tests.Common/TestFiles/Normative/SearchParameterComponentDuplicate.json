@@ -1,0 +1,51 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "Measure-context-type-quantity",
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status2",
+            "valueCode": "trial-use"
+        }
+    ],
+    "url": "http://hl7.org/fhir/SearchParameter/Measure-context-type-quantity2",
+    "version": "4.0.1",
+    "name": "context-type-quantity2",
+    "status": "draft",
+    "experimental": false,
+    "date": "2019-11-01T09:29:23+11:00",
+    "publisher": "Health Level Seven International (Clinical Quality Information)",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        },
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/cqi/index.cfm"
+                }
+            ]
+        }
+    ],
+    "description": "A use context type and quantity- or range-based value assigned to the measure",
+    "code": "context-type-quantity",
+    "base": [ "Measure" ],
+    "type": "composite",
+    "expression": "Measure.useContext",
+    "xpathUsage": "normal",
+    "component": [
+        {
+            "definition": "http://hl7.org/fhir/SearchParameter/Measure-context-type",
+            "expression": "code"
+        },
+        {
+            "definition": "http://hl7.org/fhir/SearchParameter/Measure-context-quantity",
+            "expression": "value.as(Quantity) | value.as(Range)"
+        }
+    ]
+}
