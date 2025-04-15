@@ -446,7 +446,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 null,
-                0);
+                0,
+                null);
         }
     }
 }
