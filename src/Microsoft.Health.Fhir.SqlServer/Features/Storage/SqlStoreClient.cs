@@ -246,6 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
             var delayOnOverloadMilliseconds = 100;
+            var totaldelayOnOverloadMilliseconds = 0;
             while (true)
             {
                 try
@@ -262,13 +263,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
                         await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
-                        if (delayOnOverloadMilliseconds > 60000) // 1 minute
-                        {
-                            cmd.Parameters.Remove(enableThrottling);
-                            cmd.Parameters.AddWithValue("@EnableThrottling", false);
-                        }
-
+                        totaldelayOnOverloadMilliseconds += delayOnOverloadMilliseconds;
                         delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
+                        if (totaldelayOnOverloadMilliseconds > 60000)
+                        {
+                            cmd.Parameters.Remove(enableThrottling); // default for enableThrottling is false
+                        }
 
                         continue;
                     }
