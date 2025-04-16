@@ -827,6 +827,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Found job id &apos;{0}&apos;, but it is a child job and not the primary reindex job..
+        /// </summary>
+        internal static string JobNotReindexOrchestratorJob {
+            get {
+                return ResourceManager.GetString("JobNotReindexOrchestratorJob", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.link values omitted because they exceeded the maximum Uri length..
         /// </summary>
         internal static string LinksCantBeCreated {
@@ -1205,11 +1214,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete..
+        ///   Looks up a localized string similar to A Reindex Job is currently running. Wait till it has completed before trying again..
         /// </summary>
-        internal static string ReindexRunning {
+        internal static string ReindexRunningException {
             get {
-                return ResourceManager.GetString("ReindexRunning", resourceCulture);
+                return ResourceManager.GetString("ReindexRunningException", resourceCulture);
             }
         }
         
@@ -1552,6 +1561,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterRequestNotValid {
             get {
                 return ResourceManager.GetString("SearchParameterRequestNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support..
+        /// </summary>
+        internal static string SearchParametersNotInitialized {
+            get {
+                return ResourceManager.GetString("SearchParametersNotInitialized", resourceCulture);
             }
         }
         
