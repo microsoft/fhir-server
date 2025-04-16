@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 StorageDetail = request.StorageDetail,
                 ImportMode = request.ImportMode,
                 AllowNegativeVersions = request.AllowNegativeVersions,
+                ErrorContainerName = request.ErrorContainerName,
             };
 
             var jobInfo = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, definitions: definitionObj))[0];

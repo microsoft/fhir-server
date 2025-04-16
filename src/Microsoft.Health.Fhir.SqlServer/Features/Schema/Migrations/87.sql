@@ -4149,24 +4149,27 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL
+@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL, @EnableThrottling BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count) + ' HB=' + isnull(CONVERT (VARCHAR, @HeartbeatDate, 121), 'NULL'), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @OptimalConcurrency AS INT = isnull((SELECT Number
-                                                                                                                                                                                                                                                                                                                                  FROM   Parameters
-                                                                                                                                                                                                                                                                                                                                  WHERE  Id = 'MergeResources.OptimalConcurrentCalls'), 256), @CurrentConcurrency AS INT, @msg AS VARCHAR (1000);
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count) + ' HB=' + isnull(CONVERT (VARCHAR, @HeartbeatDate, 121), 'NULL') + ' ET=' + CONVERT (VARCHAR, @EnableThrottling), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @OptimalConcurrency AS INT = isnull((SELECT Number
+                                                                                                                                                                                                                                                                                                                                                                                  FROM   Parameters
+                                                                                                                                                                                                                                                                                                                                                                                  WHERE  Id = 'MergeResources.OptimalConcurrentCalls'), 256), @CurrentConcurrency AS INT, @msg AS VARCHAR (1000);
 BEGIN TRY
     SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    SET @CurrentConcurrency = (SELECT count(*)
-                               FROM   sys.dm_exec_sessions
-                               WHERE  status <> 'sleeping'
-                                      AND program_name = 'MergeResources');
-    IF @CurrentConcurrency > @OptimalConcurrency
+    IF @EnableThrottling = 1
         BEGIN
-            SET @msg = 'Number of concurrent MergeResources calls = ' + CONVERT (VARCHAR, @CurrentConcurrency) + ' is above optimal = ' + CONVERT (VARCHAR, @OptimalConcurrency) + '.';
-            THROW 50410, @msg, 1;
+            SET @CurrentConcurrency = (SELECT count(*)
+                                       FROM   sys.dm_exec_sessions
+                                       WHERE  status <> 'sleeping'
+                                              AND program_name = 'MergeResources');
+            IF @CurrentConcurrency > @OptimalConcurrency
+                BEGIN
+                    SET @msg = 'Number of concurrent MergeResources calls = ' + CONVERT (VARCHAR, @CurrentConcurrency) + ' is above optimal = ' + CONVERT (VARCHAR, @OptimalConcurrency) + '.';
+                    THROW 50410, @msg, 1;
+                END
         END
     SET @FirstValueVar = NULL;
     WHILE @FirstValueVar IS NULL

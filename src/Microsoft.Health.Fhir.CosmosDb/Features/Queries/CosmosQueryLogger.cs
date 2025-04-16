@@ -37,11 +37,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             "DurationMs: {DurationMs}" + Environment.NewLine +
             "PartitionKeyRangeId: {PartitionKeyRangeId}";
 
+        private static readonly string QueryExecutionDiagnosticsMessageFormat =
+            "ActivityId: {ActivityId}" + Environment.NewLine +
+            "Diagnostics: {Diagnostics}";
+
+        private static readonly string QueryExecutionClientElapsedTimeMessageFormat =
+            "ActivityId: {ActivityId}" + Environment.NewLine +
+            "ClientElapsedTime: {ClientElapsedTime}";
+
         private static readonly Action<ILogger, string, double, string, int, double, string, Exception> LogQueryExecutionResultDelegate =
             LoggerMessage.Define<string, double, string, int, double, string>(
                 LogLevel.Information,
                 new EventId(EventIds.ExecutingQuery),
                 QueryExecutionResultMessageFormat);
+
+        private static readonly Action<ILogger, string, string, Exception> LogQueryDiagnosticsDelegate =
+    LoggerMessage.Define<string, string>(
+        LogLevel.Information,
+        new EventId(EventIds.ExecutingQuery),
+        QueryExecutionDiagnosticsMessageFormat);
+
+        private static readonly Action<ILogger, string, string, Exception> LogQueryClientElapsedTimeDelegate =
+    LoggerMessage.Define<string, string>(
+        LogLevel.Information,
+        new EventId(EventIds.ExecutingQuery),
+        QueryExecutionClientElapsedTimeMessageFormat);
 
         private readonly ILogger<CosmosQueryLogger> _logger;
 
@@ -91,6 +111,45 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 durationMs,
                 partitionKeyRangeId,
                 exception);
+        }
+
+        /// <inheritdoc />
+        public void LogQueryDiagnostics(
+            string activityId,
+            CosmosDiagnostics diagnostics = null,
+            Exception exception = null)
+        {
+            if (diagnostics != null && !string.IsNullOrEmpty(diagnostics.ToString()))
+            {
+                int chunkSize = 16000;
+                string input = diagnostics.ToString();
+
+                for (int i = 0; i < input.Length; i += chunkSize)
+                {
+                    string chunk = input.Substring(i, Math.Min(chunkSize, input.Length - i));
+                    LogQueryDiagnosticsDelegate(
+                        _logger,
+                        activityId,
+                        chunk,
+                        exception);
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public void LogQueryClientElapsedTime(
+            string activityId,
+            string clientElapsedTime = null,
+            Exception exception = null)
+        {
+            if (!string.IsNullOrEmpty(clientElapsedTime))
+            {
+                LogQueryClientElapsedTimeDelegate(
+                        _logger,
+                        activityId,
+                        clientElapsedTime,
+                        exception);
+            }
         }
     }
 }
