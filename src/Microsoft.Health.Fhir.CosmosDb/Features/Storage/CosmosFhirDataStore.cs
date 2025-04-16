@@ -119,8 +119,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public string DataStoreType => KnownDataStores.CosmosDb;
-
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             var results = new List<ResourceWrapper>();

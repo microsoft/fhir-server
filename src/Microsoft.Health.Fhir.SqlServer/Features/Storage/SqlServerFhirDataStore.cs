@@ -130,8 +130,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
-        public string DataStoreType => KnownDataStores.SqlServer;
-
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
