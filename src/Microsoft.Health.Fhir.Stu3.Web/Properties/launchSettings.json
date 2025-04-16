@@ -51,7 +51,8 @@
                 "FhirServer:Operations:Export:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
-                "ASPNETCORE_ENVIRONMENT": "development"
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "FhirServer:CoreFeatures:SupportsRawResourceInBlob": "true"
             },
             "applicationUrl": "https://localhost:44348/"
         }

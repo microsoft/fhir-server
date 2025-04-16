@@ -11,6 +11,13 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
+  - task: PowerShell@2
+    displayName: 'Start Azurite'
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker run -d --rm -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite:latest
+
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
     inputs:
@@ -88,7 +95,7 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning&DisplayName!~BlobEnabled"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
