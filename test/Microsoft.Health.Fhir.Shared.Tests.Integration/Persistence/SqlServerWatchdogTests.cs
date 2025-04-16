@@ -203,7 +203,7 @@ END
 
             Assert.Equal(0, GetCount("Resource")); // no resource inserted
 
-            if (SqlAdlsClient.Container == null) // if so, the rest in not relevant
+            if (!_fixture.CoreFeatures.Value.SupportsRawResourceInBlob) // if so, the rest in not relevant
             {
                 return;
             }
