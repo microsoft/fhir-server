@@ -4,7 +4,7 @@
     <HealthcareSharedPackageVersion>9.0.10</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>9.0.3</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>9.0.4</DotNetSdkPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
