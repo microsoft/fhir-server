@@ -433,7 +433,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private bool AreIncludeResultsTruncated()
         {
-            return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+            return _contextAccessor.RequestContext.BundleIssues.Any(x => KnownTruncatedIncludeMessages.IsKnownMessage(x.Diagnostics));
         }
 
         private static Dictionary<string, long> AppendDeleteResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
