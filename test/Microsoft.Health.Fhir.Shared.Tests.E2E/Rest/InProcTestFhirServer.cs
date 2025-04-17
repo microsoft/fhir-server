@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 // Alter the configuration so that the server will create a new, isolated database/container.
                 // Ensure tha the database/container is deleted at the end of the test run (when this instance is disposed)
 
-                if (dataStore == DataStore.SqlServer)
+                if (dataStore is DataStore.SqlServerBlobDisabled or DataStore.SqlServerBlobEnabled)
                 {
                     var connectionStringBuilder = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
                     var databaseName = connectionStringBuilder.InitialCatalog += "_" + startupType.Name;
