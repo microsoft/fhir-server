@@ -130,7 +130,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
                     if (!string.IsNullOrEmpty(diagnosticsString))
                     {
-                        // Use a constant or configurable value for chunk size
                         const int MaxLogChunkSize = 16000;
                         string input = diagnosticsString;
 
