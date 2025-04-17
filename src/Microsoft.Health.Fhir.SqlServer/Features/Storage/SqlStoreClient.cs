@@ -12,15 +12,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
 
@@ -97,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> ReadResourceWrappersAsync(SqlCommand cmd, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, bool readRequestMethod, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             var wrappers = (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadTemporaryResourceWrapper(reader, readRequestMethod, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).ToList();
-            var rawResources = await GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList());
+            var rawResources = await GetRawResourcesFromAdls(wrappers.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value, EnsureArg.IsNotNull(_.ResourceLength).Value)).ToList());
             foreach (var wrapper in wrappers)
             {
                 wrapper.Wrapper.RawResource = new RawResource(wrapper.SqlBytes.IsNull ? rawResources[(EnsureArg.IsNotNull(wrapper.FileId).Value, EnsureArg.IsNotNull(wrapper.OffsetInFile).Value)] : ReadCompressedRawResource(wrapper.SqlBytes, decompress), FhirResourceFormat.Json, wrapper.IsMetaSet);
@@ -106,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return wrappers.Where(_ => includeInvisible || _.Wrapper.RawResource.Data != InvisibleResource).Select(_ => _.Wrapper).ToList();
         }
 
-        internal static async Task<IDictionary<(long FileId, int OffsetInFile), string>> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile)> resourceRefs)
+        internal static async Task<IDictionary<(long FileId, int OffsetInFile), string>> GetRawResourcesFromAdls(IReadOnlyList<(long FileId, int OffsetInFile, int ResourceLength)> resourceRefs)
         {
             var results = new Dictionary<(long FileId, int OffsetInFile), string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
@@ -178,22 +175,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlBytes matchedBytes = null;
                     long? matchedFileId = null;
                     int? matchedOffsetInFile = null;
+                    int? matchedResourceLength = null;
                     if (version == 0) // there is a match
                     {
                         matchedVersion = reader.Read(table.Version, 4).ToString();
                         matchedBytes = reader.GetSqlBytes(5);
                         matchedFileId = reader.FieldCount > 6 ? reader.Read(table.FileId, 6) : null; // TODO: Remove field count check after deployment
                         matchedOffsetInFile = reader.FieldCount > 6 ? reader.Read(table.OffsetInFile, 7) : null;
+                        matchedResourceLength = reader.FieldCount > 6 ? reader.Read(table.ResourceLength, 8) : null; // TODO: Remove field count check after deployment
                     }
 
-                    (ResourceDateKey DateKey, (string Version, SqlBytes Bytes, long? FileId, int? OffsetInFile) Matched) result;
+                    (ResourceDateKey DateKey, (string Version, SqlBytes Bytes, long? FileId, int? OffsetInFile, int? resourceLength) Matched) result;
                     result.DateKey = new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
-                    result.Matched = (matchedVersion, matchedBytes, matchedFileId, matchedOffsetInFile);
+                    result.Matched = (matchedVersion, matchedBytes, matchedFileId, matchedOffsetInFile, matchedResourceLength);
                     return result;
                 },
                 _logger,
                 cancellationToken);
-            var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value)).ToList();
+            var refs = tmpResources.Where(_ => _.Matched.Version != null && _.Matched.Bytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.Matched.FileId).Value, EnsureArg.IsNotNull(_.Matched.OffsetInFile).Value, EnsureArg.IsNotNull(_.Matched.resourceLength).Value)).ToList();
             var rawResources = await GetRawResourcesFromAdls(refs);
             var resources = tmpResources.Select(_ =>
             {
@@ -215,7 +214,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await ReadResourceWrappersAsync(cmd, decompress, getResourceTypeName, false, true, cancellationToken, false);
         }
 
-        private static (ResourceWrapper Wrapper, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile) ReadTemporaryResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<short, string> getResourceTypeName)
+        private static (ResourceWrapper Wrapper, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength) ReadTemporaryResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<short, string> getResourceTypeName)
         {
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
@@ -226,6 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var bytes = reader.GetSqlBytes(6);
             var fileId = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.FileId, readRequestMethod ? 10 : 9) : null; // TODO: Remove field count check after Lake schema deployment
             var offsetInFile = reader.FieldCount > 10 ? reader.Read(VLatest.Resource.OffsetInFile, readRequestMethod ? 11 : 10) : null;
+            var resourceLength = reader.FieldCount > 11 ? reader.Read(VLatest.Resource.ResourceLength, readRequestMethod ? 12 : 11) : null; // TODO: Remove field count check after Lake schema deployment
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IsHistory = isHistory,
             };
 
-            return (wrapper, isRawResourceMetaSet, bytes, fileId, offsetInFile);
+            return (wrapper, isRawResourceMetaSet, bytes, fileId, offsetInFile, resourceLength);
         }
 
         internal async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
