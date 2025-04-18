@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                     throw new UnauthorizedFhirActionException();
                 }
 
-                var result = await next();
+                var result = await next(cancellationToken);
 
                 // If the requests is part of a bundle, as an inner request, then profiles are not refreshed.
                 // This is because the bundle can contain multiple profile changes and the refresh should only happen once, at the end of the bundle, to avoid performance degradation.
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             }
             else
             {
-                return await next();
+                return await next(cancellationToken);
             }
         }
     }

@@ -22,8 +22,8 @@ function Get-AzureAdApplicationByDisplayName {
         [ValidateNotNullOrEmpty()]
         [string]$DisplayName
     )
-
-    Get-AzureAdApplication -Filter "DisplayName eq '$DisplayName'"
+    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    return Get-MgBetaApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
@@ -32,8 +32,8 @@ function Get-AzureAdApplicationByIdentifierUri {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience
     )
-
-    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
+    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    return Get-MgBetaApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -57,6 +57,9 @@ function Get-ServiceAudience {
         [string]$TenantId
     )
  
+     Write-Host "ServiceName $ServiceName"
+     Write-Host "TenantId $TenantId"
+
     # AppId Uri in single tenant applications will require use of default scheme or verified domains
     # It needs to be in one of the many formats mentioned in https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-breaking-changes
     # We use the format api://<tenantId>/<string>
