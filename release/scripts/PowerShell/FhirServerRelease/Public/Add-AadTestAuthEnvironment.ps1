@@ -35,7 +35,15 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower(),
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$ClientId,
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$ClientSecret
     )
 
     Set-StrictMode -Version Latest
@@ -131,6 +139,14 @@ function Add-AadTestAuthEnvironment {
     Write-Host "Ensuring API application exists"
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
+
+    $securedSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
+
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $securedSecret
+        
+    Install-Module -Name Microsoft.Graph -Force
+
+    Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
