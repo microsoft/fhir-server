@@ -29,3 +29,8 @@ Accepted
 
 ### Neutral Effects:
 - No immediate impact on API consumers until subsequent work item implements HTTP 429 responses.
+
+## References
+- https://github.com/microsoft/fhir-server/pull/4863
+- https://github.com/microsoft/fhir-server/pull/4907
+- https://github.com/microsoft/fhir-server/pull/4926
