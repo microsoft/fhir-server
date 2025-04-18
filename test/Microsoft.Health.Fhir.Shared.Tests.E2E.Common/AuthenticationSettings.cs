@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Web;
 using static Microsoft.Health.Fhir.Tests.Common.EnvironmentVariables;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common

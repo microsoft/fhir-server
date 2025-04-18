@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,8 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
+using Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -59,12 +62,15 @@ namespace Microsoft.Health.Fhir.Web
         {
             instanceId = $"{Configuration["WEBSITE_ROLE_INSTANCE_ID"]}--{Configuration["WEBSITE_INSTANCE_ID"]}--{Guid.NewGuid()}";
 
-            services.AddDevelopmentIdentityProvider(Configuration);
-
             Core.Registration.IFhirServerBuilder fhirServerBuilder =
                 services.AddFhirServer(
                     Configuration,
-                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary)
+                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary,
+                    mvcBuilderAction: builder =>
+                    {
+                        builder.PartManager.FeatureProviders.Remove(builder.PartManager.FeatureProviders.OfType<ControllerFeatureProvider>().FirstOrDefault());
+                        builder.PartManager.FeatureProviders.Add(new FhirControllerFeatureProvider(Configuration));
+                    })
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
@@ -72,6 +78,8 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
+
+            services.AddDevelopmentIdentityProvider(Configuration);
 
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);

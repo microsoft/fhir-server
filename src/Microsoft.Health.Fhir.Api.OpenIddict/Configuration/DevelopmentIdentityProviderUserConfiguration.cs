@@ -3,8 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Web;
+namespace Microsoft.Health.Fhir.Api.OpenIddict.Configuration
+{
+    public sealed class DevelopmentIdentityProviderUserConfiguration
+    {
+        public string Id { get; set; }
 
-internal class ApplicationAuthDbContext(DbContextOptions<ApplicationAuthDbContext> options) : DbContext(options);
+        public IList<string> Roles { get; } = new List<string>();
+    }
+}

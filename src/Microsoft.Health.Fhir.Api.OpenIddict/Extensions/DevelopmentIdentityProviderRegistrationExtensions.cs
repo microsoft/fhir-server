@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,18 +17,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
+using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
+using Microsoft.Health.Fhir.Api.OpenIddict.Data;
+using Microsoft.Health.Fhir.Api.OpenIddict.Services;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Shared.Web;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 
-namespace Microsoft.Health.Fhir.Web
+namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
         internal const string WrongAudienceClient = "wrongAudienceClient";
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.Web
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
-        /// <param name="services">The services collection.</param>
+        /// <param name="services">The service collection.</param>
         /// <param name="configuration">The configuration root. The "DevelopmentIdentityProvider" section will be used to populate configuration values.</param>
         /// <returns>The same services collection.</returns>
         public static IServiceCollection AddDevelopmentIdentityProvider(this IServiceCollection services, IConfiguration configuration)
@@ -156,6 +158,8 @@ namespace Microsoft.Health.Fhir.Web
                 });
 
                 services.AddHostedService<OpenIddictApplicationCreater>();
+
+                services.TryAddTransient<OpenIddictAuthorizationController>();
             }
 
             return services;
@@ -210,7 +214,6 @@ namespace Microsoft.Health.Fhir.Web
 
         internal static List<string> GenerateSmartClinicalScopes()
         {
-            ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
             var scopes = new List<string>();
 
@@ -309,6 +312,7 @@ namespace Microsoft.Health.Fhir.Web
                 private const string AudienceKey = "FhirServer:Security:Authentication:Audience";
                 private const string DevelopmentIdpEnabledKey = "DevelopmentIdentityProvider:Enabled";
                 private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
+
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
@@ -334,12 +338,12 @@ namespace Microsoft.Health.Fhir.Web
                         StringComparer.OrdinalIgnoreCase);
 
                     // add properties related to the development identity provider.
+                    Data[DevelopmentIdpEnabledKey] = bool.TrueString;
+
                     if (string.IsNullOrWhiteSpace(_existingConfiguration[AudienceKey]))
                     {
                         Data[AudienceKey] = DevelopmentIdentityProviderConfiguration.Audience;
                     }
-
-                    Data[DevelopmentIdpEnabledKey] = bool.TrueString;
 
                     if (string.IsNullOrWhiteSpace(_existingConfiguration[AuthorityKey]))
                     {

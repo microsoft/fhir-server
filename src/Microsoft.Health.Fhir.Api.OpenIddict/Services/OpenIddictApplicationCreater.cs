@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,14 +12,16 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
+using Microsoft.Health.Fhir.Api.OpenIddict.Data;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Web;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
-namespace Microsoft.Health.Fhir.Shared.Web
+namespace Microsoft.Health.Fhir.Api.OpenIddict.Services
 {
-    internal class OpenIddictApplicationCreater : BackgroundService
+    public class OpenIddictApplicationCreater : BackgroundService
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;
         private readonly IServiceProvider _serviceProvider;
@@ -35,12 +37,12 @@ namespace Microsoft.Health.Fhir.Shared.Web
             _serviceProvider = serviceProvider;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await using var scope = _serviceProvider.CreateAsyncScope();
 
             var context = scope.ServiceProvider.GetRequiredService<ApplicationAuthDbContext>();
-            await context.Database.EnsureCreatedAsync(cancellationToken);
+            await context.Database.EnsureCreatedAsync(stoppingToken);
 
             var developmentIdentityProviderConfiguration = scope.ServiceProvider.GetRequiredService<IOptions<DevelopmentIdentityProviderConfiguration>>();
             if (developmentIdentityProviderConfiguration?.Value?.ClientApplications?.Any() ?? false)
@@ -49,13 +51,13 @@ namespace Microsoft.Health.Fhir.Shared.Web
                 await RegisterApplicationsAsync(
                     applicationManager,
                     developmentIdentityProviderConfiguration.Value.ClientApplications,
-                    cancellationToken);
+                    stoppingToken);
             }
 
             var scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
             await RegisterScopesAsync(
                 scopeManager,
-                cancellationToken);
+                stoppingToken);
         }
 
         private Task RegisterApplicationsAsync(

@@ -11,12 +11,10 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Controllers\FeatureProviders\FhirControllerFeatureProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchController.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Controllers\OpenIddictAuthorizationController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
@@ -89,8 +87,5 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Controllers\FeatureProviders\" />
   </ItemGroup>
 </Project>

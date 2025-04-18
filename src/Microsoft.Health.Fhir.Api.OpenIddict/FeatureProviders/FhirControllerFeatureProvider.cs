@@ -7,8 +7,9 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
 
-namespace Microsoft.Health.Fhir.Api.Controllers.FeatureProviders
+namespace Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders
 {
     public sealed class FhirControllerFeatureProvider : ControllerFeatureProvider
     {
