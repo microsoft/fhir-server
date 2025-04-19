@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null,
-            long resourceSurrogateId = 0)
+            long resourceSurrogateId = 0,
+            RawResourceLocator rawResourceLocator = null)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
@@ -37,7 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  compartmentIndices,
                  lastModifiedClaims,
                  searchParameterHash,
-                 resourceSurrogateId)
+                 resourceSurrogateId,
+                 rawResourceLocator)
         {
         }
 
@@ -53,7 +55,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null,
-            long resourceSurrogateId = 0)
+            long resourceSurrogateId = 0,
+            RawResourceLocator rawResourceLocator = null)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -70,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             LastModifiedClaims = lastModifiedClaims;
             SearchParameterHash = searchParameterHash;
             ResourceSurrogateId = resourceSurrogateId;
+            RawResourceLocator = rawResourceLocator;
         }
 
         [JsonConstructor]

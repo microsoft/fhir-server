@@ -141,6 +141,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlRetryService SqlRetryService { get; private set; }
 
+        internal SqlStoreClient SqlStoreClient { get; private set; }
+
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
 
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
@@ -254,12 +256,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
-
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
             if (CoreFeatures.Value.SupportsRawResourceInBlob)
             {
                 await _blobRawResourceStoreTestsFixture.InitializeAsync();
+                SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, _blobRawResourceStoreTestsFixture.RawResourceStore);
+            }
+            else
+            {
+                SqlStoreClient = new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
             }
 
             _fhirDataStore = new SqlServerFhirDataStore(
@@ -275,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance),
+                SqlStoreClient,
                 _blobRawResourceStoreTestsFixture is null ? null : _blobRawResourceStoreTestsFixture.RawResourceStore); // Pass the IRawResourceStore implementation here
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
@@ -322,6 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
                 SqlRetryService,
+                SqlStoreClient,
                 SqlServerDataStoreConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,

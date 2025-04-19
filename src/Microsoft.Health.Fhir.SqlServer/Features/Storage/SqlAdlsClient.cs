@@ -54,6 +54,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _adlsAccountManagedIdentityClientId = GetStorageParameter(sqlRetryService, logger, "MergeResources.AdlsAccountManagedIdentityClientId");
                         }
 
+                        // This is a temporary change until all the blob related functionality is moved to BlobRawResourceStore and the SqlAdlsClient is removed.
+                        if (string.IsNullOrWhiteSpace(_adlsConnectionString))
+                        {
+                            _adlsConnectionString = "UseDevelopmentStorage=true";
+                        }
+
                         if (_adlsConnectionString != null || _adlsAccountUri != null)
                         {
                             _adlsContainer = GetContainer();
@@ -68,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public static BlobContainerClient Container => _adlsIsSet ? _adlsContainer : throw new ArgumentOutOfRangeException();
+        public static BlobContainerClient Container => _adlsIsSet ? _adlsContainer : null;
 
         public static string AdlsContainerName => _adlsIsSet ? _adlsContainerName : throw new ArgumentOutOfRangeException();
 

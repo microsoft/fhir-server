@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
@@ -202,12 +203,13 @@ END
 
             Assert.Equal(0, GetCount("Resource")); // no resource inserted
 
-            if (SqlAdlsClient.Container == null) // if so, the rest in not relevant
+            if (!_fixture.CoreFeatures.Value.SupportsRawResourceInBlob) // if so, the rest in not relevant
             {
                 return;
             }
 
-            Assert.Equal(1, await GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
+            var length = Encoding.UTF8.GetByteCount(mergeWrapper.ResourceWrapper.RawResource.Data);
+            Assert.Equal(1, await GetResourceFromAdls(tran.TransactionId, length)); // file exists and resource can be read
 
             var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
@@ -227,7 +229,7 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             startTime = DateTime.UtcNow;
-            while (await GetResourceFromAdls(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (await GetResourceFromAdls(tran.TransactionId, length) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
@@ -236,13 +238,13 @@ END
             await wdTask;
         }
 
-        private static async Task<int> GetResourceFromAdls(long tranId)
+        private async Task<int> GetResourceFromAdls(long tranId, int length)
         {
             try
             {
-                var refs = new List<(long, int, int)>();
-                refs.Add((tranId, 0, 0));
-                var results = await SqlStoreClient.GetRawResourcesFromAdls(refs);
+                var refs = new List<RawResourceLocator>();
+                refs.Add(new RawResourceLocator(tranId, 0, length));
+                var results = await _fixture.SqlStoreClient.GetRawResourcesFromAdls(refs);
                 return results.Count;
             }
             catch (Exception e)

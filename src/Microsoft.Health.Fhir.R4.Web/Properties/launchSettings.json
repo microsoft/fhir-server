@@ -44,14 +44,15 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true;TrustServerCertificate=true",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4_Blob;Integrated Security=true;TrustServerCertificate=true",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
                 "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:Export:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
-                "ASPNETCORE_ENVIRONMENT": "development"
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "FhirServer:CoreFeatures:SupportsRawResourceInBlob": "true"
             },
             "applicationUrl": "https://localhost:44348/"
         }

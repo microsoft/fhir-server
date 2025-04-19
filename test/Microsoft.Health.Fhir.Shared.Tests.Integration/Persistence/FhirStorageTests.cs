@@ -1161,7 +1161,8 @@ END
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"),
-                originalWrapper.ResourceSurrogateId);
+                originalWrapper.ResourceSurrogateId,
+                originalWrapper.RawResourceLocator);
 
             return (originalWrapper, updatedWrapper);
         }

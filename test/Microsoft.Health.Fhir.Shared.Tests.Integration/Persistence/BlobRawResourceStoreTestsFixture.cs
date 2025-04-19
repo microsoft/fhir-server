@@ -3,11 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
+using Microsoft.Health.Fhir.Blob.Features.Common;
 using Microsoft.Health.Fhir.Blob.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using NSubstitute;
@@ -24,7 +26,7 @@ internal class BlobRawResourceStoreTestsFixture : IAsyncLifetime
     {
         _blobServiceClient = new BlobServiceClient("UseDevelopmentStorage=true");
         _optionsMonitor = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-        _optionsMonitor.CurrentValue.Returns(new BlobContainerConfiguration() { ContainerName = "fhirresources" });
+        _optionsMonitor.Get(Arg.Any<string>()).Returns(new BlobContainerConfiguration() { ContainerName = Guid.NewGuid().ToString() });
         var blobStoreClient = new BlobStoreClient(_blobServiceClient, _optionsMonitor, NullLogger<BlobStoreClient>.Instance);
         var blobRawResourceStore = new BlobRawResourceStore(blobStoreClient, NullLogger<BlobRawResourceStore>.Instance, Options.Create(new BlobOperationOptions()), new IO.RecyclableMemoryStreamManager());
         RawResourceStore = blobRawResourceStore;
@@ -34,13 +36,11 @@ internal class BlobRawResourceStoreTestsFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // await _blobServiceClient.GetBlobContainerClient(_optionsMonitor.CurrentValue.ContainerName).DeleteIfExistsAsync();
-        // TODO: This is a temporary workaround to avoid container being deleted by tests running in parallel. Once read path is available, each test can use a separate container.
-        await Task.Delay(100);
+        await _blobServiceClient.GetBlobContainerClient(_optionsMonitor.Get(BlobConstants.BlobContainerConfigurationName).ContainerName).DeleteIfExistsAsync();
     }
 
     public async Task InitializeAsync()
     {
-        await _blobServiceClient.GetBlobContainerClient(_optionsMonitor.CurrentValue.ContainerName).CreateIfNotExistsAsync();
+        await _blobServiceClient.GetBlobContainerClient(_optionsMonitor.Get(BlobConstants.BlobContainerConfigurationName).ContainerName).CreateIfNotExistsAsync();
     }
 }

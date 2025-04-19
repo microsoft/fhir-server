@@ -27,7 +27,7 @@
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4B;Integrated Security=true;TrustServerCertificate=true",
-                "DataStore": "SqlServer",
+                "DataStore": "SqlServerBlobDisabled",
                 "TaskHosting:Enabled": "true",
                 "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:Export:StorageAccountConnection": "UseDevelopmentStorage=true",
@@ -45,13 +45,14 @@
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4B;Integrated Security=true;TrustServerCertificate=true",
-                "DataStore": "SqlServer",
+                "DataStore": "SqlServerBlobEnabled",
                 "TaskHosting:Enabled": "true",
                 "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:Export:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
-                "ASPNETCORE_ENVIRONMENT": "development"
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "FhirServer:CoreFeatures:SupportsRawResourceInBlob": "true"
             },
             "applicationUrl": "https://localhost:44348/"
         }
