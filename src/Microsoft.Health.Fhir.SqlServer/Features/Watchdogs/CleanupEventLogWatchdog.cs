@@ -21,16 +21,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal sealed class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
     {
+        private readonly CompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
 
-        public CleanupEventLogWatchdog(ICompressedRawResourceConverter compressedRawResourceConverter, ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
+        public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlRetryService, logger)
         {
-            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _compressedRawResourceConverter = new CompressedRawResourceConverter();
         }
 
         internal CleanupEventLogWatchdog()
@@ -116,7 +116,7 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
         private async Task<long> GetMaxSurrogateId(CancellationToken cancellationToken)
         {
             await using var cmd = new SqlCommand("dbo.tmp_GetMaxSurrogateId") { CommandType = CommandType.StoredProcedure };
-            var maxSurrogateId = cmd.Parameters.AddWithValue("@MaxSurrogateId", SqlDbType.BigInt);
+            var maxSurrogateId = cmd.Parameters.Add("@MaxSurrogateId", SqlDbType.BigInt);
             maxSurrogateId.Direction = ParameterDirection.Output;
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             return (long)maxSurrogateId.Value;
@@ -166,7 +166,7 @@ EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Actio
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             using var cmd2 = new SqlCommand("INSERT INTO dbo.Parameters (Id, Char) SELECT 'tmp_GetMaxSurrogateId', 'LogEvent'");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             using var cmd3 = new SqlCommand(@"
 CREATE OR ALTER PROCEDURE dbo.tmp_GetRawResources @ResourceTypeId smallint, @SurrogateId bigint
@@ -187,10 +187,10 @@ SELECT TOP 1000
 
 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Select',@Rows=@@rowcount
             ");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            await cmd3.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             using var cmd4 = new SqlCommand("INSERT INTO dbo.Parameters (Id, Char) SELECT 'tmp_GetRawResources', 'LogEvent'");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            await cmd4.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("CreateTmpProceduresAsync completed.");
         }
