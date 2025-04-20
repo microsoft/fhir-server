@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -128,14 +129,25 @@ BEGIN
   EXECUTE dbo.LogEvent @Process='Test',@Status='Warn',@Mode='Test'
   SET @i += 1
 END
-                ");
+            ");
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
-
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
+
+            // TODO: Temp code to test database stats
+            var factory = CreateResourceWrapperFactory();
+            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
+            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
+            wrapper.ResourceSurrogateId = tran.TransactionId;
+            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
+            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = 103 AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
+
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
@@ -154,7 +166,11 @@ END
             }
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
-            Assert.True(GetCount("EventLog") <= 1000, "Count is low");
+            Assert.True(GetCount("EventLog") <= 1000, "Count is high");
+
+            // TODO: Temp code to test database stats
+            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'tmp_GetRawResources') RAISERROR('tmp_GetRawResources calls are not registered',18,127)");
+            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats') RAISERROR('DatabaseStats message is not registered',18,127)");
 
             await cts.CancelAsync();
             await wdTask;
