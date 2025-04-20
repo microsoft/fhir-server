@@ -149,8 +149,7 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@ResourceTypeId smallint
        ,@MaxSurrogateIdTmp bigint
-
-INSERT INTO dbo.Parameters (Id, Char) SELECT @SP, 'LogEvent'
+       ,@st datetime = getUTCdate()
 
 SET @MaxSurrogateId = 0
 
@@ -165,7 +164,7 @@ BEGIN
   DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
 END
 
-EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Action='Select',@Text=@MaxSurrogateId
+EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Action='Select',@Text=@MaxSurrogateId,@Start=@st
             ");
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
@@ -178,8 +177,7 @@ AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(100) = 'RC='+convert(varchar,@ResourceTypeId)+' S='+convert(varchar,@SurrogateId)
-
-INSERT INTO dbo.Parameters (Id, Char) SELECT @SP, 'LogEvent'
+       ,@st datetime = getUTCdate()
 
 SELECT TOP 1000
        ResourceSurrogateId, RawResource
@@ -189,7 +187,7 @@ SELECT TOP 1000
   ORDER BY
        ResourceSurrogateId
 
-EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Select',@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Select',@Rows=@@rowcount,@Start=@st
             ");
             await cmd3.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
