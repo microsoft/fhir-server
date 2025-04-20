@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)> rawResources;
                     do
                     {
-                        rawResources = await GetRawResourcesAsync(type, surrogateId, cancellationToken);
+                        rawResources = await GetRawResourcesAsync(type, surrogateId, maxSurrogateId, cancellationToken);
                         foreach (var rawResource in rawResources)
                         {
                             surrogateId = rawResource.SurrogateId;
@@ -132,11 +132,12 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetInt16(0), _logger, cancellationToken);
         }
 
-        private async Task<IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)>> GetRawResourcesAsync(short resourceTypeId, long surrogateId, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)>> GetRawResourcesAsync(short resourceTypeId, long surrogateId, long maxSurrogateId, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand("dbo.tmp_GetRawResources") { CommandType = CommandType.StoredProcedure };
             sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             sqlCommand.Parameters.AddWithValue("@SurrogateId", surrogateId);
+            sqlCommand.Parameters.AddWithValue("@MaxSurrogateId", maxSurrogateId);
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => (reader.GetInt64(0), reader.GetSqlBytes(1).Value), _logger, cancellationToken);
         }
 
@@ -172,18 +173,19 @@ EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Actio
             await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             using var cmd3 = new SqlCommand(@"
-CREATE OR ALTER PROCEDURE dbo.tmp_GetRawResources @ResourceTypeId smallint, @SurrogateId bigint
+CREATE OR ALTER PROCEDURE dbo.tmp_GetRawResources @ResourceTypeId smallint, @SurrogateId bigint, @MaxSurrogateId bigint
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(100) = 'RC='+convert(varchar,@ResourceTypeId)+' S='+convert(varchar,@SurrogateId)
+       ,@Mode varchar(100) = 'RC='+convert(varchar,@ResourceTypeId)+' S='+convert(varchar,@SurrogateId)+' M='+convert(varchar,@MaxSurrogateId)
        ,@st datetime = getUTCdate()
 
-SELECT TOP 1000
+SELECT TOP 10000
        ResourceSurrogateId, RawResource
   FROM dbo.Resource
   WHERE ResourceTypeId = @ResourceTypeId
     AND ResourceSurrogateId > @SurrogateId
+    AND ResourceSurrogateId <= @MaxSurrogateId
   ORDER BY
        ResourceSurrogateId
 
