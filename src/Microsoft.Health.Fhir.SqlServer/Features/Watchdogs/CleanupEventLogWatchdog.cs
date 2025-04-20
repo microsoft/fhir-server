@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             try
             {
                 // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
+                var st = DateTime.UtcNow;
+
                 await CreateTmpProceduresAsync(cancellationToken);
 
                 var maxSurrogateId = await GetMaxSurrogateId(cancellationToken);
@@ -87,7 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     while (rawResources.Count > 0);
                 }
 
-                _logger.LogInformation($"DatabaseStats: resources = {totalResources}, compressed raw resource length = {totalCompressedBytes}, decompressed raw resource length = {totalDecompressedBytes}");
+                var msg = $"DatabaseStats: resources = {totalResources}, compressed raw resource length = {totalCompressedBytes}, decompressed raw resource length = {totalDecompressedBytes}";
+                _logger.LogInformation(msg);
+                await _sqlRetryService.TryLogEvent("DatabaseStats", "Warn", msg, st, cancellationToken);
 
                 await DropTmpProceduresAsync(cancellationToken);
             }
@@ -197,10 +201,10 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
 
         private async Task DropTmpProceduresAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("DROP IF EXISTS PROCEDURE dbo.tmp_GetMaxSurrogateId");
+            using var cmd = new SqlCommand("IF object_id('tmp_GetMaxSurrogateId') IS NOT NULL DROP PROCEDURE dbo.tmp_GetMaxSurrogateId");
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            using var cmd2 = new SqlCommand("DROP IF EXISTS PROCEDURE dbo.tmp_GetRawResources");
+            using var cmd2 = new SqlCommand("IF object_id('tmp_GetRawResources') IS NOT NULL DROP PROCEDURE dbo.tmp_GetRawResources");
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("DropTmpProceduresAsync completed.");
