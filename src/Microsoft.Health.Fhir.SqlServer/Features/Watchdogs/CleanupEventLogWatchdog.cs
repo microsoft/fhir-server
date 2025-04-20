@@ -9,6 +9,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -89,9 +90,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     while (rawResources.Count > 0);
                 }
 
-                var msg = $"DatabaseStats: resources = {totalResources}, compressed raw resource length = {totalCompressedBytes}, decompressed raw resource length = {totalDecompressedBytes}";
-                _logger.LogInformation(msg);
-                await _sqlRetryService.TryLogEvent("DatabaseStats", "Warn", msg, st, cancellationToken);
+                var totals = new Totals { Resources = totalResources, CompressedBytes = totalCompressedBytes, DecompressedBytes = totalDecompressedBytes };
+                var totalsStr = JsonSerializer.Serialize(totals);
+                _logger.LogInformation($"DatabaseStats.Totals={totalsStr}");
+                await _sqlRetryService.TryLogEvent("DatabaseStats.Totals", "Warn", totalsStr, st, cancellationToken);
 
                 await DropTmpProceduresAsync(cancellationToken);
             }
@@ -208,6 +210,15 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("DropTmpProceduresAsync completed.");
+        }
+
+        private class Totals
+        {
+            public long Resources { get; set; }
+
+            public long CompressedBytes { get; set; }
+
+            public long DecompressedBytes { get; set; }
         }
     }
 }
