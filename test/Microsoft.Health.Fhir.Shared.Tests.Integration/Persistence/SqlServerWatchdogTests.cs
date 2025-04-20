@@ -145,7 +145,8 @@ END
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
             await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
-            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = 103 AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
+            var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
+            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
