@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     }
 
                     var cleanedUpToTranId = transToClean.Max(_ => _.TransactionId);
-                    await UpdateLastCleanedUpTransactionId(transToClean.Max(_ => _.TransactionId));
+                    await UpdateLastCleanedUpTransactionId(cleanedUpToTranId);
                     _logger.LogInformation($"{Name}: cleaned up to {cleanedUpToTranId}. transactions={totalTrans} removed rows={totalRows}");
                 }
 
