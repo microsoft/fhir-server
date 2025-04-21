@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resourceTypes = searchParams.Parameters
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
-                    .Where(ModelInfoProvider.IsKnownResource)
+                    .Where(q => ModelInfoProvider.IsKnownResource(q))
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
