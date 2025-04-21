@@ -50,9 +50,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
+            await LogRawResourceStats(cancellationToken);
+        }
+
+        protected override async Task InitAdditionalParamsAsync()
+        {
+            _logger.LogInformation("InitParamsAsync starting...");
+
+            using var cmd = new SqlCommand(@"
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 1e6
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 30
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
+INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
+            ");
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None, "InitParamsAsync failed.");
+
+            _logger.LogInformation("InitParamsAsync completed.");
+        }
+
+        // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
+        private async Task LogRawResourceStats(CancellationToken cancellationToken)
+        {
             try
             {
-                // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
                 var st = DateTime.UtcNow;
 
                 await CreateTmpProceduresAsync(cancellationToken);
@@ -101,22 +122,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 _logger.LogWarning(e, "DatabaseStats failed.");
             }
-        }
-
-        protected override async Task InitAdditionalParamsAsync()
-        {
-            _logger.LogInformation("InitParamsAsync starting...");
-
-            using var cmd = new SqlCommand(@"
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 1e6
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 30
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
-INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
-            ");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None, "InitParamsAsync failed.");
-
-            _logger.LogInformation("InitParamsAsync completed.");
         }
 
         private async Task<long> GetMaxSurrogateId(CancellationToken cancellationToken)
