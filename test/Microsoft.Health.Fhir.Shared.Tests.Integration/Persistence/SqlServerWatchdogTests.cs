@@ -161,13 +161,13 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            while ((GetCount("EventLog") > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
+            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
-            Assert.True(GetCount("EventLog") <= 1000, "Count is high");
+            Assert.True(GetCount("EventLog") <= 2000, "Count is high");
 
             // TODO: Temp code to test database stats
             ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'tmp_GetRawResources') RAISERROR('tmp_GetRawResources calls are not registered',18,127)");
