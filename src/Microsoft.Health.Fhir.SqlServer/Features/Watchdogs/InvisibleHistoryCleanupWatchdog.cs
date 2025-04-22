@@ -104,7 +104,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task UpdateLastCleanedUpTransactionId(long lastTranId)
         {
-            await using var cmd = new SqlCommand("UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id");
+            await using var cmd = new SqlCommand(@"
+UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id
+EXECUTE dbo.LogEvent @Process='UpdateLastCleanedUpTransactionId',@Status='Warn',@Rows=@@rowcount,@Text=@LastTranId
+            ");
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
             cmd.Parameters.AddWithValue("@LastTranId", lastTranId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
