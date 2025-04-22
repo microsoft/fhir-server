@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly SqlStoreClient _sqlStoreClient;
+        private readonly SqlServerFhirDataStore _fhirDataStore;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
@@ -92,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ISqlRetryService sqlRetryService,
-            SqlStoreClient storeClient,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -105,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            EnsureArg.IsNotNull(storeClient, nameof(storeClient));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
@@ -123,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
-            _sqlStoreClient = storeClient;
+            _fhirDataStore = (SqlServerFhirDataStore)fhirDataStore;
             _queryHashCalculator = queryHashCalculator;
             _parameterStore = parameterStore;
             _logger = logger;
@@ -1527,8 +1526,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
-            IReadOnlyList<(long, int)> locators = tmpResources.Where(_ => _.SqlBytes.IsNull).Select(_ => (EnsureArg.IsNotNull(_.FileId).Value, EnsureArg.IsNotNull(_.OffsetInFile).Value)).ToList();
-            var rawResources = await _sqlStoreClient.GetRawResourcesFromAdls(locators, cancellationToken);
+            IReadOnlyList<RawResourceLocator> locators = tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(tempWrapper => new RawResourceLocator(EnsureArg.IsNotNull(tempWrapper.FileId).Value, EnsureArg.IsNotNull(tempWrapper.OffsetInFile).Value)).ToList();
+            var rawResources = await _fhirDataStore.GetRawResourcesFromBlob(locators, cancellationToken);
             foreach (var tmpResource in tmpResources)
             {
                 if (!onlyIds)

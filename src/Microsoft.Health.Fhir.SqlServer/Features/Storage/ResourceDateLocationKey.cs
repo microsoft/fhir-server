@@ -8,9 +8,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceDateKey : IEquatable<ResourceDateKey>
+    public class ResourceDateLocationKey : IEquatable<ResourceDateLocationKey>
     {
-        public ResourceDateKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
+        public ResourceDateLocationKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, long? resourceStorageId, int? resourceStorageOffset, bool isDeleted = false)
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
@@ -18,6 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Id = id;
             ResourceSurrogateId = resourceSurrogateId;
             VersionId = versionId;
+            ResourceStorageId = resourceStorageId.HasValue ? resourceStorageId.Value : 0;
+            ResourceStorageOffset = resourceStorageOffset.HasValue ? resourceStorageOffset.Value : 0;
             IsDeleted = isDeleted;
         }
 
@@ -31,7 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public bool IsDeleted { get; }
 
-        public bool Equals(ResourceDateKey other)
+        public long ResourceStorageId { get; }
+
+        public int ResourceStorageOffset { get; }
+
+        public bool Equals(ResourceDateLocationKey other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -47,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                    Id == other.Id &&
                    ResourceSurrogateId == other.ResourceSurrogateId &&
                    VersionId == other.VersionId &&
+                   ResourceStorageId == other.ResourceStorageId &&
+                   ResourceStorageOffset == other.ResourceStorageOffset &&
                    IsDeleted == other.IsDeleted;
         }
 
@@ -72,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
+            // TODO: Should ResourceStorageId and Offset be included?
             return HashCode.Combine(ResourceTypeId, Id, ResourceSurrogateId, VersionId, IsDeleted);
         }
     }
