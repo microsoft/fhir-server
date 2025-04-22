@@ -10,7 +10,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
@@ -100,9 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 logger: _logger);
 
             int count = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
-            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(
-                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
+            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
 
             if (count == 0)
             {
