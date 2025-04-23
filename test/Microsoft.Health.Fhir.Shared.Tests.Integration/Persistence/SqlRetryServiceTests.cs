@@ -664,6 +664,16 @@ END
                 return sqlConnection;
             }
 
+            public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
             public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 throw new NotImplementedException();
@@ -706,6 +716,16 @@ END
                 };
                 sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 return sqlConnection;
+            }
+
+            public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
             }
 
             public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)

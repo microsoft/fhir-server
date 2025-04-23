@@ -29,6 +29,16 @@ namespace Microsoft.Health.Internal.Fhir.Sql
             return await Task.FromResult(new SqlConnection(_connectionString));
         }
 
+        public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
         {
             var builder = new SqlConnectionStringBuilder(_connectionString);
