@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
                 }
 
                 if (types.Count > 1)

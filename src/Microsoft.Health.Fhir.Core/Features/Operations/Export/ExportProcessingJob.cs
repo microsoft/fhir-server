@@ -64,16 +64,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                             return JsonConvert.SerializeObject(record);
                         case OperationStatus.Failed:
-                            throw new JobExecutionException(record.FailureDetails.FailureReason, record);
+                            throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
                         case OperationStatus.Canceled:
                             throw new OperationCanceledException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
                         case OperationStatus.Queued:
                         case OperationStatus.Running:
                             // If code works as designed, this exception shouldn't be reached
-                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.", record);
+                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.", record, false);
                         default:
                             // If code works as designed, this exception shouldn't be reached
-                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Job status not set.");
+                            throw new JobExecutionException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Job status not set.", false);
                     }
                 },
                 cancellationToken,
