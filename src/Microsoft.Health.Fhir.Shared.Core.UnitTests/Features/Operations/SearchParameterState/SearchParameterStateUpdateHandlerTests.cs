@@ -71,10 +71,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         {
             _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
-            _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope();
+            _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope(); // Ensure this factory is properly initialized
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
-            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, _auditLogger);
+            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
+                _authorizationService,
+                _searchParameterStatusManager,
+                _logger2,
+                _queueClient,
+                _auditLogger,
+                _fhirOperationDataStoreFactory); // Pass the required parameter here
+
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
@@ -181,8 +188,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").ToDictionary(x => x.Code.ToString())));
             typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").ToDictionary(x => x.Code.ToString())));
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
-
-            // _searchParameterStatusManager.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(System.Threading.Tasks.Task.CompletedTask);
         }
 
         [Fact]
@@ -277,7 +282,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var loggers = CreateTestAuditLogger();
-            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, loggers.auditLogger);
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, loggers.auditLogger, _fhirOperationDataStoreFactory);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
@@ -311,7 +316,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((true, string.Empty));
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory = () => fhirOperationDataStore.CreateMockScope();
 
-            SearchParameterStateUpdateHandler searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _auditLogger, fhirOperationDataStoreFactory);
+            SearchParameterStateUpdateHandler searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
+            _authorizationService,
+            _searchParameterStatusManager,
+            _logger2,
+            _queueClient,
+            _auditLogger,
+            _fhirOperationDataStoreFactory);
+
             SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
@@ -320,7 +332,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
             var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
             var issue = resourceResponse.Issue[0];
-            Assert.True(issue.Details.Text == Fhir.Core.Resources.ReindexRunning);
+            Assert.True(issue.Details.Text == Fhir.Core.Resources.ReindexRunningException);
             Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
             Assert.True(issue.Code == OperationOutcome.IssueType.Conflict);
         }

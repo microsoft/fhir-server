@@ -168,14 +168,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(CreateSearchResult());
+#pragma warning disable CS0618 // Type or member is obsolete
             try
             {
-                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
             }
             catch (RetriableJobException ex)
             {
                 Assert.Equal("Reindex job with Id: 1 has been started. Status: Running.", ex.Message);
             }
+#pragma warning restore CS0618 // Type or member is obsolete
 
             // verify search for count
             await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), Arg.Is(true), Arg.Any<CancellationToken>(), true);
@@ -216,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = JobStatus.Running,
             };
 
-            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);

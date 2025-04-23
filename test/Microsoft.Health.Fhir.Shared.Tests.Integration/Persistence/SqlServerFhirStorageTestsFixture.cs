@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
 
             // the test queue client may not be enough for these tests. will need to look back into this.
-            var queueClient = new TestQueueClient();
+            queueClient = new TestQueueClient();
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(queueClient, NullLoggerFactory.Instance);
 
             var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);

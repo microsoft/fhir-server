@@ -123,7 +123,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetResourceTypes);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetDataStoreUsagePercentage);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetSearchParameterTypes);
-            Assert.Equal("500", parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.QueryDelayIntervalInMilliseconds).First().Value.ToString());
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)

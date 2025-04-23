@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Returns(
                     new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>())); // First call checks how many resources need to be reindexed
 
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                         TotalCount = 1,
                     });
 
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
