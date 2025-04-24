@@ -598,7 +598,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                     _ => sortValue,
                                                 }).ToArray())
                                         : null;
-                                string includeContinuationTokenString = null;
+                                string includesContinuationTokenString = null;
                                 if (clonedSearchOptions.IncludesOperationSupported
                                     && clonedSearchOptions.Expression is MultiaryExpression
                                     && ((MultiaryExpression)clonedSearchOptions.Expression).Expressions.Any(x => x is IncludeExpression)
@@ -618,7 +618,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     var includesSearchResult = await SearchIncludeImpl(clonedSearchOptions, cancellationToken);
                                     includedResources.Clear();
                                     includedResources.AddRange(includesSearchResult.Results);
-                                    includeContinuationTokenString = includesSearchResult.IncludesContinuationToken;
+                                    includesContinuationTokenString = includesSearchResult.IncludesContinuationToken;
                                     isResultPartial = !string.IsNullOrEmpty(includesSearchResult.IncludesContinuationToken);
                                 }
 
@@ -629,7 +629,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         new OperationOutcomeIssue(
                                             OperationOutcomeConstants.IssueSeverity.Warning,
                                             OperationOutcomeConstants.IssueType.Incomplete,
-                                            Core.Resources.TruncatedIncludeMessage));
+                                            clonedSearchOptions.IncludesOperationSupported ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage));
                                 }
 
                                 // If this is a sort query, lets keep track of whether we actually searched for sort values.
@@ -653,7 +653,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     sqlSearchOptions.SortHasMissingModifier = true;
                                 }
 
-                                searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includeContinuationTokenString);
+                                searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
                             }
                         }
                         catch (SqlException e)
