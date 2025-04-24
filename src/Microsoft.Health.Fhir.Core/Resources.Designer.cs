@@ -1682,6 +1682,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Included items are truncated. Use the related link in the response to retrieve all included items..
+        /// </summary>
+        internal static string TruncatedIncludeMessageForIncludes {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessageForIncludes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
         /// </summary>
         internal static string TypeFilterUnparseable {
