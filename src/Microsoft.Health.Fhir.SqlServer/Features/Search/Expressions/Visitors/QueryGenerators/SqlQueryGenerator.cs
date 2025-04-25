@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
         private bool _allowCurrent; // TODO: Remove after deplyment of LakePrerequisite
+        private HashSet<short> _searchParamIds = new();
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -80,6 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 previousSqlQueryGeneratorFailure = true;
             }
         }
+
+        public HashSet<short> SearchParamIds => _searchParamIds;
 
         public IndentedStringBuilder StringBuilder { get; }
 
@@ -322,6 +325,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AddHash()
         {
+            foreach (var searchParamId in Parameters.SearchParamIds)
+            {
+                _searchParamIds.Add(searchParamId);
+            }
+
             if (Parameters.HasParametersToHash && !_reuseQueryPlans) // hash cannot be last comment as it will not be stored in query store
             {
                 // Add a hash of (most of the) parameter values as a comment.
