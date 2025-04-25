@@ -84,11 +84,11 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
                 var types = await GetUsedResourceTypesAsync(cancellationToken);
                 _logger.LogInformation($"DatabaseStats.UsedResourceTypes.Count={types.Count}");
 
-                var totalCompressedBytes = 0L;
-                var totalDecompressedBytes = 0L;
-                var totalResources = 0L;
                 foreach (var type in types)
                 {
+                    var totalCompressedBytes = 0L;
+                    var totalDecompressedBytes = 0L;
+                    var totalResources = 0L;
                     var surrogateId = 0L;
                     IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)> rawResources;
                     do
@@ -109,12 +109,12 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
                         }
                     }
                     while (rawResources.Count > 0);
-                }
 
-                var totals = new Totals { Resources = totalResources, CompressedBytes = totalCompressedBytes, DecompressedBytes = totalDecompressedBytes };
-                var totalsStr = JsonSerializer.Serialize(totals);
-                _logger.LogInformation($"DatabaseStats.Totals={totalsStr}");
-                await _sqlRetryService.TryLogEvent("DatabaseStats.Totals", "Warn", totalsStr, st, cancellationToken);
+                    var totals = new ResourceTypeTotals { ResourceTypeId = type, Resources = totalResources, CompressedBytes = totalCompressedBytes, DecompressedBytes = totalDecompressedBytes };
+                    var totalsStr = JsonSerializer.Serialize(totals);
+                    _logger.LogInformation($"DatabaseStats.ResourceTypeTotals={totalsStr}");
+                    await _sqlRetryService.TryLogEvent("DatabaseStats.ResourceTypeTotals", "Warn", totalsStr, st, cancellationToken);
+                }
 
                 await DropTmpProceduresAsync(cancellationToken);
             }
@@ -217,8 +217,10 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
             _logger.LogInformation("DropTmpProceduresAsync completed.");
         }
 
-        private class Totals
+        private class ResourceTypeTotals
         {
+            public short ResourceTypeId { get; set; }
+
             public long Resources { get; set; }
 
             public long CompressedBytes { get; set; }
