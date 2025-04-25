@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger _logger;
         internal const string InvisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, IRawResourceStore blobRawResourceStore = null)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
