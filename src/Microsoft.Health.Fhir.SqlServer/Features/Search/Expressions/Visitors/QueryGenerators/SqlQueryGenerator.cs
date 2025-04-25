@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
         private bool _allowCurrent; // TODO: Remove after deplyment of LakePrerequisite
-        private HashSet<short> _searchParamIds = new();
+        private readonly HashSet<short> _searchParamIds = new();
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
