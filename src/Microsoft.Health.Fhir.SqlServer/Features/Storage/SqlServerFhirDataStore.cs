@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> UpdateBlobResourceWrappersAsync(IReadOnlyList<ResourceWrapper> allResourceWrappers, CancellationToken cancellationToken)
         {
             var resourceLocators = allResourceWrappers
-                .Where(r => r.RawResource == null && r.RawResource.Data.Equals("BLOB", StringComparison.Ordinal))
+                .Where(r => r.RawResource.Data == "BLOB" && r.RawResource.Data.Equals("BLOB", StringComparison.Ordinal))
                 .Select(r => new RawResourceLocator(r.ResourceStorageIdentifier, r.ResourceStorageOffset))
                 .ToList();
 
@@ -918,7 +918,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, bool isReadOnly, CancellationToken cancellationToken)
         {
-            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, isReadOnly, cancellationToken, includeInvisible);
+            var resourceWrappers = await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, isReadOnly, cancellationToken, includeInvisible);
+            return UpdateBlobResourceWrappersAsync(resourceWrappers, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
