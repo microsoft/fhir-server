@@ -23,8 +23,8 @@ function Get-AzureAdApplicationByDisplayName {
         [string]$DisplayName
     )
     
-    Uninstall-Module -Name Microsoft.Graph.Beta.Applications -Force
-    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    Uninstall-Module -Name Microsoft.Graph.Beta.Applications -AllowPrerelease -Force
+    Install-Module -Name Microsoft.Graph.Beta.Applications -AllowPrerelease -Force
     return Get-MgBetaApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
@@ -35,8 +35,8 @@ function Get-AzureAdApplicationByIdentifierUri {
         [string]$FhirServiceAudience
     )
     
-    Uninstall-Module -Name Microsoft.Graph.Beta.Applications -Force
-    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    Uninstall-Module -Name Microsoft.Graph.Beta.Applications -AllowPrerelease -Force
+    Install-Module -Name Microsoft.Graph.Beta.Applications -AllowPrerelease -Force
     return Get-MgBetaApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
