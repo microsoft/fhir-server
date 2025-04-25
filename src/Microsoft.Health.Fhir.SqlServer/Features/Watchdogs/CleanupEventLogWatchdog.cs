@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             await LogRawResourceStats(cancellationToken);
+            await LogSearchParamStats(cancellationToken);
         }
 
         protected override async Task InitAdditionalParamsAsync()
@@ -70,6 +71,37 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
         }
 
         // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
+        private async Task LogSearchParamStats(CancellationToken cancellationToken)
+        {
+            var searchParamTables = await GetSearchParamTables(cancellationToken);
+            foreach (var searchParamTable in searchParamTables)
+            {
+                var st = DateTime.UtcNow;
+#pragma warning disable CA2100
+                using var sqlCommand = new SqlCommand($"SELECT SearchParamId, count_big(*) FROM dbo.{searchParamTable} GROUP BY SearchParamId") { CommandTimeout = 0 };
+#pragma warning disable CA2100
+                var searchParamCounts = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => { return new SearchParamCount { SearchParamTable = searchParamTable, SearchParamId = reader.GetInt16(0), RowCount = reader.GetInt64(1) }; }, _logger, cancellationToken);
+                foreach (var searchParamCount in searchParamCounts)
+                {
+                    var countStr = JsonSerializer.Serialize(searchParamCount);
+                    _logger.LogInformation($"DatabaseStats.SearchParamCount={countStr}");
+                    await _sqlRetryService.TryLogEvent("DatabaseStats.SearchParamCount", "Warn", countStr, st, cancellationToken);
+                }
+            }
+        }
+
+        private async Task<IReadOnlyList<string>> GetSearchParamTables(CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand(@$"
+SELECT object_name = object_name(object_id)
+  FROM sys.indexes I
+  WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND PS.name = 'PartitionScheme_ResourceTypeId')
+    AND object_id <> object_id('Resource')
+    AND index_id = 1
+            ");
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetString(0), _logger, cancellationToken);
+        }
+
         private async Task LogRawResourceStats(CancellationToken cancellationToken)
         {
             try
@@ -215,6 +247,15 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("DropTmpProceduresAsync completed.");
+        }
+
+        private class SearchParamCount
+        {
+            public string SearchParamTable { get; set; }
+
+            public short SearchParamId { get; set; }
+
+            public long RowCount { get; set; }
         }
 
         private class ResourceTypeTotals

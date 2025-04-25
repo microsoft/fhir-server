@@ -171,7 +171,8 @@ END
 
             // TODO: Temp code to test database stats
             ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'tmp_GetRawResources') RAISERROR('tmp_GetRawResources calls are not registered',18,127)");
-            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats.Totals') RAISERROR('DatabaseStats message is not registered',18,127)");
+            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats.ResourceTypeTotals') RAISERROR('DatabaseStats.ResourceTypeTotals message is not registered',18,127)");
+            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats.SearchParamCount') RAISERROR('DatabaseStats.SearchParamCount message is not registered',18,127)");
 
             await cts.CancelAsync();
             await wdTask;
