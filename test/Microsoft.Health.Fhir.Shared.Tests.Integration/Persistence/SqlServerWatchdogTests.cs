@@ -124,7 +124,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             ExecuteSql(@"
 TRUNCATE TABLE dbo.EventLog
 DECLARE @i int = 0
-WHILE @i < 10000
+WHILE @i < 10500
 BEGIN
   EXECUTE dbo.LogEvent @Process='Test',@Status='Warn',@Mode='Test'
   SET @i += 1
