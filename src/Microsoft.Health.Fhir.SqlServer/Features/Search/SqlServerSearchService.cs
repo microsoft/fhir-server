@@ -406,7 +406,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (!string.IsNullOrEmpty(customQuery))
                             {
-                                _logger.LogInformation("SQl Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
+                                _logger.LogInformation("SQL Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
                                 queryText = customQuery;
                                 sqlCommand.CommandType = CommandType.StoredProcedure;
                             }
@@ -415,6 +415,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                             sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
+
+                            _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
                         LogSqlCommand(sqlCommand);
