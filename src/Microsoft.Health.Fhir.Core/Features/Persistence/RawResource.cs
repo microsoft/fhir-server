@@ -15,6 +15,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private Lazy<string> _data;
 
+        public RawResource(FhirResourceFormat format, bool isMetaSet)
+        {
+            Format = format;
+            IsMetaSet = isMetaSet;
+        }
+
         public RawResource(string data, FhirResourceFormat format, bool isMetaSet)
         {
             EnsureArg.IsNotNullOrEmpty(data, nameof(data));

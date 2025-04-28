@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     // Raw Resource is stored in BLOB
                     var key = new RawResourceLocator(EnsureArg.IsNotNull(extendedWrapper.FileId).Value, EnsureArg.IsNotNull(extendedWrapper.OffsetInFile).Value);
-                    extendedWrapper.Wrapper.RawResource = new RawResource("BLOB", FhirResourceFormat.Json, extendedWrapper.IsMetaSet);
+                    extendedWrapper.Wrapper.RawResource = new RawResource(FhirResourceFormat.Json, extendedWrapper.IsMetaSet);
                     extendedWrapper.Wrapper.ResourceStorageIdentifier = extendedWrapper.FileId.Value;
                     extendedWrapper.Wrapper.ResourceStorageOffset = extendedWrapper.OffsetInFile.Value;
                 }
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 RawResource rawResource = null;
                 if (versionedResource.Matched.Version != null)
                 {
-                    rawResource = versionedResource.Matched.Bytes.IsNull ? new RawResource("BLOB", FhirResourceFormat.Json, false) : new RawResource(ReadCompressedRawResource(versionedResource.Matched.Bytes, decompress), FhirResourceFormat.Json, false);
+                    rawResource = versionedResource.Matched.Bytes.IsNull ? new RawResource(FhirResourceFormat.Json, false) : new RawResource(ReadCompressedRawResource(versionedResource.Matched.Bytes, decompress), FhirResourceFormat.Json, false);
                 }
 
                 return (versionedResource.DateKey, (versionedResource.Matched.Version, rawResource));

@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IList<(ResourceDateLocationKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateLocationKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
         {
             var versionedResources = await _sqlStoreClient.GetResourceVersionsAsync(keys, decompress, cancellationToken);
-            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data.Equals("BLOB", StringComparison.Ordinal)).Select(resource => new RawResourceLocator(resource.Key.ResourceStorageId, resource.Key.ResourceStorageOffset)).ToList();
+            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data == null).Select(resource => new RawResourceLocator(resource.Key.ResourceStorageId, resource.Key.ResourceStorageOffset)).ToList();
             var rawResources = await GetRawResourcesFromBlob(refs, cancellationToken);
 
             for (int i = 0; i < versionedResources.Count; i++)
@@ -206,14 +206,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private async Task<IReadOnlyList<ResourceWrapper>> UpdateBlobResourceWrappersAsync(IReadOnlyList<ResourceWrapper> allResourceWrappers, CancellationToken cancellationToken)
         {
             var resourceLocators = allResourceWrappers
-                .Where(r => r.RawResource.Data == "BLOB" && r.RawResource.Data.Equals("BLOB", StringComparison.Ordinal))
+                .Where(r => string.IsNullOrEmpty(r.RawResource.Data))
                 .Select(r => new RawResourceLocator(r.ResourceStorageIdentifier, r.ResourceStorageOffset))
                 .ToList();
 
             var rawResources = await GetRawResourcesFromBlob(resourceLocators, cancellationToken);
 
-            // TODO: Do we want to create a constant to represent the blob resource type?
-            var blobResources = allResourceWrappers.Where(r => r.RawResource.Data.Equals("BLOB", StringComparison.Ordinal)).ToList();
+            var blobResources = allResourceWrappers.Where(r => string.IsNullOrEmpty(r.RawResource.Data)).ToList();
             foreach (ResourceWrapper wrapper in blobResources)
             {
                 var key = new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
