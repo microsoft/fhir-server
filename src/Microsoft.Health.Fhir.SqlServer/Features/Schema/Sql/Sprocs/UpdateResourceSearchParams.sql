@@ -1,7 +1,7 @@
 ﻿CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY -- TODO: Remove after deployment
-   ,@ResourcesLake dbo.ResourceListLake READONLY
+   ,@ResourcesLake dbo.ResourceListWithLake READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY

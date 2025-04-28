@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.ClientModel;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,9 +11,7 @@ using System.Data;
 using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +43,6 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
-using static System.Net.WebRequestMethods;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -426,8 +422,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         LogSqlCommand(sqlCommand);
 
                         ContinuationToken continuationToken = null;
-                        var matchedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.MaxItemCount);
-                        var includedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.IncludeCount);
+                        var matchedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)>(sqlSearchOptions.MaxItemCount);
+                        var includedResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)>(sqlSearchOptions.IncludeCount);
                         var includeOperationResources = new List<SearchResultEntry>(0);
                         string includeContinuationTokenString = null;
 
@@ -484,6 +480,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out SqlBytes rawResourceSqlBytes,
                                     out long? fileId,
                                     out int? offsetInFile,
+                                    out int? resourceLength,
                                     out bool isInvisible);
 
                                 if (isInvisible)
@@ -544,7 +541,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     isRawResourceMetaSet,
                                     rawResourceSqlBytes,
                                     fileId,
-                                    offsetInFile));
+                                    offsetInFile,
+                                    resourceLength));
                                 }
                                 else
                                 {
@@ -566,7 +564,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         isRawResourceMetaSet,
                                         rawResourceSqlBytes,
                                         fileId,
-                                        offsetInFile));
+                                        offsetInFile,
+                                        resourceLength));
                                 }
 
                                 // as long as at least one entry was marked as partial, this resultset
@@ -722,14 +721,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
 
-            List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)> tmpResources = null;
+            List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)> tmpResources = null;
 
             await _sqlRetryService.ExecuteSql(
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
                     using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
-                    tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>();
+                    tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)>();
                     while (await reader.ReadAsync(cancel))
                     {
                         ReadWrapper(
@@ -747,6 +746,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out SqlBytes rawResourceSqlBytes,
                             out long? fileId,
                             out int? offsetInFile,
+                            out int? resourceLength,
                             out bool isInvisible);
 
                         if (isInvisible)
@@ -779,7 +779,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             isRawResourceMetaSet,
                             rawResourceSqlBytes,
                             fileId,
-                            offsetInFile));
+                            offsetInFile,
+                            resourceLength));
                     }
 
                     return;
@@ -935,6 +936,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out SqlBytes rawResourceSqlBytes,
             out long? fileId,
             out int? offsetInFile,
+            out int? resourceLength,
             out bool isInvisible)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
@@ -952,6 +954,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             //// Number of fields in old schema is either 11 or 12 (12th is sort value). In new schema, it is either 13 or 14.
             fileId = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.FileId, 11) : null;
             offsetInFile = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.OffsetInFile, 12) : null;
+            resourceLength = reader.FieldCount > 12 ? reader.Read(VLatest.Resource.ResourceLength, 13) : null;
             isInvisible = false;
             if (!rawResourceSqlBytes.IsNull)
             {
@@ -1402,7 +1405,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
 
                             var moreResults = false;
-                            var tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)>(sqlSearchOptions.MaxItemCount);
+                            var tmpResources = new List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)>(sqlSearchOptions.MaxItemCount);
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
@@ -1421,6 +1424,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                     out SqlBytes rawResourceSqlBytes,
                                     out long? fileId,
                                     out int? offsetInFile,
+                                    out int? resourceLength,
                                     out bool isInvisible);
                                 if (isInvisible)
                                 {
@@ -1447,7 +1451,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                         isRawResourceMetaSet,
                                         rawResourceSqlBytes,
                                         fileId,
-                                        offsetInFile));
+                                        offsetInFile,
+                                        resourceLength));
                                 }
                                 else
                                 {
@@ -1521,13 +1526,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
         }
 
         private async Task<List<SearchResultEntry>> AddRawResourcesToSearchEntries(
-            List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile)> tmpResources,
+            List<(SearchResultEntry Entry, bool IsMetaSet, SqlBytes SqlBytes, long? FileId, int? OffsetInFile, int? ResourceLength)> tmpResources,
             bool onlyIds,
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
+<<<<<<< HEAD
             IReadOnlyList<RawResourceLocator> locators = tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(tempWrapper => new RawResourceLocator(EnsureArg.IsNotNull(tempWrapper.FileId).Value, EnsureArg.IsNotNull(tempWrapper.OffsetInFile).Value)).ToList();
             var rawResources = await _fhirDataStore.GetRawResourcesFromBlob(locators, cancellationToken);
+=======
+            var rawResources = await SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(resource => (EnsureArg.IsNotNull(resource.FileId).Value, EnsureArg.IsNotNull(resource.OffsetInFile).Value, EnsureArg.IsNotNull(resource.ResourceLength).Value)).ToList());
+>>>>>>> feature-branch/raw-resource-split
             foreach (var tmpResource in tmpResources)
             {
                 if (!onlyIds)

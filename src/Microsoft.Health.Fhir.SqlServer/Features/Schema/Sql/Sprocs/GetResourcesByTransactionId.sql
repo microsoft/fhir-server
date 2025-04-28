@@ -21,6 +21,7 @@ BEGIN TRY
           ,RequestMethod
           ,FileId
           ,OffsetInFile
+          ,ResourceLength
       FROM dbo.Resource
       WHERE TransactionId = @TransactionId AND (IsHistory = 0 OR @IncludeHistory = 1)
       OPTION (MAXDOP 1)

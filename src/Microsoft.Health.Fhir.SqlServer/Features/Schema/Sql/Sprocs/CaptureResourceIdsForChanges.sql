@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListLake READONLY
+﻿CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY, @ResourcesLake dbo.ResourceListWithLake READONLY
 AS
 set nocount on
 -- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic

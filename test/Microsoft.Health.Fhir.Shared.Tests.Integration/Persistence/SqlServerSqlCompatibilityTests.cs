@@ -20,7 +20,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSqlCompatibilityTests
@@ -31,8 +30,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// insert a resource using every schema version, and that we can read resources
         /// that were inserted into with earlier schemas.
         /// </summary>
-        [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds()
+        [Theory]
+        [ClassData(typeof(SqlServerDataStoreValues))]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds(DataStore dataStore)
         {
             string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("Compatibility");
             var insertedElements = new List<string>();
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     try
                     {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName, DataStore.SqlServerBlobDisabled));
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName, dataStore));
                         await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -84,10 +84,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// A basic smoke test verifying that the code is compatible with schema versions
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
-        [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        [Theory]
+        [ClassData(typeof(SqlServerDataStoreValues))]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds(DataStore dataStore)
         {
-            // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
             await Parallel.ForEachAsync(versions, new ParallelOptions { MaxDegreeOfParallelism = 2 }, async (version, cancel) =>
             {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName, DataStore.SqlServerBlobDisabled));
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName, dataStore));
                         await fhirStorageTestsFixture.InitializeAsync();
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -130,8 +130,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [SkippableFact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
+        [SkippableTheory]
+        [ClassData(typeof(SqlServerDataStoreValues))]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful(DataStore dataStore)
         {
             Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
 
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
                 schemaVersion,
                 databaseName,
-                DataStore.SqlServerBlobDisabled));
+                dataStore));
 
             try
             {

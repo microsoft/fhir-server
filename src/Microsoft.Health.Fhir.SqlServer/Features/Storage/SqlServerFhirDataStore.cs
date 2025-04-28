@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _sqlStoreClient = EnsureArg.IsNotNull(storeClient, nameof(storeClient));
@@ -127,7 +128,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // TODO: Cleanup SqlAdlsClient class and its references when all the blob operations have been moved to blob library
-            _ = new SqlAdlsClient(_sqlRetryService, _logger);
+            if (coreFeatures.Value.SupportsRawResourceInBlob)
+            {
+                _ = new SqlAdlsClient(_sqlRetryService, _logger);
+            }
+
+            // Here, we need not check if blob is enabled as it will be set to null
             _blobRawResourceStore = blobRawResourceStore;
         }
 
@@ -243,11 +249,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResources = resources.Select(r => r.ResourceWrapper).ToList();
 
             await _blobRawResourceStore.WriteRawResourcesAsync(rawResources, transactionId, cancellationToken);
-            for (int i = 0; i < resources.Count; i++)
-            {
-                resources[i].ResourceStorageOffset = rawResources[i].ResourceStorageOffset;
-                resources[i].ResourceStorageIdentifier = rawResources[i].ResourceStorageIdentifier;
-            }
         }
 
         // TODO: This method will be removed once we move all operations to raw resource store
@@ -854,9 +855,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await WriteRawResourcesToStore(mergeWrappers, transactionId, cancellationToken); // this sets offset so resource row generator does not add raw resource
             }
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
             {
-                new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                new ResourceListWithLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }
             else
             {
@@ -942,9 +943,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
-                if (_schemaInformation.Current >= SchemaVersionConstants.Lake)
+                if (_schemaInformation.Current >= SchemaVersionConstants.Lake && _coreFeatures.SupportsRawResourceInBlob)
                 {
-                    new ResourceListLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                    new ResourceListWithLakeTableValuedParameterDefinition("@ResourcesLake").AddParameter(cmd.Parameters, new ResourceListLakeRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 }
                 else
                 {
