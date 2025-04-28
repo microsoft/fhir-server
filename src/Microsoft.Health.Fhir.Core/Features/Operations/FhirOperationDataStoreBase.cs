@@ -396,13 +396,22 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(record, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
+    private void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
     {
-        var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault().Result;
+        // Check the first child job's result
+        var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault();
         IReadOnlyCollection<string> processingJob = null;
-        if (subJob != null)
+        if (subJob?.Result != null)
         {
-            processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(subJob)?.SearchParameterUrls;
+            try
+            {
+                processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(subJob.Result)?.SearchParameterUrls;
+            }
+            catch (JsonException ex)
+            {
+                // Log but continue since this is optional data
+                _logger.LogWarning(ex, "Failed to deserialize processing job result for job {JobId}", subJob.Id);
+            }
         }
 
         if (processingJob != null)
@@ -415,21 +424,59 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
         {
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-            var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-            if (job.Status == JobStatus.Completed)
+            ReindexProcessingJobResult jobResult = null;
+            ReindexProcessingJobDefinition jobDefinition = null;
+
+            // Safely deserialize Result
+            if (!string.IsNullOrEmpty(job.Result))
             {
-                record.Progress += jobResult.SucceededResourceCount;
+                try
+                {
+                    jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                }
+                catch (JsonException ex)
+                {
+                    // Log the error but continue processing
+                    _logger.LogError(ex, "Failed to deserialize job result for job {JobId}", job.Id);
+                    continue;
+                }
             }
 
-            record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
-
-            var isAdded = record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
-
-            // Used to prevent duplicates for the resources list
-            if (isAdded)
+            // Safely deserialize Definition
+            if (!string.IsNullOrEmpty(job.Definition))
             {
-                record.Resources.Add(jobDefinition.ResourceType);
+                try
+                {
+                    jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+                }
+                catch (JsonException ex)
+                {
+                    // Log the error but continue processing
+                    _logger.LogError(ex, "Failed to deserialize job definition for job {JobId}", job.Id);
+                    continue;
+                }
+            }
+
+            // Only process if we have both result and definition
+            if (jobResult != null && jobDefinition != null)
+            {
+                if (job.Status == JobStatus.Completed)
+                {
+                    record.Progress += jobResult.SucceededResourceCount;
+                }
+
+                record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
+
+                if (jobDefinition.ResourceType != null)
+                {
+                    var isAdded = record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
+
+                    // Used to prevent duplicates for the resources list
+                    if (isAdded && !record.Resources.Contains(jobDefinition.ResourceType))
+                    {
+                        record.Resources.Add(jobDefinition.ResourceType);
+                    }
+                }
             }
         }
     }
