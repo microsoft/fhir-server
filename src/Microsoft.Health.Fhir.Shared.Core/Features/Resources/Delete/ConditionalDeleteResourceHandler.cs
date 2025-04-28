@@ -99,7 +99,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 logger: _logger);
 
             int count = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count();
-            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+            bool tooManyIncludeResults = _fhirContext.RequestContext.BundleIssues.Any(
+                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
 
             if (count == 0)
             {

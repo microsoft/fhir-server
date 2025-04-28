@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
             // the test queue client may not be enough for these tests. will need to look back into this.
             queueClient = new TestQueueClient();

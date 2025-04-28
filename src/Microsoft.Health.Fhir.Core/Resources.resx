@@ -791,4 +791,7 @@
   <data name="SearchParametersNotInitialized" xml:space="preserve">
     <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
   </data>
+  <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
+    <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
+  </data>
 </root>

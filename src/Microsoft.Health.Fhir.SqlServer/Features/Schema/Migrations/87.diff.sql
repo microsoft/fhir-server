@@ -1,8 +1,8 @@
-ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL
+ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL, @EnableThrottling bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate,121),'NULL')
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)+' HB='+isnull(convert(varchar,@HeartbeatDate,121),'NULL')+' ET='+convert(varchar,@EnableThrottling)
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
@@ -18,12 +18,15 @@ BEGIN TRY
 
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
-  SET @CurrentConcurrency = (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
-  IF @CurrentConcurrency > @OptimalConcurrency
+  IF @EnableThrottling = 1
   BEGIN
-    SET @msg = 'Number of concurrent MergeResources calls = '+convert(varchar,@CurrentConcurrency)+' is above optimal = '+convert(varchar,@OptimalConcurrency)+'.';
-    THROW 50410, @msg, 1 
-  END
+    SET @CurrentConcurrency = (SELECT count(*) FROM sys.dm_exec_sessions WHERE status <> 'sleeping' AND program_name = 'MergeResources')
+    IF @CurrentConcurrency > @OptimalConcurrency
+    BEGIN
+      SET @msg = 'Number of concurrent MergeResources calls = '+convert(varchar,@CurrentConcurrency)+' is above optimal = '+convert(varchar,@OptimalConcurrency)+'.';
+      THROW 50410, @msg, 1 
+    END
+  END 
 
   SET @FirstValueVar = NULL
   WHILE @FirstValueVar IS NULL
