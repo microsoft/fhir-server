@@ -1531,12 +1531,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             CancellationToken cancellationToken)
         {
             // add raw resource to search entry
-<<<<<<< HEAD
-            IReadOnlyList<RawResourceLocator> locators = tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(tempWrapper => new RawResourceLocator(EnsureArg.IsNotNull(tempWrapper.FileId).Value, EnsureArg.IsNotNull(tempWrapper.OffsetInFile).Value)).ToList();
+            IReadOnlyList<RawResourceLocator> locators = tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(tempWrapper => new RawResourceLocator(EnsureArg.IsNotNull(tempWrapper.FileId).Value, EnsureArg.IsNotNull(tempWrapper.OffsetInFile).Value, EnsureArg.IsNotNull(tempWrapper.ResourceLength).Value)).ToList();
             var rawResources = await _fhirDataStore.GetRawResourcesFromBlob(locators, cancellationToken);
-=======
-            var rawResources = await SqlStoreClient.GetRawResourcesFromAdls(tmpResources.Where(resource => resource.SqlBytes.IsNull).Select(resource => (EnsureArg.IsNotNull(resource.FileId).Value, EnsureArg.IsNotNull(resource.OffsetInFile).Value, EnsureArg.IsNotNull(resource.ResourceLength).Value)).ToList());
->>>>>>> feature-branch/raw-resource-split
+
             foreach (var tmpResource in tmpResources)
             {
                 if (!onlyIds)
@@ -1544,7 +1541,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     var rawResource = new Lazy<string>(() =>
                     {
                         var decompressed = tmpResource.SqlBytes.IsNull
-                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value)]
+                                            ? rawResources[new RawResourceLocator(EnsureArg.IsNotNull(tmpResource.FileId).Value, EnsureArg.IsNotNull(tmpResource.OffsetInFile).Value, EnsureArg.IsNotNull(tmpResource.ResourceLength).Value)]
                                             : SqlStoreClient.ReadCompressedRawResource(tmpResource.SqlBytes, _compressedRawResourceConverter.ReadCompressedRawResource);
                         _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(tmpResource.Entry.Resource.ResourceSurrogateId), tmpResource.Entry.Resource.ResourceSurrogateId, nameof(tmpResource.Entry.Resource.ResourceTypeName), tmpResource.Entry.Resource.ResourceTypeName, decompressed.Length);
                         if (string.IsNullOrEmpty(decompressed))

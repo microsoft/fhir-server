@@ -240,19 +240,12 @@ END
         {
             try
             {
-<<<<<<< HEAD
-                var refs = new List<RawResourceLocator>() { new RawResourceLocator(tranId, 0) };
+                var refs = new List<RawResourceLocator>() { new RawResourceLocator(tranId, 0, 0) };
                 using (var cts = new CancellationTokenSource())
                 {
                     var results = await _fixture.SqlServerFhirDataStore.GetRawResourcesFromBlob(refs, cts.Token);
                     return results.Count;
                 }
-=======
-                var refs = new List<(long, int, int)>();
-                refs.Add((tranId, 0, 0));
-                var results = await SqlStoreClient.GetRawResourcesFromAdls(refs);
-                return results.Count;
->>>>>>> feature-branch/raw-resource-split
             }
             catch (Exception e)
             {

@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         public static ResourceDateLocationKey ToResourceDateLocationKey(this ResourceWrapper wrapper, Func<string, short> getResourceTypeId, bool ignoreVersion = false)
         {
-            return new ResourceDateLocationKey(getResourceTypeId(wrapper.ResourceTypeName), wrapper.ResourceId, wrapper.LastModified.ToSurrogateId(), ignoreVersion ? null : wrapper.Version, wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
+            return new ResourceDateLocationKey(getResourceTypeId(wrapper.ResourceTypeName), wrapper.ResourceId, wrapper.LastModified.ToSurrogateId(), ignoreVersion ? null : wrapper.Version, wrapper.RawResourceLocator.RawResourceStorageIdentifier, wrapper.RawResourceLocator.RawResourceOffset, wrapper.RawResourceLocator.RawResourceLength);
         }
     }
 }

@@ -14,6 +14,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Specialized;
+using DotLiquid.Util;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IList<(ResourceDateLocationKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateLocationKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
         {
             var versionedResources = await _sqlStoreClient.GetResourceVersionsAsync(keys, decompress, cancellationToken);
-            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data == null).Select(resource => new RawResourceLocator(resource.Key.ResourceStorageId, resource.Key.ResourceStorageOffset)).ToList();
+            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data == null).Select(resource => new RawResourceLocator(resource.Key.ResourceStorageId, resource.Key.ResourceStorageOffset, resource.Key.ResourceStorageLength)).ToList();
             var rawResources = await GetRawResourcesFromBlob(refs, cancellationToken);
 
             for (int i = 0; i < versionedResources.Count; i++)
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var matchedResource = versionedResources[i];
                 if (matchedResource.Matched.RawResource == null)
                 {
-                    var key = new RawResourceLocator(matchedResource.Key.ResourceStorageId, matchedResource.Key.ResourceStorageOffset);
+                    var key = new RawResourceLocator(matchedResource.Key.ResourceStorageId, matchedResource.Key.ResourceStorageOffset, matchedResource.Key.ResourceStorageLength);
                     matchedResource.Matched.RawResource = new RawResource(
                         rawResources[key],
                         matchedResource.Matched.RawResource.Format,
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var resourceLocators = allResourceWrappers
                 .Where(r => string.IsNullOrEmpty(r.RawResource.Data))
-                .Select(r => new RawResourceLocator(r.ResourceStorageIdentifier, r.ResourceStorageOffset))
+                .Select(r => new RawResourceLocator(r.RawResourceLocator.RawResourceStorageIdentifier, r.RawResourceLocator.RawResourceOffset, r.RawResourceLocator.RawResourceLength))
                 .ToList();
 
             var rawResources = await GetRawResourcesFromBlob(resourceLocators, cancellationToken);
@@ -221,7 +222,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var blobResources = allResourceWrappers.Where(r => string.IsNullOrEmpty(r.RawResource.Data)).ToList();
             foreach (ResourceWrapper wrapper in blobResources)
             {
-                var key = new RawResourceLocator(wrapper.ResourceStorageIdentifier, wrapper.ResourceStorageOffset);
+                var key = new RawResourceLocator(wrapper.RawResourceLocator.RawResourceStorageIdentifier, wrapper.RawResourceLocator.RawResourceOffset, wrapper.RawResourceLocator.RawResourceLength);
                 wrapper.RawResource = new RawResource(rawResources[key], wrapper.RawResource.Format, wrapper.RawResource.IsMetaSet);
             }
 
@@ -632,8 +633,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                              _.ResourceWrapper.ResourceId,
                                              _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
                                              null,
-                                             _.ResourceWrapper.ResourceStorageIdentifier,
-                                             _.ResourceWrapper.ResourceStorageOffset))
+                                             _.ResourceWrapper.RawResourceLocator.RawResourceStorageIdentifier,
+                                             _.ResourceWrapper.RawResourceLocator.RawResourceOffset,
+                                             _.ResourceWrapper.RawResourceLocator.RawResourceLength))
                         .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
                         .ToList();
 
@@ -641,7 +643,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var matchedOnLastUpdated =
                         (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
                             .Where(_ => _.Key.VersionId == "0")
-                            .ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset), _ => _);
+                            .ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset, _.Key.ResourceStorageLength), _ => _);
                     var fullyDedupped = new List<ImportResource>();
                     foreach (var input in inputsDedupped)
                     {
@@ -786,7 +788,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateLocationKey(), therefore we can trust this value as part of dictionary key.
-                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset), _ => _);
+                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset, _.Key.ResourceStorageLength), _ => _);
                     foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
                         var resourceKey = input.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true);

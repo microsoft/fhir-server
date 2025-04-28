@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDateLocationKey : IEquatable<ResourceDateLocationKey>
     {
-        public ResourceDateLocationKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, long? resourceStorageId, int? resourceStorageOffset, bool isDeleted = false)
+        public ResourceDateLocationKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, long? resourceStorageId, int? resourceStorageOffset, int? resourceStorageLength, bool isDeleted = false)
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             VersionId = versionId;
             ResourceStorageId = resourceStorageId.HasValue ? resourceStorageId.Value : 0;
             ResourceStorageOffset = resourceStorageOffset.HasValue ? resourceStorageOffset.Value : 0;
+            ResourceStorageLength = resourceStorageLength.HasValue ? resourceStorageLength.Value : 0;
             IsDeleted = isDeleted;
         }
 
@@ -36,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public long ResourceStorageId { get; }
 
         public int ResourceStorageOffset { get; }
+
+        public int ResourceStorageLength { get; }
 
         public bool Equals(ResourceDateLocationKey other)
         {
