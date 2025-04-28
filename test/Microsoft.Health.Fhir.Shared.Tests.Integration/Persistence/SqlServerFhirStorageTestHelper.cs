@@ -160,9 +160,9 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
 
             using var cmd2 = new SqlCommand(
                 @"
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
-INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 2
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 5
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 2000
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 2000
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 1.0/24/3600
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1

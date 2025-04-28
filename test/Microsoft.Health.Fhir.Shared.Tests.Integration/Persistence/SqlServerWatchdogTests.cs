@@ -161,7 +161,7 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
+            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
