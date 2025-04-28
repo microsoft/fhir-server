@@ -237,10 +237,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw; // This line should never be reached
             }
         }
-
-        Task<string> IJob.ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

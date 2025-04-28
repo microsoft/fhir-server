@@ -78,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Check for any changes to Search Parameters
             await SyncSearchParameterStatusupdates(cancellationToken);
 
-#pragma warning disable CS0618 // Type or member is obsolete
             try
             {
                 // If we are resuming a job, we can detect that by checking the Reindex queue.
@@ -99,8 +98,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         return JsonConvert.SerializeObject(_currentResult);
                     }
 
-                    // Need to requeue since we are not done processing.
-                    throw new RetriableJobException(string.Format("Reindex job with Id: {0} has been started. Status: {1}.", _jobInfo.Id, OperationStatus.Running));
+                    // Instead of throwing RetriableJobException, set status and return
+                    _reindexJobRecord.Status = OperationStatus.Running;
+                    _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, OperationStatus.Running);
+                    return JsonConvert.SerializeObject(_reindexJobRecord);
                 }
             }
             catch (OperationCanceledException)
@@ -108,15 +109,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation("The reindex job was canceled, Id: {Id}", _jobInfo.Id);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Timeout, "Reindex job was cancelled by caller.");
             }
-            catch (RetriableJobException)
-            {
-                throw;
-            }
             catch (Exception ex)
             {
                 HandleException(ex);
             }
-#pragma warning restore CS0618 // Type or member is obsolete
 
             return JsonConvert.SerializeObject(_currentResult);
         }
@@ -504,11 +500,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (activeJobs.Any())
             {
                 progress.Report(string.Format("Reindex job status update, Id: {0}. Progress: {1} jobs active out of {2} total. Note this count could be off if child jobs have been created by the ReindexProcessingJobs.", _jobInfo.Id, activeJobs.Count, jobInfos.Count));
-#pragma warning disable CS0618 // Type or member is obsolete
-                throw new RetriableJobException(string.Format("Reindex processing jobs still running for Id: {0}. Adding back to queue.", _jobInfo.Id));
-#pragma warning restore CS0618 // Type or member is obsolete
+
+                // Instead of throwing RetriableJobException, update status and return job record
+                _reindexJobRecord.Status = OperationStatus.Running;
+                _logger.LogInformation("Reindex processing jobs still running for Id: {Id}. {Count} jobs active.", _jobInfo.Id, activeJobs.Count);
+                return;
             }
 
+            // Rest of the method remains unchanged
             var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
             var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
 
@@ -555,7 +554,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     if (totalCount != 0)
                     {
                         string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." + " Resubmit the same reindex job to finish indexing the remaining resources.";
-                        var errorList = new List<OperationOutcomeIssue>();
                         AddErrorResult(
                            OperationOutcomeConstants.IssueSeverity.Error,
                            OperationOutcomeConstants.IssueType.Incomplete,
@@ -574,6 +572,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _currentResult.CompletedJobs += completedJobIds.Count;
             progress.Report(JsonConvert.SerializeObject(_currentResult));
         }
+
 #pragma warning disable CS1570 // XML comment has badly formed XML
         /// <summary>
         /// Gets called from <see cref="CheckJobCompletionStatus"/> and only gets called when all ReindexProcessingJobs have completed.
