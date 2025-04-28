@@ -14,7 +14,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Specialized;
-using DotLiquid.Util;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
