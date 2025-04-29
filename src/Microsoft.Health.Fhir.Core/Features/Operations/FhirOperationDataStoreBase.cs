@@ -209,7 +209,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     {
        // var def = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
         var clone = jobRecord.Clone();
-        clone.QueuedTime = DateTime.Parse("1900-01-01");
+        clone.QueuedTime = jobRecord.StartTime ?? default; // DateTime.Parse("1900-01-01");
         _logger.LogInformation($"Queueing reindex job with definition: {clone}");
         var results = await _queueClient.EnqueueAsync(QueueType.Reindex, cancellationToken, definitions: clone);
 

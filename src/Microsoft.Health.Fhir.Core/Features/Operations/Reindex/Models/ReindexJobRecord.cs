@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord, IJobData
     {
-        public const ushort MaxMaximumConcurrency = 10;
+        public const ushort MaxMaximumConcurrency = 16;
         public const ushort MinMaximumConcurrency = 1;
         public const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
@@ -52,16 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
-
-            // check for MaximumConcurrency boundary
-            if (maxiumumConcurrency < MinMaximumConcurrency || maxiumumConcurrency > MaxMaximumConcurrency)
-            {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
-            }
-            else
-            {
-                MaximumConcurrency = maxiumumConcurrency;
-            }
+            MaximumConcurrency = maxiumumConcurrency;
 
             // check for MaximumNumberOfResourcesPerQuery boundary
             if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
