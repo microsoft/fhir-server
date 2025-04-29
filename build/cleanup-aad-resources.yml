@@ -54,21 +54,30 @@ stages:
           Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -ErrorAction Stop
           Install-Module -Name Microsoft.Graph.Beta.Applications -Force -Scope CurrentUser -ErrorAction Stop
           Install-Module -Name Microsoft.Graph.Beta.Users -Force -Scope CurrentUser -ErrorAction Stop
+          Install-Module -Name Microsoft.Graph.Beta.DirectoryObjects -Force -Scope CurrentUser -ErrorAction Stop
+          
           Import-Module Microsoft.Graph.Authentication
           Import-Module Microsoft.Graph.Beta.Applications
           Import-Module Microsoft.Graph.Beta.Users
+          Import-Module Microsoft.Graph.Beta.DirectoryObjects
+          
           Write-Host "Microsoft Graph modules installed and imported."
 
           # Connect to Microsoft Graph API
           try {
               Write-Host "Connecting to Microsoft Graph API using client credentials..."
               $secureClientSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
-              $appCred = New-Object System.Management.Automation.PSCredential ($ClientId, $secureClientSecret)
+              $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $secureClientSecret
+
+              Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $ClientSecretCredential
+
+              # Verify connection
+              $graphConnection = Get-MgContext
+              if ($null -eq $graphConnection) {
+                  throw "Failed to establish Microsoft Graph connection"
+              }
               
-              Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $appCred -NoWelcome
-              # Set beta API as default
-              Select-MgProfile -Name "beta" 
-              Write-Host "Successfully connected to Microsoft Graph API."
+              Write-Host "Successfully connected to Microsoft Graph API as: $($graphConnection.Account)"
           } catch {
               Write-Error "Failed to connect to Microsoft Graph API: $($_.Exception.Message)"
               # Exit the script if connection fails
