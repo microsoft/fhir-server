@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             get
             {
-                return _data.Value;
+                return _data?.Value;
             }
 
             protected set
