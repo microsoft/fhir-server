@@ -188,11 +188,11 @@ stages:
           Write-Host "User cleanup finished."
 
           # --- Deleted Applications Cleanup ---
-          Write-Host "Starting cleanup of deleted AAD Applications..."
+          Write-Host "Starting cleanup of deleted AAD Applications and Service Principals..."
           try {
-              # Get all deleted applications 
+              # Get deleted applications using the correct cmdlet
               Write-Host "Retrieving deleted applications from Microsoft Graph API..."
-              $deletedApps = Get-MgBetaDirectoryDeletedItem -All | Where-Object { $_.OdataType -eq '#microsoft.graph.application' }
+              $deletedApps = Get-MgDirectoryDeletedItemAsApplication -All -ErrorAction SilentlyContinue
               
               if ($null -eq $deletedApps -or $deletedApps.Count -eq 0) {
                   Write-Host "No deleted applications found in the directory recycle bin."
@@ -215,9 +215,66 @@ stages:
                   }
                   Write-Host "Deleted applications cleanup finished."
               }
+              
+              # Get deleted service principals
+              Write-Host "Retrieving deleted service principals from Microsoft Graph API..."
+              $deletedServicePrincipals = Get-MgDirectoryDeletedItemAsServicePrincipal -All -ErrorAction SilentlyContinue
+              
+              if ($null -eq $deletedServicePrincipals -or $deletedServicePrincipals.Count -eq 0) {
+                  Write-Host "No deleted service principals found in the directory recycle bin."
+              } else {
+                  Write-Host "Found $($deletedServicePrincipals.Count) deleted service principals in the directory recycle bin."
+
+                  foreach ($sp in $deletedServicePrincipals) {
+                      $spId = $sp.Id
+                      $spDisplayName = $sp.DisplayName
+                      
+                      try {
+                          # Permanently delete the service principal from the directory recycle bin
+                          Write-Host "  Attempting to permanently delete Service Principal: $spDisplayName (ObjectID: $spId)..."
+                          Remove-MgBetaDirectoryDeletedItem -DirectoryObjectId $spId -ErrorAction Stop
+                          Write-Host "  Successfully permanently deleted Service Principal (ObjectID: $spId)."
+                      } catch {
+                          # Log warning but continue with the next service principal
+                          Write-Warning "  Failed to permanently delete Service Principal (ObjectID: $spId): $($_.Exception.Message)"
+                      }
+                  }
+                  Write-Host "Deleted service principals cleanup finished."
+              }
+              
+              # Get deleted users
+              Write-Host "Retrieving deleted users from Microsoft Graph API..."
+              $deletedUsers = Get-MgDirectoryDeletedItemAsUser -All -ErrorAction SilentlyContinue
+              
+              # Filter deleted users by the same pattern used for active users
+              $userRegexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
+              $filteredDeletedUsers = $deletedUsers | Where-Object { $_.DisplayName -match $userRegexPattern }
+              
+              if ($null -eq $filteredDeletedUsers -or $filteredDeletedUsers.Count -eq 0) {
+                  Write-Host "No deleted users matching the pattern '$userRegexPattern' found in the directory recycle bin."
+              } else {
+                  Write-Host "Found $($filteredDeletedUsers.Count) deleted users matching the pattern in the directory recycle bin."
+
+                  foreach ($user in $filteredDeletedUsers) {
+                      $userId = $user.Id
+                      $userDisplayName = $user.DisplayName
+                      
+                      try {
+                          # Permanently delete the user from the directory recycle bin
+                          Write-Host "  Attempting to permanently delete User: $userDisplayName (ObjectID: $userId)..."
+                          Remove-MgBetaDirectoryDeletedItem -DirectoryObjectId $userId -ErrorAction Stop
+                          Write-Host "  Successfully permanently deleted User (ObjectID: $userId)."
+                      } catch {
+                          # Log warning but continue with the next user
+                          Write-Warning "  Failed to permanently delete User (ObjectID: $userId): $($_.Exception.Message)"
+                      }
+                  }
+                  Write-Host "Deleted users cleanup finished."
+              }
+              
           } catch {
-              # Catch errors during deleted application processing
-              Write-Error "An error occurred while querying or processing deleted applications: $($_.Exception.Message)"
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted directory objects: $($_.Exception.Message)"
           }
           
           # Disconnect from Microsoft Graph API
