@@ -7,9 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -22,6 +24,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
+using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -39,6 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
+        private static readonly AsyncPolicy _timeoutRetries = Policy
+            .Handle<SqlException>(ex => ex.IsExecutionTimeout())
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -254,34 +261,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
+            const int ResourcesPerJob = 1000; // Define the chunk size
             var definitions = new List<string>();
-            foreach (var input in _reindexJobRecord.QueryList)
-            {
-                var reindexJobPayload = new ReindexProcessingJobDefinition()
-                {
-                    TypeId = (int)JobType.ReindexProcessing,
-                    ForceReindex = _reindexJobRecord.ForceReindex,
-                    ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(input.Key.ResourceType),
-                    ResourceCount = GetSearchResultReindex(input.Key.ResourceType),
-                    ResourceType = input.Key.ResourceType,
-                    MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
-                    SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
-                };
-                reindexJobPayload.ResourceCount.ContinuationToken = input.Key.ContinuationToken;
 
-                // Finish mapping to processing job
-                definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
+            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts)
+            {
+                var resourceType = resourceTypeEntry.Key;
+                var resourceCount = resourceTypeEntry.Value;
+
+                if (resourceCount.Count <= 0)
+                {
+                    continue; // Skip if there are no resources to process
+                }
+
+                long startSurrogateId = resourceCount.StartResourceSurrogateId;
+                long endSurrogateId = resourceCount.EndResourceSurrogateId;
+
+                // Calculate the number of jobs needed
+                for (long currentStart = startSurrogateId; currentStart <= endSurrogateId; currentStart += ResourcesPerJob)
+                {
+                    long currentEnd = Math.Min(currentStart + ResourcesPerJob - 1, endSurrogateId);
+
+                    var reindexJobPayload = new ReindexProcessingJobDefinition()
+                    {
+                        TypeId = (int)JobType.ReindexProcessing,
+                        ForceReindex = _reindexJobRecord.ForceReindex,
+                        ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
+                        ResourceCount = new SearchResultReindex
+                        {
+                            StartResourceSurrogateId = currentStart,
+                            EndResourceSurrogateId = currentEnd,
+                        },
+                        ResourceType = resourceType,
+                        MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
+                        SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
+                    };
+
+                    definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
+                }
             }
 
             try
             {
-                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
-                _logger.LogInformation("Enqueued {Count} query processing jobs. job id: {Id}, group id: {GroupId}.", jobIds.Count, _jobInfo.Id, _jobInfo.GroupId);
+                var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
+                    .Select(job => job.Id)
+                    .OrderBy(id => id)
+                    .ToList());
+
+                _logger.LogInformation("Enqueued {Count} query processing jobs. Job ID: {Id}, Group ID: {GroupId}.", jobIds.Count, _jobInfo.Id, _jobInfo.GroupId);
                 return jobIds;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue jobs. job id: {Id}", _jobInfo.Id);
+                _logger.LogError(ex, "Failed to enqueue jobs. Job ID: {Id}", _jobInfo.Id);
                 throw;
             }
         }

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     {
         public const ushort MaxMaximumConcurrency = 16;
         public const ushort MinMaximumConcurrency = 1;
-        public const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
+        public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
 
         public ReindexJobRecord(
