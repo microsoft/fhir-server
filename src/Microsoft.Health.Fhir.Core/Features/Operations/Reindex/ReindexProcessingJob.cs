@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
             await ProcessQueryAsync(cancellationToken);
+
+            _jobInfo.Data = _reindexProcessingJobResult.SucceededResourceCount += _reindexProcessingJobResult.FailedResourceCount;
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 

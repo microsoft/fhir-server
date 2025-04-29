@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
-using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -274,14 +273,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     continue; // Skip if there are no resources to process
                 }
 
-                long startSurrogateId = resourceCount.StartResourceSurrogateId;
-                long endSurrogateId = resourceCount.EndResourceSurrogateId;
+                // For larger counts, get actual surrogate ID ranges from the database
+                var ranges = await _searchServiceFactory().Value.GetSurrogateIdRanges(
+                    resourceType,
+                    resourceCount.StartResourceSurrogateId,
+                    resourceCount.EndResourceSurrogateId,
+                    ResourcesPerJob,
+                    (int)Math.Ceiling(resourceCount.Count / (double)ResourcesPerJob),
+                    true,
+                    cancellationToken);
 
-                // Calculate the number of jobs needed
-                for (long currentStart = startSurrogateId; currentStart <= endSurrogateId; currentStart += ResourcesPerJob)
+                foreach (var range in ranges)
                 {
-                    long currentEnd = Math.Min(currentStart + ResourcesPerJob - 1, endSurrogateId);
-
+                    var baseResourceCount = GetSearchResultReindex(resourceType);
                     var reindexJobPayload = new ReindexProcessingJobDefinition()
                     {
                         TypeId = (int)JobType.ReindexProcessing,
@@ -289,8 +293,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                         ResourceCount = new SearchResultReindex
                         {
-                            StartResourceSurrogateId = currentStart,
-                            EndResourceSurrogateId = currentEnd,
+                            StartResourceSurrogateId = range.StartId,
+                            EndResourceSurrogateId = range.EndId,
+                            Count = baseResourceCount.Count,  // Preserve the total count
+                            CurrentResourceSurrogateId = range.StartId,
                         },
                         ResourceType = resourceType,
                         MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
@@ -362,6 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
+            _jobInfo.Data = totalCount;
             _reindexJobRecord.Count = totalCount;
         }
 
