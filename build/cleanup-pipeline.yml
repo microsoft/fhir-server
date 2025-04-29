@@ -1,0 +1,41 @@
+# Pipeline to periodically clean up old AAD resources from the test tenant
+
+trigger: none # This pipeline is intended to be run manually or on a schedule
+
+schedules:
+- cron: "0 3 * * 0" # Run every Sunday at 3 AM UTC
+  displayName: Weekly AAD Cleanup
+  branches:
+    include:
+    - main # Or your primary development branch
+  always: true # Ensure the schedule runs even if there are no code changes
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+parameters:
+- name: AzureServiceConnection # Define the Azure Service Connection Name needed
+  displayName: 'Azure Service Connection (for Key Vault Access)'
+  type: string
+  # Provide a default or ensure it's set at runtime
+  # default: 'Your-Azure-Service-Connection-Name'
+
+resources:
+  repositories:
+  - repository: self # Reference the current repository where the job template exists
+    type: git
+    ref: main # Or your primary development branch
+
+stages:
+- stage: CleanupAADStage
+  displayName: 'Clean up AAD Test Tenant Resources'
+  jobs:
+  # Use the template file created earlier
+  - template: jobs/cleanup-aad-resources.yml
+    parameters:
+      # Pass the required Azure Service Connection name to the job template
+      ConnectedServiceName: ${{ parameters.AzureServiceConnection }}
+      # You can override other parameters here if needed, e.g.:
+      # AgeThresholdDays: 60
+      # ResourcePrefix: 'test-'
+      # KeyVaultName: 'alternate-kv-name'

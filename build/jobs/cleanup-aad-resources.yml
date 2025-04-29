@@ -1,0 +1,166 @@
+# Azure DevOps Pipeline Job
+# Cleans up old AAD Applications and Service Principals created by CI/CD pipelines
+# in the specified test AAD tenant to prevent exceeding quota limits.
+
+parameters:
+- name: AgeThresholdDays
+  displayName: 'Age Threshold (Days) for Cleanup'
+  type: number
+  default: 30
+
+jobs:
+- job: CleanupAADResources
+  displayName: 'Cleanup Old AAD Resources'
+  pool:
+    vmImage: '$(WindowsVmImage)'
+  steps:
+  - task: AzurePowerShell@5
+    displayName: 'Remove Old AAD Applications and Service Principals'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        # Parameters from pipeline/job
+        $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
+
+        # Parameters for Azure AD connection
+        $TenantId = "$(tenant-id)"
+        $ClientId = "$(tenant-admin-service-principal-id)"
+        $password_raw =  "$(tenant-admin-service-principal-password)"
+        $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
+        $adminCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
+        $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+        $resource = "https://graph.windows.net/"
+
+        $body = @{
+            grant_type = "client_credentials"
+            client_id  = $clientId
+            client_secret = $password_raw
+            resource   = $resource
+        }
+
+        # Install and Import AzureAD Module
+        Write-Host "Installing AzureAD module..."
+        Install-Module AzureAD -Force -Verbose -Scope CurrentUser -ErrorAction Stop
+        Import-Module AzureAD
+        Write-Host "AzureAD module installed and imported."
+
+        # Connect to Azure AD using credential
+        try {
+            Write-Host "Getting access token"
+            $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+            Connect-AzureAD -TenantId $TenantId -AadAccessToken $response.access_token -AccountId $ClientId
+            Write-Host "Successfully connected to Azure AD."
+        } catch {
+            Write-Error "Failed to connect to Azure AD: $($_.Exception.Message)"
+            # Exit the script if connection fails
+            exit 1
+        }
+
+        # Calculate the date threshold for deletion
+        $cutoffDate = (Get-Date).AddDays(-$AgeThresholdDays)
+        Write-Host "Cutoff date for deletion: $cutoffDate (Resources created BEFORE this date will be targeted)"
+
+        # --- Cleanup Applications and Service Principals ---
+        # Updated filtering logic: Starts with 'f' followed by digits, and older than AgeThresholdDays
+        Write-Host "Starting cleanup of AAD Applications and Service Principals older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+        try {
+            # Get applications starting with 'f' (server-side filter)
+            # Using -All $true to ensure all matching apps are retrieved
+            $appsStartingWithF = Get-AzureADApplication -Filter "startswith(DisplayName, 'f')" -All $true -ErrorAction SilentlyContinue
+
+            if ($null -eq $appsStartingWithF -or $appsStartingWithF.Count -eq 0) {
+                 Write-Host "No applications found starting with 'f'."
+            } else {
+                # Apply more specific regex filter and date filter client-side
+                $regexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
+                Write-Host "Applying client-side filters: Regex '$regexPattern' and CreatedDateTime < $cutoffDate"
+                $appsToDelete = $appsStartingWithF | Where-Object { ($_.DisplayName -match $regexPattern) -and ($_.CreatedDateTime -lt $cutoffDate) }
+
+                if ($appsToDelete.Count -gt 0) {
+                    Write-Host "Found $($appsToDelete.Count) applications matching the pattern and older than $cutoffDate."
+
+                    foreach ($app in $appsToDelete) {
+                        Write-Host "Processing Application: $($app.DisplayName) (AppID: $($app.AppId), ObjectID: $($app.ObjectId), Created: $($app.CreatedDateTime))"
+                        $appObjectId = $app.ObjectId
+                        $appAppId = $app.AppId
+                        $appDisplayName = $app.DisplayName
+
+                        try {
+                            # Find associated Service Principal using AppId
+                            $sp = Get-AzureADServicePrincipal -Filter "AppId eq '$appAppId'" -ErrorAction SilentlyContinue
+                            if ($null -ne $sp) {
+                                $spObjectId = $sp.ObjectId
+                                Write-Host "  Found associated Service Principal: $($sp.DisplayName) (ObjectID: $spObjectId). Attempting deletion..."
+                                Remove-AzureADServicePrincipal -ObjectId $spObjectId -ErrorAction Stop
+                                Write-Host "  Successfully deleted Service Principal (ObjectID: $spObjectId)."
+                            } else {
+                                Write-Host "  No associated Service Principal found for AppId $appAppId."
+                            }
+
+                            # Delete the Application
+                            Write-Host "  Attempting to delete Application: $appDisplayName (ObjectID: $appObjectId)..."
+                            Remove-AzureADApplication -ObjectId $appObjectId -ErrorAction Stop
+                            Write-Host "  Successfully deleted Application (ObjectID: $appObjectId)."
+                        } catch {
+                            # Log warning but continue with the next application
+                            Write-Warning "  Failed to delete Application $appDisplayName (ObjectID: $appObjectId) or its Service Principal: $($_.Exception.Message)"
+                        }
+                    } # End foreach app
+                } else {
+                    Write-Host "No applications matching the pattern '$regexPattern' were found older than the cutoff date ($cutoffDate)."
+                }
+            }
+        } catch {
+            # Catch errors during the Get-AzureADApplication call or other general issues
+            Write-Error "An error occurred while querying or processing applications: $($_.Exception.Message)"
+        }
+        Write-Host "Application and Service Principal cleanup finished."
+
+        # --- User Cleanup ---
+        Write-Host "Starting cleanup of AAD Users older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+        try {
+            # Get users starting with 'f' (server-side filter)
+            # Filter for UserType eq 'Member' as well to narrow down results
+            $usersStartingWithF = Get-AzureADUser -Filter "startswith(DisplayName, 'f') and UserType eq 'Member'" -All $true -ErrorAction SilentlyContinue
+
+            if ($null -eq $usersStartingWithF -or $usersStartingWithF.Count -eq 0) {
+                 Write-Host "No users found starting with 'f' and UserType 'Member'."
+            } else {
+                # Apply more specific regex filter and date filter client-side
+                $userRegexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
+                Write-Host "Applying client-side filters: Regex '$userRegexPattern' and CreatedDateTime < $cutoffDate"
+                $usersToDelete = $usersStartingWithF | Where-Object { ($_.DisplayName -match $userRegexPattern) -and ($_.CreatedDateTime -lt $cutoffDate) }
+
+                if ($usersToDelete.Count -gt 0) {
+                    Write-Host "Found $($usersToDelete.Count) users matching the pattern and older than $cutoffDate."
+
+                    foreach ($user in $usersToDelete) {
+                        Write-Host "Processing User: $($user.DisplayName) (UPN: $($user.UserPrincipalName), ObjectID: $($user.ObjectId), Created: $($user.CreatedDateTime))"
+                        $userObjectId = $user.ObjectId
+                        $userDisplayName = $user.DisplayName
+
+                        try {
+                            # Delete the User
+                            Write-Host "  Attempting to delete User: $userDisplayName (ObjectID: $userObjectId)..."
+                            Remove-AzureADUser -ObjectId $userObjectId -ErrorAction Stop
+                            Write-Host "  Successfully deleted User (ObjectID: $userObjectId)."
+                        } catch {
+                            # Log warning but continue with the next user
+                            Write-Warning "  Failed to delete User $userDisplayName (ObjectID: $userObjectId): $($_.Exception.Message)"
+                        }
+                    } # End foreach user
+                } else {
+                    Write-Host "No users matching the pattern '$userRegexPattern' and UserType 'Member' were found older than the cutoff date ($cutoffDate)."
+                }
+            }
+        } catch {
+            # Catch errors during the Get-AzureADUser call or other general issues
+            Write-Error "An error occurred while querying or processing users: $($_.Exception.Message)"
+        }
+        Write-Host "User cleanup finished."
+
+        Write-Host "AAD Cleanup script completed."
+      ErrorActionPreference: Stop # Ensure script stops on critical errors like module install or connect failure
+      FailOnStderr: true # Fail the task if any errors are written to stderr
