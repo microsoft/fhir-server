@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return false;
             }
 
-            return Equals((ResourceKey)obj);
+            return Equals((ResourceDateLocationKey)obj);
         }
 
         public override int GetHashCode()
