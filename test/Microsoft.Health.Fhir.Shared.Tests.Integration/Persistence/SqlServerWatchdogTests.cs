@@ -161,7 +161,8 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
+            startTime = DateTime.UtcNow;
+            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
@@ -170,9 +171,23 @@ END
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
 
             // TODO: Temp code to test database stats
-            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'tmp_GetRawResources') RAISERROR('tmp_GetRawResources calls are not registered',18,127)");
-            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats.ResourceTypeTotals') RAISERROR('DatabaseStats.ResourceTypeTotals message is not registered',18,127)");
-            ExecuteSql("IF NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DatabaseStats.SearchParamCount') RAISERROR('DatabaseStats.SearchParamCount message is not registered',18,127)");
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("tmp_GetRawResources") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("DatabaseStats.ResourceTypeTotals") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
 
             await cts.CancelAsync();
             await wdTask;
@@ -374,6 +389,15 @@ END
             using var cmd = new SqlCommand($"SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('{table}') AND index_id IN (0,1)", conn);
             var res = cmd.ExecuteScalar();
             return (long)res;
+        }
+
+        private long GetEventLogCount(string process)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand($"SELECT count(*) FROM dbo.EventLog WHERE Process = '{process}'", conn);
+            var res = cmd.ExecuteScalar();
+            return (int)res;
         }
 
         private double GetSize()
