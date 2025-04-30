@@ -68,9 +68,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
+            const int BatchSize = 1000;
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.BulkUpdateSearchParameterIndicesAsync(updateSearchIndices, cancellationToken);
+                for (int i = 0; i < updateSearchIndices.Count; i += BatchSize)
+                {
+                    var batch = updateSearchIndices.GetRange(i, Math.Min(BatchSize, updateSearchIndices.Count - i));
+                    await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                }
             }
         }
     }
