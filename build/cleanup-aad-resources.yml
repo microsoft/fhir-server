@@ -54,12 +54,12 @@ stages:
           Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -ErrorAction Stop
           Install-Module -Name Microsoft.Graph.Beta.Applications -Force -Scope CurrentUser -ErrorAction Stop
           Install-Module -Name Microsoft.Graph.Beta.Users -Force -Scope CurrentUser -ErrorAction Stop
-          Install-Module -Name Microsoft.Graph.Beta.DirectoryObjects -Force -Scope CurrentUser -ErrorAction Stop
+          Install-Module -Name Microsoft.Graph.DirectoryObjects -Force -Scope CurrentUser -ErrorAction Stop
           
           Import-Module Microsoft.Graph.Authentication
           Import-Module Microsoft.Graph.Beta.Applications
           Import-Module Microsoft.Graph.Beta.Users
-          Import-Module Microsoft.Graph.Beta.DirectoryObjects
+          Import-Module Microsoft.Graph.DirectoryObjects
           
           Write-Host "Microsoft Graph modules installed and imported."
 
@@ -206,7 +206,7 @@ stages:
                       try {
                           # Permanently delete the application from the directory recycle bin
                           Write-Host "  Attempting to permanently delete Application: $appDisplayName (ObjectID: $appId)..."
-                          Remove-MgBetaDirectoryDeletedItem -DirectoryObjectId $appId -ErrorAction Stop
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $appId -ErrorAction Stop
                           Write-Host "  Successfully permanently deleted Application (ObjectID: $appId)."
                       } catch {
                           # Log warning but continue with the next application
@@ -232,7 +232,7 @@ stages:
                       try {
                           # Permanently delete the service principal from the directory recycle bin
                           Write-Host "  Attempting to permanently delete Service Principal: $spDisplayName (ObjectID: $spId)..."
-                          Remove-MgBetaDirectoryDeletedItem -DirectoryObjectId $spId -ErrorAction Stop
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $spId -ErrorAction Stop
                           Write-Host "  Successfully permanently deleted Service Principal (ObjectID: $spId)."
                       } catch {
                           # Log warning but continue with the next service principal
@@ -262,7 +262,7 @@ stages:
                       try {
                           # Permanently delete the user from the directory recycle bin
                           Write-Host "  Attempting to permanently delete User: $userDisplayName (ObjectID: $userId)..."
-                          Remove-MgBetaDirectoryDeletedItem -DirectoryObjectId $userId -ErrorAction Stop
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $userId -ErrorAction Stop
                           Write-Host "  Successfully permanently deleted User (ObjectID: $userId)."
                       } catch {
                           # Log warning but continue with the next user
