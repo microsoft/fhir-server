@@ -23,71 +23,21 @@ stages:
 - stage: CleanupAADStage
   displayName: 'Clean up AAD Test Tenant Resources'
   jobs:
-  - job: cleanupAad
-    displayName: 'Cleanup AAD'
+  # Job 1: Delete old applications and service principals
+  - job: cleanupAppsAndServicePrincipals
+    displayName: 'Cleanup Old Apps and Service Principals'
     pool:
       vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
     steps:
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        KeyVaultName: 'resolute-oss-tenant-info'
-
-    - task: AzurePowerShell@5
-      displayName: 'Remove Old AAD Applications and Service Principals'
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          # Parameters from pipeline/job
-          $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
-
-          # Parameters for Azure AD connection
-          $TenantId = "$(tenant-id)"
-          $ClientId = "$(tenant-admin-service-principal-id)"
-          $ClientSecret = "$(tenant-admin-service-principal-password)"
-
-          # Install and Import Microsoft Graph Modules
-          Write-Host "Installing Microsoft Graph modules..."
-          Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -ErrorAction Stop
-          Install-Module -Name Microsoft.Graph.Beta.Applications -Force -Scope CurrentUser -ErrorAction Stop
-          Install-Module -Name Microsoft.Graph.Beta.Users -Force -Scope CurrentUser -ErrorAction Stop
-          Install-Module -Name Microsoft.Graph.DirectoryObjects -Force -Scope CurrentUser -ErrorAction Stop
-          
-          Import-Module Microsoft.Graph.Authentication
-          Import-Module Microsoft.Graph.Beta.Applications
-          Import-Module Microsoft.Graph.Beta.Users
-          Import-Module Microsoft.Graph.DirectoryObjects
-          
-          Write-Host "Microsoft Graph modules installed and imported."
-
-          # Connect to Microsoft Graph API
-          try {
-              Write-Host "Connecting to Microsoft Graph API using client credentials..."
-              $secureClientSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
-              $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $secureClientSecret
-
-              Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $ClientSecretCredential
-
-              # Verify connection
-              $graphConnection = Get-MgContext
-              if ($null -eq $graphConnection) {
-                  throw "Failed to establish Microsoft Graph connection"
-              }
-              
-              Write-Host "Successfully connected to Microsoft Graph API as: $($graphConnection.Account)"
-          } catch {
-              Write-Error "Failed to connect to Microsoft Graph API: $($_.Exception.Message)"
-              # Exit the script if connection fails
-              exit 1
-          }
-
-          # Calculate the date threshold for deletion
-          $cutoffDate = (Get-Date).AddDays(-$AgeThresholdDays)
-          Write-Host "Cutoff date for deletion: $cutoffDate (Resources created BEFORE this date will be targeted)"
-
+    - template: jobs/aad-cleanup-steps.yml
+      parameters:
+        displayName: 'Remove Old AAD Applications and Service Principals'
+        moduleNames:
+          - Microsoft.Graph.Authentication
+          - Microsoft.Graph.Beta.Applications
+        AgeThresholdDays: ${{ parameters.AgeThresholdDays }}
+        scriptContent: |
           # --- Cleanup Applications and Service Principals ---
           Write-Host "Starting cleanup of AAD Applications and Service Principals older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
           try {
@@ -141,6 +91,21 @@ stages:
           }
           Write-Host "Application and Service Principal cleanup finished."
 
+  # Job 2: Delete old users
+  - job: cleanupUsers
+    displayName: 'Cleanup Old Users'
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
+    steps:
+    - template: jobs/aad-cleanup-steps.yml
+      parameters:
+        displayName: 'Remove Old AAD Users'
+        moduleNames:
+          - Microsoft.Graph.Authentication
+          - Microsoft.Graph.Beta.Users
+        AgeThresholdDays: ${{ parameters.AgeThresholdDays }}
+        scriptContent: |
           # --- User Cleanup ---
           Write-Host "Starting cleanup of AAD Users older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
           try {
@@ -187,8 +152,23 @@ stages:
           }
           Write-Host "User cleanup finished."
 
-          # --- Deleted Applications Cleanup ---
-          Write-Host "Starting cleanup of deleted AAD Applications and Service Principals..."
+  # Job 3: Hard delete applications (depends on job 1)
+  - job: hardDeleteApps
+    displayName: 'Hard Delete Applications'
+    dependsOn: cleanupAppsAndServicePrincipals
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
+    steps:
+    - template: jobs/aad-cleanup-steps.yml
+      parameters:
+        displayName: 'Hard Delete AAD Applications'
+        moduleNames:
+          - Microsoft.Graph.Authentication
+          - Microsoft.Graph.DirectoryObjects
+        scriptContent: |
+          # --- Hard Delete Applications ---
+          Write-Host "Starting permanent deletion of AAD Applications from directory recycle bin..."
           try {
               # Get deleted applications using the correct cmdlet
               Write-Host "Retrieving deleted applications from Microsoft Graph API..."
@@ -215,7 +195,29 @@ stages:
                   }
                   Write-Host "Deleted applications cleanup finished."
               }
-              
+          } catch {
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted applications: $($_.Exception.Message)"
+          }
+
+  # Job 4: Hard delete service principals (depends on job 1)
+  - job: hardDeleteServicePrincipals
+    displayName: 'Hard Delete Service Principals'
+    dependsOn: cleanupAppsAndServicePrincipals
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
+    steps:
+    - template: jobs/aad-cleanup-steps.yml
+      parameters:
+        displayName: 'Hard Delete AAD Service Principals'
+        moduleNames:
+          - Microsoft.Graph.Authentication
+          - Microsoft.Graph.DirectoryObjects
+        scriptContent: |
+          # --- Hard Delete Service Principals ---
+          Write-Host "Starting permanent deletion of AAD Service Principals from directory recycle bin..."
+          try {
               # Get deleted service principals
               Write-Host "Retrieving deleted service principals from Microsoft Graph API..."
               $deletedServicePrincipals = Get-MgDirectoryDeletedItemAsServicePrincipal -All -ErrorAction SilentlyContinue
@@ -241,7 +243,29 @@ stages:
                   }
                   Write-Host "Deleted service principals cleanup finished."
               }
-              
+          } catch {
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted service principals: $($_.Exception.Message)"
+          }
+
+  # Job 5: Hard delete users (depends on job 2)
+  - job: hardDeleteUsers
+    displayName: 'Hard Delete Users'
+    dependsOn: cleanupUsers
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
+    steps:
+    - template: jobs/aad-cleanup-steps.yml
+      parameters:
+        displayName: 'Hard Delete AAD Users'
+        moduleNames:
+          - Microsoft.Graph.Authentication
+          - Microsoft.Graph.DirectoryObjects
+        scriptContent: |
+          # --- Hard Delete Users ---
+          Write-Host "Starting permanent deletion of AAD Users from directory recycle bin..."
+          try {
               # Get deleted users
               Write-Host "Retrieving deleted users from Microsoft Graph API..."
               $deletedUsers = Get-MgDirectoryDeletedItemAsUser -All -ErrorAction SilentlyContinue
@@ -271,16 +295,7 @@ stages:
                   }
                   Write-Host "Deleted users cleanup finished."
               }
-              
           } catch {
               # Catch errors during deleted objects processing
-              Write-Error "An error occurred while querying or processing deleted directory objects: $($_.Exception.Message)"
+              Write-Error "An error occurred while querying or processing deleted users: $($_.Exception.Message)"
           }
-          
-          # Disconnect from Microsoft Graph API
-          Disconnect-MgGraph -ErrorAction SilentlyContinue
-          Write-Host "Disconnected from Microsoft Graph API."
-          
-          Write-Host "AAD Cleanup script completed."
-        ErrorActionPreference: Stop # Ensure script stops on critical errors like module install or connect failure
-        FailOnStderr: true # Fail the task if any errors are written to stderr
