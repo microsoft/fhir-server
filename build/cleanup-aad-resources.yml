@@ -23,30 +23,82 @@ stages:
 - stage: CleanupAADStage
   displayName: 'Clean up AAD Test Tenant Resources'
   jobs:
-  # Job 1: Delete old applications and service principals
-  - job: cleanupAppsAndServicePrincipals
-    displayName: 'Cleanup Old Apps and Service Principals'
+  # Single job for all cleanup operations
+  - job: cleanupAADResources
+    displayName: 'Cleanup AAD Resources'
     pool:
       vmImage: '$(WindowsVmImage)'
     timeoutInMinutes: 0
     steps:
-    - template: jobs/aad-cleanup-steps.yml
-      parameters:
-        displayName: 'Remove Old AAD Applications and Service Principals'
-        moduleNames:
-          - Microsoft.Graph.Authentication
-          - Microsoft.Graph.Beta.Applications
-        AgeThresholdDays: ${{ parameters.AgeThresholdDays }}
-        scriptContent: |
-          # --- Cleanup Applications and Service Principals ---
-          Write-Host "Starting cleanup of AAD Applications and Service Principals older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        KeyVaultName: 'resolute-oss-tenant-info'
+
+    - task: AzurePowerShell@5
+      displayName: 'Clean Up AAD Resources'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          # Parameters for Azure AD connection
+          $TenantId = "$(tenant-id)"
+          $ClientId = "$(tenant-admin-service-principal-id)"
+          $ClientSecret = "$(tenant-admin-service-principal-password)"
+          $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
+
+          # Install and Import Microsoft Graph Modules
+          Write-Host "Installing Microsoft Graph modules..."
+          $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
+          
+          foreach ($module in $modules) {
+            Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
+            Import-Module $module
+          }
+
+          Write-Host "Microsoft Graph modules installed and imported."
+
+          # Connect to Microsoft Graph API
+          try {
+              Write-Host "Connecting to Microsoft Graph API using client credentials..."
+              $secureClientSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
+              $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $secureClientSecret
+
+              Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $ClientSecretCredential
+
+              # Verify connection
+              $graphConnection = Get-MgContext
+              if ($null -eq $graphConnection) {
+                  throw "Failed to establish Microsoft Graph connection"
+              }
+              
+              Write-Host "Successfully connected to Microsoft Graph API as: $($graphConnection.Account)"
+          } catch {
+              Write-Error "Failed to connect to Microsoft Graph API: $($_.Exception.Message)"
+              # Exit the script if connection fails
+              exit 1
+          }
+
+          # Calculate date threshold if it's defined
+          if ($null -ne $AgeThresholdDays) {
+            $cutoffDate = (Get-Date).AddDays(-$AgeThresholdDays)
+            Write-Host "Cutoff date for deletion: $cutoffDate (Resources created BEFORE this date will be targeted)"
+          }
+
+          # --- Setup and helper functions ---
+          Write-Host "Starting AAD resources cleanup process..."
+          $regexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
+          
+          # --- 1. Cleanup Applications and Service Principals ---
+          Write-Host "1. Starting cleanup of AAD Applications and Service Principals older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
           try {
               # Get all applications - Microsoft Graph doesn't support startswith in OData filter for apps
               Write-Host "Retrieving applications from Microsoft Graph API..."
               $allApps = Get-MgBetaApplication -All
               
               # Filter apps client-side using the pattern and date
-              $regexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
               Write-Host "Applying client-side filters: Regex '$regexPattern' and CreatedDateTime < $cutoffDate"
               $appsToDelete = $allApps | Where-Object { 
                   ($_.DisplayName -match $regexPattern) -and 
@@ -91,23 +143,8 @@ stages:
           }
           Write-Host "Application and Service Principal cleanup finished."
 
-  # Job 2: Delete old users
-  - job: cleanupUsers
-    displayName: 'Cleanup Old Users'
-    pool:
-      vmImage: '$(WindowsVmImage)'
-    timeoutInMinutes: 0
-    steps:
-    - template: jobs/aad-cleanup-steps.yml
-      parameters:
-        displayName: 'Remove Old AAD Users'
-        moduleNames:
-          - Microsoft.Graph.Authentication
-          - Microsoft.Graph.Beta.Users
-        AgeThresholdDays: ${{ parameters.AgeThresholdDays }}
-        scriptContent: |
-          # --- User Cleanup ---
-          Write-Host "Starting cleanup of AAD Users older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+          # --- 2. Cleanup Users ---
+          Write-Host "2. Starting cleanup of AAD Users older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
           try {
               # Get users starting with 'f' and filter by UserType
               $filterQuery = "startswith(displayName,'f') and userType eq 'Member'"
@@ -117,10 +154,9 @@ stages:
                   Write-Host "No users found starting with 'f' and UserType 'Member'."
               } else {
                   # Apply more specific regex filter and date filter client-side
-                  $userRegexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
-                  Write-Host "Applying client-side filters: Regex '$userRegexPattern' and CreatedDateTime < $cutoffDate"
+                  Write-Host "Applying client-side filters: Regex '$regexPattern' and CreatedDateTime < $cutoffDate"
                   $usersToDelete = $usersStartingWithF | Where-Object { 
-                      ($_.DisplayName -match $userRegexPattern) -and 
+                      ($_.DisplayName -match $regexPattern) -and 
                       ($_.CreatedDateTime -lt $cutoffDate) 
                   }
 
@@ -143,7 +179,7 @@ stages:
                           }
                       }
                   } else {
-                      Write-Host "No users matching the pattern '$userRegexPattern' and UserType 'Member' were found older than the cutoff date ($cutoffDate)."
+                      Write-Host "No users matching the pattern '$regexPattern' and UserType 'Member' were found older than the cutoff date ($cutoffDate)."
                   }
               }
           } catch {
@@ -152,23 +188,8 @@ stages:
           }
           Write-Host "User cleanup finished."
 
-  # Job 3: Hard delete applications (depends on job 1)
-  - job: hardDeleteApps
-    displayName: 'Hard Delete Applications'
-    dependsOn: cleanupAppsAndServicePrincipals
-    pool:
-      vmImage: '$(WindowsVmImage)'
-    timeoutInMinutes: 0
-    steps:
-    - template: jobs/aad-cleanup-steps.yml
-      parameters:
-        displayName: 'Hard Delete AAD Applications'
-        moduleNames:
-          - Microsoft.Graph.Authentication
-          - Microsoft.Graph.DirectoryObjects
-        scriptContent: |
-          # --- Hard Delete Applications ---
-          Write-Host "Starting permanent deletion of AAD Applications from directory recycle bin..."
+          # --- 3. Hard Delete Applications ---
+          Write-Host "3. Starting permanent deletion of AAD Applications from directory recycle bin..."
           try {
               # Get deleted applications using the correct cmdlet
               Write-Host "Retrieving deleted applications from Microsoft Graph API..."
@@ -200,23 +221,8 @@ stages:
               Write-Error "An error occurred while querying or processing deleted applications: $($_.Exception.Message)"
           }
 
-  # Job 4: Hard delete service principals (depends on job 1)
-  - job: hardDeleteServicePrincipals
-    displayName: 'Hard Delete Service Principals'
-    dependsOn: cleanupAppsAndServicePrincipals
-    pool:
-      vmImage: '$(WindowsVmImage)'
-    timeoutInMinutes: 0
-    steps:
-    - template: jobs/aad-cleanup-steps.yml
-      parameters:
-        displayName: 'Hard Delete AAD Service Principals'
-        moduleNames:
-          - Microsoft.Graph.Authentication
-          - Microsoft.Graph.DirectoryObjects
-        scriptContent: |
-          # --- Hard Delete Service Principals ---
-          Write-Host "Starting permanent deletion of AAD Service Principals from directory recycle bin..."
+          # --- 4. Hard Delete Service Principals ---
+          Write-Host "4. Starting permanent deletion of AAD Service Principals from directory recycle bin..."
           try {
               # Get deleted service principals
               Write-Host "Retrieving deleted service principals from Microsoft Graph API..."
@@ -248,34 +254,18 @@ stages:
               Write-Error "An error occurred while querying or processing deleted service principals: $($_.Exception.Message)"
           }
 
-  # Job 5: Hard delete users (depends on job 2)
-  - job: hardDeleteUsers
-    displayName: 'Hard Delete Users'
-    dependsOn: cleanupUsers
-    pool:
-      vmImage: '$(WindowsVmImage)'
-    timeoutInMinutes: 0
-    steps:
-    - template: jobs/aad-cleanup-steps.yml
-      parameters:
-        displayName: 'Hard Delete AAD Users'
-        moduleNames:
-          - Microsoft.Graph.Authentication
-          - Microsoft.Graph.DirectoryObjects
-        scriptContent: |
-          # --- Hard Delete Users ---
-          Write-Host "Starting permanent deletion of AAD Users from directory recycle bin..."
+          # --- 5. Hard Delete Users ---
+          Write-Host "5. Starting permanent deletion of AAD Users from directory recycle bin..."
           try {
               # Get deleted users
               Write-Host "Retrieving deleted users from Microsoft Graph API..."
               $deletedUsers = Get-MgDirectoryDeletedItemAsUser -All -ErrorAction SilentlyContinue
               
               # Filter deleted users by the same pattern used for active users
-              $userRegexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
-              $filteredDeletedUsers = $deletedUsers | Where-Object { $_.DisplayName -match $userRegexPattern }
+              $filteredDeletedUsers = $deletedUsers | Where-Object { $_.DisplayName -match $regexPattern }
               
               if ($null -eq $filteredDeletedUsers -or $filteredDeletedUsers.Count -eq 0) {
-                  Write-Host "No deleted users matching the pattern '$userRegexPattern' found in the directory recycle bin."
+                  Write-Host "No deleted users matching the pattern '$regexPattern' found in the directory recycle bin."
               } else {
                   Write-Host "Found $($filteredDeletedUsers.Count) deleted users matching the pattern in the directory recycle bin."
 
@@ -299,3 +289,10 @@ stages:
               # Catch errors during deleted objects processing
               Write-Error "An error occurred while querying or processing deleted users: $($_.Exception.Message)"
           }
+          
+          # Disconnect from Microsoft Graph API
+          Disconnect-MgGraph -ErrorAction SilentlyContinue
+          Write-Host "Disconnected from Microsoft Graph API."
+          Write-Host "AAD resources cleanup process completed."
+        ErrorActionPreference: Stop
+        FailOnStderr: true
