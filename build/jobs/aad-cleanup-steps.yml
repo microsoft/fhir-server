@@ -7,6 +7,9 @@ parameters:
     type: object
     default:
       - Microsoft.Graph.Authentication
+  - name: AgeThresholdDays
+    type: int
+    default: 30
 
 steps:
 - task: AzureKeyVault@1
