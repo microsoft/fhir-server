@@ -13,12 +13,21 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="TestFiles\account-example.json" />
+    <None Remove="TestFiles\appointment-example.json" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportUsingAcrTests.cs" Link="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportTests.cs" Link="Rest\Export\AnonymizedExportTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\ConvertDataTests.cs" Link="Rest\ConvertDataTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\CustomConvertDataTests.cs" Link="Rest\CustomConvertDataTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="TestFiles\account-example.json" />
+    <EmbeddedResource Include="TestFiles\appointment-example.json" />
   </ItemGroup>
 
   <ItemGroup>
