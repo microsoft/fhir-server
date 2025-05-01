@@ -29,5 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
         public long JobId { get; }
 
         public OperationStatus Status { get; }
+
+        /// <summary>
+        /// Gets or sets a content associated with this notification. (e.g. A list of deleted search parameter urls.)
+        /// TODO: this should probably be Stream but MediatR doesn't look like cloning a notification before it sends to handlers.
+        /// </summary>
+        public object Content { get; set; }
     }
 }

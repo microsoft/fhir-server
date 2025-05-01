@@ -8,11 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using IdentityServer4.Models;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.Encounter;
+using Resource = Hl7.Fhir.Model.Resource;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -357,6 +357,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
+        {
+            CheckBulkDeleteEnabled();
+
+            FhirResponse<Bundle> bundleResponse = null;
+            try
+            {
+                var tag = Guid.NewGuid().ToString();
+                var bundle = TagResources((Bundle)Samples.GetJsonSample("SearchParameter-USCoreIG").ToPoco(), tag);
+                bundleResponse = await _fhirClient.PostBundleAsync(bundle);
+
+                using HttpRequestMessage request = GenerateBulkDeleteRequest(
+                    tag,
+                    queryParams: new Dictionary<string, string>
+                    {
+                        { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
+                    });
+
+                using HttpResponseMessage response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+                Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+                var resourceTypes = new Dictionary<string, long>()
+                {
+                    { KnownResourceTypes.SearchParameter, ((Bundle)bundle).Entry.Count },
+                };
+
+                await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+
+                // Try creating these search parameters again to ensure that they were deleted...
+                bundleResponse = await _fhirClient.PostBundleAsync(bundle);
+                bundleResponse.Resource.Entry.ForEach(x => Assert.Equal(((int)HttpStatusCode.Created).ToString(), x.Response.Status));
+            }
+            finally
+            {
+                if (bundleResponse?.Resource?.Entry != null)
+                {
+                    foreach (var entry in bundleResponse.Resource.Entry)
+                    {
+                        try
+                        {
+                            await _fhirClient.DeleteAsync(entry.Resource);
+                        }
+                        catch
+                        {
+                            // Ignore and let the cleanup complete.
+                        }
+                    }
+                }
+            }
+        }
+
         private async Task RunBulkDeleteRequest(
             Dictionary<string, long> expectedResults,
             bool addUndeletedResource = false,
@@ -450,6 +505,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private void CheckBulkDeleteEnabled()
         {
             Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete"), "$bulk-delete not enabled on this server");
+        }
+
+        private Resource TagResources(Bundle bundle, string tag)
+        {
+            foreach (var entry in bundle.Entry)
+            {
+                entry.Resource.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            }
+
+            return bundle;
         }
     }
 }

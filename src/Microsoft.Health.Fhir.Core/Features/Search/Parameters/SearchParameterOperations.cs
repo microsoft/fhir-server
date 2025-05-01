@@ -6,24 +6,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterOperations : ISearchParameterOperations
+    public class SearchParameterOperations : ISearchParameterOperations, INotificationHandler<BulkDeleteMetricsNotification>
     {
+        private const int DefaultDeleteTasksPerPage = 5;
+
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -278,6 +283,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 cancellationToken);
         }
 
+        public async Task Handle(BulkDeleteMetricsNotification notification, CancellationToken cancellationToken)
+        {
+            var content = notification?.Content?.ToString();
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                try
+                {
+                    var urls = JsonSerializer.Deserialize<List<string>>(content);
+                    if (urls.Any())
+                    {
+                        await DeleteSearchParametersAsync(urls, DefaultDeleteTasksPerPage, cancellationToken);
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the notification content.");
+                    throw;
+                }
+            }
+        }
+
         private void DeleteSearchParameter(string url)
         {
             try
@@ -310,6 +336,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return null;
+        }
+
+        private async Task DeleteSearchParametersAsync(List<string> urls, int pageSize, CancellationToken cancellationToken)
+        {
+            if (urls?.Any() ?? false)
+            {
+                // We need to make sure we have the latest search parameters before trying to delete
+                // existing search parameter. This is to avoid trying to update a search parameter that
+                // was recently added and that hasn't propogated to all fhir-server instances.
+                await GetAndApplySearchParameterUpdates(cancellationToken);
+
+                var count = 0;
+                while (count < urls.Count)
+                {
+                    var urlsToDelete = urls.Skip(count).Take(pageSize).ToList();
+                    count += urlsToDelete.Count;
+
+                    var tasks = new List<Task>();
+                    foreach (var url in urlsToDelete)
+                    {
+                        if (string.IsNullOrWhiteSpace(url))
+                        {
+                            _logger.LogWarning("Skipping the null or empty url.");
+                            continue;
+                        }
+
+                        tasks.Add(
+                            Task.Run(
+                                async () =>
+                                {
+                                    try
+                                    {
+                                        // First we delete the status metadata from the data store as this function depends on
+                                        // the in memory definition manager.  Once complete we remove the SearchParameter from
+                                        // the definition manager.
+                                        _logger.LogInformation("Deleting the search parameter '{Url}'", url);
+                                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { url }, SearchParameterStatus.PendingDelete, cancellationToken);
+
+                                        // Update the status of the search parameter in the definition manager once the status is updated in the store.
+                                        _searchParameterDefinitionManager.UpdateSearchParameterStatus(url, SearchParameterStatus.PendingDelete);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, $"Failed to delete a search parameter with url: {url}");
+                                        throw;
+                                    }
+                                },
+                                cancellationToken));
+                    }
+
+                    try
+                    {
+                        if (tasks.Any())
+                        {
+                            await Task.WhenAll(tasks);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to delete {tasks.Where(x => !x.IsCompleted).Count()} search parameters.");
+                        throw;
+                    }
+                }
+            }
         }
     }
 }
