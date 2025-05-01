@@ -94,7 +94,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             request.TargetResourceTypes,
             request.TargetSearchParameterTypes,
             searchParameterResourceTypes,
-            request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
             request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
             request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
 

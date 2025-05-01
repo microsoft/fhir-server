@@ -175,9 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Theory]
-        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency + 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1)]
-        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency - 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery - 1)]
         [InlineData("Foo", 4)]
         public async Task GivenOutOfRangeReindexParameter_WhenCreatingAReindexJob_ThenExceptionShouldBeThrown(string jobRecordProperty, int value)
@@ -188,12 +186,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 CreateReindexRequest request;
                 switch (jobRecordProperty)
                 {
-                    case JobRecordProperties.MaximumConcurrency:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), (ushort?)value);
-                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency);
-                        break;
                     case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery);
                         break;
                     default:
@@ -216,9 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Theory]
-        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery)]
-        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery)]
         [InlineData("Patient", 4)]
         public async Task GivenValidReindexParameter_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated(string jobRecordProperty, int value)
@@ -226,11 +218,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CreateReindexRequest request;
             switch (jobRecordProperty)
             {
-                case JobRecordProperties.MaximumConcurrency:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), (ushort?)value);
-                    break;
                 case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, value);
                     break;
                 default:
                     request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -481,7 +470,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(4, searchResults.Results.Count());
 
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 1, 1, 500);
+            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 1, 1);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
             using var cancellationTokenSource = new CancellationTokenSource();

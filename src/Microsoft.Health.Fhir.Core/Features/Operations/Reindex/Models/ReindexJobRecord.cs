@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -23,8 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord, IJobData
     {
-        public const ushort MaxMaximumConcurrency = 16;
-        public const ushort MinMaximumConcurrency = 1;
         public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
 
@@ -33,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             IReadOnlyCollection<string> targetResourceTypes,
             IReadOnlyCollection<string> targetSearchParameterTypes,
             IReadOnlyCollection<string> searchParameterResourceTypes,
-            ushort maxiumumConcurrency = 1,
             uint maxResourcesPerQuery = 100,
             int queryDelayIntervalInMilliseconds = 500,
             int typeId = (int)JobType.ReindexOrchestrator,
@@ -52,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
-            MaximumConcurrency = maxiumumConcurrency;
 
             // check for MaximumNumberOfResourcesPerQuery boundary
             if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
@@ -76,9 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        [JsonProperty(JobRecordProperties.MaximumConcurrency)]
-        public ushort MaximumConcurrency { get; private set; }
-
         /// <summary>
         /// Use Concurrent dictionary to allow access to specific items in the list
         /// Ignore the byte value field, effective using the dictionary as a hashset
@@ -90,9 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.ResourceCounts)]
         [JsonConverter(typeof(ReindexJobQueryResourceCountsConverter))]
-#pragma warning disable CA2227 // Collection properties should be read only
-        public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; set; } = new ConcurrentDictionary<string, SearchResultReindex>();
-#pragma warning restore CA2227 // Collection properties should be read only
+        public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public long Count { get; set; }

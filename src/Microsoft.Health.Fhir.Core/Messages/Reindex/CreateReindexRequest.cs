@@ -14,12 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
         public CreateReindexRequest(
             IReadOnlyCollection<string> targetResourceTypes,
             IReadOnlyCollection<string> targetSearchParameterTypes,
-            ushort? maximumConcurrency = null,
             uint? maximumResourcesPerQuery = null,
             int? queryDelayIntervalInMilliseconds = null,
             ushort? targetDataStoreUsagePercentage = null)
         {
-            MaximumConcurrency = maximumConcurrency;
             MaximumResourcesPerQuery = maximumResourcesPerQuery;
             QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
             TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
@@ -30,8 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
         public IReadOnlyCollection<string> TargetResourceTypes { get; }
 
         public IReadOnlyCollection<string> TargetSearchParameterTypes { get; }
-
-        public ushort? MaximumConcurrency { get; }
 
         public uint? MaximumResourcesPerQuery { get; }
 
