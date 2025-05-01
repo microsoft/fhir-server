@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
                 return await DeleteSingleAsync(request, cancellationToken);
             }
-            catch (IncompleteOperationException<IReadOnlySet<string>> exception)
+            catch (IncompleteOperationException<List<string>> exception)
             {
                 _fhirContext.RequestContext.ResponseHeaders[KnownHeaders.ItemsDeleted] = exception.PartialResults.Count.ToString();
                 throw;

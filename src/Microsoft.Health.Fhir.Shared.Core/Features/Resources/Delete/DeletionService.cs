@@ -136,12 +136,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     logger: _logger);
             }
 
-            Dictionary<string, long> resourceTypesDeleted = new Dictionary<string, long>();
             if (AreIncludeResultsTruncated())
             {
                 var innerException = new BadRequestException(
                     string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                throw new IncompleteOperationException<List<ResourceWrapper>>(innerException, new List<ResourceWrapper>());
             }
 
             // Delete the matched results...
@@ -246,11 +245,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (x.Exception != null)
                     {
                         // Count the number of resources deleted before the exception was thrown. Update the total.
-                        if (x.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<IList<ResourceWrapper>>))
+                        if (x.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<List<ResourceWrapper>>))
                         {
                             var partialResults = x.Exception.InnerExceptions
-                                .Where((ex) => ex is IncompleteOperationException<IList<ResourceWrapper>>)
-                                .SelectMany(ex => ((IncompleteOperationException<IList<ResourceWrapper>>)ex).PartialResults);
+                                .Where((ex) => ex is IncompleteOperationException<List<ResourceWrapper>>)
+                                .SelectMany(ex => ((IncompleteOperationException<List<ResourceWrapper>>)ex).PartialResults);
                             deletedResources.AddRange(partialResults);
                         }
 
@@ -263,9 +262,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 });
 
                 var aggregateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<Dictionary<string, long>>(
+                throw new IncompleteOperationException<List<ResourceWrapper>>(
                     aggregateException,
-                    deletedResources.GroupBy(x => x.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count()));
+                    deletedResources);
             }
 
             return deletedResources;
@@ -319,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 var partialResults = resourcesToDelete.Where(x => partialResultIds.TryGetValue(x.Resource.ResourceId, out _))
                     .Select(x => x.Resource).ToList();
-                throw new IncompleteOperationException<IList<ResourceWrapper>>(
+                throw new IncompleteOperationException<List<ResourceWrapper>>(
                     ex.InnerException,
                     partialResults);
             }
@@ -366,7 +365,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag.Select(x => (x.Item1.ResourceTypeName, x.Item1.ResourceId, x.Item2)));
-                throw new IncompleteOperationException<IList<ResourceWrapper>>(ex, parallelBag.Select(x => x.Item1).ToList());
+                throw new IncompleteOperationException<List<ResourceWrapper>>(ex, parallelBag.Select(x => x.Item1).ToList());
             }
 
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag.Select(x => (x.Item1.ResourceTypeName, x.Item1.ResourceId, x.Item2)));

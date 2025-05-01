@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                         cancellationToken);
                     resourcesDeleted.AddRange(deleteResult);
                 }
-                catch (IncompleteOperationException<IList<ResourceWrapper>> ex)
+                catch (IncompleteOperationException<List<ResourceWrapper>> ex)
                 {
                     resourcesDeleted.AddRange(ex.PartialResults);
                     result.Issues.Add(ex.Message);
