@@ -379,7 +379,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     });
 
                 using HttpResponseMessage response = await _httpClient.SendAsync(request);
-                var content = await response.Content.ReadAsStringAsync();
                 Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
                 var resourceTypes = new Dictionary<string, long>()
