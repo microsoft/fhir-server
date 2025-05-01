@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,31 +8,51 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
-using AngleSharp.Common;
 using EnsureThat;
-using IdentityServer4.Models;
-using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
+using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
+using Microsoft.Health.Fhir.Api.OpenIddict.Data;
+using Microsoft.Health.Fhir.Api.OpenIddict.Services;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using OpenIddict.Abstractions;
+using OpenIddict.Server;
+using OpenIddict.Validation.AspNetCore;
 
-namespace Microsoft.Health.Fhir.Web
+namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Contains extension methods.")]
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string WrongAudienceClient = "wrongAudienceClient";
+        internal const string WrongAudienceClient = "wrongAudienceClient";
+
+        internal static readonly string[] AllowedGrantTypes = new string[]
+        {
+            OpenIddictConstants.GrantTypes.AuthorizationCode,
+            OpenIddictConstants.GrantTypes.ClientCredentials,
+            OpenIddictConstants.GrantTypes.Password,
+        };
+
+        internal static readonly string[] AllowedScopes = new string[]
+        {
+            DevelopmentIdentityProviderConfiguration.Audience,
+            WrongAudienceClient,
+            "fhirUser",
+        };
 
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
-        /// <param name="services">The services collection.</param>
+        /// <param name="services">The service collection.</param>
         /// <param name="configuration">The configuration root. The "DevelopmentIdentityProvider" section will be used to populate configuration values.</param>
         /// <returns>The same services collection.</returns>
         public static IServiceCollection AddDevelopmentIdentityProvider(this IServiceCollection services, IConfiguration configuration)
@@ -40,8 +60,10 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            // The authorization configuration must be registered for OpenIddictApplicationCreater.
             var authorizationConfiguration = new AuthorizationConfiguration();
             configuration.GetSection("FhirServer:Security:Authorization").Bind(authorizationConfiguration);
+            services.AddSingleton(authorizationConfiguration);
 
             var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
@@ -53,67 +75,91 @@ namespace Microsoft.Health.Fhir.Web
             {
                 var host = configuration["ASPNETCORE_URLS"];
 
-                services.AddIdentityServer()
-                    .AddDeveloperSigningCredential()
-                    .AddInMemoryApiScopes(new[]
+                services.AddDbContext<ApplicationAuthDbContext>(options =>
+                {
+                    options.UseInMemoryDatabase("DevAuthDb");
+                    options.UseOpenIddict();
+                });
+
+                services.AddOpenIddict()
+                    .AddCore(options =>
                     {
-                        new ApiScope(DevelopmentIdentityProviderConfiguration.Audience),
-                        new ApiScope(WrongAudienceClient),
-                        new ApiScope("fhirUser"),
-                    }.Concat(smartScopes))
-                    .AddInMemoryApiResources(new[]
-                    {
-                        new ApiResource(
-                            DevelopmentIdentityProviderConfiguration.Audience,
-                            userClaims: new[] { authorizationConfiguration.RolesClaim, "fhirUser" })
-                        {
-                            Scopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
-                        },
-                        new ApiResource(
-                            WrongAudienceClient,
-                            userClaims: new[] { authorizationConfiguration.RolesClaim })
-                        {
-                            Scopes = { WrongAudienceClient },
-                        },
+                        // Register the in-memory stores.
+                        options.UseEntityFrameworkCore()
+                            .UseDbContext<ApplicationAuthDbContext>();
                     })
-                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select((user) =>
-                        {
-                            var userClaims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList();
-                            userClaims.Add(new Claim("fhirUser", host + "Patient/" + user.Id));
-                            return new TestUser
+                    .AddServer(options =>
+                    {
+                        // Note: Keep "/connect/token" at the top so OpenIddict will return the correct token endpoint
+                        //   on "/.well-known/openid-configuration".
+                        options.SetTokenEndpointUris(
+                            "/connect/token",
+                            "/AadSmartOnFhirProxy/token");
+                        options.SetAuthorizationEndpointUris("/AadSmartOnFhirProxy/authorize");
+
+                        // Dev flows:
+                        options.AllowAuthorizationCodeFlow();
+                        options.AllowClientCredentialsFlow();
+                        options.AllowPasswordFlow();
+
+                        // Development signing - no persistent store required
+                        options.AddDevelopmentSigningCertificate();
+                        options.AddDevelopmentEncryptionCertificate();
+                        options.DisableAccessTokenEncryption();
+
+                        // For testing, you can allow clients without secrets:
+                        // options.AcceptAnonymousClients();
+
+                        // ASP.NET Core integration
+                        options.UseAspNetCore()
+                            .EnableAuthorizationEndpointPassthrough()
+                            .EnableTokenEndpointPassthrough()
+                            .DisableTransportSecurityRequirement();
+
+                        // Register sample scope strings (replace usage of ApiScope).
+                        options.RegisterScopes(AllowedScopes);
+                        options.RegisterScopes(smartScopes.ToArray());
+
+                        // Enable this line if we choose to disable some of the default validation handler OpenIddict uses.
+                        // options.EnableDegradedMode();
+
+                        // Note: OpenIddict has a default token validation handler that does more granular validation
+                        //   including checking the cliend Id and secret. So, we may not need this event handler.
+                        //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
                             {
-                                Username = user.Id,
-                                Password = user.Id,
-                                IsActive = true,
-                                SubjectId = user.Id,
-                                Claims = userClaims,
-                            };
-                        }).ToList())
-                    .AddInMemoryClients(
-                        developmentIdentityProviderConfiguration.ClientApplications.Select(
-                            applicationConfiguration =>
-                                new Client
+                                DevelopmentIdentityProviderApplicationConfiguration client = developmentIdentityProviderConfiguration
+                                    .ClientApplications
+                                    .FirstOrDefault(x => x.Id == context.ClientId);
+
+                                if (client == null)
                                 {
-                                    ClientId = applicationConfiguration.Id,
+                                    context.Reject(
+                                        error: OpenIddictConstants.Errors.InvalidClient,
+                                        description: "The specified 'client_id' doesn't match a registered application.");
+                                    return default;
+                                }
 
-                                    // client credentials and ROPC for testing
-                                    AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
+                                if (!string.Equals(client.Id, context.ClientSecret, StringComparison.Ordinal))
+                                {
+                                    context.Reject(
+                                        error: OpenIddictConstants.Errors.InvalidGrant,
+                                        description: "The specified 'client_secret' is invalid.");
+                                }
 
-                                    // secret for authentication
-                                    ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
+                                return default;
+                            }));
+                    });
 
-                                    // scopes that client has access to
-                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                });
 
-                                    // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(
-                                        r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
-                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id, host))
-                                            .ToList(),
+                services.AddHostedService<OpenIddictApplicationCreater>();
 
-                                    ClientClaimsPrefix = string.Empty,
-                                }))
-                ;
+                services.TryAddTransient<OpenIddictAuthorizationController>();
             }
 
             return services;
@@ -127,9 +173,12 @@ namespace Microsoft.Health.Fhir.Web
         public static IApplicationBuilder UseDevelopmentIdentityProviderIfConfigured(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
-            if (app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>()?.Value?.Enabled == true)
+            var devIdpConfig = app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>();
+
+            if (devIdpConfig?.Value?.Enabled == true)
             {
-                app.UseIdentityServer();
+                app.UseAuthentication();
+                app.UseAuthorization();
             }
 
             return app;
@@ -142,14 +191,13 @@ namespace Microsoft.Health.Fhir.Web
         /// This is an optional configuration source and is only intended to be used for local development.
         /// </summary>
         /// <param name="configurationBuilder">The configuration builder.</param>
-        /// <param name="existingConfiguration">abc</param>
+        /// <param name="existingConfiguration">The existing configuration.</param>
         /// <returns>The same configuration builder.</returns>
         public static IConfigurationBuilder AddDevelopmentAuthEnvironmentIfConfigured(this IConfigurationBuilder configurationBuilder, IConfigurationRoot existingConfiguration)
         {
             EnsureArg.IsNotNull(existingConfiguration, nameof(existingConfiguration));
 
             string testEnvironmentFilePath = existingConfiguration["TestAuthEnvironment:FilePath"];
-
             if (string.IsNullOrWhiteSpace(testEnvironmentFilePath))
             {
                 return configurationBuilder;
@@ -164,36 +212,53 @@ namespace Microsoft.Health.Fhir.Web
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
-        private static List<ApiScope> GenerateSmartClinicalScopes()
+        internal static List<string> GenerateSmartClinicalScopes()
         {
-            ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
-            var scopes = new List<ApiScope>();
+            var scopes = new List<string>();
 
-            scopes.Add(new ApiScope("patient/*.*"));
-            scopes.Add(new ApiScope("user/*.*"));
-            scopes.Add(new ApiScope("system/*.*"));
-            scopes.Add(new ApiScope("system/*.read"));
-            scopes.Add(new ApiScope("patient/*.read"));
-            scopes.Add(new ApiScope("user/*.write"));
-            scopes.Add(new ApiScope("user/*.read"));
+            scopes.Add("patient/*.*");
+            scopes.Add("user/*.*");
+            scopes.Add("system/*.*");
+            scopes.Add("system/*.read");
+            scopes.Add("patient/*.read");
+            scopes.Add("user/*.write");
+            scopes.Add("user/*.read");
 
             foreach (var resourceType in resourceTypes)
             {
-                scopes.Add(new ApiScope($"patient/{resourceType}.*"));
-                scopes.Add(new ApiScope($"user/{resourceType}.*"));
-                scopes.Add(new ApiScope($"patient/{resourceType}.read"));
-                scopes.Add(new ApiScope($"user/{resourceType}.read"));
-                scopes.Add(new ApiScope($"patient/{resourceType}.write"));
-                scopes.Add(new ApiScope($"user/{resourceType}.write"));
-                scopes.Add(new ApiScope($"system/{resourceType}.write"));
-                scopes.Add(new ApiScope($"system/{resourceType}.read"));
+                scopes.Add($"patient/{resourceType}.*");
+                scopes.Add($"user/{resourceType}.*");
+                scopes.Add($"patient/{resourceType}.read");
+                scopes.Add($"user/{resourceType}.read");
+                scopes.Add($"patient/{resourceType}.write");
+                scopes.Add($"user/{resourceType}.write");
+                scopes.Add($"system/{resourceType}.write");
+                scopes.Add($"system/{resourceType}.read");
             }
 
             return scopes;
         }
 
-        private static ClientClaim[] CreateFhirUserClaims(string userId, string host)
+        /// <summary>
+        /// Creates a SHA256 hash of the specified input.
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns>A hash</returns>
+        internal static string Sha256(this string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(input);
+            var hash = SHA256.HashData(bytes);
+
+            return Convert.ToBase64String(hash);
+        }
+
+        private static Claim[] CreateFhirUserClaims(string userId, string host)
         {
             string userType = null;
 
@@ -210,11 +275,11 @@ namespace Microsoft.Health.Fhir.Web
                 userType = "System";
             }
 
-            return
-            [
-                new ClientClaim("appid", userId),
-                new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
-            ];
+            return new[]
+            {
+                new Claim("appid", userId),
+                new Claim("fhirUser", $"{host}{userType}/" + userId),
+            };
         }
 
         private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
@@ -248,13 +313,13 @@ namespace Microsoft.Health.Fhir.Web
                 private const string DevelopmentIdpEnabledKey = "DevelopmentIdentityProvider:Enabled";
                 private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
 
-                private readonly IConfigurationRoot _existingConfiguration;
-
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };
+
+                private readonly IConfigurationRoot _existingConfiguration;
 
                 public Provider(JsonConfigurationSource source, IConfigurationRoot existingConfiguration)
                     : base(source)
