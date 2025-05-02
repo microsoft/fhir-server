@@ -128,6 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerQuery, new FhirDecimal(job.MaximumNumberOfResourcesPerQuery));
 
+            parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerWrite, new FhirDecimal(job.MaximumNumberOfResourcesPerWrite));
+
             return parametersResource.ToResourceElement();
         }
     }

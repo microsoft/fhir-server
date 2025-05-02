@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 switch (jobRecordProperty)
                 {
                     case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery);
                         break;
                     default:
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             switch (jobRecordProperty)
             {
                 case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
                     break;
                 default:
                     request = new CreateReindexRequest(new List<string>(), new List<string>());

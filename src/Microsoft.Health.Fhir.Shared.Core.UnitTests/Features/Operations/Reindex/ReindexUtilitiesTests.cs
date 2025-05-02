@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var searchIndices1 = new List<SearchIndexEntry>() { searchIndexEntry1 };
             var searchIndices2 = new List<SearchIndexEntry>() { searchIndexEntry2 };
 
+            var batchSize = 1000;
+
             _searchIndexer.Extract(Arg.Any<Core.Models.ResourceElement>()).Returns(searchIndices1);
 
             var entry1 = CreateSearchResultEntry("Patient", searchIndices1);
@@ -74,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resultList.Add(entry2);
             var result = new SearchResult(resultList, "token", null, new List<Tuple<string, string>>());
 
-            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
+            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, batchSize, CancellationToken.None);
 
             await _fhirDataStore.Received().BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(c => c.Count() == 2), Arg.Any<CancellationToken>());

@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
                 };
 
-                await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, cancellationToken);
+                await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken);
 
                 if (!cancellationToken.IsCancellationRequested)
                 {

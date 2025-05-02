@@ -42,14 +42,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         /// <param name="results">The resource batch to process</param>
         /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
+        /// <param name="batchSize">The number of resources to reindex at a time (e.g. 1000)</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, int batchSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
 
             var updateSearchIndices = new List<ResourceWrapper>();
+
+            // This should never happen, but in case it does, we will set a low default to ensure we don't get stuck in loop
+            if (batchSize == 0)
+            {
+                batchSize = 500;
+            }
 
             foreach (var entry in results.Results)
             {
@@ -68,12 +75,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            const int BatchSize = 1000;
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                for (int i = 0; i < updateSearchIndices.Count; i += BatchSize)
+                for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
                 {
-                    var batch = updateSearchIndices.GetRange(i, Math.Min(BatchSize, updateSearchIndices.Count - i));
+                    var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
                     await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
 
                     if (cancellationToken.IsCancellationRequested)

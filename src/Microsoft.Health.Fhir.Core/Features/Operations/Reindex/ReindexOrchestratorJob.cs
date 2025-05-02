@@ -300,6 +300,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         },
                         ResourceType = resourceType,
                         MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
+                        MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
                         SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
                     };
 

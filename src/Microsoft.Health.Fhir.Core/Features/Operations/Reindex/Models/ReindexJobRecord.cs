@@ -27,12 +27,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
 
+        public const uint MaxMaximumNumberOfResourcesPerWrite = 1000;
+        public const uint MinMaximumNumberOfResourcesPerWrite = 1;
+
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
             IReadOnlyCollection<string> targetSearchParameterTypes,
             IReadOnlyCollection<string> searchParameterResourceTypes,
             uint maxResourcesPerQuery = 100,
+            uint maxResourcesPerWrite = 1000,
             int queryDelayIntervalInMilliseconds = 500,
             int typeId = (int)JobType.ReindexOrchestrator,
             ushort? targetDataStoreUsagePercentage = null)
@@ -59,6 +63,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             else
             {
                 MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+            }
+
+            // check for MaximumNumberOfResourcesPerWrite boundary
+            if (maxResourcesPerWrite < MinMaximumNumberOfResourcesPerWrite || maxResourcesPerWrite > MaxMaximumNumberOfResourcesPerWrite)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerWrite), MinMaximumNumberOfResourcesPerWrite.ToString(), MaxMaximumNumberOfResourcesPerWrite.ToString()));
+            }
+            else
+            {
+                MaximumNumberOfResourcesPerWrite = maxResourcesPerWrite;
             }
 
             // check for TargetResourceTypes boundary
@@ -109,6 +123,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+
+        [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerWrite)]
+        public uint MaximumNumberOfResourcesPerWrite { get; private set; }
 
         /// <summary>
         /// A user can optionally limit the scope of the Reindex job to specific

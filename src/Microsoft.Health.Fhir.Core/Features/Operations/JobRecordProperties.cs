@@ -81,6 +81,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
 
+        public const string MaximumNumberOfResourcesPerWrite = "maximumNumberOfResourcesPerWrite";
+
         public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
 
         public const string SubSearch = "subSearch";
