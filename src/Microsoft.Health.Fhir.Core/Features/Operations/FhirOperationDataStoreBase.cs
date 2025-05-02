@@ -360,23 +360,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             record.Progress = groupJobs.Where(x => x.Id != jobInfo.Id).Sum(x => JsonConvert.DeserializeObject<ReindexProcessingJobResult>(x.Result).SucceededResourceCount);
         }
 
-        if (!inFlightJobsExist) // no failures here
-        {
-            record.Status = OperationStatus.Completed;
-            status = JobStatus.Completed;
-
-            if (groupJobs.Count > 1)
-            {
-                PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
-            }
-
-            record.EndTime = jobInfo.EndDate;
-        }
-        else
-        {
-            status = JobStatus.Running;
-            PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
-        }
+        PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
 
         record.LastModified = jobInfo.HeartbeatDateTime;
         switch (status)

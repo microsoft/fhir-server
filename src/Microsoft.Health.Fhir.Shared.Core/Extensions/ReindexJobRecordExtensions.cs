@@ -43,9 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             decimal progress = 0;
             decimal rounded = 0;
-            if (job.Count > 0 && job.Progress > 0)
+            long totalResourceCount = job.ResourceCounts?.Sum(entry => entry.Value.Count) ?? 0;
+
+            if (totalResourceCount > 0 && job.Progress > 0)
             {
-                progress = (decimal)job.Progress / job.Count * 100;
+                progress = (decimal)job.Progress / totalResourceCount * 100;
                 rounded = Math.Round(progress, 1);
             }
             else
@@ -53,13 +55,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 progress = 0;
             }
 
-            if (rounded == 100.0M && job.Count != job.Progress)
+            if (rounded == 100.0M && totalResourceCount != job.Progress)
             {
                 rounded = 99.9M;
             }
 
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
-            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
+            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(totalResourceCount));
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
             parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(rounded));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
