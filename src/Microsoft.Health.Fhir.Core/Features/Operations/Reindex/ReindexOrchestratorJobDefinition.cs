@@ -5,13 +5,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Security.Policy;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    internal class ReindexJobResult
+    public class ReindexOrchestratorJobDefinition : IJobData
     {
+        public int TypeId { get; set; }
+
+        public uint MaximumNumberOfResourcesPerQuery { get; set; }
+
+        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; set; }
     }
 }

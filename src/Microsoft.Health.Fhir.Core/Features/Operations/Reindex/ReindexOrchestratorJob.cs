@@ -97,6 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Instead of throwing RetriableJobException, set status and return
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
+                _currentResult.CreatedJobs = jobIds.Count;
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, OperationStatus.Running);
 
                 // There should be ReindexProcessingJobs in there.

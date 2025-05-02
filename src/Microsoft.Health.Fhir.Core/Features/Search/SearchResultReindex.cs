@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Newtonsoft.Json;
+
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
@@ -47,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// The continuation token for the search results
         /// </summary>
+        [JsonIgnore]
         public string ContinuationToken { get; set; }
     }
 }
