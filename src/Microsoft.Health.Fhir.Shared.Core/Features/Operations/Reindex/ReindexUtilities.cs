@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            const int BatchSize = 500;
+            const int BatchSize = 2000;
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
                 for (int i = 0; i < updateSearchIndices.Count; i += BatchSize)
