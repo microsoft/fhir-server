@@ -117,12 +117,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
                 errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Cancelled, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
             }
             catch (IntegrationDataStoreException ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Failed to access input files.");
                 errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
             }
             catch (JobExecutionException ex)
             {
@@ -142,29 +144,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
             }
             catch (CredentialUnavailableException ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.-CredentialUnavailableException");
+                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs. -CredentialUnavailableException");
                 errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity cannot access storage account.", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
             }
             catch (AuthenticationFailedException ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.-AuthenticationFailedException");
+                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs. -AuthenticationFailedException");
                 errorResult = new ImportJobErrorResult() { ErrorMessage = "Managed Identity Credential authentication failed", ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
                 errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-            }
-
-            if (errorResult != null)
-            {
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
             }
 
             return JsonConvert.SerializeObject(result);
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     {
                         var errorMessage = string.Format("Input file Etag not match. {0}", input.Url);
                         var errorResult = new ImportJobErrorResult { ErrorMessage = errorMessage, HttpStatusCode = HttpStatusCode.BadRequest };
-                        throw new JobExecutionException(errorMessage, errorResult);
+                        throw new JobExecutionException(errorMessage, errorResult, true);
                     }
                 }
             });
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
-                throw new JobExecutionException("Failed to enqueue jobs.", ex);
+                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError}, false);
             }
         }
     }
