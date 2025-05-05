@@ -3,7 +3,7 @@
   "id": "example",
   "text": {
     "status": "generated",
-    "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\n    \u003c/div\u003e"
+    "div": "\u003cdiv xmlns=\"http://www.w3.org/1999/xhtml\"\u003eThis event monitors emergency admissions.\u003c/div\u003e"
   },
   "status": "draft",
   "purpose": "Monitor all admissions to Emergency",

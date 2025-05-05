@@ -94,8 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "enrollmentrequest-example" };
             yield return new object[] { "enrollmentresponse-example" };
             yield return new object[] { "episodeofcare-example" };
-
-            // yield return new object[] { "eventdefinition-example" };
+            yield return new object[] { "eventdefinition-example" };
             yield return new object[] { "evidence-example" };
             yield return new object[] { "evidencevariable-example" };
             yield return new object[] { "examplescenario-example" };
@@ -151,8 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "paymentreconciliation-example" };
             yield return new object[] { "person-example" };
             yield return new object[] { "Patient" };
-
-            // yield return new object[] { "plandefinition-example" };
+            yield return new object[] { "plandefinition-example" };
             yield return new object[] { "practitioner-example" };
             yield return new object[] { "practitionerrole-questionnaire" };
             yield return new object[] { "procedure-example" };
