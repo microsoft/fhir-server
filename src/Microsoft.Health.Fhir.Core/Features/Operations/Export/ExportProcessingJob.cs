@@ -95,29 +95,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // For single threaded jobs this section will complete a job after every page of results is processed and make a new job for the next page.
                     // This will allow for saving intermediate states of the job.
 
-                    var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
+                    int retryCount = 3;
+                    int retryDelaySeconds = 2;
 
-                    // Only queue new jobs if group has no canceled jobs. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
-                    if (!existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
+                    for (int attempt = 1; attempt <= retryCount; attempt++)
                     {
-                        var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
-
-                        // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
-                        var newerJobs = existingJobs.Where(existingJob => existingJob.Definition is not null).Where(existingJob =>
+                        try
                         {
-                            var existingDefinition = existingJob.DeserializeDefinition<ExportJobRecord>();
-                            return existingJob.Id > jobInfo.Id && existingDefinition.ResourceType == definition.ResourceType && existingDefinition.FeedRange == definition.FeedRange;
-                        });
+                            var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
-                        if (!newerJobs.Any())
-                        {
-                            definition.Progress = exportJobRecord.Progress;
-                            var newJob = await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
-                            _logger.LogJobInformation(jobInfo, $"ExportProcessingJob segment continuation. New job(s): {string.Join(',', newJob.Select(x => x.Id))}");
+                            // Only queue new jobs if group has no canceled jobs. This ensures canceled jobs won't continue to queue new jobs.
+                            if (!existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
+                            {
+                                var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
+
+                                // Checks that a follow-up job has not already been made.
+                                var newerJobs = existingJobs.Where(existingJob => existingJob.Definition is not null).Where(existingJob =>
+                                {
+                                    var existingDefinition = existingJob.DeserializeDefinition<ExportJobRecord>();
+                                    return existingJob.Id > jobInfo.Id && existingDefinition.ResourceType == definition.ResourceType && existingDefinition.FeedRange == definition.FeedRange;
+                                });
+
+                                if (!newerJobs.Any())
+                                {
+                                    definition.Progress = exportJobRecord.Progress;
+                                    var newJob = await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
+                                    _logger.LogJobInformation(jobInfo, $"ExportProcessingJob segment continuation. New job(s): {string.Join(',', newJob.Select(x => x.Id))}");
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] ExportProcessingJob segment continuation error. Unexpected newer job(s) exists. JobIds: {string.Join(',', newerJobs.Select(x => x.Id))}.");
+                                }
+                            }
+
+                            // Exit the retry loop if successful
+                            break;
                         }
-                        else
+                        catch (Exception ex) when (ex.Message.Contains("Resource with specified id or name already exists", StringComparison.InvariantCultureIgnoreCase) && attempt < retryCount)
                         {
-                            _logger.LogWarning($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] ExportProcessingJob segment continuation error. Unexpected newer job(s) exists. JobIds: {string.Join(',', newerJobs.Select(x => x.Id))}.");
+                            // Message.Contains is used vs a strong check because this project doesn't reference Cosmos packages.
+                            _logger.LogWarning($"Attempt {attempt} failed with 409 Conflict. Retrying in {retryDelaySeconds} seconds. Exception: {ex.Message}");
+                            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds), innerCancellationToken);
+                            retryDelaySeconds *= 2; // Exponential backoff
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Unhandled exception during UpdateExportJob: {ex.Message}");
+                            throw;
                         }
                     }
 
