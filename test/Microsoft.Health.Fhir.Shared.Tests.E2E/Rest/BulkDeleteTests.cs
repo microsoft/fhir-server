@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Client;
@@ -19,6 +20,8 @@ using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
+using Polly;
+using Polly.Retry;
 using Xunit;
 using static Hl7.Fhir.Model.Encounter;
 using Resource = Hl7.Fhir.Model.Resource;
@@ -387,6 +390,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 };
 
                 await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+
+                // Make sure the search parameters are deleted...
+                var retryPolicy = Policy
+                    .Handle<Exception>()
+                    .WaitAndRetryAsync(
+                        retryCount: 10,
+                        sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
+                await retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        var deleted = 0;
+                        foreach (var entry in bundleResponse.Resource.Entry)
+                        {
+                            try
+                            {
+                                await _fhirClient.ReadAsync<SearchParameter>($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                            }
+                            catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
+                            {
+                                deleted++;
+                            }
+                        }
+
+                        Assert.Equal(bundleResponse.Resource.Entry.Count, deleted);
+                    });
 
                 // Try creating these search parameters again to ensure that they were deleted...
                 bundleResponse = await _fhirClient.PostBundleAsync(bundle);
