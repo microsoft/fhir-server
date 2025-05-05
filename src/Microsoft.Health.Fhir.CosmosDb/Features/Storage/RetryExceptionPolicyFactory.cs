@@ -112,12 +112,45 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 .WaitAndRetryAsync(
                     retryCount: maxRetries,
                     sleepDurationProvider: (retryAttempt, exception, context) => SleepDurationProvider(retryAttempt, exception),
-                    onRetryAsync: (e, _, _, ctx) =>
+                    onRetryAsync: (e, timeSpan, retryAttempt, ctx) =>
                     {
-                        if (e is CosmosException cosmosException && cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
+                        // Log details about each retry attempt for better visibility
+                        string statusCode = "N/A";
+                        string diagnostics = "N/A";
+                        bool isServiceUnavailable = false;
+
+                        // Single type check for CosmosException to improve performance
+                        if (e is CosmosException cosmosException)
                         {
-                            var diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
-                            _logger.LogWarning(cosmosException, "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}", diagnostics);
+                            statusCode = cosmosException.StatusCode.ToString();
+                            diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
+                            isServiceUnavailable = cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable;
+                        }
+
+                        var retryType = useExponentialRetry ? "exponential" : "fixed";
+                        var waitTime = timeSpan.TotalMilliseconds;
+
+                        if (isServiceUnavailable)
+                        {
+                            _logger.LogWarning(
+                                e,
+                                "Received a ServiceUnavailable response from Cosmos DB. Retrying attempt {RetryAttempt}/{MaxRetries}. Wait: {WaitTimeMs}ms ({RetryType}). Diagnostics: {CosmosDiagnostics}",
+                                retryAttempt,
+                                maxRetries,
+                                waitTime,
+                                retryType,
+                                diagnostics);
+                        }
+                        else
+                        {
+                            _logger.LogInformation(
+                                "Cosmos DB operation failed. Retrying attempt {RetryAttempt}/{MaxRetries}. Status: {StatusCode}. Wait: {WaitTimeMs}ms ({RetryType}). Error: {ErrorMessage}",
+                                retryAttempt,
+                                maxRetries,
+                                statusCode,
+                                waitTime,
+                                retryType,
+                                e.Message);
                         }
 
                         if (maxWaitTimeInSeconds == -1)
