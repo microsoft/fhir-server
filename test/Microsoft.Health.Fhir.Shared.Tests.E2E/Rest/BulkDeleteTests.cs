@@ -389,7 +389,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     { KnownResourceTypes.SearchParameter, ((Bundle)bundle).Entry.Count },
                 };
 
-                await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+                await MonitorBulkDeleteJob2(response.Content.Headers.ContentLocation, resourceTypes);
 
                 // Make sure the search parameters are deleted...
                 var retryPolicy = Policy
@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         Assert.Equal(bundleResponse.Resource.Entry.Count, deleted);
                     });
 
-                // Try creating these search parameters again to ensure that they were deleted...
+                // Ensure the search parameters were deleted by creating the same search parameters again...
                 bundleResponse = await _fhirClient.PostBundleAsync(bundle);
                 bundleResponse.Resource.Entry.ForEach(x => Assert.Equal(((int)HttpStatusCode.Created).ToString(), x.Response.Status));
             }
@@ -548,6 +548,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return bundle;
+        }
+
+        private async Task MonitorBulkDeleteJob2(Uri location, Dictionary<string, long> expectedResults)
+        {
+            var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
+
+            var resourcesCount = 0;
+            var issuesCount = 0;
+            var resources = string.Empty;
+            var issues = string.Empty;
+            foreach (var parameter in result.Parameter)
+            {
+                if (parameter.Name == "Issues")
+                {
+                    issuesCount++;
+                    issues += parameter.Value + Environment.NewLine;
+                }
+                else if (parameter.Name == "ResourceDeletedCount")
+                {
+                    foreach (var part in parameter.Part)
+                    {
+                        var resourceName = part.Name;
+                        var numberDeleted = (long)((Integer64)part.Value).Value;
+
+                        if (expectedResults[resourceName] != numberDeleted)
+                        {
+                            resourcesCount++;
+                            resources += $"[{resourceName},{numberDeleted}]" + Environment.NewLine;
+                        }
+                    }
+                }
+            }
+
+            if (resourcesCount > 0 || issuesCount > 0)
+            {
+                Assert.Equal("No issues", resources + Environment.NewLine + issues);
+            }
         }
     }
 }
