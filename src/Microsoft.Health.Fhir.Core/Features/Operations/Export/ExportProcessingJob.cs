@@ -15,6 +15,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -95,12 +97,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // For single threaded jobs this section will complete a job after every page of results is processed and make a new job for the next page.
                     // This will allow for saving intermediate states of the job.
 
-                    int retryCount = 3;
-                    int retryDelaySeconds = 2;
+                    const int maxRetries = 3;
+                    const int initialRetryDelaySeconds = 2;
 
-                    for (int attempt = 1; attempt <= retryCount; attempt++)
+                    // Create a retry policy with exponential backoff for handling conflict errors when adding next job.
+                    AsyncRetryPolicy retryPolicy = Policy
+                        .Handle<Exception>(ex => ex.Message.Contains("Resource with specified id or name already exists", StringComparison.InvariantCultureIgnoreCase))
+                        .WaitAndRetryAsync(
+                            retryCount: maxRetries,
+                            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt - 1) * initialRetryDelaySeconds),
+                            onRetry: (exception, timeSpan, retryCount, context) =>
+                            {
+                                _logger.LogWarning($"Attempt {retryCount} failed with 409 Conflict. Retrying in {timeSpan.TotalSeconds} seconds. Exception: {exception.Message}");
+                            });
+
+                    try
                     {
-                        try
+                        await retryPolicy.ExecuteAsync(async () =>
                         {
                             var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
@@ -127,22 +140,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                     _logger.LogWarning($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] ExportProcessingJob segment continuation error. Unexpected newer job(s) exists. JobIds: {string.Join(',', newerJobs.Select(x => x.Id))}.");
                                 }
                             }
-
-                            // Exit the retry loop if successful
-                            break;
-                        }
-                        catch (Exception ex) when (ex.Message.Contains("Resource with specified id or name already exists", StringComparison.InvariantCultureIgnoreCase) && attempt < retryCount)
-                        {
-                            // Message.Contains is used vs a strong check because this project doesn't reference Cosmos packages.
-                            _logger.LogWarning($"Attempt {attempt} failed with 409 Conflict. Retrying in {retryDelaySeconds} seconds. Exception: {ex.Message}");
-                            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds), innerCancellationToken);
-                            retryDelaySeconds *= 2; // Exponential backoff
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"Unhandled exception during UpdateExportJob: {ex.Message}");
-                            throw;
-                        }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Unhandled exception during UpdateExportJob: {ex.Message}");
+                        throw;
                     }
 
                     record.Status = OperationStatus.Completed;
