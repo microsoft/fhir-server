@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Polly;
 using Polly.Retry;
 using Xunit;
@@ -552,39 +553,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task MonitorBulkDeleteJob2(Uri location, Dictionary<string, long> expectedResults)
         {
-            var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
-
-            var resourcesCount = 0;
-            var issuesCount = 0;
-            var resources = string.Empty;
-            var issues = string.Empty;
-            foreach (var parameter in result.Parameter)
-            {
-                if (parameter.Name == "Issues")
-                {
-                    issuesCount++;
-                    issues += parameter.Value + Environment.NewLine;
-                }
-                else if (parameter.Name == "ResourceDeletedCount")
-                {
-                    foreach (var part in parameter.Part)
-                    {
-                        var resourceName = part.Name;
-                        var numberDeleted = (long)((Integer64)part.Value).Value;
-
-                        if (expectedResults[resourceName] != numberDeleted)
-                        {
-                            resourcesCount++;
-                            resources += $"[{resourceName},{numberDeleted}]" + Environment.NewLine;
-                        }
-                    }
-                }
-            }
-
-            if (resourcesCount > 0 || issuesCount > 0)
-            {
-                Assert.Equal("No issues", resources + Environment.NewLine + issues);
-            }
+            var result = await _fhirClient.WaitForBulkDeleteStatus(location);
+            Assert.Fail(JsonConvert.SerializeObject(result.Resource));
         }
     }
 }
