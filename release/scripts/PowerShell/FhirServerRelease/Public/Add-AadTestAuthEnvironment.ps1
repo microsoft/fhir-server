@@ -194,8 +194,8 @@ function Add-AadTestAuthEnvironment {
 
         }
         else {
-            $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
-            $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
+            $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.Id | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.Id
+            $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.Id
 
             Set-Secret -Name secretSecure -Secret $newPassword.Value
             $secretSecureString = Get-Secret -Name secretSecure 
