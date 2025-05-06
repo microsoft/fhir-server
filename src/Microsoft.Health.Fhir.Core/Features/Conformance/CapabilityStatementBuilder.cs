@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Count, Type = SearchParamType.Number });
-
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Summary, Type = SearchParamType.Token });
             return this;
         }
 
