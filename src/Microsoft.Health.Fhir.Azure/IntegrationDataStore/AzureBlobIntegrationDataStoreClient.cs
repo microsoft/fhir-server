@@ -190,6 +190,12 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
+            catch (ArgumentNullException ex) when (ex.Message.Contains("credentialBundleName", StringComparison.OrdinalIgnoreCase))
+            {
+                // This indicates that Managed Identity wasn't setup.
+                _logger.LogWarning(ex, "Failed to get access token");
+                throw new IntegrationDataStoreException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
+            }
         }
 
         public async Task<string> TryAcquireLeaseAsync(Uri resourceUri, string proposedLeaseId, CancellationToken cancellationToken)
