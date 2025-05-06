@@ -94,6 +94,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 _logger.LogWarning(ex, "Failed to get access token for export");
                 throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
             }
+            catch (ArgumentNullException ex) when (ex.Message.Contains("credentialBundleName", StringComparison.OrdinalIgnoreCase))
+            {
+                // This indicates that Managed Identity isn't setup
+                _logger.LogWarning(ex, "Failed to get access token for export");
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
+            }
         }
 
         public void WriteFilePart(string fileName, string data)
