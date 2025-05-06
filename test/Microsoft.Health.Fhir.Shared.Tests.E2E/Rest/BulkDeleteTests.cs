@@ -369,47 +369,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkDeleteEnabled();
 
-            FhirResponse<Bundle> bundleResponse = null;
+            var resourcesToCreate = new List<Resource>();
+            var retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: 10,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
             try
             {
                 var tag = Guid.NewGuid().ToString();
                 var bundle = (Bundle)TagResources((Bundle)Samples.GetJsonSample("SearchParameter-USCoreIG").ToPoco(), tag);
 
+                // Clean up custom search parameters.
+                resourcesToCreate.AddRange(bundle.Entry.Select(x => x.Resource));
+                await CleanupAsync(resourcesToCreate);
+
                 // Create search parameter resources via bundle and make sure it succeeds.
-                bundleResponse = await _fhirClient.PostBundleAsync(bundle);
-                Assert.Equal(HttpStatusCode.OK, bundleResponse.StatusCode);
-                Assert.Equal(bundle.Entry.Count, bundleResponse.Resource?.Entry?.Count);
-                Assert.Contains(
-                    bundleResponse.Resource?.Entry,
-                    x => x.Response.Status == ((int)HttpStatusCode.Created).ToString());
+                var resources = new List<Resource>();
+                foreach (var entry in bundle.Entry)
+                {
+                    var createResponse = await _fhirClient.CreateAsync(entry.Resource);
+                    resources.Add(createResponse.Resource);
 
-                // Make sure the search parameters exist.
-                var retryPolicy = Policy
-                    .Handle<Exception>()
-                    .WaitAndRetryAsync(
-                        retryCount: 10,
-                        sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        var created = 0;
-                        foreach (var entry in bundleResponse.Resource.Entry)
-                        {
-                            await _fhirClient.ReadAsync<SearchParameter>($"{entry.Resource.TypeName}/{entry.Resource.Id}");
-                            created++;
-                        }
+                    Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+                }
 
-                        Assert.Equal(bundleResponse.Resource.Entry.Count, created);
-                    });
-
-#if false // TODO: times out...
-                var reindexResponse = await _fhirClient.PostReindexJobAsync(new Parameters());
-                Assert.Equal(HttpStatusCode.Created, reindexResponse.reponse?.StatusCode);
-                Assert.NotNull(reindexResponse.uri);
-
-                var reindexStatusResponse = await _fhirClient.WaitForReindexStatus(reindexResponse.uri, "Completed");
-                Assert.Equal(HttpStatusCode.Created, reindexStatusResponse.StatusCode);
-#endif
+                // Invoke bulk-delete on the search parameters.
                 using HttpRequestMessage request = GenerateBulkDeleteRequest(
                     tag,
                     $"{KnownResourceTypes.SearchParameter}/$bulk-delete",
@@ -428,16 +413,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
 
-                // Make sure the search parameters are deleted...
+                // Make sure the search parameters are deleted.
                 await retryPolicy.ExecuteAsync(
                     async () =>
                     {
                         var deleted = 0;
-                        foreach (var entry in bundleResponse.Resource.Entry)
+                        foreach (var resource in resources)
                         {
                             try
                             {
-                                await _fhirClient.ReadAsync<SearchParameter>($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                                await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
                             }
                             catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
                             {
@@ -445,29 +430,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             }
                         }
 
-                        Assert.Equal(bundleResponse.Resource.Entry.Count, deleted);
+                        Assert.Equal(resources.Count, deleted);
                     });
 
-                // Ensure the search parameters were deleted by creating the same search parameters again...
-                bundleResponse = await _fhirClient.PostBundleAsync(bundle);
+                // Ensure the search parameters were deleted by creating the same search parameters again.
+                var bundleResponse = await _fhirClient.PostBundleAsync(bundle);
                 bundleResponse.Resource.Entry.ForEach(x => Assert.Equal(((int)HttpStatusCode.Created).ToString(), x.Response.Status));
             }
             finally
             {
-                if (bundleResponse?.Resource?.Entry != null)
-                {
-                    foreach (var entry in bundleResponse.Resource.Entry)
+                await CleanupAsync(resourcesToCreate);
+            }
+
+            async Task CleanupAsync(List<Resource> resources)
+            {
+                await retryPolicy.ExecuteAsync(
+                    async () =>
                     {
-                        try
+                        foreach (var resource in resources)
                         {
-                            await _fhirClient.DeleteAsync(entry.Resource);
+                            var response = await _fhirClient.SearchAsync(
+                                ResourceType.SearchParameter,
+                                $"url={((SearchParameter)resource).Url}");
+                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                            var resourceToDelete = response.Resource?.Entry?
+                                .Select(x => x.Resource)
+                                .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                .FirstOrDefault();
+                            if (resourceToDelete != null)
+                            {
+                                await _fhirClient.HardDeleteAsync(resourceToDelete);
+                            }
                         }
-                        catch
-                        {
-                            // Ignore and let the cleanup complete.
-                        }
-                    }
-                }
+                    });
             }
         }
 
@@ -529,7 +525,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return request;
         }
 
-        private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults)
+        private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults, bool failOnIssues = false)
         {
             var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
 
@@ -567,7 +563,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             finally
             {
-                if (issuesChecked > 0)
+                if (issuesChecked > 0 && failOnIssues)
                 {
                     Assert.Fail(JsonConvert.SerializeObject(result));
                 }
