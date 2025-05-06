@@ -573,7 +573,7 @@ public class CosmosQueueClient : IQueueClient
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {
-            throw new JobExecutionException("Job data too large.", ex);
+            throw new JobExecutionException("Job data too large.", ex, false);
         }
     }
 
