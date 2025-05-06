@@ -158,6 +158,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 try
                 {
+                    if (!request.DeleteAll)
+                    {
+                        var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
+                        throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                    }
+
                     ConditionalDeleteResourceRequest clonedRequest = request.Clone();
                     clonedRequest.IsIncludesRequest = true;
                     var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
@@ -230,6 +236,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             try
                             {
+                                if (!request.DeleteAll)
+                                {
+                                    tooManyIncludeResults = true;
+                                    break;
+                                }
+
                                 ConditionalDeleteResourceRequest clonedRequest = request.Clone();
                                 clonedRequest.IsIncludesRequest = true;
                                 var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
