@@ -207,19 +207,17 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     public virtual async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
     {
-       // var def = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
-        var clone = jobRecord.Clone();
-        clone.QueuedTime = jobRecord.StartTime ?? DateTime.UtcNow; // DateTime.Parse("1900-01-01");
-
         var def = new ReindexOrchestratorJobDefinition()
         {
             TypeId = (int)JobType.ReindexOrchestrator,
             MaximumNumberOfResourcesPerQuery = jobRecord.MaximumNumberOfResourcesPerQuery,
             MaximumNumberOfResourcesPerWrite = jobRecord.MaximumNumberOfResourcesPerWrite,
             ResourceTypeSearchParameterHashMap = jobRecord.ResourceTypeSearchParameterHashMap,
+            GroupId = jobRecord.GroupId,
+            Id = jobRecord.Id,
         };
 
-        _logger.LogInformation($"Queueing reindex job with definition: {clone}");
+        _logger.LogInformation($"Queueing reindex job with definition: {def}");
         var results = await _queueClient.EnqueueAsync(QueueType.Reindex, cancellationToken, definitions: def);
 
         if (results.Count != 1)
@@ -364,6 +362,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
 
         record.LastModified = jobInfo.HeartbeatDateTime;
+        record.QueuedTime = jobInfo.CreateDate;
+
         switch (status)
         {
             case JobStatus.Created:
