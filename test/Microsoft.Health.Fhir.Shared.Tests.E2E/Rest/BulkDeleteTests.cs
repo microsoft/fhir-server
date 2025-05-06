@@ -412,6 +412,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
                 using HttpRequestMessage request = GenerateBulkDeleteRequest(
                     tag,
+                    $"{KnownResourceTypes.SearchParameter}/$bulk-delete",
                     queryParams: new Dictionary<string, string>
                     {
                         { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
