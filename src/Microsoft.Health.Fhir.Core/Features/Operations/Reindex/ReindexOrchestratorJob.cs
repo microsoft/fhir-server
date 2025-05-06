@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (jobIds == null || !jobIds.Any())
                 {
                     // Nothing to process so we are done.
-                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Nothing to process.");
+                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Nothing to process. Reindex complete.");
                     return JsonConvert.SerializeObject(_currentResult);
                 }
 
@@ -293,8 +293,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             StartResourceSurrogateId = range.StartId,
                             EndResourceSurrogateId = range.EndId,
+                            Count = baseResourceCount.Count,  // Preserve the total count
+                            CurrentResourceSurrogateId = range.StartId,
                         },
                         ResourceType = resourceType,
+                        MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
                         MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
                         SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
                     };
@@ -346,6 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex()
                     {
                         Count = reindexResults.Count,
+                        CurrentResourceSurrogateId = reindexResults.CurrentResourceSurrogateId,
                         EndResourceSurrogateId = reindexResults.EndResourceSurrogateId,
                         StartResourceSurrogateId = reindexResults.StartResourceSurrogateId,
                     });
@@ -377,7 +381,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             };
 
             // This should never be cosmos
-            if (searchResultReindex != null)
+            if (searchResultReindex != null && searchResultReindex.CurrentResourceSurrogateId > 0)
             {
                 // Always use the queryStatus.StartResourceSurrogateId for the start of the range
                 // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine

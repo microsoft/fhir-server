@@ -65,10 +65,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
+                Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
 
-            if (searchResultReindex != null)
+            if (searchResultReindex != null && searchResultReindex.CurrentResourceSurrogateId > 0)
             {
                 // Always use the StartResourceSurrogateId for the start of the range
                 // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine
@@ -85,8 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
             }
-
-            // TODO: We should be throwing error if searchResultReindex is null, otherwise we will be passing no query limiting parameters
 
             if (_reindexProcessingJobDefinition.ResourceCount.ContinuationToken != null)
             {
@@ -130,14 +129,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             long resourceCount = 0;
             try
             {
+                long currentResourceSurrogateId = 0;
                 SearchResult result = await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken);
                 resourceCount += result?.TotalCount ?? 0;
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
                 if (result?.MaxResourceSurrogateId > 0)
                 {
+                    currentResourceSurrogateId = result.MaxResourceSurrogateId;
+
                     // reindex has more work to do at this point
                     if (result?.MaxResourceSurrogateId > 0)
                     {
+                        _reindexProcessingJobDefinition.ResourceCount.CurrentResourceSurrogateId = result.MaxResourceSurrogateId;
+
                         if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
                         {
                             // We need to create a child query to finish processing the reindex job

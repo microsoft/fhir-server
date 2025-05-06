@@ -57,10 +57,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
             {
                 ForceReindex = false,
+                MaximumNumberOfResourcesPerQuery = 100,
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()
                 {
                     Count = 1,
+                    CountReindexed = 0,
+                    CurrentResourceSurrogateId = 0,
                     EndResourceSurrogateId = 1,
                     StartResourceSurrogateId = 0,
                     ContinuationToken = null,
@@ -82,7 +85,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // setup search result
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count") && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count") && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -110,10 +113,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
             {
                 ForceReindex = false,
+                MaximumNumberOfResourcesPerQuery = 1,
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()
                 {
                     Count = 1,
+                    CountReindexed = 0,
+                    CurrentResourceSurrogateId = 0,
                     EndResourceSurrogateId = 2,
                     StartResourceSurrogateId = 0,
                     ContinuationToken = "continuationToken",
@@ -135,7 +141,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // setup search result
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count") && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -158,7 +164,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count") && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -172,6 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(jobInfo.GroupId, childJob.GroupId);
             var childJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(childJob.Definition);
             Assert.Equal(2, childJobDefinition.ResourceCount.StartResourceSurrogateId);
+            Assert.Equal(1, childJobDefinition.ResourceCount.CurrentResourceSurrogateId);
             Assert.Equal(2, childJobDefinition.ResourceCount.EndResourceSurrogateId);
             Assert.Equal(job.ResourceCount.ContinuationToken, childJobDefinition.ResourceCount.ContinuationToken);
         }
@@ -194,6 +201,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             job.ResourceCounts.TryAdd("Patient", new SearchResultReindex()
             {
                 Count = 1,
+                CurrentResourceSurrogateId = 1,
                 EndResourceSurrogateId = 1,
                 StartResourceSurrogateId = 1,
             });
