@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             var resultsToReturn = matchedResults.Concat(includeResults).ToList();
-            return (resultsToReturn, isIncludesOperation ? results.IncludesContinuationToken : results.ContinuationToken, results.IncludesContinuationToken);
+            return (resultsToReturn, isIncludesOperation ? results?.IncludesContinuationToken : results?.ContinuationToken, results?.IncludesContinuationToken);
         }
     }
 }
