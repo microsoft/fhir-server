@@ -226,8 +226,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return null;
             }
 
-            await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
-
             // Generate separate queries for each resource type and add them to query list.
             // This is the starting point for what essentially kicks off the reindexing job
             foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
@@ -531,35 +529,124 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckForCompletionAsync(List<JobInfo> jobInfos, CancellationToken cancellationToken)
         {
             var completedJobIds = new HashSet<long>();
-
             var activeJobs = jobInfos.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
+
+            // Track job counts and timing
+            int lastActiveJobCount = activeJobs.Count;
+            int unchangedCount = 0;
+            int changeDetectedCount = 0;
+            DateTime lastPollTime = DateTime.UtcNow;
+
+            const int MAX_UNCHANGED_CYCLES = 3;
+            const int MIN_POLL_INTERVAL_MS = 100;  // Minimum polling interval
+            const int MAX_POLL_INTERVAL_MS = 5000; // Maximum polling interval
+            const int DEFAULT_POLL_INTERVAL_MS = 1000;
+
+            int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
 
             while (activeJobs.Any())
             {
-                // Log the current status
-                _logger.LogInformation("Reindex processing jobs still running for Id: {Id}. {Count} jobs active.", _jobInfo.Id, activeJobs.Count);
-
-                // Split the delay into smaller intervals to check for cancellation more frequently
-                int totalDelayInMilliseconds = 5000; // Total delay of 5 seconds
-                int checkIntervalInMilliseconds = 500; // Check every 500 milliseconds
-                int elapsedTime = 0;
-
-                while (elapsedTime < totalDelayInMilliseconds)
+                try
                 {
-                    // Throw if cancellation is requested
-                    _cancellationToken.ThrowIfCancellationRequested();
+                    // Calculate time since last poll
+                    var timeSinceLastPoll = DateTime.UtcNow - lastPollTime;
 
-                    // Wait for the smaller interval
-                    await Task.Delay(checkIntervalInMilliseconds, _cancellationToken);
-                    elapsedTime += checkIntervalInMilliseconds;
+                    // Adjust polling interval based on activity
+                    if (activeJobs.Count != lastActiveJobCount)
+                    {
+                        // Changes detected - increase polling frequency
+                        changeDetectedCount++;
+                        unchangedCount = 0;
+
+                        // Exponentially decrease interval when changes are detected
+                        currentPollInterval = Math.Max(MIN_POLL_INTERVAL_MS, currentPollInterval / (1 + (changeDetectedCount / 2)));
+
+                        _logger.LogInformation(
+                            "Reindex processing jobs changed for Id: {Id}. {Count} jobs active. Polling interval: {Interval}ms", _jobInfo.Id, activeJobs.Count, currentPollInterval);
+
+                        lastActiveJobCount = activeJobs.Count;
+                    }
+                    else
+                    {
+                        // No changes - gradually back off
+                        unchangedCount++;
+                        changeDetectedCount = 0;
+
+                        // Exponentially increase interval up to max when no changes
+                        if (unchangedCount > MAX_UNCHANGED_CYCLES)
+                        {
+                            currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
+                        }
+                    }
+
+                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    linkedCts.CancelAfter(currentPollInterval);
+
+                    try
+                    {
+                        // Batch fetch jobs status with minimal info
+                        var updatedJobs = await _queueClient.GetJobByGroupIdAsync(
+                            (byte)QueueType.Reindex,
+                            _jobInfo.GroupId,
+                            false, // Only fetch minimal info needed
+                            linkedCts.Token);
+
+                        // Update active jobs efficiently
+                        activeJobs = updatedJobs
+                            .Where(j => j.Id != _jobInfo.Id &&
+                                   (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
+                            .ToList();
+
+                        // Send heartbeat less frequently when stable
+                        if (unchangedCount <= MAX_UNCHANGED_CYCLES)
+                        {
+                            await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
+                        }
+
+                        // Track last poll time
+                        lastPollTime = DateTime.UtcNow;
+
+                        // Adaptive delay based on current poll interval
+                        await Task.Delay(
+                            Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10),
+                            cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (linkedCts.Token.IsCancellationRequested)
+                    {
+                        // Normal timeout, continue polling
+                        continue;
+                    }
                 }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Error checking job status for Id: {Id}. Will retry with increased interval.", _jobInfo.Id);
 
-                // Refresh the list of active jobs
-                jobInfos = (List<JobInfo>)await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, _cancellationToken);
-                activeJobs = jobInfos.Where(j => j.Id != _jobInfo.Id && (j.Status == JobStatus.Running || j.Status == JobStatus.Created)).ToList();
+                    // Increase polling interval on errors
+                    currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
+                    await Task.Delay(currentPollInterval, cancellationToken);
+                }
             }
 
             // Rest of the method remains unchanged
+            var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
+            var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
+
+            // Fetch complete job details only once at completion
+            jobInfos = (List<JobInfo>)await _queueClient.GetJobByGroupIdAsync(
+                (byte)QueueType.Reindex,
+                _jobInfo.GroupId,
+                true,
+                cancellationToken);
+
+            await ProcessCompletedJobs(jobInfos, completedJobIds, cancellationToken);
+        }
+
+        private async Task ProcessCompletedJobs(
+            List<JobInfo> jobInfos,
+            HashSet<long> completedJobIds,
+            CancellationToken cancellationToken)
+        {
+            // Existing completion logic moved here...
             var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
             var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
 
