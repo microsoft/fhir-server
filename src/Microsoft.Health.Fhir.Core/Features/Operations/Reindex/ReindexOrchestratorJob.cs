@@ -537,8 +537,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task CheckForCompletionAsync(List<JobInfo> jobInfos, CancellationToken cancellationToken)
         {
-            var completedJobIds = new HashSet<long>();
-            var activeJobs = jobInfos.Where(j => j.Id != _jobInfo.GroupId && (j.Status == JobStatus.Running || j.Status == JobStatus.Created)).ToList();
+            // Track completed jobs by their IDs and by resource type
+            var processedJobIds = new HashSet<long>();
+            var completedJobsByResourceType = new Dictionary<string, List<JobInfo>>();
+            var activeJobs = jobInfos.Where(j => j.Id != _jobInfo.GroupId &&
+                                           (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
+                                     .ToList();
 
             // Track job counts and timing
             int lastActiveJobCount = activeJobs.Count;
@@ -547,8 +551,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             DateTime lastPollTime = DateTime.UtcNow;
 
             const int MAX_UNCHANGED_CYCLES = 3;
-            const int MIN_POLL_INTERVAL_MS = 100;  // Minimum polling interval
-            const int MAX_POLL_INTERVAL_MS = 5000; // Maximum polling interval
+            const int MIN_POLL_INTERVAL_MS = 100;
+            const int MAX_POLL_INTERVAL_MS = 5000;
             const int DEFAULT_POLL_INTERVAL_MS = 1000;
 
             int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
@@ -557,17 +561,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    // Calculate time since last poll
-                    var timeSinceLastPoll = DateTime.UtcNow - lastPollTime;
-
                     // Adjust polling interval based on activity
                     if (activeJobs.Count != lastActiveJobCount)
                     {
                         // Changes detected - increase polling frequency
                         changeDetectedCount++;
                         unchangedCount = 0;
-
-                        // Exponentially decrease interval when changes are detected
                         currentPollInterval = Math.Max(MIN_POLL_INTERVAL_MS, currentPollInterval / (1 + (changeDetectedCount / 2)));
 
                         _logger.LogInformation(
@@ -580,8 +579,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // No changes - gradually back off
                         unchangedCount++;
                         changeDetectedCount = 0;
-
-                        // Exponentially increase interval up to max when no changes
                         if (unchangedCount > MAX_UNCHANGED_CYCLES)
                         {
                             currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
@@ -593,18 +590,86 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     try
                     {
-                        // Batch fetch jobs status with minimal info
+                        // Batch fetch jobs status
                         var updatedJobs = await _queueClient.GetJobByGroupIdAsync(
                             (byte)QueueType.Reindex,
                             _jobInfo.GroupId,
-                            false, // Only fetch minimal info needed
+                            true,
                             linkedCts.Token);
 
-                        // Update active jobs efficiently
+                        // Update active jobs
                         activeJobs = updatedJobs
                             .Where(j => j.Id != _jobInfo.GroupId &&
                                    (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
                             .ToList();
+
+                        // Process newly completed jobs by resource type
+                        var newlyCompletedJobs = updatedJobs
+                            .Where(j => j.Status == JobStatus.Completed && !processedJobIds.Contains(j.Id))
+                            .ToList();
+
+                        if (newlyCompletedJobs.Any())
+                        {
+                            // Group the newly completed jobs by resource type
+                            foreach (var job in newlyCompletedJobs)
+                            {
+                                processedJobIds.Add(job.Id);
+
+                                var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+                                var resourceType = jobDefinition.ResourceType;
+
+                                if (!completedJobsByResourceType.TryGetValue(resourceType, out var jobList))
+                                {
+                                    jobList = new List<JobInfo>();
+                                    completedJobsByResourceType[resourceType] = jobList;
+                                }
+
+                                jobList.Add(job);
+                            }
+
+                            // Check for resource types with all jobs completed
+                            foreach (var resourceType in completedJobsByResourceType.Keys.ToList())
+                            {
+                                // Check if all jobs for this resourceType are complete
+                                var allJobsForResourceType = updatedJobs
+                                    .Where(j =>
+                                    {
+                                        if (j.Id == _jobInfo.GroupId)
+                                        {
+                                            return false;
+                                        }
+
+                                        try
+                                        {
+                                            var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
+                                            return def.ResourceType == resourceType;
+                                        }
+                                        catch
+                                        {
+                                            return false;
+                                        }
+                                    })
+                                    .ToList();
+
+                                if (allJobsForResourceType.All(j => j.Status == JobStatus.Completed))
+                                {
+                                    _logger.LogInformation("All jobs for resourceType {ResourceType} are complete. Updating search parameter status.", resourceType);
+
+                                    // Only update search parameters for resource types that we haven't processed yet
+                                    var jobsToProcess = completedJobsByResourceType[resourceType];
+                                    await UpdateSearchParameterStatus(jobsToProcess, cancellationToken);
+
+                                    // Mark these jobs as having their search parameters updated
+                                    foreach (var job in jobsToProcess)
+                                    {
+                                        processedJobIds.Add(job.Id);
+                                    }
+
+                                    // Remove this resource type from the tracking dictionary to prevent duplicate processing
+                                    completedJobsByResourceType.Remove(resourceType);
+                                }
+                            }
+                        }
 
                         // Send heartbeat less frequently when stable
                         if (unchangedCount <= MAX_UNCHANGED_CYCLES)
@@ -612,10 +677,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
                         }
 
-                        // Track last poll time
+                        // Track last poll time and delay before next poll
                         lastPollTime = DateTime.UtcNow;
-
-                        // Adaptive delay based on current poll interval
                         await Task.Delay(
                             Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10),
                             cancellationToken);
@@ -629,16 +692,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogWarning(ex, "Error checking job status for Id: {Id}. Will retry with increased interval.", _jobInfo.Id);
-
-                    // Increase polling interval on errors
                     currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
                     await Task.Delay(currentPollInterval, cancellationToken);
                 }
             }
-
-            // Rest of the method remains unchanged
-            var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
-            var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
 
             // Fetch complete job details only once at completion
             jobInfos = (List<JobInfo>)await _queueClient.GetJobByGroupIdAsync(
@@ -647,15 +704,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 true,
                 cancellationToken);
 
-            await ProcessCompletedJobs(jobInfos, completedJobIds, cancellationToken);
+            // Process all jobs at the end, but filter out those that already had search parameters updated
+            await ProcessCompletedJobs(
+                jobInfos,
+                processedJobIds,
+                cancellationToken);
         }
 
         private async Task ProcessCompletedJobs(
             List<JobInfo> jobInfos,
-            HashSet<long> completedJobIds,
+            HashSet<long> processedJobIds,
             CancellationToken cancellationToken)
         {
-            // Existing completion logic moved here...
+            // Get all completed and failed jobs
             var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
             var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
 
@@ -670,10 +731,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(failedJobInfo.Result);
                     _currentResult.FailedResources += result.FailedResourceCount;
-                    completedJobIds.Add(failedJobInfo.Id);
+                    processedJobIds.Add(failedJobInfo.Id);
                 }
 
-                string userMessage = $"{_reindexJobRecord.FailureCount} resource(s) failed to be reindexed." + " Resubmit the same reindex job to finish indexing the remaining resources.";
+                string userMessage = $"{_reindexJobRecord.FailureCount} resource(s) failed to be reindexed." +
+                    " Resubmit the same reindex job to finish indexing the remaining resources.";
                 AddErrorResult(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Incomplete,
@@ -682,23 +744,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             else
             {
-                foreach (var suceededJobInfo in succeededJobInfos)
+                foreach (var succeededJobInfo in succeededJobInfos)
                 {
-                    var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(suceededJobInfo.Result);
+                    var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(succeededJobInfo.Result);
                     _currentResult.SucceededResources += result.SucceededResourceCount;
-                    completedJobIds.Add(suceededJobInfo.Id);
+                    processedJobIds.Add(succeededJobInfo.Id);
                 }
 
                 if (_reindexJobRecord.ForceReindex)
                 {
-                    await UpdateSearchParameterStatus(succeededJobInfos, cancellationToken);
+                    // For force reindex, only update the search parameters once at the end
+                    // and only for jobs that haven't been processed yet
+                    var unprocessedJobs = succeededJobInfos
+                        .Where(job => !processedJobIds.Contains(job.Id))
+                        .ToList();
+
+                    if (unprocessedJobs.Any())
+                    {
+                        _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs in force reindex mode", unprocessedJobs.Count);
+                        await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
+                    }
                 }
                 else
                 {
                     (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(succeededJobInfos);
                     if (totalCount != 0)
                     {
-                        string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." + " Resubmit the same reindex job to finish indexing the remaining resources.";
+                        string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." +
+                            " Resubmit the same reindex job to finish indexing the remaining resources.";
                         AddErrorResult(
                            OperationOutcomeConstants.IssueSeverity.Error,
                            OperationOutcomeConstants.IssueType.Incomplete,
@@ -709,16 +782,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        await UpdateSearchParameterStatus(succeededJobInfos, cancellationToken);
+                        // Only update search parameters for jobs that haven't been processed yet
+                        var unprocessedJobs = succeededJobInfos
+                            .Where(job => !processedJobIds.Contains(job.Id))
+                            .ToList();
+
+                        if (unprocessedJobs.Any())
+                        {
+                            _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
+                            await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
+                        }
                     }
                 }
             }
 
-            _currentResult.CompletedJobs += completedJobIds.Count;
-
-            // Update the status once all jobs are complete
+            // Update the final completion count and status
+            _currentResult.CompletedJobs = jobInfos.Count(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed);
             _reindexJobRecord.Status = OperationStatus.Completed;
-            _logger.LogInformation("All reindex processing jobs completed for Id: {Id}.", _jobInfo.Id);
+            _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.Id, _currentResult.CompletedJobs);
 
             return;
         }
