@@ -161,7 +161,7 @@ END
         }
 
         [Fact]
-        public async Task RollTransactionBackAndDeleteAdlsFile()
+        public async Task RollTransactionBackAndDeleteBlobFile()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("DELETE FROM dbo.Resource");
@@ -207,7 +207,7 @@ END
                 return;
             }
 
-            Assert.Equal(1, await GetResourceFromAdls(tran.TransactionId)); // file exists and resource can be read
+            Assert.Equal(1, await GetResourceFromBlob(tran.TransactionId)); // file exists and resource can be read
 
             var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
@@ -227,7 +227,7 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             startTime = DateTime.UtcNow;
-            while (await GetResourceFromAdls(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (await GetResourceFromBlob(tran.TransactionId) == 1 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
@@ -236,14 +236,16 @@ END
             await wdTask;
         }
 
-        private static async Task<int> GetResourceFromAdls(long tranId)
+        private async Task<int> GetResourceFromBlob(long tranId)
         {
             try
             {
-                var refs = new List<(long, int, int)>();
-                refs.Add((tranId, 0, 0));
-                var results = await SqlStoreClient.GetRawResourcesFromAdls(refs);
-                return results.Count;
+                var refs = new List<RawResourceLocator>() { new RawResourceLocator(tranId, 0, 0) };
+                using (var cts = new CancellationTokenSource())
+                {
+                    var results = await _fixture.SqlServerFhirDataStore.GetRawResourcesFromBlob(refs, cts.Token);
+                    return results.Count;
+                }
             }
             catch (Exception e)
             {
