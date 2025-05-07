@@ -307,6 +307,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
+                // Sort definitions by ResourceType before enqueueing
+                var sortedDefinitions = definitions
+                    .Select(d => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(d))
+                    .OrderBy(d => d.ResourceType)
+                    .Select(d => JsonConvert.SerializeObject(d))
+                    .ToArray();
+                    
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
                     .Select(job => job.Id)
                     .OrderBy(id => id)
