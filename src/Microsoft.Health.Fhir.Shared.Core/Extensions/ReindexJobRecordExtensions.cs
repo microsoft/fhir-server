@@ -76,33 +76,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             {
                 string msgLabelSuffix = string.Empty;
                 var outputMessages = new StringBuilder();
-                bool hasValue = false;
 
                 foreach (KeyValuePair<string, Features.Search.SearchResultReindex> kvp in resourcesWithCounts)
                 {
-                    // because this is a newer field that we want to display and to be backwards compatible, we'll only display this if the CountReindexed > 0
-                    hasValue = kvp.Value.CountReindexed > 0;
-
-                    if (hasValue)
+                    if (string.IsNullOrWhiteSpace(msgLabelSuffix))
                     {
-                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
-                        {
-                            msgLabelSuffix = $" ({nameof(kvp.Value.CountReindexed)} of {nameof(kvp.Value.Count)})";
-                        }
-
-                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.CountReindexed.ToString("N0")} of {kvp.Value.Count.ToString("N0")}");
-                    }
-                    else
-                    {
-                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
-                        {
-                            msgLabelSuffix = " (resource count)";
-                        }
-
-                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.Count.ToString("N0")}");
+                        msgLabelSuffix = " (resource count)";
                     }
 
-                    hasValue = false;
+                    outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.Count.ToString("N0")}");
                 }
 
                 if (outputMessages.Length > 0)

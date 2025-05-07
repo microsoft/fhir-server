@@ -27,11 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public long Count { get; set; }
 
         /// <summary>
-        /// The count of items that have been reindexed
-        /// </summary>
-        public long CountReindexed { get; set; }
-
-        /// <summary>
         /// The Min resource surrogate id for the resource
         /// </summary>
         public long StartResourceSurrogateId { get; set; }
@@ -46,5 +41,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         [JsonIgnore]
         public string ContinuationToken { get; set; }
+
+        /// <summary>
+        /// Determines whether the Count property should be serialized.
+        /// </summary>
+        public bool ShouldSerializeCount()
+        {
+            return Count != 0;
+        }
     }
 }

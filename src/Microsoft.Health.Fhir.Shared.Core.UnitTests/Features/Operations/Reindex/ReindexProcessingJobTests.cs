@@ -62,7 +62,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 ResourceCount = new SearchResultReindex()
                 {
                     Count = 1,
-                    CountReindexed = 0,
                     EndResourceSurrogateId = 1,
                     StartResourceSurrogateId = 0,
                     ContinuationToken = null,
@@ -117,7 +116,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 ResourceCount = new SearchResultReindex()
                 {
                     Count = 1,
-                    CountReindexed = 0,
                     EndResourceSurrogateId = 2,
                     StartResourceSurrogateId = 0,
                     ContinuationToken = "continuationToken",
@@ -196,7 +194,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             job.QueryList.TryAdd(new ReindexJobQueryStatus("Patient", "token") { Status = OperationStatus.Running }, 1);
             job.Resources.Add("Patient");
             job.ResourceCounts.TryAdd("Patient", new SearchResultReindex()
-            {
+            {f
                 Count = 1,
                 EndResourceSurrogateId = 1,
                 StartResourceSurrogateId = 1,
