@@ -538,7 +538,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckForCompletionAsync(List<JobInfo> jobInfos, CancellationToken cancellationToken)
         {
             var completedJobIds = new HashSet<long>();
-            var activeJobs = jobInfos.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
+            var activeJobs = jobInfos.Where(j => j.Id != _jobInfo.GroupId && (j.Status == JobStatus.Running || j.Status == JobStatus.Created)).ToList();
 
             // Track job counts and timing
             int lastActiveJobCount = activeJobs.Count;
@@ -602,7 +602,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                         // Update active jobs efficiently
                         activeJobs = updatedJobs
-                            .Where(j => j.Id != _jobInfo.Id &&
+                            .Where(j => j.Id != _jobInfo.GroupId &&
                                    (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
                             .ToList();
 
