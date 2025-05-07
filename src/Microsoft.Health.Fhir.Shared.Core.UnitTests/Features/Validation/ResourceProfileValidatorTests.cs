@@ -10,6 +10,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Support;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -46,6 +47,7 @@ public class ResourceProfileValidatorTests
             _modelAttributeValidator,
             _profileValidator,
             requestContextAccessor,
+            Substitute.For<ILogger>(),
             true);
     }
 

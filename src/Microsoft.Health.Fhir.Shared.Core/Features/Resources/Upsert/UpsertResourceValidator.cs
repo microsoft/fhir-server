@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             INarrativeHtmlSanitizer narrativeHtmlSanitizer,
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IOptions<CoreFeatureConfiguration> config)
+            IOptions<CoreFeatureConfiguration> config,
+            ILogger logger)
         {
             RuleFor(x => x.Resource.Id)
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
@@ -31,10 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
               modelAttributeValidator,
               profileValidator,
               fhirRequestContextAccessor,
+              logger,
               config.Value.ProfileValidationOnUpdate);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
+                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, logger));
         }
     }
 }

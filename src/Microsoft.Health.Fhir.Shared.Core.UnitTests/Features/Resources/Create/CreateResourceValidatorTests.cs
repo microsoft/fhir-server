@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -48,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
+                Substitute.For<ILogger<CreateResourceValidator>>(),
                 config);
 
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
@@ -97,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
+                Substitute.For<ILogger<CreateResourceValidator>>(),
                 config);
             var resource = Samples.GetDefaultObservation();
 
