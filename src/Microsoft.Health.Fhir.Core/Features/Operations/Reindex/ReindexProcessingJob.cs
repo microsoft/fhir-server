@@ -6,10 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Utility;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -172,6 +174,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         throw;
                     }
                 }
+            }
+            catch (SqlException sqlEx)
+            {
+                // Handle SQL-specific exceptions
+                _logger.LogError(sqlEx, "SQL error occurred during reindex processing. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
+                LogReindexProcessingJobErrorMessage();
+                _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
+                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
+
+                // Optionally, rethrow or handle the exception based on severity
+                throw new OperationFailedException($"SQL Error occurred during reindex processing: {sqlEx.Message}", HttpStatusCode.InternalServerError);
             }
             catch (FhirException ex)
             {

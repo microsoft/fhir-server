@@ -108,6 +108,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
             }
 
+            if (!string.IsNullOrEmpty(job.FailureDetails?.FailureReason))
+            {
+                parametersResource.Add(JobRecordProperties.FailureDetails, new FhirString(job.FailureDetails.FailureReason));
+            }
+
             parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerQuery, new FhirDecimal(job.MaximumNumberOfResourcesPerQuery));
 
             parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerWrite, new FhirDecimal(job.MaximumNumberOfResourcesPerWrite));

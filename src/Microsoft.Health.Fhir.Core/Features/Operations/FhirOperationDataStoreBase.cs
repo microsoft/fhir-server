@@ -217,13 +217,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             Id = jobRecord.Id,
         };
 
+        // If no Active jobs, we are safe to queue
         _logger.LogInformation($"Queueing reindex job with definition: {def}");
         var results = await _queueClient.EnqueueAsync(QueueType.Reindex, cancellationToken, definitions: def);
-
-        if (results.Count != 1)
-        {
-            throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Reindex, "Failed to create reindex job as there is one already queued or running."), HttpStatusCode.InternalServerError);
-        }
 
         var jobInfo = results[0];
         jobRecord.Id = jobInfo.Id.ToString();
@@ -327,16 +323,16 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             {
                 if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                 {
-                    var processResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                    if (!string.IsNullOrEmpty(processResult.Error))
+                    var processResult = JsonConvert.DeserializeObject<ReindexProcessingJobErrorResult>(job.Result);
+                    if (!string.IsNullOrEmpty(processResult.Message))
                     {
                         if (record.FailureDetails == null)
                         {
-                            record.FailureDetails = new JobFailureDetails(processResult.Error, HttpStatusCode.InternalServerError);
+                            record.FailureDetails = new JobFailureDetails(processResult.Message, HttpStatusCode.InternalServerError);
                         }
-                        else if (!processResult.Error.Equals(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
+                        else if (!processResult.Message.Equals(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
                         {
-                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.Error, record.FailureDetails.FailureStatusCode);
+                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.Message, record.FailureDetails.FailureStatusCode);
                         }
                     }
                 }
@@ -356,7 +352,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             record.Status = OperationStatus.Failed;
             status = JobStatus.Failed;
             result = JsonConvert.SerializeObject(record);
-            record.Progress = groupJobs.Where(x => x.Id != jobInfo.Id).Sum(x => JsonConvert.DeserializeObject<ReindexProcessingJobResult>(x.Result).SucceededResourceCount);
+            record.Progress = groupJobs
+                .Where(x => x.Id != jobInfo.Id && !string.IsNullOrEmpty(x.Result))
+                .Sum(x => JsonConvert.DeserializeObject<ReindexProcessingJobResult>(x.Result)?.SucceededResourceCount ?? 0);
         }
 
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
