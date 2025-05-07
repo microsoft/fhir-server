@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     if (subresult != null)
                     {
-                        resourceTypesDeleted = (Dictionary<string, long>)subresult;
+                        resourceTypesDeleted = new Dictionary<string, long>(subresult);
                     }
                 }
                 catch (IncompleteOperationException<Dictionary<string, long>> ex)
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 clonedRequest.ConditionalParameters = cloneList;
                                 var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, ict, cancellationToken);
 
-                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { (Dictionary<string, long>)subresult });
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subresult) });
                             }
                             catch (IncompleteOperationException<Dictionary<string, long>> ex)
                             {
