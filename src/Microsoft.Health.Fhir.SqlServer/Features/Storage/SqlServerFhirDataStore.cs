@@ -181,14 +181,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IReadOnlyList<ResourceWrapper>> GetResourceWrappersByTransactionIdAsync(long transactionId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
         {
             IReadOnlyList<ResourceWrapper> resourceWrappers = await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, decompress, getResourceTypeName, cancellationToken);
-            UpdateBlobResourceWrappersAsync(resourceWrappers, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+            await UpdateBlobResourceWrappersAsync(resourceWrappers, cancellationToken);
             return resourceWrappers;
         }
 
         public async Task<IList<(ResourceDateLocationKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateLocationKey> keys, Func<MemoryStream, string> decompress, CancellationToken cancellationToken)
         {
             var versionedResources = await _sqlStoreClient.GetResourceVersionsAsync(keys, decompress, cancellationToken);
-            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data == null).Select(resource => new RawResourceLocator(resource.Key.ResourceStorageId, resource.Key.ResourceStorageOffset, resource.Key.ResourceStorageLength)).ToList();
+            var refs = versionedResources.Where(resource => resource.Matched.Version != null && resource.Matched.RawResource.Data == null).Select(resource => resource.Key.RawResourceLocator).ToList();
             var rawResources = await GetRawResourcesFromBlob(refs, cancellationToken);
 
             for (int i = 0; i < versionedResources.Count; i++)
@@ -196,9 +196,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var matchedResource = versionedResources[i];
                 if (matchedResource.Matched.RawResource == null)
                 {
-                    var key = new RawResourceLocator(matchedResource.Key.ResourceStorageId, matchedResource.Key.ResourceStorageOffset, matchedResource.Key.ResourceStorageLength);
                     matchedResource.Matched.RawResource = new RawResource(
-                        rawResources[key],
+                        rawResources[matchedResource.Key.RawResourceLocator],
                         matchedResource.Matched.RawResource.Format,
                         matchedResource.Matched.RawResource.IsMetaSet);
 
@@ -642,7 +641,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var matchedOnLastUpdated =
                         (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
                             .Where(_ => _.Key.VersionId == "0")
-                            .ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset, _.Key.ResourceStorageLength), _ => _);
+                            .ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.RawResourceLocator.RawResourceStorageIdentifier, _.Key.RawResourceLocator.RawResourceOffset, _.Key.RawResourceLocator.RawResourceLength), _ => _);
                     var fullyDedupped = new List<ImportResource>();
                     foreach (var input in inputsDedupped)
                     {
@@ -787,7 +786,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateLocationKey(), therefore we can trust this value as part of dictionary key.
-                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.ResourceStorageId, _.Key.ResourceStorageOffset, _.Key.ResourceStorageLength), _ => _);
+                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateLocationKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null, _.Key.RawResourceLocator.RawResourceStorageIdentifier, _.Key.RawResourceLocator.RawResourceOffset, _.Key.RawResourceLocator.RawResourceLength), _ => _);
                     foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
                         var resourceKey = input.ResourceWrapper.ToResourceDateLocationKey(_model.GetResourceTypeId, true);

@@ -18,9 +18,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Id = id;
             ResourceSurrogateId = resourceSurrogateId;
             VersionId = versionId;
-            ResourceStorageId = resourceStorageId.HasValue ? resourceStorageId.Value : 0;
-            ResourceStorageOffset = resourceStorageOffset.HasValue ? resourceStorageOffset.Value : 0;
-            ResourceStorageLength = resourceStorageLength.HasValue ? resourceStorageLength.Value : 0;
+            if (resourceStorageId.HasValue && resourceStorageOffset.HasValue && resourceStorageLength.HasValue)
+            {
+                RawResourceLocator = new RawResourceLocator(resourceStorageId.Value, resourceStorageOffset.Value, resourceStorageLength.Value);
+            }
+            else
+            {
+                RawResourceLocator = null;
+            }
+
             IsDeleted = isDeleted;
         }
 
@@ -34,11 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public bool IsDeleted { get; }
 
-        public long ResourceStorageId { get; }
-
-        public int ResourceStorageOffset { get; }
-
-        public int ResourceStorageLength { get; }
+        public RawResourceLocator RawResourceLocator { get; }
 
         public bool Equals(ResourceDateLocationKey other)
         {
@@ -56,8 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                    Id == other.Id &&
                    ResourceSurrogateId == other.ResourceSurrogateId &&
                    VersionId == other.VersionId &&
-                   ResourceStorageId == other.ResourceStorageId &&
-                   ResourceStorageOffset == other.ResourceStorageOffset &&
+                   RawResourceLocator.Equals(other.RawResourceLocator) &&
                    IsDeleted == other.IsDeleted;
         }
 
@@ -83,7 +84,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            // TODO: Should ResourceStorageId and Offset be included?
             return HashCode.Combine(ResourceTypeId, Id, ResourceSurrogateId, VersionId, IsDeleted);
         }
     }

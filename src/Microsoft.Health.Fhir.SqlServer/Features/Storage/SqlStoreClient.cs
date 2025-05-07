@@ -101,9 +101,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (extendedWrapper.SqlBytes.IsNull)
                 {
                     // Raw Resource is stored in BLOB
-                    var key = new RawResourceLocator(EnsureArg.IsNotNull(extendedWrapper.FileId).Value, EnsureArg.IsNotNull(extendedWrapper.OffsetInFile).Value, EnsureArg.IsNotNull(extendedWrapper.ResourceLength).Value);
-                    extendedWrapper.Wrapper.RawResource = new RawResource(FhirResourceFormat.Json, extendedWrapper.IsMetaSet);
-                    extendedWrapper.Wrapper.RawResourceLocator = new RawResourceLocator(extendedWrapper.FileId.Value, extendedWrapper.OffsetInFile.Value, extendedWrapper.ResourceLength.Value);
+                    if (extendedWrapper.FileId.HasValue && extendedWrapper.OffsetInFile.HasValue && extendedWrapper.ResourceLength.HasValue)
+                    {
+                        extendedWrapper.Wrapper.RawResource = new RawResource(FhirResourceFormat.Json, extendedWrapper.IsMetaSet);
+                        extendedWrapper.Wrapper.RawResourceLocator = new RawResourceLocator(extendedWrapper.FileId.Value, extendedWrapper.OffsetInFile.Value, extendedWrapper.ResourceLength.Value);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("One or more required properties (FileId, OffsetInFile, ResourceLength) are null.");
+                    }
                 }
                 else
                 {
