@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger _logger;
 
+        private const int RetryDelaySeconds = 3;
+
         public AzureExportDestinationClient(
             IExportClientInitializer<BlobServiceClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
@@ -137,6 +139,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 catch (RequestFailedException ex)
                 {
                     _logger.LogError(ex, "Failed to write export file");
+
+                    // Add a small delay before retrying in case of race condition
+                    Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
+
                     try
                     {
                         uri = CommitFileRetry(fileName);
