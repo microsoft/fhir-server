@@ -469,7 +469,7 @@ public class CosmosQueueClient : IQueueClient
     public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
     {
         var job = await PeekInternalAsync(queueType, cancellationToken);
-        return job.Id.ToString();
+        return job?.Id.ToString() ?? null;
     }
 
     private async Task<JobInfo> PeekInternalAsync(byte queueType, CancellationToken cancellationToken)
@@ -480,7 +480,13 @@ public class CosmosQueueClient : IQueueClient
 
         var response = await ExecuteQueryAsync(sqlQuerySpec, 1, queueType, cancellationToken);
 
-        return response.ToList().FirstOrDefault().ToJobInfo().FirstOrDefault();
+        // Use indexable collection directly to avoid CA1826
+        if (response.Count == 0)
+        {
+            return null;
+        }
+
+        return response[0].ToJobInfo().FirstOrDefault();
     }
 
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
