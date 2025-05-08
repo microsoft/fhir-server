@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.PutJobHeartbeat
-GO
-CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @CancelRequested bit = 0 OUTPUT
+ALTER PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @CancelRequested bit = 0 OUTPUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
