@@ -380,10 +380,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 // Clean up custom search parameters.
                 resourcesToCreate.AddRange(bundle.Entry.Select(x => x.Resource));
-                await EnsureCleanupAsync(resourcesToCreate);
+                await CleanupAsync(resourcesToCreate);
 
                 // Create search parameter resources.
-                var resources = await EnsureCreateAsync(resourcesToCreate);
+                var resources = await CreateAsync(resourcesToCreate);
 
                 // Invoke bulk-delete on the search parameters.
                 using HttpRequestMessage request = GenerateBulkDeleteRequest(
@@ -425,14 +425,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     });
 
                 // Ensure the search parameters were deleted by creating the same search parameters again.
-                await EnsureCreateAsync(resourcesToCreate);
+                await CreateAsync(resourcesToCreate);
             }
             finally
             {
-                await EnsureCleanupAsync(resourcesToCreate);
+                await CleanupAsync(resourcesToCreate);
             }
 
-            Task<List<Resource>> EnsureCreateAsync(List<Resource> resources)
+            Task<List<Resource>> CreateAsync(List<Resource> resources)
             {
                 return retryPolicy.ExecuteAsync(
                      async () =>
@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                      });
             }
 
-            Task EnsureCleanupAsync(List<Resource> resources)
+            Task CleanupAsync(List<Resource> resources)
             {
                 return retryPolicy.ExecuteAsync(
                     async () =>
