@@ -155,6 +155,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Resource-idfoo.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-USCoreIG.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -231,6 +232,7 @@
     <EmbeddedResource Include="TestFiles\R5\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameterMissingType.json" />
+    <EmbeddedResource Include="TestFiles\R5\SearchParameter-USCoreIG.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameterUnsupportedType.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchDataBatch.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
@@ -307,6 +309,7 @@
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Sequence.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\SearchParameter-USCoreIG.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />

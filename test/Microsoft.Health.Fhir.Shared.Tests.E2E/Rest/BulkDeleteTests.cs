@@ -8,11 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using IdentityServer4.Models;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -20,8 +21,12 @@ using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
+using Polly;
 using Xunit;
+using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Encounter;
+using Resource = Hl7.Fhir.Model.Resource;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -34,12 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _httpClient;
         private readonly TestFhirClient _fhirClient;
+        private readonly ITestOutputHelper _output;
 
-        public BulkDeleteTests(HttpIntegrationTestFixture fixture)
+        public BulkDeleteTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _httpClient = fixture.HttpClient;
             _fhirClient = fixture.TestFhirClient;
+            _output = output;
         }
 
         [SkippableFact]
@@ -357,6 +364,277 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
+        {
+            CheckBulkDeleteEnabled();
+
+            var resourcesToCreate = new List<Resource>();
+            var retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: 10,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
+            try
+            {
+                var tag = Guid.NewGuid().ToString();
+                var bundle = (Bundle)TagResources((Bundle)Samples.GetJsonSample("SearchParameter-USCoreIG").ToPoco(), tag);
+
+                // Clean up custom search parameters.
+                resourcesToCreate.AddRange(bundle.Entry.Select(x => x.Resource));
+                await CleanupAsync(resourcesToCreate);
+
+                // Create search parameter resources.
+                var resources = await CreateAsync(resourcesToCreate);
+
+                // Invoke bulk-delete on the search parameters.
+                using HttpRequestMessage request = GenerateBulkDeleteRequest(
+                    tag,
+                    $"{KnownResourceTypes.SearchParameter}/$bulk-delete",
+                    queryParams: new Dictionary<string, string>
+                    {
+                        { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
+                    });
+
+                using HttpResponseMessage response = await _httpClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+                var resourceTypes = new Dictionary<string, long>()
+                {
+                    { KnownResourceTypes.SearchParameter, bundle.Entry.Count },
+                };
+
+                await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+
+                // Make sure the search parameters are deleted.
+                await retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        var deleted = 0;
+                        foreach (var resource in resources)
+                        {
+                            try
+                            {
+                                await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
+                            }
+                            catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
+                            {
+                                deleted++;
+                            }
+                        }
+
+                        Assert.Equal(resources.Count, deleted);
+                    });
+
+                // Ensure the search parameters were deleted by creating the same search parameters again.
+                await CreateAsync(resourcesToCreate);
+            }
+            finally
+            {
+                await CleanupAsync(resourcesToCreate);
+            }
+
+            Task<List<Resource>> CreateAsync(List<Resource> resources)
+            {
+                return retryPolicy.ExecuteAsync(
+                     async () =>
+                     {
+                         DebugOutput($"Creating {resources.Count} search parameters...");
+                         var searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                         Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                         var count = searchResponse.Resource?.Entry.Count ?? 0;
+                         DebugOutput($"{count} search parameters found in the store.");
+                         if (count > 0)
+                         {
+                             var urls = new StringBuilder();
+                             foreach (var entry in searchResponse.Resource.Entry)
+                             {
+                                 urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                             }
+
+                             DebugOutput(urls.ToString());
+                         }
+
+                         var resourcesCreated = new List<Resource>();
+                         foreach (var resource in resources)
+                         {
+                             var url = ((SearchParameter)resource).Url;
+                             try
+                             {
+                                 DebugOutput($"Url searching: {url}");
+                                 searchResponse = await _fhirClient.SearchAsync(
+                                     ResourceType.SearchParameter,
+                                     $"url={url}");
+                                 Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                                 var resourceToCreate = searchResponse.Resource?.Entry?
+                                     .Select(x => x.Resource)
+                                     .Where(
+                                        x =>
+                                        {
+                                            if ((x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                                && (((SearchParameter)x).Url == url))
+                                            {
+                                                return true;
+                                            }
+
+                                            return false;
+                                        })
+                                     .FirstOrDefault();
+                                 if (resourceToCreate != null)
+                                 {
+                                     DebugOutput($"Url already exists: {url}");
+                                     continue;
+                                 }
+
+                                 DebugOutput($"Url creating: {url}");
+                                 var response = await _fhirClient.CreateAsync(resource);
+                                 Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+                                 DebugOutput($"Url created: {url}");
+                                 resourcesCreated.Add(resource);
+                             }
+                             catch (Exception ex)
+                             {
+                                 if (ex is FhirClientException && ((FhirClientException)ex).Response?.StatusCode == HttpStatusCode.BadRequest)
+                                 {
+                                     await Task.Delay(2000);
+                                 }
+
+                                 DebugOutput($"Url create failed: {url}{Environment.NewLine}{ex}");
+                                 throw;
+                             }
+                         }
+
+                         await Task.Delay(2000);
+                         foreach (var resource in resourcesCreated)
+                         {
+                             var response = await _fhirClient.SearchAsync(
+                                 ResourceType.SearchParameter,
+                                 $"url={((SearchParameter)resource).Url}");
+                             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                             var resourcesRetrieved = response.Resource?.Entry
+                                 .Select(x => x.Resource)
+                                 .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                 .ToList();
+                             Assert.Single(resourcesRetrieved);
+                         }
+
+                         searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                         Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                         count = searchResponse.Resource?.Entry.Count ?? 0;
+                         DebugOutput($"{count} search parameters found in the store after create.");
+                         if (count > 0)
+                         {
+                             var urls = new StringBuilder();
+                             foreach (var entry in searchResponse.Resource.Entry)
+                             {
+                                 urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                             }
+
+                             DebugOutput(urls.ToString());
+                         }
+
+                         DebugOutput("Creating search parameters completed.");
+                         return resourcesCreated;
+                     });
+            }
+
+            Task CleanupAsync(List<Resource> resources)
+            {
+                return retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        DebugOutput($"Cleaning up {resources.Count} search parameters...");
+                        var searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                        var count = searchResponse.Resource?.Entry.Count ?? 0;
+                        DebugOutput($"{count} search parameters found in the store.");
+                        if (count > 0)
+                        {
+                            var urls = new StringBuilder();
+                            foreach (var entry in searchResponse.Resource.Entry)
+                            {
+                                urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                            }
+
+                            DebugOutput(urls.ToString());
+                        }
+
+                        foreach (var resource in resources)
+                        {
+                            var url = ((SearchParameter)resource).Url;
+                            var response = await _fhirClient.SearchAsync(
+                                ResourceType.SearchParameter,
+                                $"url={url}");
+                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                            var resourceToDelete = response.Resource?.Entry?
+                                .Select(x => x.Resource)
+                                .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                .FirstOrDefault();
+                            if (resourceToDelete != null)
+                            {
+                                try
+                                {
+                                    DebugOutput($"Url deleting: {url}");
+                                    await _fhirClient.HardDeleteAsync(resourceToDelete);
+                                    DebugOutput($"Url deleted: {url}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugOutput($"Url delete failed: {url}{Environment.NewLine}{ex}");
+                                    throw;
+                                }
+                            }
+                            else
+                            {
+                                DebugOutput($"Url not found: {url}");
+                            }
+                        }
+
+                        await Task.Delay(2000);
+                        foreach (var resource in resources)
+                        {
+                            var response = await _fhirClient.SearchAsync(
+                                ResourceType.SearchParameter,
+                                $"url={((SearchParameter)resource).Url}");
+                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                            var resourceRetrieved = response.Resource?.Entry
+                                .Select(x => x.Resource)
+                                .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                .FirstOrDefault();
+                            Assert.Null(resourceRetrieved);
+                        }
+
+                        searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                        count = searchResponse.Resource?.Entry.Count ?? 0;
+                        DebugOutput($"{count} search parameters found in the store after cleanup.");
+                        if (count > 0)
+                        {
+                            var urls = new StringBuilder();
+                            foreach (var entry in searchResponse.Resource.Entry)
+                            {
+                                urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                            }
+
+                            DebugOutput(urls.ToString());
+                        }
+
+                        DebugOutput("Cleaning up search parameters completed.");
+                    });
+            }
+        }
+
         private async Task RunBulkDeleteRequest(
             Dictionary<string, long> expectedResults,
             bool addUndeletedResource = false,
@@ -415,10 +693,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return request;
         }
 
-        private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults)
+        private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults, bool failOnIssues = false)
         {
             var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
 
+            var actualResults = new Dictionary<string, long>();
             var resultsChecked = 0;
             var issuesChecked = 0;
             foreach (var parameter in result.Parameter)
@@ -433,8 +712,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     {
                         var resourceName = part.Name;
                         var numberDeleted = (long)((Integer64)part.Value).Value;
-
-                        Assert.Equal(expectedResults[resourceName], numberDeleted);
+                        actualResults[resourceName] = numberDeleted;
                         resultsChecked++;
                     }
                 }
@@ -444,12 +722,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
             }
 
-            Assert.Equal(expectedResults.Keys.Count, resultsChecked);
+            try
+            {
+                Assert.Equal(expectedResults.Count, actualResults.Count);
+                Assert.Contains(
+                    actualResults,
+                    x => expectedResults.TryGetValue(x.Key, out var value) && value == x.Value);
+            }
+            finally
+            {
+                if (issuesChecked > 0 && failOnIssues)
+                {
+                    Assert.Fail(JsonConvert.SerializeObject(result));
+                }
+            }
         }
 
         private void CheckBulkDeleteEnabled()
         {
             Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete"), "$bulk-delete not enabled on this server");
+        }
+
+        private Resource TagResources(Bundle bundle, string tag)
+        {
+            foreach (var entry in bundle.Entry)
+            {
+                entry.Resource.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            }
+
+            return bundle;
+        }
+
+        private void DebugOutput(string message)
+        {
+#if true
+            _output.WriteLine(message);
+#endif
         }
     }
 }
