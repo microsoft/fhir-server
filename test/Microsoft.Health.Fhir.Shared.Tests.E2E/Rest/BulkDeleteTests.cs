@@ -440,10 +440,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                          var resourcesCreated = new List<Resource>();
                          foreach (var resource in resources)
                          {
-                             var response = await _fhirClient.CreateAsync(resource);
-                             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                             try
+                             {
+                                 var response = await _fhirClient.CreateAsync(resource);
+                                 Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-                             resourcesCreated.Add(resource);
+                                 resourcesCreated.Add(resource);
+                             }
+                             catch (FhirClientException ex)
+                             {
+                                 if (ex.Response?.StatusCode == HttpStatusCode.BadRequest)
+                                 {
+                                     await Task.Delay(2000);
+                                 }
+
+                                 throw;
+                             }
                          }
 
                          await Task.Delay(2000);
