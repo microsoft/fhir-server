@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
@@ -23,6 +24,7 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Polly;
 using Xunit;
+using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Encounter;
 using Resource = Hl7.Fhir.Model.Resource;
 using Task = System.Threading.Tasks.Task;
@@ -37,12 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _httpClient;
         private readonly TestFhirClient _fhirClient;
+        private readonly ITestOutputHelper _output;
 
-        public BulkDeleteTests(HttpIntegrationTestFixture fixture)
+        public BulkDeleteTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _httpClient = fixture.HttpClient;
             _fhirClient = fixture.TestFhirClient;
+            _output = output;
         }
 
         [SkippableFact]
@@ -437,23 +441,70 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return retryPolicy.ExecuteAsync(
                      async () =>
                      {
+                         DebugOutput($"Creating {resources.Count} search parameters...");
+                         var searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                         Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                         var count = searchResponse.Resource?.Entry.Count ?? 0;
+                         DebugOutput($"{count} search parameters found in the store.");
+                         if (count > 0)
+                         {
+                             var urls = new StringBuilder();
+                             foreach (var entry in searchResponse.Resource.Entry)
+                             {
+                                 urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                             }
+
+                             DebugOutput(urls.ToString());
+                         }
+
                          var resourcesCreated = new List<Resource>();
                          foreach (var resource in resources)
                          {
+                             var url = ((SearchParameter)resource).Url;
                              try
                              {
+                                 DebugOutput($"Url searching: {url}");
+                                 searchResponse = await _fhirClient.SearchAsync(
+                                     ResourceType.SearchParameter,
+                                     $"url={url}");
+                                 Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                                 var resourceToCreate = searchResponse.Resource?.Entry?
+                                     .Select(x => x.Resource)
+                                     .Where(
+                                        x =>
+                                        {
+                                            if ((x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                                && (((SearchParameter)x).Url == url))
+                                            {
+                                                return true;
+                                            }
+
+                                            return false;
+                                        })
+                                     .FirstOrDefault();
+                                 if (resourceToCreate != null)
+                                 {
+                                     DebugOutput($"Url already exists: {url}");
+                                     continue;
+                                 }
+
+                                 DebugOutput($"Url creating: {url}");
                                  var response = await _fhirClient.CreateAsync(resource);
                                  Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
+                                 DebugOutput($"Url created: {url}");
                                  resourcesCreated.Add(resource);
                              }
-                             catch (FhirClientException ex)
+                             catch (Exception ex)
                              {
-                                 if (ex.Response?.StatusCode == HttpStatusCode.BadRequest)
+                                 if (ex is FhirClientException && ((FhirClientException)ex).Response?.StatusCode == HttpStatusCode.BadRequest)
                                  {
                                      await Task.Delay(2000);
                                  }
 
+                                 DebugOutput($"Url create failed: {url}{Environment.NewLine}{ex}");
                                  throw;
                              }
                          }
@@ -473,6 +524,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                              Assert.Single(resourcesRetrieved);
                          }
 
+                         searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                         Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                         count = searchResponse.Resource?.Entry.Count ?? 0;
+                         DebugOutput($"{count} search parameters found in the store after create.");
+                         if (count > 0)
+                         {
+                             var urls = new StringBuilder();
+                             foreach (var entry in searchResponse.Resource.Entry)
+                             {
+                                 urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                             }
+
+                             DebugOutput(urls.ToString());
+                         }
+
+                         DebugOutput("Creating search parameters completed.");
                          return resourcesCreated;
                      });
             }
@@ -482,11 +550,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return retryPolicy.ExecuteAsync(
                     async () =>
                     {
+                        DebugOutput($"Cleaning up {resources.Count} search parameters...");
+                        var searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                        var count = searchResponse.Resource?.Entry.Count ?? 0;
+                        DebugOutput($"{count} search parameters found in the store.");
+                        if (count > 0)
+                        {
+                            var urls = new StringBuilder();
+                            foreach (var entry in searchResponse.Resource.Entry)
+                            {
+                                urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                            }
+
+                            DebugOutput(urls.ToString());
+                        }
+
                         foreach (var resource in resources)
                         {
+                            var url = ((SearchParameter)resource).Url;
                             var response = await _fhirClient.SearchAsync(
                                 ResourceType.SearchParameter,
-                                $"url={((SearchParameter)resource).Url}");
+                                $"url={url}");
                             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
                             var resourceToDelete = response.Resource?.Entry?
@@ -495,7 +581,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                 .FirstOrDefault();
                             if (resourceToDelete != null)
                             {
-                                await _fhirClient.HardDeleteAsync(resourceToDelete);
+                                try
+                                {
+                                    DebugOutput($"Url deleting: {url}");
+                                    await _fhirClient.HardDeleteAsync(resourceToDelete);
+                                    DebugOutput($"Url deleted: {url}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugOutput($"Url delete failed: {url}{Environment.NewLine}{ex}");
+                                    throw;
+                                }
+                            }
+                            else
+                            {
+                                DebugOutput($"Url not found: {url}");
                             }
                         }
 
@@ -513,6 +613,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                 .FirstOrDefault();
                             Assert.Null(resourceRetrieved);
                         }
+
+                        searchResponse = await _fhirClient.SearchAsync(ResourceType.SearchParameter);
+                        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+                        count = searchResponse.Resource?.Entry.Count ?? 0;
+                        DebugOutput($"{count} search parameters found in the store after cleanup.");
+                        if (count > 0)
+                        {
+                            var urls = new StringBuilder();
+                            foreach (var entry in searchResponse.Resource.Entry)
+                            {
+                                urls.AppendLine(((SearchParameter)entry.Resource).Url);
+                            }
+
+                            DebugOutput(urls.ToString());
+                        }
+
+                        DebugOutput("Cleaning up search parameters completed.");
                     });
             }
         }
@@ -639,6 +757,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return bundle;
+        }
+
+        private void DebugOutput(string message)
+        {
+#if true
+            _output.WriteLine(message);
+#endif
         }
     }
 }
