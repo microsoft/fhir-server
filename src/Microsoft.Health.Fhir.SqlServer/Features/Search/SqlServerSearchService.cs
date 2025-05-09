@@ -1094,7 +1094,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return await SearchForReindexSurrogateIdsWithoutSearchParamHashAsync(resourceTypeId, cancellationToken);
             }
 
-            // TODO: What to do about this? It is a bottelneck when creating index jobs even when only retriving counts.
             // can't use totalCount for reindex on extremely large dbs because we don't have an
             // index on Resource.SearchParamHash which would be necessary to calculate an accurate count
             int totalCount = 0;

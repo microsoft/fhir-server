@@ -14,9 +14,8 @@ SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='
 
 BEGIN TRY
   UPDATE dbo.JobQueue
-    SET @CancelRequested = CancelRequested,
-        HeartbeatDate = getUTCdate(),
-        Data = @Data
+    SET @CancelRequested = CancelRequested
+       ,HeartbeatDate = getUTCdate()
     WHERE QueueType = @QueueType
       AND PartitionId = @PartitionId
       AND JobId = @JobId
