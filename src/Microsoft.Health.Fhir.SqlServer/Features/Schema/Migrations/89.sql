@@ -2089,7 +2089,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.EnqueueJobs
-@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT=1, @IsCompleted BIT=NULL, @Status TINYINT=NULL, @Result VARCHAR (MAX)=NULL, @StartDate DATETIME=NULL, @ReturnJobs BIT=1
+@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT=1, @Status TINYINT=NULL, @Result VARCHAR (MAX)=NULL, @StartDate DATETIME=NULL, @ReturnJobs BIT=1
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
