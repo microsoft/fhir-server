@@ -120,6 +120,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
+            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, null, cancellationToken);
+        }
+
+        private async Task<IDictionary<string, long>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, string continuationToken, CancellationToken cancellationToken)
+        {
             EnsureArg.IsNotNull(request, nameof(request));
 
             var searchCount = 1000;
@@ -127,15 +132,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             IReadOnlyCollection<SearchResultEntry> results;
             string ct;
+            string ict;
             using (var searchService = _searchServiceFactory.Invoke())
             {
-                (results, ct) = await searchService.Value.ConditionalSearchAsync(
+                (results, ct, ict) = await searchService.Value.ConditionalSearchAsync(
                     request.ResourceType,
                     request.ConditionalParameters,
                     cancellationToken,
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
+                    continuationToken,
                     versionType: request.VersionType,
                     onlyIds: true,
+                    isIncludesOperation: request.IsIncludesRequest,
                     logger: _logger);
             }
 
@@ -145,10 +153,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var deleteTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            if (AreIncludeResultsTruncated())
+            // If there is more than one page of results included then delete all included results for the first page of resources.
+            if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
             {
-                var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                try
+                {
+                    if (!request.DeleteAll)
+                    {
+                        var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
+                        throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                    }
+
+                    ConditionalDeleteResourceRequest clonedRequest = request.Clone();
+                    clonedRequest.IsIncludesRequest = true;
+                    var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
+                    {
+                        Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
+                    };
+                    clonedRequest.ConditionalParameters = cloneList;
+                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, ict, cancellationToken);
+
+                    if (subresult != null)
+                    {
+                        resourceTypesDeleted = (Dictionary<string, long>)subresult;
+                    }
+                }
+                catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                {
+                    _logger.LogError(ex, "Error with include delete");
+                    throw new IncompleteOperationException<Dictionary<string, long>>(ex, ex.PartialResults);
+                }
             }
 
             // Delete the matched results...
@@ -176,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     deleteTasks = deleteTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
 
-                    if (deleteTasks.Count >= MaxParallelThreads)
+                    if (deleteTasks.Count >= parallelThreads)
                     {
                         await deleteTasks[0];
                     }
@@ -185,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     {
                         using (var searchService = _searchServiceFactory.Invoke())
                         {
-                            (results, ct) = await searchService.Value.ConditionalSearchAsync(
+                            (results, ct, ict) = await searchService.Value.ConditionalSearchAsync(
                                 request.ResourceType,
                                 request.ConditionalParameters,
                                 cancellationToken,
@@ -193,13 +227,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 ct,
                                 request.VersionType,
                                 onlyIds: true,
+                                isIncludesOperation: request.IsIncludesRequest,
                                 logger: _logger);
                         }
 
-                        if (AreIncludeResultsTruncated())
+                        // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
+                        if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
                         {
-                            tooManyIncludeResults = true;
-                            break;
+                            try
+                            {
+                                if (!request.DeleteAll)
+                                {
+                                    tooManyIncludeResults = true;
+                                    break;
+                                }
+
+                                ConditionalDeleteResourceRequest clonedRequest = request.Clone();
+                                clonedRequest.IsIncludesRequest = true;
+                                var cloneList = new List<Tuple<string, string>>(clonedRequest.ConditionalParameters)
+                                {
+                                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
+                                };
+                                clonedRequest.ConditionalParameters = cloneList;
+                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, ict, cancellationToken);
+
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { (Dictionary<string, long>)subresult });
+                            }
+                            catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                            {
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { ex.PartialResults });
+                                _logger.LogError(ex, "Error with include delete");
+                                throw;
+                            }
                         }
                     }
                     else
@@ -278,14 +337,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 false,
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
-            ResourceWrapperOperation[] softDeleteMatches = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(async item =>
+            ResourceWrapperOperation[] softDeleteIncludes = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(async item =>
             {
+                // If there isn't a cached capability statement (IE this is the first request made after a service starts up) then performance on this request will be terrible as the capability statement needs to be rebuilt for every resource.
+                // This is because the capability statement can't be made correctly in a background job, so it doesn't cache the result.
+                // The result is good enough for background work, but can't be used for metadata as the urls aren't formated properly.
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Resource.ResourceTypeName, cancellationToken);
                 ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(item.Resource.ResourceTypeName, item.Resource.ResourceId);
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }));
 
-            ResourceWrapperOperation[] softDeleteIncludes = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(async item =>
+            ResourceWrapperOperation[] softDeleteMatches = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(async item =>
             {
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Resource.ResourceTypeName, cancellationToken);
                 ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(item.Resource.ResourceTypeName, item.Resource.ResourceId);
@@ -353,8 +415,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
-                var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
                 var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
+                var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
                 // This throws AggrigateExceptions
