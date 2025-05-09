@@ -514,7 +514,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (SqlException ex)
                 {
                     _logger.LogError(ex, "Failed to fetch job statuses for job Id: {Id}.", _jobInfo.Id);
-                    throw new JobExecutionException("Error fetching job statuses.", ex);
+                    throw new JobExecutionException("Error fetching job statuses.", ex.InnerException);
                 }
 
                 foreach (var jobInfo in jobInfosToCheck)
@@ -531,7 +531,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             var processingJobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(jobInfo.Result);
                             _logger.LogError("Job failed. Id: {JobId}, Message: {Message}", jobInfo.Id, processingJobResult.Error);
-                            throw new JobExecutionException(processingJobResult.Error);
                         }
                         else if (jobInfo.Status == JobStatus.Cancelled)
                         {
