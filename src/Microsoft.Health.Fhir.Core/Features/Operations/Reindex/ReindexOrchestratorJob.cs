@@ -488,8 +488,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .Select(j => j.Id)
                 .ToList();
 
-            const int PollingPeriodSec = 10; // Polling interval in seconds
-            const int MaxBatchSize = 20; // Maximum number of jobs to check in one batch
+            const int PollingPeriodSec = 60; // Polling interval in seconds
+            uint maxBatchSize = _reindexJobRecord.MaximumNumberOfResourcesPerQuery; // Maximum number of jobs to check in one batch
 
             _logger.LogInformation("Waiting for child jobs to complete for job Id: {Id}.", _jobInfo.Id);
 
@@ -497,14 +497,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 var completedJobIds = new HashSet<long>();
                 var jobInfosToCheck = new List<JobInfo>();
-                double duration;
+                double duration = 0; // Initialize the variable to avoid CS0165
 
                 try
                 {
                     var start = Stopwatch.StartNew();
 
                     // Fetch job statuses in batches
-                    foreach (var batch in activeJobIds.Take(MaxBatchSize).Chunk(MaxBatchSize))
+                    foreach (var batch in activeJobIds.Take((int)maxBatchSize).Chunk((int)maxBatchSize))
                     {
                         jobInfosToCheck.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, batch.ToArray(), false, cancellationToken));
                     }
