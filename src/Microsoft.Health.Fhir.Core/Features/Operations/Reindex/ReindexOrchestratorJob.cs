@@ -511,10 +511,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     duration = start.Elapsed.TotalSeconds;
                 }
-                catch (SqlException ex)
+                catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to fetch job statuses for job Id: {Id}.", _jobInfo.Id);
-                    throw new JobExecutionException(ex.Message);
                 }
 
                 foreach (var jobInfo in jobInfosToCheck)
