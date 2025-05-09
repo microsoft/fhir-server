@@ -288,6 +288,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         TypeId = (int)JobType.ReindexProcessing,
                         ForceReindex = _reindexJobRecord.ForceReindex,
+                        GroupId = _jobInfo.GroupId,
                         ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                         ResourceCount = new SearchResultReindex
                         {
