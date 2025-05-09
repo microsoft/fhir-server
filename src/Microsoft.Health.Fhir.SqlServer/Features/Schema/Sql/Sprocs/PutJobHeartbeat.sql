@@ -9,7 +9,7 @@ DECLARE @SP varchar(100) = 'PutJobHeartbeat'
        ,@Rows int = 0
        ,@PartitionId tinyint = @JobId % 16
 
-SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' D='+isnull(convert(varchar,@Data),'NULL')
+SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)
 
 BEGIN TRY
   UPDATE dbo.JobQueue
