@@ -25,7 +25,7 @@
             "use": "in",
             "min": 0,
             "max": "1",
-            "documentation": "The number of 'include' resources to retrieve. Defaults to 500.",
+            "documentation": "The number of 'include' resources to retrieve.",
             "type": "integer"
         }
     ]

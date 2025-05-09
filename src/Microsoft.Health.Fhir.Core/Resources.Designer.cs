@@ -962,6 +962,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        /// </summary>
+        internal static string NotReferencedParameterInvalidValue {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
         internal static string NumberOfCompositeComponentsExceeded {
@@ -1669,6 +1678,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string TruncatedIncludeMessage {
             get {
                 return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Included items are truncated. Use the related link in the response to retrieve all included items..
+        /// </summary>
+        internal static string TruncatedIncludeMessageForIncludes {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessageForIncludes", resourceCulture);
             }
         }
         
