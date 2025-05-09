@@ -13,12 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         private const string _completedSqlTransactionError = "This SqlTransaction has completed; it is no longer usable.";
 
-        internal static bool IsExecutionTimeout(this Exception e)
-        {
-            var str = e.ToString().ToLowerInvariant();
-            return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
         /// Determines whether the exception or its inner exception is of type <see cref="RequestRateExceededException"/>.
         /// It could be the inner exception because the Cosmos DB SDK wraps exceptions that are thrown inside of custom request handlers with a CosmosException.

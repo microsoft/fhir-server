@@ -43,9 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
-        private static readonly AsyncPolicy _timeoutRetries = Policy
-            .Handle<SqlException>(ex => ex.IsExecutionTimeout())
-            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -265,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList());
+                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
                 _logger.LogInformation("Enqueued {Count} query processing jobs. job id: {Id}, group id: {GroupId}.", jobIds.Count, _jobInfo.Id, _jobInfo.GroupId);
                 return jobIds;
             }
