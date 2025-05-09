@@ -56,7 +56,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var expectedResourceType = "Account";
             ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
             {
-                ForceReindex = false,
                 MaximumNumberOfResourcesPerQuery = 100,
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()
@@ -110,7 +109,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var expectedResourceType = "Account";
             ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
             {
-                ForceReindex = false,
                 MaximumNumberOfResourcesPerQuery = 1,
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()

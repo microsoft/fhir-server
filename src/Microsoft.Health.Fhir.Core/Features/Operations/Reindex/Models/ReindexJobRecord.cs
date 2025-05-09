@@ -140,9 +140,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.TargetSearchParameterTypes)]
         public IReadOnlyCollection<string> TargetSearchParameterTypes { get; private set; } = new List<string>();
 
-        [JsonIgnore]
-        public bool ForceReindex => TargetSearchParameterTypes.Any() && SearchParameterResourceTypes.Any();
-
         /// <summary>
         /// This will be the base resource types from the <see cref="TargetSearchParameterTypes"/>
         /// </summary>

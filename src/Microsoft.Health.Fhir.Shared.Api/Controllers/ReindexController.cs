@@ -221,16 +221,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 JobRecordProperties.MaximumNumberOfResourcesPerQuery,
                 JobRecordProperties.MaximumNumberOfResourcesPerWrite,
-                JobRecordProperties.TargetDataStoreUsagePercentage,
-                JobRecordProperties.TargetResourceTypes,
-                JobRecordProperties.TargetSearchParameterTypes,
             };
 
             var patchParams = new HashSet<string>()
             {
                 JobRecordProperties.MaximumNumberOfResourcesPerQuery,
                 JobRecordProperties.MaximumNumberOfResourcesPerWrite,
-                JobRecordProperties.TargetDataStoreUsagePercentage,
                 JobRecordProperties.Status,
             };
 

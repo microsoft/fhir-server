@@ -169,21 +169,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
-            else if (_reindexJobRecord.ForceReindex)
-            {
-                resourceList.UnionWith(_reindexJobRecord.SearchParameterResourceTypes);
-
-                // Adding these in so they get included in search param status updates.
-                foreach (var searchParam in _reindexJobRecord.TargetSearchParameterTypes)
-                {
-                    if (_reindexJobRecord.SearchParams.Contains(searchParam))
-                    {
-                        continue;
-                    }
-
-                    _reindexJobRecord.SearchParams.Add(searchParam);
-                }
-            }
             else
             {
                 notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
@@ -287,7 +272,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var reindexJobPayload = new ReindexProcessingJobDefinition()
                     {
                         TypeId = (int)JobType.ReindexProcessing,
-                        ForceReindex = _reindexJobRecord.ForceReindex,
                         GroupId = _jobInfo.GroupId,
                         ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                         ResourceCount = new SearchResultReindex
@@ -413,7 +397,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            if (!_reindexJobRecord.ForceReindex && !_reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash))
+            if (!_reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash))
             {
                 searchParameterHash = string.Empty;
             }
@@ -752,47 +736,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     processedJobIds.Add(succeededJobInfo.Id);
                 }
 
-                if (_reindexJobRecord.ForceReindex)
+                (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(succeededJobInfos);
+                if (totalCount != 0)
                 {
-                    // For force reindex, only update the search parameters once at the end
-                    // and only for jobs that haven't been processed yet
+                    string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." +
+                        " Resubmit the same reindex job to finish indexing the remaining resources.";
+                    AddErrorResult(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.Incomplete,
+                        userMessage);
+                    _logger.LogWarning("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
+
+                    LogReindexJobRecordErrorMessage();
+                }
+                else
+                {
+                    // Only update search parameters for jobs that haven't been processed yet
                     var unprocessedJobs = succeededJobInfos
                         .Where(job => !processedJobIds.Contains(job.Id))
                         .ToList();
 
                     if (unprocessedJobs.Any())
                     {
-                        _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs in force reindex mode", unprocessedJobs.Count);
+                        _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
                         await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
-                    }
-                }
-                else
-                {
-                    (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(succeededJobInfos);
-                    if (totalCount != 0)
-                    {
-                        string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." +
-                            " Resubmit the same reindex job to finish indexing the remaining resources.";
-                        AddErrorResult(
-                           OperationOutcomeConstants.IssueSeverity.Error,
-                           OperationOutcomeConstants.IssueType.Incomplete,
-                           userMessage);
-                        _logger.LogWarning("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
-
-                        LogReindexJobRecordErrorMessage();
-                    }
-                    else
-                    {
-                        // Only update search parameters for jobs that haven't been processed yet
-                        var unprocessedJobs = succeededJobInfos
-                            .Where(job => !processedJobIds.Contains(job.Id))
-                            .ToList();
-
-                        if (unprocessedJobs.Any())
-                        {
-                            _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
-                            await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
-                        }
                     }
                 }
             }

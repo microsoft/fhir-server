@@ -18,8 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public string ResourceType { get; set; }
 
-        public bool ForceReindex { get; set; }
-
         public string ResourceTypeSearchParameterHashMap { get; set; }
 
         public SearchResultReindex ResourceCount { get; set; }
