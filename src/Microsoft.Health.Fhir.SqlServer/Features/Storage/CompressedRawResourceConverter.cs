@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
     /// Handles converting raw resource strings to compressed streams for storage in the database and vice-versa.
+    /// Benine change.
     /// </summary>
     internal class CompressedRawResourceConverter : ICompressedRawResourceConverter
     {
