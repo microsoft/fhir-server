@@ -468,7 +468,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                     }
 
-                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                    // Don't add the smart compartment twice. this is a patch for bug number AB#152447.
+                    if (!searchExpressions.Any(e => e.ValueInsensitiveEquals(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null))))
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                    }
                 }
                 else
                 {
