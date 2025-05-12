@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
+        private bool? _isSurrogateIdRangingSupported = null;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -243,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
-            var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery; // Define the chunk size
+            var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var definitions = new List<string>();
 
             foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts)
@@ -256,17 +257,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     continue; // Skip if there are no resources to process
                 }
 
-                // For larger counts, get actual surrogate ID ranges from the database
-                var ranges = await _searchServiceFactory().Value.GetSurrogateIdRanges(
-                    resourceType,
-                    resourceCount.StartResourceSurrogateId,
-                    resourceCount.EndResourceSurrogateId,
-                    resourcesPerJob,
-                    (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob),
-                    true,
-                    cancellationToken);
+                // Create a list to store the ranges for processing
+                List<(long StartId, long EndId)> processingRanges = new List<(long StartId, long EndId)>();
 
-                foreach (var range in ranges)
+                // Determine support for surrogate ID ranging once
+                // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
+                if (_isSurrogateIdRangingSupported == null)
+                {
+                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                    {
+                        // Check if the implementation is SqlServerSearchService
+                        Type serviceType = searchService.Value.GetType();
+
+                        _isSurrogateIdRangingSupported = serviceType.FullName.Contains("SqlServerSearchService", StringComparison.Ordinal);
+
+                        _logger.LogInformation(
+                            _isSurrogateIdRangingSupported.Value
+                                ? "Using SQL Server search service with surrogate ID ranging support"
+                                : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
+                    }
+                }
+
+                // Check if surrogate ID ranging hasn't been determined yet or is supported
+                if (_isSurrogateIdRangingSupported == true)
+                {
+                    // Try to use the GetSurrogateIdRanges method (SQL Server path)
+                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                    {
+                        var ranges = await searchService.Value.GetSurrogateIdRanges(
+                            resourceType,
+                            resourceCount.StartResourceSurrogateId,
+                            resourceCount.EndResourceSurrogateId,
+                            resourcesPerJob,
+                            (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob),
+                            true,
+                            cancellationToken);
+
+                        // If we get here, it's supported
+                        _isSurrogateIdRangingSupported = true;
+                        processingRanges.AddRange(ranges);
+                        _logger.LogInformation("Using database-provided surrogate ID ranges for resource type {ResourceType}. Generated {Count} ranges.", resourceType, ranges.Count);
+                    }
+                }
+                else
+                {
+                    // Traditional chunking approach for Cosmos or fallback
+                    long totalResources = resourceCount.Count;
+
+                    int numberOfChunks = (int)Math.Ceiling(totalResources / (double)resourcesPerJob);
+                    _logger.LogInformation("Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
+
+                    // Create uniform-sized chunks based on resource count
+                    for (int i = 0; i < numberOfChunks; i++)
+                    {
+                        processingRanges.Add((0, 0)); // For Cosmos, we don't use surrogate IDs directly
+                    }
+                }
+
+                // Create job definitions from the ranges
+                foreach (var range in processingRanges)
                 {
                     var baseResourceCount = GetSearchResultReindex(resourceType);
                     var reindexJobPayload = new ReindexProcessingJobDefinition()
@@ -292,13 +341,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // Sort definitions by ResourceType before enqueueing
-                var sortedDefinitions = definitions
-                    .Select(d => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(d))
-                    .OrderBy(d => d.ResourceType)
-                    .Select(d => JsonConvert.SerializeObject(d))
-                    .ToArray();
-
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
                     .Select(job => job.Id)
                     .OrderBy(id => id)
