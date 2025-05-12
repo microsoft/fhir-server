@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         if (result != null)
                         {
-                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results?.Count();
+                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.TotalCount;
                             _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                         }
                     }
