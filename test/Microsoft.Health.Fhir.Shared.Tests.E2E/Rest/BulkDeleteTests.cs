@@ -406,7 +406,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     { KnownResourceTypes.SearchParameter, bundle.Entry.Count },
                 };
 
-                await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+                await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, resourceTypes);
 
                 // Make sure the search parameters are deleted.
                 await retryPolicy.ExecuteAsync(
@@ -429,6 +429,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     });
 
                 // Ensure the search parameters were deleted by creating the same search parameters again.
+                DebugOutput("Creating search parameters again after bulk-delete...");
                 await CreateAsync(resourcesToCreate);
             }
             finally
@@ -499,12 +500,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                              }
                              catch (Exception ex)
                              {
-                                 if (ex is FhirClientException && ((FhirClientException)ex).Response?.StatusCode == HttpStatusCode.BadRequest)
-                                 {
-                                     await Task.Delay(2000);
-                                 }
-
                                  DebugOutput($"Url create failed: {url}{Environment.NewLine}{ex}");
+                                 await Task.Delay(2000);
                                  throw;
                              }
                          }
@@ -632,6 +629,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         DebugOutput("Cleaning up search parameters completed.");
                     });
+            }
+
+            Task CheckBulkDeleteStatusAsync(Uri location, Dictionary<string, long> expectedResults)
+            {
+                return retryPolicy.ExecuteAsync(
+                     async () =>
+                     {
+                         DebugOutput($"Checking the bulk-delete status: {location?.AbsolutePath}...");
+                         var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
+
+                         var actualResults = new Dictionary<string, long>();
+                         var resultsChecked = 0;
+                         var issuesChecked = 0;
+                         foreach (var parameter in result.Parameter)
+                         {
+                             if (parameter.Name == "Issues")
+                             {
+                                 issuesChecked++;
+                             }
+                             else if (parameter.Name == "ResourceDeletedCount")
+                             {
+                                 foreach (var part in parameter.Part)
+                                 {
+                                     var resourceName = part.Name;
+                                     var numberDeleted = (long)((Integer64)part.Value).Value;
+                                     actualResults[resourceName] = numberDeleted;
+                                     resultsChecked++;
+                                 }
+                             }
+                             else
+                             {
+                                 throw new Exception($"Unexpected parameter {parameter.Name}");
+                             }
+                         }
+
+                         var resultInString = JsonConvert.SerializeObject(result);
+                         DebugOutput(resultInString);
+
+                         Assert.Contains(
+                             actualResults,
+                             x => expectedResults.TryGetValue(x.Key, out var value) && value == x.Value);
+                         DebugOutput($"Checking the bulk-delete status completed.");
+                     });
             }
         }
 
