@@ -28,5 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Reindexed SearchParameter URLs
         /// </summary>
         public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
+
+        /// <summary>
+        /// Timeout count during data processing.
+        /// </summary>
+        public int? TimeoutCount { get; set; }
     }
 }

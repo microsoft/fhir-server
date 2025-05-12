@@ -34,9 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private IQueueClient _queueClient;
+        private const int MaxTimeoutRetries = 3;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
-            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
+            .WaitAndRetryAsync(MaxTimeoutRetries, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         if (result != null)
                         {
-                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.TotalCount;
+                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
                             _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                         }
                     }
@@ -183,13 +184,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (SqlException sqlEx)
             {
-                // Handle SQL-specific exceptions
-                _logger.LogError(sqlEx, "SQL error occurred during reindex processing. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
                 LogReindexProcessingJobErrorMessage();
+
+                // Check if this is a timeout exception
+                if (sqlEx.IsExecutionTimeout())
+                {
+                    // Increment the timeout count in the job result
+                    _reindexProcessingJobResult.TimeoutCount = (_reindexProcessingJobResult.TimeoutCount ?? 0) + 1;
+
+                    // If we've hit max retries for timeouts, fail the job
+                    if (_reindexProcessingJobResult.TimeoutCount >= MaxTimeoutRetries)
+                    {
+                        _logger.LogError("Maximum SQL timeout retries ({MaxRetries}) reached. Job id: {Id}, group id: {GroupId}.", MaxTimeoutRetries, _jobInfo.Id, _jobInfo.GroupId);
+
+                        _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
+                        _reindexProcessingJobResult.FailedResourceCount = resourceCount;
+
+                        throw new OperationFailedException($"Maximum SQL timeout retries reached: {sqlEx.Message}", HttpStatusCode.InternalServerError);
+                    }
+
+                    // Otherwise log a warning and return without throwing (allowing a retry)
+                    _logger.LogWarning("SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}. Job id: {Id}", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries, _jobInfo.Id);
+                    _jobInfo.Status = JobStatus.Created;
+
+                    return;
+                }
+
+                // For non-timeout SQL errors, throw an exception to fail the job
+                _logger.LogError(sqlEx, "SQL error occurred during reindex processing. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
                 _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
 
-                // Optionally, rethrow or handle the exception based on severity
                 throw new OperationFailedException($"SQL Error occurred during reindex processing: {sqlEx.Message}", HttpStatusCode.InternalServerError);
             }
             catch (FhirException ex)

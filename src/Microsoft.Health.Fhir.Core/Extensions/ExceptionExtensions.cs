@@ -15,7 +15,27 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
         internal static bool IsExecutionTimeout(this Exception e)
         {
-            var str = e.ToString().ToLowerInvariant();
+            // Check for SqlException with specific timeout error codes
+            if (e is Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                // Common SQL timeout error codes
+                if (sqlEx.Number == -2 || // Client execution timeout
+                    sqlEx.Number == 30 || // SQL Server execution timeout
+                    sqlEx.Number == 1222) // Lock request timeout
+                {
+                    return true;
+                }
+
+                // For other SQL errors, check message content
+                if (sqlEx.Message.Contains("timeout expired", StringComparison.OrdinalIgnoreCase) ||
+                    sqlEx.Message.Contains("execution timeout", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            // Fallback to string search for non-SqlExceptions or wrapped exceptions
+            var str = e.ToString();
             return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
         }
 
