@@ -533,9 +533,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                         else if (jobInfo.Status == JobStatus.Cancelled)
                         {
-                            const string message = "Reindex operation cancelled by customer.";
+                            const string message = "Reindex operation cancelled.";
                             _logger.LogError(message);
-                            throw new OperationCanceledException(message);
                         }
 
                         completedJobIds.Add(jobInfo.Id);
@@ -653,18 +652,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return;
         }
 
-#pragma warning disable CS1570 // XML comment has badly formed XML
         /// <summary>
-        /// Gets called from <see cref="CheckJobCompletionStatus"/> and only gets called when all ReindexProcessingJobs have completed.
+        /// Calculates the total count of resources and identifies resource types that failed to be reindexed.
         /// </summary>
-        /// <param name="succeededJobs">List of succeeded jobs</param>
-        /// <returns>Task<(int totalCount, List<string></returns>
+        /// <param name="succeededJobs">List of succeeded jobs.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a tuple with the total count of failed resources and a list of resource types.</returns>
         private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
-#pragma warning restore CS1570 // XML comment has badly formed XML
         {
             int totalCount = 0;
             var resourcesTypes = new List<string>();
-            var resourceCountsFromJobs = succeededJobs.Select(j => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition)).Select(r => new KeyValuePair<string, SearchResultReindex>(r.ResourceType, r.ResourceCount)).ToList();
+            var resourceCountsFromJobs = succeededJobs
+                .Select(j => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition))
+                .Select(r => new KeyValuePair<string, SearchResultReindex>(r.ResourceType, r.ResourceCount))
+                .ToList();
+
             foreach (KeyValuePair<string, SearchResultReindex> resourceType in resourceCountsFromJobs)
             {
                 var queryForCount = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
