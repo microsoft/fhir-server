@@ -233,6 +233,8 @@
     <EmbeddedResource Include="TestFiles\R5\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameterUnsupportedType.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchDataBatch.json" />
+    <EmbeddedResource Include="TestFiles\R5\SearchParameter-Resource-idfoo.json" />
+    <EmbeddedResource Include="TestFiles\R5\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
