@@ -130,7 +130,7 @@
     <value>Anonymization container not found on the destination storage.</value>
   </data>
   <data name="CannotGetAccessToken" xml:space="preserve">
-    <value>Unable to get access token for storage account for export.</value>
+    <value>Unable to get access token for storage account.</value>
   </data>
   <data name="CannotGetAcrAccessToken" xml:space="preserve">
     <value>Failed to get access token for Azure Container Registry. Please check your configuration.</value>
