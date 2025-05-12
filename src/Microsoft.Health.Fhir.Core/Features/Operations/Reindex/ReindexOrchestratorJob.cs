@@ -509,7 +509,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Fetch job statuses in batches
                     foreach (var batch in activeJobIds.Take((int)maxBatchSize).Chunk((int)maxBatchSize))
                     {
-                        jobInfosToCheck.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, batch.ToArray(), false, cancellationToken));
+                        jobInfosToCheck.AddRange(await _timeoutRetries.ExecuteAsync(
+                            async () => await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, batch.ToArray(), false, cancellationToken)));
                     }
 
                     duration = start.Elapsed.TotalSeconds;
