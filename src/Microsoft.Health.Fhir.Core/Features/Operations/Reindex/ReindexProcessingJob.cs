@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,9 +16,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -31,6 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private IQueueClient _queueClient;
+        private static readonly AsyncPolicy _timeoutRetries = Policy
+            .Handle<SqlException>(ex => ex.IsExecutionTimeout())
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -131,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             long resourceCount = 0;
             try
             {
-                SearchResult result = await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken);
+                SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
                 resourceCount += result?.TotalCount ?? 0;
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
                 if (result?.MaxResourceSurrogateId > 0)
@@ -156,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
                 };
 
-                await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken);
+                await _timeoutRetries.ExecuteAsync(async () => await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
