@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -19,8 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        private static readonly char[] ResourceIdInvalidChars = new char[] { '#', '/' };
-        private const int MaxResourceIdLength = 64;
+        private static readonly Regex ResourceIdValidationRegex = new Regex(
+            "^[A-Za-z0-9\\-\\.]{1,64}$",
+            RegexOptions.Compiled);
 
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private static void ValidateResourceId(string resourceId)
         {
-            if (string.IsNullOrWhiteSpace(resourceId) || resourceId.Length > MaxResourceIdLength || resourceId.Intersect(ResourceIdInvalidChars).Any())
+            if (string.IsNullOrWhiteSpace(resourceId) || !ResourceIdValidationRegex.IsMatch(resourceId))
             {
                 throw new BadRequestException($"Invalid resource id: '{resourceId ?? "null or empty"}'. " + Core.Resources.IdRequirements);
             }

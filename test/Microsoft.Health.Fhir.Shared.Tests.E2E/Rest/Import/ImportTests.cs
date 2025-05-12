@@ -1751,8 +1751,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 { "/badresourceid/", false },
                 { Guid.NewGuid().ToString("N"), true },
                 { "bad#resource/id", false },
-                { Guid.NewGuid().ToString("N"), true },
+                { Guid.NewGuid().ToString(), true },
+                { "?badresource&id", false },
+                { "abc.123.ABC", true },
                 { string.Empty, false },
+                { Guid.NewGuid().ToString() + Guid.NewGuid().ToString(), false },
             };
 
             var ndjsons = new StringBuilder();
@@ -1772,13 +1775,10 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var result = await ImportCheckAsync(request, null, ids.Values.Where(x => !x).Count());
 
             // Check if resources with the valid id are imported successfully.
-            foreach (var pair in ids)
+            foreach (var pair in ids.Where(x => x.Value))
             {
-                if (pair.Value)
-                {
-                    var readResponse = await _client.ReadAsync<Patient>(ResourceType.Patient, pair.Key);
-                    Assert.Equal(pair.Key, readResponse.Resource?.Id);
-                }
+                var readResponse = await _client.ReadAsync<Patient>(ResourceType.Patient, pair.Key);
+                Assert.Equal(pair.Key, readResponse.Resource?.Id);
             }
 
             // Check errors having resources with the invalid id.
