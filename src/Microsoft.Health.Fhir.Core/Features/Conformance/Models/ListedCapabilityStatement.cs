@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ListedCapabilityStatement()
         {
-            Id = new ResourceIdProvider().Create().ToString();
+            Id = new ResourceIdProvider().Create();
             Status = new DefaultOptionHashSet<string>("draft", StringComparer.Ordinal);
             Kind = new DefaultOptionHashSet<string>("capability", StringComparer.Ordinal);
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
