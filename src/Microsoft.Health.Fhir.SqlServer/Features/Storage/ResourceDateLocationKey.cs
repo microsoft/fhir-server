@@ -8,9 +8,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceDateKey : IEquatable<ResourceDateKey>
+    public class ResourceDateLocationKey : IEquatable<ResourceDateLocationKey>
     {
-        public ResourceDateKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
+        public ResourceDateLocationKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, long? resourceStorageId, int? resourceStorageOffset, int? resourceStorageLength, bool isDeleted = false)
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
@@ -18,6 +18,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Id = id;
             ResourceSurrogateId = resourceSurrogateId;
             VersionId = versionId;
+            if (resourceStorageId.HasValue && resourceStorageOffset.HasValue && resourceStorageLength.HasValue)
+            {
+                RawResourceLocator = new RawResourceLocator(resourceStorageId.Value, resourceStorageOffset.Value, resourceStorageLength.Value);
+            }
+            else
+            {
+                RawResourceLocator = null;
+            }
+
             IsDeleted = isDeleted;
         }
 
@@ -31,7 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public bool IsDeleted { get; }
 
-        public bool Equals(ResourceDateKey other)
+        public RawResourceLocator RawResourceLocator { get; }
+
+        public bool Equals(ResourceDateLocationKey other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -47,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                    Id == other.Id &&
                    ResourceSurrogateId == other.ResourceSurrogateId &&
                    VersionId == other.VersionId &&
+                   RawResourceLocator.Equals(other.RawResourceLocator) &&
                    IsDeleted == other.IsDeleted;
         }
 
@@ -67,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return false;
             }
 
-            return Equals((ResourceKey)obj);
+            return Equals((ResourceDateLocationKey)obj);
         }
 
         public override int GetHashCode()

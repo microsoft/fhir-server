@@ -10,9 +10,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public static class ResourceWrapperExtention
     {
-        public static ResourceDateKey ToResourceDateKey(this ResourceWrapper wrapper, Func<string, short> getResourceTypeId, bool ignoreVersion = false)
+        public static ResourceDateLocationKey ToResourceDateLocationKey(this ResourceWrapper wrapper, Func<string, short> getResourceTypeId, bool ignoreVersion = false)
         {
-            return new ResourceDateKey(getResourceTypeId(wrapper.ResourceTypeName), wrapper.ResourceId, wrapper.LastModified.ToSurrogateId(), ignoreVersion ? null : wrapper.Version);
+            return new ResourceDateLocationKey(getResourceTypeId(wrapper.ResourceTypeName), wrapper.ResourceId, wrapper.LastModified.ToSurrogateId(), ignoreVersion ? null : wrapper.Version, wrapper.RawResourceLocator.RawResourceStorageIdentifier, wrapper.RawResourceLocator.RawResourceOffset, wrapper.RawResourceLocator.RawResourceLength);
         }
     }
 }
