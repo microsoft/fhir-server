@@ -57,11 +57,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
             {
                 MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
                 ResourceType = expectedResourceType,
                 ResourceCount = new SearchResultReindex()
                 {
-                    Count = 1,
-                    EndResourceSurrogateId = 1,
+                    Count = _mockedSearchCount,
+                    EndResourceSurrogateId = 0,
                     StartResourceSurrogateId = 0,
                     ContinuationToken = null,
                 },
@@ -80,100 +81,43 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
-            // setup search result
+            // Setup search result with actual entries that can be processed
+            var searchResultEntries = Enumerable.Range(1, _mockedSearchCount)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
-                true).
-                Returns(
-                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>())); // First call checks how many resources need to be reindexed
+                true)
+                .Returns(new SearchResult(
+                    searchResultEntries,
+                    null,  // continuationToken
+                    null,  // sortOrder
+                    new List<Tuple<string, string>>())); // unsupportedSearchParameters
 
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+            // Also set up the reindex utilities mock
+            _reindexUtilities
+                .ProcessSearchResultsAsync(
+                    Arg.Any<SearchResult>(),
+                    Arg.Any<IReadOnlyDictionary<string, string>>(),
+                    Arg.Any<int>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
 
-            // verify search for results
-            await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true);
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(
+                await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Verify ProcessSearchResultsAsync was called
+            await _reindexUtilities.Received(1).ProcessSearchResultsAsync(
+                Arg.Any<SearchResult>(),
+                Arg.Any<IReadOnlyDictionary<string, string>>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>());
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
-        }
-
-        [Fact]
-        public async Task GivenContinuationToken_WhenExecuted_ThenAdditionalQueryAdded()
-        {
-            var expectedResourceType = "Account";
-            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
-            {
-                MaximumNumberOfResourcesPerQuery = 1,
-                ResourceType = expectedResourceType,
-                ResourceCount = new SearchResultReindex()
-                {
-                    Count = 1,
-                    EndResourceSurrogateId = 2,
-                    StartResourceSurrogateId = 0,
-                    ContinuationToken = "continuationToken",
-                },
-                ResourceTypeSearchParameterHashMap = "accountHash",
-                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
-                TypeId = (int)JobType.ReindexProcessing,
-            };
-
-            JobInfo jobInfo = new JobInfo()
-            {
-                Id = 2,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 3,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // setup search result
-            _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true).
-                Returns(
-                    new SearchResult(
-                        new List<SearchResultEntry>()
-                        {
-                            CreateSearchResultEntry("1", "Account"),
-                        },
-                        "continuationToken",
-                        new List<(SearchParameterInfo, SortOrder)>(),
-                        new List<Tuple<string, string>>())
-                    {
-                        MaxResourceSurrogateId = 1,
-                        TotalCount = 1,
-                    });
-
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            // verify search for results
-            await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true);
-
-            Assert.Equal(1, result.SucceededResourceCount);
-            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
-            Assert.Single(jobs);
-            var childJob = jobs.First();
-            Assert.NotNull(childJob);
-            Assert.Equal(jobInfo.GroupId, childJob.GroupId);
-            var childJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(childJob.Definition);
-            Assert.Equal(2, childJobDefinition.ResourceCount.StartResourceSurrogateId);
-            Assert.Equal(2, childJobDefinition.ResourceCount.EndResourceSurrogateId);
-            Assert.Equal(job.ResourceCount.ContinuationToken, childJobDefinition.ResourceCount.ContinuationToken);
         }
 
         /*
@@ -301,6 +245,79 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             searchResult.MaxResourceSurrogateId = 1;
             searchResult.TotalCount = resultList.Count;
             return searchResult;
+        }
+
+        [Fact]
+        public async Task GivenSurrogateIdRange_WhenExecuted_ThenAdditionalQueryAdded()
+        {
+            var expectedResourceType = "Account";
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 1,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 1,
+                    EndResourceSurrogateId = 2,
+                    StartResourceSurrogateId = 0,
+                },
+                ResourceTypeSearchParameterHashMap = "accountHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 2,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 3,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            // Setup search result - remove continuation token, focus on surrogate IDs
+            _searchService.SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(
+                        new List<SearchResultEntry>()
+                        {
+                            CreateSearchResultEntry("1", "Account"),
+                        },
+                        null, // No continuation token
+                        new List<(SearchParameterInfo, SortOrder)>(),
+                        new List<Tuple<string, string>>())
+                    {
+                        MaxResourceSurrogateId = 1,
+                        TotalCount = 1,
+                    });
+
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(
+                await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Equal(1, result.SucceededResourceCount);
+
+            var jobs = await _queueClient.GetJobByGroupIdAsync(
+                (byte)QueueType.Reindex,
+                jobInfo.GroupId,
+                false,
+                _cancellationToken);
+
+            Assert.Single(jobs);
+            var childJob = jobs.First();
+            Assert.NotNull(childJob);
+            Assert.Equal(jobInfo.GroupId, childJob.GroupId);
+
+            var childJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(
+                childJob.Definition);
+
+            Assert.Equal(2, childJobDefinition.ResourceCount.StartResourceSurrogateId);
+            Assert.Equal(2, childJobDefinition.ResourceCount.EndResourceSurrogateId);
         }
     }
 }

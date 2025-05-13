@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
 
@@ -24,8 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         protected override async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()
         {
-            FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
-            fhirTypedElementToSearchValueConverterManager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
+            var manager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
+            manager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
 
             return extensionConverter;
         }

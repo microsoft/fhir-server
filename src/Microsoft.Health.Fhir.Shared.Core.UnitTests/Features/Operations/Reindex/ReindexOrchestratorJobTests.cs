@@ -85,8 +85,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 },
             });
 
-            _searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
+            // Fix: Properly set up the mock with explicit CancellationToken argument matching
+            _searchParameterStatusmanager
+                .GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(status);
+
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
+
             _reindexJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
                      _queueClient,

@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -307,34 +308,23 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         [Fact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenAReindexJobIsRunning_ThenAnOperationOutcomeIsReturnedIndicatingUpdatesAreNotAllowed()
         {
+            // Mock the queue client to indicate a reindex job is running
+            _queueClient.PeekAsync((byte)QueueType.Reindex, Arg.Any<CancellationToken>()).Returns("dummyJobId");
+
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
-                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
             };
 
-            IFhirOperationDataStore fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-            fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((true, string.Empty));
-            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory = () => fhirOperationDataStore.CreateMockScope();
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<PreconditionFailedException>(async () =>
+            {
+                await _searchParameterStateUpdateHandler.Handle(
+                    new SearchParameterStateUpdateRequest(updates),
+                    default);
+            });
 
-            SearchParameterStateUpdateHandler searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
-            _authorizationService,
-            _searchParameterStatusManager,
-            _logger2,
-            _queueClient,
-            _auditLogger,
-            _fhirOperationDataStoreFactory);
-
-            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
-
-            Assert.NotNull(response);
-            Assert.NotNull(response.UpdateStatus);
-
-            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
-            var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
-            var issue = resourceResponse.Issue[0];
-            Assert.True(issue.Details.Text == Fhir.Core.Resources.ReindexRunningException);
-            Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
-            Assert.True(issue.Code == OperationOutcome.IssueType.Conflict);
+            Assert.Equal("A Reindex Job is currently running. Wait till it has completed before trying again.", exception.Message);
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
