@@ -1216,7 +1216,11 @@ WAITFOR DELAY '00:00:01'
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
+#if USE_HL7_LEGACY_PACKAGES
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+#else
             var observation = _capabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
+#endif
             var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;

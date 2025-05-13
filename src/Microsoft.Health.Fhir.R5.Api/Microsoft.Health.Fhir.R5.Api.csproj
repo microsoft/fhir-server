@@ -3,14 +3,13 @@
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R5</DefineConstants>
+    <DefineConstants>R5;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Hl7.Fhir.R5" />
-    <PackageReference Include="Hl7.Fhir.Specification.Data.R5" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Specification.Data.R5" Condition="'$(UseHl7LegacyPackages)' != 'true'" PrivateAssets="build;analyzers" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" />

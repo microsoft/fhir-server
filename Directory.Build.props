@@ -23,6 +23,10 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
+    <UseHl7LegacyPackages>true</UseHl7LegacyPackages>
+    
+    <DefineConstants Condition="'$(UseHl7LegacyPackages)' == 'true'">USE_HL7_LEGACY_PACKAGES;$(DefineConstants)</DefineConstants>
+    <DefineConstants Condition="'$(UseHl7LegacyPackages)' != 'true'">USE_HL7_MODERN_PACKAGES;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <Choose>

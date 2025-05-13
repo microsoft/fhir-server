@@ -3,7 +3,7 @@
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
     <IncludeContentInPack>false</IncludeContentInPack>
-    <DefineConstants>Stu3</DefineConstants>
+    <DefineConstants>Stu3;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\testauthenvironment.json" Link="testauthenvironment.json">

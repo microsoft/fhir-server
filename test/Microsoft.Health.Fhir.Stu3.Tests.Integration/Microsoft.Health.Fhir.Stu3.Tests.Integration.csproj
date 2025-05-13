@@ -3,7 +3,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Tests.Integration</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>Stu3</DefineConstants>
+    <DefineConstants>Stu3;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />

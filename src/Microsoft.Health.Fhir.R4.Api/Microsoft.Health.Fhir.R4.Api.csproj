@@ -3,7 +3,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R4</DefineConstants>
+    <DefineConstants>R4;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
@@ -13,7 +13,7 @@
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Hl7.Fhir.R4" />
-    <PackageReference Include="Hl7.Fhir.Specification.Data.R4" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Specification.Data.R4" Condition="'$(UseHl7LegacyPackages)' != 'true'" PrivateAssets="build;analyzers" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" />

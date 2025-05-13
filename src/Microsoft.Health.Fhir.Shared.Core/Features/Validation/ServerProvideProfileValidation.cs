@@ -120,10 +120,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                             properties[ArtifactSummaryProperties.OriginKey] = searchItem.Resource.RawResource.Data;
                                         };
 
-#if Stu3
+#if Stu3 || USE_HL7_LEGACY_PACKAGES
                                     List<ArtifactSummary> artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
-#else
+#elif USE_HL7_MODERN_PACKAGES
                                     List<ArtifactSummary> artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);
+#else
+    #error "Neither symbol is defined"
 #endif
 
                                     foreach (var artifact in artifacts)

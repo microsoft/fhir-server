@@ -3,7 +3,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Core.UnitTests</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R4</DefineConstants>
+    <DefineConstants>R4;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerFactoryTests.cs" Link="Operations\Export\ExportAnonymizerFactoryTests.cs" />

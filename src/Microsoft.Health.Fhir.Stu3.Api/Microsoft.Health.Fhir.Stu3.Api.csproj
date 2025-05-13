@@ -5,18 +5,17 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefineConstants>STU3</DefineConstants>
+    <DefineConstants>STU3;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Hl7.Fhir.STU3" />
-    <PackageReference Include="Hl7.Fhir.Specification.Data.Stu3" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Specification.Data.Stu3" Condition="'$(UseHl7LegacyPackages)' != 'true'" PrivateAssets="build;analyzers" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" />

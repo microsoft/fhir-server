@@ -3,7 +3,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Core.UnitTests</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R4;R4B</DefineConstants>
+    <DefineConstants>R4;R4B;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

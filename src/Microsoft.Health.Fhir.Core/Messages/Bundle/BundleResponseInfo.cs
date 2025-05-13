@@ -5,13 +5,12 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Models;
-using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
     public sealed class BundleResponseInfo
     {
-        public BundleResponseInfo(TimeSpan executionTime, BundleType bundleType, BundleProcessingLogic processingLogic)
+        public BundleResponseInfo(TimeSpan executionTime, string bundleType, BundleProcessingLogic processingLogic)
         {
             ExecutionTime = executionTime;
             BundleType = bundleType;
@@ -22,6 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 
         public BundleProcessingLogic ProcessingLogic { get; }
 
-        public BundleType BundleType { get; }
+        public string BundleType { get; }
     }
 }

@@ -148,17 +148,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
+#if USE_HL7_LEGACY_PACKAGES
+            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+#else
             var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
+#endif
             observationResource.UpdateCreate = true;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Organization, null);
+#if USE_HL7_LEGACY_PACKAGES
+            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Organization);
+#else
             var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Organization.EqualsString(r.Type.ToString()));
+#endif
             organizationResource.UpdateCreate = true;
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
+#if USE_HL7_LEGACY_PACKAGES
+            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Medication);
+#else
             var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Medication.EqualsString(r.Type.ToString()));
+#endif
             medicationResource.UpdateCreate = true;
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 

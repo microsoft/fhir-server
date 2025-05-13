@@ -289,6 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             throw new NotImplementedException();
         }
 
+#if USE_HL7_MODERN_PACKAGES
         private static EnumerableReturnType Visit(BracketExpression expression, Context ctx)
         {
             if (expression.Operand != null)
@@ -300,6 +301,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // They should fail compilation if they don't.
             throw new NotImplementedException();
         }
+#endif
 
         private static EnumerableReturnType Visit(Expression expression, Context ctx)
         {

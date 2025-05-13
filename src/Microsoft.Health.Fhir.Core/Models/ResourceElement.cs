@@ -31,8 +31,12 @@ namespace Microsoft.Health.Fhir.Core.Models
             EnsureArg.IsNotNull(instance, nameof(instance));
 
             Instance = instance;
+#if USE_HL7_LEGACY_PACKAGES
+            _context = new Lazy<EvaluationContext>(() => new EvaluationContext(instance));
+#else
             _context = new Lazy<EvaluationContext>(() =>
                 new EvaluationContext().WithResourceOverrides(instance));
+#endif
         }
 
         internal ResourceElement(ITypedElement instance, object resourceInstance)
