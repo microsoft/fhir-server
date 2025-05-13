@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
             Assert.Empty(bundleResource.Entry);
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(OperationOutcome.IssueType.Forbidden, issueComponent.Code);
             Assert.Equal("Authorization failed.", issueComponent.Diagnostics);
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             // As the bundle contains multiple profile changes (with ValueSet, StructureDefinition and CodeSystem), the profile resolver should be refreshed once.
             _profilesResolver.Received(1).Refresh();
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -400,7 +400,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
             Assert.Single(bundleResource.Entry);
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Transaction, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Transaction.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -539,7 +539,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
             Assert.Equal("4", _fhirRequestContext.ResponseHeaders[headerName].ToString());
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -579,7 +579,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(3, bundleResource.Entry.Count);
             Assert.All(bundleResource.Entry, e => Assert.Equal("429", e.Response.Status));
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -630,7 +630,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Assert.Equal("200", entry.Response.Status);
             }
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -667,7 +667,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
             Assert.Single(bundleResource.Entry);
 
-            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == BundleType.Batch.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
@@ -734,7 +734,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Assert.Single(results.Keys);
             }
 
-            Assert.True(bundleResponse.Info.BundleType == type, "BundleType is different than the expected.");
+            Assert.True(bundleResponse.Info.BundleType == type.ToString(), "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }

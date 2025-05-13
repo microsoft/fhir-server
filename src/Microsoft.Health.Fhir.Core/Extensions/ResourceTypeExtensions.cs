@@ -22,29 +22,5 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             return new ResourceElement(typedElement);
         }
-
-        /*
-        /// <summary>
-        /// Compares a ResourceType with another value, using either direct equality or string comparison based on the LegacyTypeComparisonFlag.
-        /// </summary>
-        /// <param name="resourceType">The resource type to compare.</param>
-        /// <param name="other">The other value to compare with, either a ResourceType or a string representation.</param>
-        /// <returns>True if the values are equal, false otherwise.</returns>
-        public static bool CompareResourceType(this ResourceType resourceType, object other)
-        {
-#if USE_HL7_LEGACY_PACKAGES
-            // Legacy implementation: direct type comparison
-            if (other is ResourceType otherType)
-            {
-                return resourceType == otherType;
-            }
-
-            return false;
-#else
-            // Current implementation: string comparison
-            return resourceType.EqualsString(other?.ToString());
-#endif
-        }
-        */
     }
 }
