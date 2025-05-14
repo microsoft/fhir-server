@@ -4,7 +4,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>Stu;$(DefineConstants)</DefineConstants>
+    <DefineConstants>STU3;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

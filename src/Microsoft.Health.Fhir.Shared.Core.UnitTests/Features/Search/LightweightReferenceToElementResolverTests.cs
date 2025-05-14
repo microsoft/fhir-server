@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly Encounter _encounter;
         private readonly FhirEvaluationContext _context;
 
-        #if Stu3 || R4
+        #if STU3 || R4
         private const string FhirPath = "Encounter.participant.individual";
         #else
         private const string FhirPath = "Encounter.participant.actor";

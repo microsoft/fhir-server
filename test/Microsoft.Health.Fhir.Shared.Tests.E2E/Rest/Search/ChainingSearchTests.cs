@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(allPatientBundle.Entry.Count == notMaleBundle.Entry.Count + notFemaleBundle.Entry.Count);
         }
 
-#if !Stu3
+#if !STU3
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenTwoChainedSearchExpressionsAndInclude_WhenSearched_ThenCorrectBundleShouldBeReturned()
@@ -413,7 +413,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B
                 var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
 #else
                 var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Contact = new() { new() { Address = new() { City = "Seattle" } }, new() { Address = new() { City = OrganizationCity } } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
@@ -421,7 +421,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 var location = (await TestFhirClient.CreateAsync(new Location { Meta = meta, Address = new Address { City = "Seattle" } })).Resource;
 
-#if !Stu3
+#if !STU3
                 var affiliateOrganization = (await TestFhirClient.CreateAsync(new OrganizationAffiliation { Meta = meta, ParticipatingOrganization = new ResourceReference($"{KnownResourceTypes.Organization}/{organization.Id}"), Location = new() { new ResourceReference($"{KnownResourceTypes.Location}/{location.Id}") }})).Resource;
 #endif
 
@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
                     Type = Group.GroupType.Person,
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                     Actual = true,
 #else
                     Active = true,

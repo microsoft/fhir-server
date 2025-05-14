@@ -9,10 +9,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {
     public static class ModelExtensions
     {
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
         public static Device AssignPatient(this Device device, ResourceReference patient)
         {
-#if Stu3 || R4
+#if STU3 || R4
             device.Patient = patient;
 #else
             device.Subject = patient;

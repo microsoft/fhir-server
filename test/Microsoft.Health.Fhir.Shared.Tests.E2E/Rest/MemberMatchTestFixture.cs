@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
 
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
 #else
             coverage.Insurer = new ResourceReference($"Organization/{patient.Id}");
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             coverage.Status = FinancialResourceStatusCodes.Active;
             if (!string.IsNullOrEmpty(subPlan))
             {
-#if Stu3
+#if STU3
                 coverage.Grouping = new Coverage.GroupComponent()
                 {
                     SubPlan = subPlan,

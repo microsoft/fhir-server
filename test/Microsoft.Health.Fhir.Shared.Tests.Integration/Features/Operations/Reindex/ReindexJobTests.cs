@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCompleted()
         {
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/Measure-name");
 #else
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/CanonicalResource-name");
@@ -936,7 +936,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Id = searchParamName,
             };
 
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             searchParam.Base = new List<ResourceType?>() { Enum.Parse<ResourceType>(baseType) };
 #else
             searchParam.Base = new List<VersionIndependentResourceTypesAll?>() { Enum.Parse<VersionIndependentResourceTypesAll>(baseType) };

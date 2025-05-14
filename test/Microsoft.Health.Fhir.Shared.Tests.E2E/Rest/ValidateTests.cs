@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B
         [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
-#if !Stu3
+#if !STU3
             var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
                 SelectMany(x => x).OrderBy(x => x).ToList();

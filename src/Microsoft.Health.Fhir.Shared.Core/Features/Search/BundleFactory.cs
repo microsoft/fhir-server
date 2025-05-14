@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             Bundle.HTTPVerb.PUT when string.Equals(r.Resource.Version, "1", StringComparison.Ordinal) => HttpStatusCode.Created,
                             Bundle.HTTPVerb.PUT => HttpStatusCode.OK,
                             Bundle.HTTPVerb.GET => HttpStatusCode.OK,
-#if !Stu3
+#if R4 || R4B || R5
                             Bundle.HTTPVerb.PATCH => HttpStatusCode.OK,
                             Bundle.HTTPVerb.HEAD => HttpStatusCode.OK,
 #endif

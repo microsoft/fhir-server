@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Url = "http://test/Patient-test",
                 Type = Hl7.Fhir.Model.SearchParamType.String,
-#if Stu3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient},
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenASearchParameterDefinitionManager_WhenAddingACompositeSearchParameter_ThenComponentsAreResolvedAndValidated()
         {
-#if Stu3
+#if STU3
             ResourceReference CreateDefinition(string reference)
             {
                 return new ResourceReference(reference);
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Url = "http://test/Patient-test",
                 Type = Hl7.Fhir.Model.SearchParamType.Composite,
-#if Stu3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Url = "http://test/Patient-test",
                 Type = Hl7.Fhir.Model.SearchParamType.String,
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Id = "id",
                 Url = "http://test/Patient-preexisting",
                 Type = Hl7.Fhir.Model.SearchParamType.String,
-#if Stu3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B  || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Id = "id2",
                 Url = "http://test/Patient-preexisting2",
                 Type = Hl7.Fhir.Model.SearchParamType.String,
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
@@ -473,7 +473,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Id = "QuestionnaireResponse-questionnaire2",
                 Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire2",
                 Type = Hl7.Fhir.Model.SearchParamType.Reference,
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.QuestionnaireResponse },
@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Id = "QuestionnaireResponse-questionnaire",
                 Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire",
                 Type = Hl7.Fhir.Model.SearchParamType.Reference,
-#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.QuestionnaireResponse },

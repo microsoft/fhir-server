@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkDeleteJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-#if Stu3
+#if STU3
             Skip.If(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkDeleteEnabled();

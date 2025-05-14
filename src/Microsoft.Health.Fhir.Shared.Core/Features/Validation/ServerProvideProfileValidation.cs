@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                             properties[ArtifactSummaryProperties.OriginKey] = searchItem.Resource.RawResource.Data;
                                         };
 
-#if Stu3 || USE_HL7_LEGACY_PACKAGES
+#if STU3 || USE_HL7_LEGACY_PACKAGES
                                     List<ArtifactSummary> artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
 #else
                                     List<ArtifactSummary> artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);

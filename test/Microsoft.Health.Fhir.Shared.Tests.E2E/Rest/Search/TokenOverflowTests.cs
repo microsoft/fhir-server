@@ -400,7 +400,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Stu3 composite search parameter files are slightly different.
-#if Stu3
+#if STU3
                 searchParameterTestFileName += "Stu3";
 #endif
 

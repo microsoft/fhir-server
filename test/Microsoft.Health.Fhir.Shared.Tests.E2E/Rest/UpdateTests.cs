@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Try to update the resource with some content change
             UpdateObservation(createdResource);
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(createdResource, weakETag));
-#if Stu3
+#if STU3
             Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
 #else
             Assert.Equal(HttpStatusCode.PreconditionFailed, ex.StatusCode);

@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(familyName, nameSearchValue.String);
          }
 
-#if !Stu3
+#if !STU3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]
         public void GivenAnInValidResource_WhenExtract_ThenExceptionIsThrown()
