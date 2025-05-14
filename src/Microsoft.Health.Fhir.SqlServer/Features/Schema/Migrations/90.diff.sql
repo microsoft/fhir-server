@@ -1,4 +1,10 @@
-﻿CREATE PROCEDURE dbo.UpdateResourceSearchParams
+/****** Object:  StoredProcedure [dbo].[UpdateResourceSearchParams]    Script Date: 5/14/2025 8:56:07 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[UpdateResourceSearchParams]
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
