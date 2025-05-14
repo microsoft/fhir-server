@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
             encounter.Status = EncounterStatus.Planned;
-#if !R5
+#if !R5 || USE_HL7_LEGACY_PACKAGES
             encounter.Class = new Coding("test", "test");
 #else
             encounter.Class = new List<CodeableConcept>();
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             encounter.Subject = new ResourceReference("Patient/" + patient.Id);
             encounter.Status = EncounterStatus.Planned;
-#if !R5
+#if !R5 || USE_HL7_LEGACY_PACKAGES
             encounter.Class = new Coding("test", "test");
 #else
             encounter.Class = new List<CodeableConcept>();

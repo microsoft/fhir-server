@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
 
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
 #else
             foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))

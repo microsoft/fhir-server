@@ -36,10 +36,10 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
         {
             capability.Rest[0].Resource.Add(new ResourceComponent
             {
-#if Stu3
+#if USE_HL7_LEGACY_PACKAGES
                 Type = resourceType,
 #else
-                Type = resourceType.ToString(),
+                Type = resourceType?.ToString(),
 #endif
                 Interaction = interactions?.Select(x => new ResourceInteractionComponent { Code = x }).ToList(),
                 SearchParam = searchParams?.ToList(),

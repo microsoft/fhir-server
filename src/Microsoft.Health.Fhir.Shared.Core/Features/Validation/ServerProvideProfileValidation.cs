@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
 using MediatR;
@@ -36,7 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly IMediator _mediator;
+#if USE_HL7_LEGACY_PACKAGES
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
+#else
+        private List<Hl7.Fhir.Specification.ArtifactSummary> _summaries = new List<Hl7.Fhir.Specification.ArtifactSummary>();
+#endif
         private DateTime _expirationTime;
         private object _lockSummaries = new object();
 
@@ -122,10 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
 #if Stu3 || USE_HL7_LEGACY_PACKAGES
                                     List<ArtifactSummary> artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
-#elif USE_HL7_MODERN_PACKAGES
-                                    List<ArtifactSummary> artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);
 #else
-    #error "Neither symbol is defined"
+                                    List<ArtifactSummary> artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);
 #endif
 
                                     foreach (var artifact in artifacts)

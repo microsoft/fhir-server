@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Store.Utils;
 using Microsoft.Health.Internal.Fhir.Sql;
 using Microsoft.Health.SqlServer;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
-using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Internal.Fhir.PerfTester
 {

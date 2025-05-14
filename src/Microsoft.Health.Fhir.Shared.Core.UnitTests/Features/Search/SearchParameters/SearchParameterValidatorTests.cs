@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             var baseArray = new[] { ResourceType.Patient as ResourceType? };
 #else
             var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> DuplicateCodeAtBaseResourceData()
         {
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { ResourceType.Resource as ResourceType? } };
 #else
             var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { VersionIndependentResourceTypesAll.Resource as VersionIndependentResourceTypesAll? } };
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             var baseArray = new[] { ResourceType.Patient as ResourceType? };
 #else
             var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };

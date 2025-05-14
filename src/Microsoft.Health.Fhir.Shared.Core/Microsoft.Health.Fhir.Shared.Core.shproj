@@ -11,7 +11,7 @@
   
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)Operations\Export\ExportAnonymizer.cs" />
-	<None Include="$(MSBuildThisFileDirectory)Operations\Export\ExportAnonymizerFactory.cs" />
+	  <None Include="$(MSBuildThisFileDirectory)Operations\Export\ExportAnonymizerFactory.cs" />
   </ItemGroup>
   
   <Import Project="Microsoft.Health.Fhir.Shared.Core.projitems" Label="Shared" />

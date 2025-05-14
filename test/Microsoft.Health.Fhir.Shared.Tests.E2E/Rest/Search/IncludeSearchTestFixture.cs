@@ -199,6 +199,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 Type = Group.GroupType.Person,
 #if Stu3 || R4 || R4B
                 Actual = true,
+#elif USE_HL7_LEGACY_PACKAGES
+                Active = true,
 #else
                 Active = true,
                 Membership = Group.GroupMembershipBasis.Definitional,
@@ -312,6 +314,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         {
                             Agent = new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
+
+#elif USE_HL7_LEGACY_PACKAGES
+                        IntentElement = new Code<MedicationRequest.medicationRequestIntent> { Value = MedicationRequest.medicationRequestIntent.Order },
+                        StatusElement = new Code<MedicationRequest.medicationrequestStatus> { Value = MedicationRequest.medicationrequestStatus.Completed },
+                        Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 #else
                         IntentElement = new Code<MedicationRequest.MedicationRequestIntent> { Value = MedicationRequest.MedicationRequestIntent.Order },
                         StatusElement = new Code<MedicationRequest.MedicationrequestStatus> { Value = MedicationRequest.MedicationrequestStatus.Completed },

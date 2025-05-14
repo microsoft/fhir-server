@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
                     Type = Group.GroupType.Person,
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                     Actual = true,
 #else
                     Active = true,

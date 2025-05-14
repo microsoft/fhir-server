@@ -936,7 +936,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Id = searchParamName,
             };
 
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             searchParam.Base = new List<ResourceType?>() { Enum.Parse<ResourceType>(baseType) };
 #else
             searchParam.Base = new List<VersionIndependentResourceTypesAll?>() { Enum.Parse<VersionIndependentResourceTypesAll>(baseType) };

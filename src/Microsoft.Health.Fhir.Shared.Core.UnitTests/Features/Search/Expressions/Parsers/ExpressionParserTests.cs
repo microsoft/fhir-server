@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
-#if !Stu3 && !R4 && !R4B
+#if !Stu3 && !R4 && !R4B && !USE_HL7_LEGACY_PACKAGES
 using Microsoft.Health.Fhir.R5.Core.Extensions;
 #endif
 using Microsoft.Health.Fhir.Tests.Common;
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 Name = paramName,
                 Code = paramName,
                 Type = SearchParamType.Reference,
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Target = targetResourceTypes.Cast<ResourceType?>(),
 #else
                 Target = targetResourceTypes.Select(x => ((ResourceType?)x).ToVersionIndependentResourceTypesAll()),

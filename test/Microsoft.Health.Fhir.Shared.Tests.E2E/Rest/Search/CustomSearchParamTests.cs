@@ -373,7 +373,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             searchParam.Base = new List<ResourceType?>() { ResourceType.Specimen, ResourceType.Immunization };
 #else
             searchParam.Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Specimen, VersionIndependentResourceTypesAll.Immunization };

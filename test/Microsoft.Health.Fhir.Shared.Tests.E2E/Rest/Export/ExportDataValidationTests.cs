@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 var group = new FhirGroup()
                 {
                     Type = FhirGroup.GroupType.Person,
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                     Actual = true,
 #else
                     Active = true,
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             var encounter = new Encounter()
             {
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Status = Encounter.EncounterStatus.InProgress,
                 Class = new Coding()
                 {
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var group = new FhirGroup()
             {
                 Type = FhirGroup.GroupType.Person,
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Actual = true,
 #else
                 Active = true,

@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
 
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
 #else
             coverage.Insurer = new ResourceReference($"Organization/{patient.Id}");
@@ -96,16 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     SubPlan = subPlan,
                 };
-#elif R4
-                coverage.Class = new List<Coverage.ClassComponent>()
-                {
-                    new Coverage.ClassComponent()
-                    {
-                        Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/coverage-class", "subplan"),
-                        Value = subPlan,
-                    },
-                };
-#elif R4B
+#elif R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 coverage.Class = new List<Coverage.ClassComponent>()
                 {
                     new Coverage.ClassComponent()

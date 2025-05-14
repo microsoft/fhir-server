@@ -1181,7 +1181,7 @@ WAITFOR DELAY '00:00:01'
             {
                 Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
                 Type = type,
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Base = new List<ResourceType?>() { ResourceType.Patient },
 #else
                 Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },

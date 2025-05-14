@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Appointment Appointment { get; private set; }
 
-#if !Stu3 && !R4 && !R4B
+#if !Stu3 && !R4 && !R4B && !USE_HL7_LEGACY_PACKAGES
         public DeviceAssociation DeviceAssociation { get; private set; }
 
         public DeviceAssociation DeviceAssociationOfNonExistentPatient { get; private set; }
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create resources that references the Patient resource
             Device deviceToCreate = Samples.GetJsonSample<Device>("Device-d1");
 
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             Device = await TestFhirClient.CreateAsync(deviceToCreate);
 #else
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             NonExistentPatient = await TestFhirClient.CreateAsync(patientToCreate);
             patientReference = $"Patient/{NonExistentPatient.Id}";
 
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_LEGACY_HL7_PACKAGES
             deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             DeviceOfNonExistentPatient = await TestFhirClient.CreateAsync(deviceToCreate);
 #else

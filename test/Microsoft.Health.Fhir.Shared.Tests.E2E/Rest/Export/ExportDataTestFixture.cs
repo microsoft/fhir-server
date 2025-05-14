@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                     {
                         Id = Guid.NewGuid().ToString("N"),
                         Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) } },
-#if Stu3 || R4 || R4B
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                         Status = Encounter.EncounterStatus.Planned,
                         Class = new Coding("http://e2e-test", $"Test{i}"),
 #else
