@@ -26,27 +26,27 @@ namespace Microsoft.Health.Fhir.Core.Models
                 "Binary",
             };
 
-        public ResourceElement(ITypedElement instance)
+        public ResourceElement(PocoNode instance)
         {
             EnsureArg.IsNotNull(instance, nameof(instance));
 
             Instance = instance;
             _context = new Lazy<EvaluationContext>(() =>
-                new EvaluationContext().WithResourceOverrides(instance));
+                new EvaluationContext().WithResourceOverrides(instance.ToPocoNode()));
         }
 
-        internal ResourceElement(ITypedElement instance, object resourceInstance)
+        internal ResourceElement(PocoNode instance, object resourceInstance)
             : this(instance)
         {
             EnsureArg.IsNotNull(resourceInstance, nameof(resourceInstance));
             ResourceInstance = resourceInstance;
         }
 
-        public string InstanceType => Instance.InstanceType;
+        public string InstanceType => Instance.GetResourceTypeIndicator();
 
         internal object ResourceInstance { get; }
 
-        public ITypedElement Instance { get; }
+        public PocoNode Instance { get; }
 
         public string Id => Scalar<string>("Resource.id");
 

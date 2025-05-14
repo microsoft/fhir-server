@@ -27,8 +27,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
             string outcome = serializer.Serialize(10, new Exception(errorMessage), 0);
 
-            FhirJsonParser parser = new FhirJsonParser();
-            OperationOutcome operationOutcome = parser.Parse<OperationOutcome>(outcome);
+            FhirJsonDeserializer parser = new FhirJsonDeserializer();
+            OperationOutcome operationOutcome = parser.Deserialize<OperationOutcome>(outcome);
 
             Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
             Assert.Equal($"Failed to process resource at line: {10} with stream start offset: {0}", operationOutcome.Issue[0].Diagnostics);

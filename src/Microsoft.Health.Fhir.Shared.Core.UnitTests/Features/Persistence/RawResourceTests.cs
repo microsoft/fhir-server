@@ -35,9 +35,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.NotNull(raw.Data);
 
-            var parser = new FhirJsonParser(DefaultParserSettings.Settings);
+            var parser = new FhirJsonDeserializer();
 
-            var deserialized = parser.Parse<Observation>(raw.Data);
+            var deserialized = parser.Deserialize<Observation>(raw.Data);
 
             Assert.NotNull(deserialized);
             Assert.Null(deserialized.VersionId);

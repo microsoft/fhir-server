@@ -29,14 +29,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly FhirJsonDeserializer _fhirJsonParser;
         private readonly ExportDataTestFixture _fixture;
 
         public ExportDataValidationTests(ExportDataTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
-            _fhirJsonParser = new FhirJsonParser();
+            _fhirJsonParser = new FhirJsonDeserializer();
             _fixture = fixture;
         }
 

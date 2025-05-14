@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var context = _modelInfoProvider.GetEvaluationContext(_referenceToElementResolver.Resolve);
 
             // This allow to resolve %resource FhirPath to provided value.
-            context.Resource = resource.Instance;
+            context.Resource = resource.Instance.ToPocoNode();
 
             var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType).ToList();
 
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
 
-            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
+            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource.ToPocoNode(), context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
 
-                extractedValues = expression.Invoke(element, context);
+                extractedValues = expression.Invoke(element.ToPocoNode(), context);
             }
             catch (Exception ex)
             {

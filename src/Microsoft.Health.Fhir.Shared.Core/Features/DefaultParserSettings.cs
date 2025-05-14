@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 {
     public static class DefaultParserSettings
     {
-        public static readonly ParserSettings Settings = new ParserSettings { PermissiveParsing = true };
+        // Permissive parsing is now false by default and is no longer a setting. I'll figure out what the reprecusions of this are later.
+        // The obsolete message said to use WithMode(DeserializationMode.Recoverable), but didn't say where to use that.
+        public static readonly DeserializerSettings Settings = new DeserializerSettings();
     }
 }
