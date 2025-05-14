@@ -311,23 +311,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.MaxItemCountSpecifiedByClient = true;
 
-                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                if (isAsyncOperation)
                 {
-                    if (isAsyncOperation)
-                    {
-                        searchOptions.IsLargeAsyncOperation = true;
-                        searchOptions.MaxItemCount = searchParams.Count.Value;
-                    }
-                    else
-                    {
-                        searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+                    searchOptions.IsAsyncOperation = true;
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
+                else if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                {
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                        _contextAccessor.RequestContext?.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Information,
-                                OperationOutcomeConstants.IssueType.Informational,
-                                string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
-                    }
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
                 }
                 else
                 {
