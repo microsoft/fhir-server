@@ -1,9 +1,3 @@
-/****** Object:  StoredProcedure [dbo].[UpdateResourceSearchParams]    Script Date: 5/14/2025 8:56:07 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
 ALTER PROCEDURE [dbo].[UpdateResourceSearchParams]
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
@@ -264,7 +258,7 @@ BEGIN TRY
                   AND B.Code1 = A.Code1
                   AND (B.CodeOverflow1 = A.CodeOverflow1 OR B.CodeOverflow1 IS NULL AND A.CodeOverflow1 IS NULL)
                   AND B.Text2 COLLATE Latin1_General_100_CI_AI_SC = A.Text2
-                  AND (B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC = A.TextOverflow2 OR B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC IS NULL AND A.TextOverflow2 IS NULL)
+                  AND (B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
             )
 
   INSERT INTO @TokenStringCompositeSearchParamsInsert
