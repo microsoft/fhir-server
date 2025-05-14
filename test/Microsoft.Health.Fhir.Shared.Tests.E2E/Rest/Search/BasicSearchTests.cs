@@ -1292,7 +1292,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patient.Meta.Tag.Add(tag);
 
                 FhirResponse<Observation> createdObservation = await Client.CreateAsync(patient);
-                patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToPocoNode()), elements)
                     .ToPoco<Observation>();
 
                 foreach (var system in systems)

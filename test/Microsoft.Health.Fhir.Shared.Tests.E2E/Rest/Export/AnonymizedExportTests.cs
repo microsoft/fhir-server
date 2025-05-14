@@ -77,11 +77,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             IList<Uri> blobUris = await CheckExportStatus(response);
 
             IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            var parser = new FhirJsonDeserializer();
 
             foreach (string content in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
+                Resource result = parser.DeserializeResource(content);
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
@@ -127,11 +127,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             IList<Uri> blobUris = await CheckExportStatus(response);
 
             IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            var parser = new FhirJsonDeserializer();
 
             foreach (string content in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
+                Resource result = parser.DeserializeResource(content);
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
@@ -162,11 +162,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             IList<Uri> blobUris = await CheckExportStatus(response);
 
             IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            var parser = new FhirJsonDeserializer();
 
             foreach (string content in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
+                Resource result = parser.DeserializeResource(content);
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
@@ -196,11 +196,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             IList<Uri> blobUris = await CheckExportStatus(response);
 
             IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            var parser = new FhirJsonDeserializer();
 
             foreach (string content in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
+                Resource result = parser.DeserializeResource(content);
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }

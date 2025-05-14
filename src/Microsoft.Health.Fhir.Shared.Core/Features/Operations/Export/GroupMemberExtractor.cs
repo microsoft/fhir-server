@@ -106,17 +106,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             foreach (Group.MemberComponent member in groupContents)
             {
-                var fhirGroupMembershipTime = new FhirDateTime(groupMembershipTime);
                 if (
                     (member.Inactive == null
                     || member.Inactive == false)
                     && (member.Period?.EndElement == null
-                    || member.Period?.EndElement > fhirGroupMembershipTime)
+                    || member.Period?.EndElement.ToDateTimeOffset(TimeSpan.Zero) > groupMembershipTime)
                     && (member.Period?.StartElement == null
-                    || member.Period?.StartElement < fhirGroupMembershipTime))
+                    || member.Period?.StartElement.ToDateTimeOffset(TimeSpan.Zero) < groupMembershipTime))
                 {
-                    var element = _referenceToElementResolver.Resolve(member.Entity.Reference);
-                    string id = (string)element.Children("id").First().Value;
+                    var element = _referenceToElementResolver.Resolve(member.Entity.Reference).ToResourceElement();
+                    string id = element.Id;
                     string resourceType = element.InstanceType;
 
                     members.Add(Tuple.Create(id, resourceType));

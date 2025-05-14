@@ -34,13 +34,11 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -68,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _fhirJsonParser = new FhirJsonDeserializer();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -106,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _conformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns((x) =>
             {
-                var typedElement = _conformanceStatement.ToTypedElement();
+                var typedElement = _conformanceStatement.ToPocoNode();
                 return Task.FromResult(typedElement.ToResourceElement());
             });
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
@@ -127,10 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            _deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
-
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), _deserializer, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
@@ -147,6 +142,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
+
+            _deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.DeserializeResource(str).ToResourceElement())));
         }
 
         [Fact]
@@ -199,6 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("id2", deserializedResource.Id);
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
@@ -217,6 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), deserializedResource.LastUpdated);
             }
         }
+#endif
 
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenVersionShouldBeSet()

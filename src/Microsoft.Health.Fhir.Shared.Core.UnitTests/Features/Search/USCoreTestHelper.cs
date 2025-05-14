@@ -53,9 +53,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         public const string XmlCompliantDataSamplesFileName = "USCoreMissinData-XmlCompliantSamples.xml";
         public const string XmlNonCompliantDataSamplesFileName = "USCoreMissinData-XmlNonCompliantSamples.xml";
 
-        private static readonly ParserSettings _parserSettings = new ParserSettings() { AcceptUnknownMembers = true, PermissiveParsing = true };
-        private static readonly FhirJsonParser _jsonParser = new FhirJsonParser(_parserSettings);
-        private static readonly FhirXmlParser _xmlParser = new FhirXmlParser(_parserSettings);
+        private static readonly FhirJsonDeserializer _jsonParser = new FhirJsonDeserializer();
+        private static readonly FhirXmlDeserializer _xmlParser = new FhirXmlDeserializer();
         private static readonly LinkGenerator _linkGenerator = Substitute.For<LinkGenerator>();
 
         public static SearchResult GetSearchResult(string fileName)
@@ -124,7 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         private static SearchResultEntry CreateSearchResultEntryFromXml(string rawResourceAsXml)
         {
-            var parsedElement = _xmlParser.Parse(rawResourceAsXml);
+            var parsedElement = _xmlParser.DeserializeResource(rawResourceAsXml);
             ResourceElement resourceElement = parsedElement.ToResourceElement();
 
             RawResource rawResource = new RawResource(
@@ -145,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         private static SearchResultEntry CreateSearchResultEntryFromJson(string rawResourceAsJson)
         {
-            var parsedElement = _jsonParser.Parse(rawResourceAsJson);
+            var parsedElement = _jsonParser.DeserializeResource(rawResourceAsJson);
             ResourceElement resourceElement = parsedElement.ToResourceElement();
 
             RawResource rawResource = new RawResource(

@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static ResourceElement ToResourceElement(this Resource resource)
         {
-            return new ResourceElement(resource.ToTypedElement(), resource);
+            return new ResourceElement(resource.ToPocoNode(), resource);
         }
 
         public static bool EqualsString(this ResourceType resourceType, string value, bool ignoreCase = true)

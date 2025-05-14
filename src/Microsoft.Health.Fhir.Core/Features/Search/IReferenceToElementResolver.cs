@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface IReferenceToElementResolver
     {
-        ITypedElement Resolve(string reference);
+        PocoNode Resolve(string reference);
     }
 }

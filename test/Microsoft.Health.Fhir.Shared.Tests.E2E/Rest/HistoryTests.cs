@@ -638,7 +638,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             var sb = new StringBuilder("Expected count to be ").Append(expected).Append(" but was ").Append(collection.Count).AppendLine(" . Contents:");
-            var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
+            var fhirJsonSerializer = new FhirJsonSerializer();
             using var sw = new StringWriter(sb);
 
             foreach (TBase element in collection)

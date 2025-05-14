@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ReferenceSearchValueParser referenceSearchValueParser = Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor());
 
             _resolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, ModelInfoProvider.Instance);
-            _encounter = Samples.GetJsonSample<Encounter>("Encounter-For-Patient-f001");
+            _encounter = Samples.GetJsonFhirSample<Encounter>("Encounter-For-Patient-f001");
             _context = new FhirEvaluationContext
             {
                 ElementResolver = _resolver.Resolve,
@@ -51,8 +51,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var result = _resolver.Resolve(patientRef);
 
-            Assert.Equal("Patient", result.InstanceType);
-            Assert.Equal("1234", result.Children("id").Single().Value);
+            Assert.Equal("Patient", result.Poco.TypeName);
+            Assert.Equal("1234", ((DynamicResource)result.Poco).Id);
         }
 
         [InlineData("Test/1234")]

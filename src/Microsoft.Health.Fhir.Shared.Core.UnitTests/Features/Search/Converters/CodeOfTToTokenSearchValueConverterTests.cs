@@ -25,16 +25,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class CodeOfTToTokenSearchValueConverterTests : FhirInstanceToSearchValueConverterTests<Code<ObservationStatus>>
     {
-        protected override ITypedElement TypedElement
+        protected override PocoNode TypedElement
         {
             get
             {
                 var observation = new Observation
                 {
                     StatusElement = Element,
-                }.ToTypedElement();
+                };
 
-                return observation.Select("Observation.status").Single();
+                return observation.Select("Observation.status").Single().ToPocoNode();
             }
         }
 

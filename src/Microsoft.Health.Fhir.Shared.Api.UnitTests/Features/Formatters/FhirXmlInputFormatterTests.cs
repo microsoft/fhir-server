@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleXml, ModelStateDictionary modelStateDictionary)
         {
-            var formatter = new FhirXmlInputFormatter(new FhirXmlParser());
+            var formatter = new FhirXmlInputFormatter(new FhirXmlDeserializer());
 
             var metaData = new DefaultModelMetadata(
                 new EmptyModelMetadataProvider(),
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanRead(Type modelType, string contentType)
         {
-            var formatter = new FhirXmlInputFormatter(new FhirXmlParser());
+            var formatter = new FhirXmlInputFormatter(new FhirXmlDeserializer());
             var modelMetadata = Substitute.For<ModelMetadata>(ModelMetadataIdentity.ForType(modelType));
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;

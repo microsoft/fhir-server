@@ -164,11 +164,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     callCount++;
                     if (callCount == 1)
                     {
-                        return new ResourceElement(Substitute.For<ITypedElement>(), group);
+                        return new ResourceElement(Substitute.For<PocoNode>(), group);
                     }
                     else
                     {
-                        return new ResourceElement(Substitute.For<ITypedElement>(), nestedGroup);
+                        return new ResourceElement(Substitute.For<PocoNode>(), nestedGroup);
                     }
                 })));
 
@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 },
             };
 
-            _resourceElement = new ResourceElement(Substitute.For<ITypedElement>(), group);
+            _resourceElement = new ResourceElement(Substitute.For<PocoNode>(), group);
         }
     }
 }

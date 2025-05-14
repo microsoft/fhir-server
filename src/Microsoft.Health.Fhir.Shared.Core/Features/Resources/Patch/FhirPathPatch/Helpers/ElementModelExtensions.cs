@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
     {
         // Converts a FHIR Resource to an ElementNode
         internal static ElementNode ToElementNode(this Base b) =>
-            ElementNode.FromElement(b.ToTypedElement());
+            ElementNode.FromElement(b.ToPocoNode());
 
         // Converts an ITypedElement to an ElementNode
         internal static ElementNode ToElementNode(this ITypedElement element) =>
@@ -29,14 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
         // Converts a DataType to a named ElementNode
         internal static ElementNode ToElementNode(this DataType data, string name)
         {
-            var node = ElementNode.FromElement(data.ToTypedElement());
+            var node = ElementNode.FromElement(data.ToPocoNode());
             node.Name = name;
             return node;
         }
 
         // Given the results of a Path Select command, get the first element node
+#pragma warning disable SDK0002 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppressing during evaluation of alpha
         internal static ElementNode GetFirstElementNode(this IEnumerable<ITypedElement> nodeList) =>
             nodeList.First().ToScopedNode().Current.ToElementNode();
+#pragma warning restore SDK0002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
 
         // Given an input note list, throw an exception if there are no elements.
         internal static IEnumerable<ITypedElement> RequireOneOrMoreElements(this IEnumerable<ITypedElement> nodeList)
@@ -122,7 +124,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             {
                 foreach (var t in partFhirMapping.FhirType)
                 {
-                    if (valueDataType.GetType().CanBeTreatedAsType(t))
+                    // Copied from Hl7.Fhir.Utility.ReflectionHelper as the method CanBeTreatedAsType was made internal.
+                    var valueType = valueDataType.GetType();
+
+                    if (valueType != null && t != null && t.IsAssignableFrom(valueType))
                     {
                         return valueDataType.ToElementNode(partFhirMapping.Name);
                     }

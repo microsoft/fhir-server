@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 patient.Meta = new Hl7.Fhir.Model.Meta { LastUpdated = lastUpdated };
             }
 
-            var resource = patient.ToTypedElement().ToResourceElement();
+            var resource = patient.ToResourceElement();
             var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             var wrapper = new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest("Import"), true, new List<SearchIndexEntry>(), null, null, "ABC");
 

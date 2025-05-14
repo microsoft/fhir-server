@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _capabilityStatement;
         private readonly ResourceDeserializer _deserializer;
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly FhirJsonDeserializer _fhirJsonParser;
         private readonly IFhirDataStore _dataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ConformanceProviderBase _conformanceProvider;
@@ -309,7 +309,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
             if (wrapper.RawResource.IsMetaSet)
             {
-                Observation observation = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+                Observation observation = _fhirJsonParser.Deserialize<Observation>(wrapper.RawResource.Data);
                 Assert.Equal("2", observation.VersionId);
             }
         }
@@ -336,7 +336,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Assert.True(wrapper.RawResource.IsMetaSet);
                 Assert.NotEqual(wrapper.Version, versionId);
 
-                var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+                var deserialized = _fhirJsonParser.Deserialize<Observation>(wrapper.RawResource.Data);
                 Assert.NotEqual(versionId, deserialized.VersionId);
             }
         }
@@ -365,7 +365,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.NotNull(wrapper);
 
             Assert.NotEqual(wrapper.Version, versionId);
-            var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+            var deserialized = _fhirJsonParser.Deserialize<Observation>(wrapper.RawResource.Data);
 
             Assert.Equal(wrapper.RawResource.IsMetaSet ? "2" : "1", deserialized.VersionId);
         }
@@ -830,7 +830,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
@@ -855,7 +855,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
                 (ResourceWrapper original, ResourceWrapper updatedWithSearchParam1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1);
 
-                var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
+                var deserializedResource = _fhirJsonParser.Deserialize<Patient>(original.RawResource.Data);
                 UpdatePatient(deserializedResource);
                 await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
@@ -873,13 +873,13 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam1 != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
                 }
 
                 if (searchParam2 != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
                 }
             }
@@ -912,7 +912,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
@@ -984,7 +984,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
@@ -1013,11 +1013,11 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1);
                 (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1);
 
-                var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
+                var deserializedResource = _fhirJsonParser.Deserialize<Patient>(original1.RawResource.Data);
                 UpdatePatient(deserializedResource);
                 await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
+                deserializedResource = _fhirJsonParser.Deserialize<Patient>(original2.RawResource.Data);
                 UpdatePatient(deserializedResource);
                 await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
@@ -1040,13 +1040,13 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam1 != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
                 }
 
                 if (searchParam2 != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
                 }
             }
@@ -1086,7 +1086,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             {
                 if (searchParam != null)
                 {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
@@ -1202,7 +1202,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Code = searchParamName,
             };
 
-            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToPocoNode() });
 
             // Add the search parameter to the datastore
             await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported, CancellationToken.None);

@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private T GetResourceFromFile<T>(string testFileName)
             where T : Resource
         {
-            T resource = Samples.GetJsonSample<T>(testFileName);
+            T resource = Samples.GetJsonFhirSample<T>(testFileName);
 
             switch (resource)
             {

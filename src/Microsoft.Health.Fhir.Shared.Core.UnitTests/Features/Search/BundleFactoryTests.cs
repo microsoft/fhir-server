@@ -89,7 +89,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
+            observation1.UpdateVersion("1");
             ResourceElement observation2 = Samples.GetDefaultObservation().UpdateId("abc");
+            observation2.UpdateVersion("1");
 
             var resourceWrappers = new SearchResultEntry[]
             {
@@ -131,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     Assert.NotNull(resourceData);
 
                     Resource resource;
-                    resource = new FhirJsonParser().Parse(resourceData) as Resource;
+                    resource = new FhirJsonDeserializer().DeserializeResource(resourceData);
 
                     Assert.Equal(expected.Id, resource.Id);
                     Assert.Equal(string.Format(_resourceUrlFormat, expected.Id), raw.FullUrl);

@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
             CapabilityStatement capability,
             Hl7.Fhir.Model.ResourceType? resourceType,
             IEnumerable<TypeRestfulInteraction> interactions,
-            IEnumerable<SearchParamComponent> searchParams = null,
+            IEnumerable<Hl7.Fhir.Model.CapabilityStatement.SearchParamComponent> searchParams = null,
             ResourceVersionPolicy? versioningPolicy = null)
         {
             capability.Rest[0].Resource.Add(new ResourceComponent

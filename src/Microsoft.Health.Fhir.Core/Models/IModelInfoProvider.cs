@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         Type GetTypeForFhirType(string resourceType);
 
-        EvaluationContext GetEvaluationContext(Func<string, ITypedElement> elementResolver = null);
+        EvaluationContext GetEvaluationContext(Func<string, PocoNode> elementResolver = null);
 
         ITypedElement ToTypedElement(ISourceNode sourceNode);
 
