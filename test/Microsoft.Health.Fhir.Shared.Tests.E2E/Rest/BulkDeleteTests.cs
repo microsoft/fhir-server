@@ -375,8 +375,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var retryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
-                    retryCount: 10,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
+                    retryCount: 12,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(5));
             try
             {
                 var tag = Guid.NewGuid().ToString();
@@ -409,24 +409,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, resourceTypes);
 
                 // Make sure the search parameters are deleted.
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        var deleted = 0;
-                        foreach (var resource in resources)
-                        {
-                            try
-                            {
-                                await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
-                            }
-                            catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
-                            {
-                                deleted++;
-                            }
-                        }
-
-                        Assert.Equal(resources.Count, deleted);
-                    });
+                await EnsureBulkDeleteAsync(resourcesToCreate);
 
                 // Ensure the search parameters were deleted by creating the same search parameters again.
                 DebugOutput("Creating search parameters again after bulk-delete...");
@@ -672,6 +655,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                              x => expectedResults.TryGetValue(x.Key, out var value) && value == x.Value);
                          DebugOutput($"Checking the bulk-delete status completed.");
                      });
+            }
+
+            Task EnsureBulkDeleteAsync(List<Resource> resources)
+            {
+                return retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        DebugOutput($"Checking {resources.Count} search parameters deleted...");
+                        var deleted = 0;
+                        foreach (var resource in resources)
+                        {
+                            var url = ((SearchParameter)resource).Url;
+                            try
+                            {
+                                DebugOutput($"Checking url: {url}");
+                                await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
+                                DebugOutput($"Url not deleted: {url}");
+                            }
+                            catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
+                            {
+                                DebugOutput($"Url not deleted: {url}");
+                                deleted++;
+                            }
+                        }
+
+                        Assert.Equal(resources.Count, deleted);
+                        DebugOutput($"Checking {resources.Count} search parameters deleted completed.");
+                    });
             }
         }
 
