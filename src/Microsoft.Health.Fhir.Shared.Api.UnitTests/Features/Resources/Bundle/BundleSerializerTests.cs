@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             string originalSerializer = bundle.ToJson();
             Assert.Equal(originalSerializer, serialized);
 
-            var deserializedBundle = new FhirJsonParser(DefaultParserSettings.Settings).Parse(serialized) as Hl7.Fhir.Model.Bundle;
+            var deserializedBundle = new FhirJsonDeserializer().Deserialize<Hl7.Fhir.Model.Bundle>(serialized);
 
             Assert.True(deserializedBundle.IsExactly(bundle));
         }

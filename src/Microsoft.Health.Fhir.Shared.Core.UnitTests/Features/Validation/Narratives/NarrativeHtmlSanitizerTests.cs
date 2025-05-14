@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         [Fact]
         public void GivenExampleNarrativeHtml_WhenSanitizingHtml_ThenValidationIsSuccessful()
         {
-            var example = Samples.GetJsonSample<Basic>("BasicExampleNarrative");
+            var example = Samples.GetJsonFhirSample<Basic>("BasicExampleNarrative");
 
             var results = _sanitizer.Validate(example.Text.Div);
 

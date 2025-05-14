@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _fhirJsonParser = new FhirJsonDeserializer();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _conformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns((x) =>
             {
-                var typedElement = _conformanceStatement.ToTypedElement();
+                var typedElement = _conformanceStatement.ToPocoNode();
                 return Task.FromResult(typedElement.ToResourceElement());
             });
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _mediator = new Mediator(provider);
 
             _deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.DeserializeResource(str).ToResourceElement())));
         }
 
         [Fact]

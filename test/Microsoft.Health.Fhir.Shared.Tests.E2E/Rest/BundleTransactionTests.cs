@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Security.Policy;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var id = Guid.NewGuid().ToString();
 
             // Insert resources first inorder to test a delete.
-            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            var resource = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             resource.Identifier[0].Value = id;
             using FhirResponse<Patient> response = await _client.CreateAsync(resource);
 
@@ -62,8 +63,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             bundleAsString = bundleAsString.Replace("234235", Guid.NewGuid().ToString());
             bundleAsString = bundleAsString.Replace("456456", Guid.NewGuid().ToString());
 
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            var requestBundle = parser.Parse<Bundle>(bundleAsString);
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var requestBundle = parser.Deserialize<Bundle>(bundleAsString);
 
             requestBundle.Entry.Add(new EntryComponent
             {
@@ -132,14 +133,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var id = Guid.NewGuid().ToString();
 
             // Insert resources first inorder to test a delete.
-            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            var resource = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             resource.Identifier[0].Value = id;
             using FhirResponse<Patient> response = await _client.CreateAsync(resource);
 
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
             bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            var bundle = parser.Parse<Bundle>(bundleAsString);
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var bundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
@@ -175,8 +176,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var id = Guid.NewGuid().ToString();
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithValidBundleEntry");
             bundleAsString = bundleAsString.Replace("identifier=234234", $"identifier={id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            var requestBundle = parser.Parse<Bundle>(bundleAsString);
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var requestBundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
@@ -271,14 +272,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var id = Guid.NewGuid().ToString();
 
             // Insert a resource that has a predefined identifier.
-            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            var resource = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             resource.Identifier[0].Value = id;
             await _client.CreateAsync(resource);
 
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithReferenceInResourceBody");
             bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            var bundle = parser.Parse<Bundle>(bundleAsString);
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var bundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using FhirResponse<Bundle> fhirResponseForReferenceResolution = await _client.PostBundleAsync(bundle);
 

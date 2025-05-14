@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
@@ -19,8 +20,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         {
             var json = EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, "json");
 
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return (Bundle)parser.Parse(json, typeof(Bundle));
+            var parser = new FhirJsonDeserializer();
+            return parser.Deserialize<Bundle>(json);
         }
     }
 }

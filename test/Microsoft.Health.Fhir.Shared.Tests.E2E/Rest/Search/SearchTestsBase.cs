@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 }
             }
 
-            var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
+            var fhirJsonSerializer = new FhirJsonSerializer();
             using var sw = new StringWriter(sb);
             sb.AppendLine("Actual collection as below -");
             foreach (var element in actualResources)

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterDefinitionBuilderTests
     {
-        private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _jsonParser = new FhirJsonDeserializer();
 
         private readonly string _invalidEntriesFile = "SearchParametersWithInvalidEntries.json";
         private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";

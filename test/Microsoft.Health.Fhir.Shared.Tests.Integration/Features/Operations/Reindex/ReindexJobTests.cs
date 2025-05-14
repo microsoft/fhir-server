@@ -343,7 +343,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -467,7 +467,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -548,7 +548,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -616,7 +616,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -703,9 +703,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _searchParameterStatusManager2.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                _searchParameterDefinitionManager2.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager2.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -765,7 +765,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -840,7 +840,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 cancellationTokenSource.Cancel();
 
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToPocoNode());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
                 await _fixture.DataStore.HardDeleteAsync(samplePatient.Wrapper.ToResourceKey(), false, false, CancellationToken.None);
@@ -942,7 +942,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             searchParam.Base = new List<VersionIndependentResourceTypesAll?>() { Enum.Parse<VersionIndependentResourceTypesAll>(baseType) };
 #endif
 
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToPocoNode(), CancellationToken.None);
 
             return searchParam;
         }

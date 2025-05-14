@@ -35,13 +35,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var convertDataRequestHandler = GetRequestHandler();
             var response = await convertDataRequestHandler.Handle(GetSampleHl7v2Request(), default);
 
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var bundleResource = parser.Parse<Bundle>(response.Resource);
+            var parser = new FhirJsonDeserializer();
+            var bundleResource = parser.Deserialize<Bundle>(response.Resource);
 
             var patient = bundleResource.Entry.ByResourceType<Patient>().First();
             Assert.NotEmpty(patient.Id);
@@ -55,13 +50,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var convertDataRequestHandler = GetRequestHandler();
             var response = await convertDataRequestHandler.Handle(GetSampleCcdaRequest(), default);
 
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var bundleResource = parser.Parse<Bundle>(response.Resource);
+            var parser = new FhirJsonDeserializer();
+            var bundleResource = parser.Deserialize<Bundle>(response.Resource);
 
             var patient = bundleResource.Entry.ByResourceType<Patient>().First();
             Assert.NotEmpty(patient.Id);
@@ -75,13 +65,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var convertDataRequestHandler = GetRequestHandler();
             var response = await convertDataRequestHandler.Handle(GetSampleJsonRequest(), default);
 
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var patient = parser.Parse<Patient>(response.Resource);
+            var parser = new FhirJsonDeserializer();
+            var patient = parser.Deserialize<Patient>(response.Resource);
 
             Assert.NotEmpty(patient.Id);
             Assert.Equal("Smith", patient.Name.First().Family);
@@ -95,13 +80,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var convertDataRequestHandler = GetRequestHandler();
             var response = await convertDataRequestHandler.Handle(GetSampleFhirRequest(), default);
 
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var patient = parser.Parse<Patient>(response.Resource);
+            var parser = new FhirJsonDeserializer();
+            var patient = parser.Deserialize<Patient>(response.Resource);
 
             Assert.NotEmpty(patient.Id);
             Assert.Single(patient.Extension);

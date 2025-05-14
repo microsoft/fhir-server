@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     {
         protected TElement Element { get; } = new TElement();
 
-        protected virtual ITypedElement TypedElement => Element.ToTypedElement();
+        protected virtual PocoNode TypedElement => Element.ToPocoNode();
 
         protected abstract Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync();
 

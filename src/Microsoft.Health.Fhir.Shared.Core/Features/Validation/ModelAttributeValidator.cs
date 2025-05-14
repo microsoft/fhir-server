@@ -14,7 +14,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     {
         public bool TryValidate(ResourceElement value, ICollection<ValidationResult> validationResults = null, bool recurse = false)
         {
-            return DotNetAttributeValidation.TryValidate(value.ToPoco(), validationResults, recurse);
+            var results = value.ToPoco().Validate();
+
+            if (results.Count > 0 && validationResults != null)
+            {
+                foreach (var item in results)
+                {
+                    validationResults.Add(new ValidationResult(item.Message));
+                }
+            }
+
+            return results.Count == 0;
         }
     }
 }

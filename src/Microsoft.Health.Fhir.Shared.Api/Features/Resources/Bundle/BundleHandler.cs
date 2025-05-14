@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly FhirJsonDeserializer _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IHttpContextAccessor httpContextAccessor,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
-            FhirJsonParser fhirJsonParser,
+            FhirJsonDeserializer fhirJsonParser,
             ITransactionHandler transactionHandler,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             IBundleOrchestrator bundleOrchestrator,
@@ -570,7 +570,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (entry.Resource != null)
                 {
-                    var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
+                    var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     httpContext.Request.Body = memoryStream;
                 }
@@ -584,7 +584,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 entry.Resource is Parameters parametersResource)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
-                var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
+                var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }
@@ -729,7 +729,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
+        private static EntryComponent CreateEntryComponent(FhirJsonDeserializer fhirJsonParser, HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
             using var reader = new StreamReader(httpContext.Response.Body);
@@ -750,7 +750,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (!string.IsNullOrWhiteSpace(bodyContent))
             {
-                var entryComponentResource = fhirJsonParser.Parse<Resource>(bodyContent);
+                var entryComponentResource = fhirJsonParser.DeserializeResource(bodyContent);
 
                 if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
                 {

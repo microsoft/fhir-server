@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
+            return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance).ToPocoNode());
         }
     }
 }

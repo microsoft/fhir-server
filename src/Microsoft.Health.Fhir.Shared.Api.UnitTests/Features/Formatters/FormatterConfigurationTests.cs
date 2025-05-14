@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
     public class FormatterConfigurationTests
     {
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
-        private readonly FhirJsonInputFormatter _fhirJsonInputFormatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
-        private readonly FhirXmlInputFormatter _fhirXmlInputFormatter = new FhirXmlInputFormatter(new FhirXmlParser());
+        private readonly FhirJsonInputFormatter _fhirJsonInputFormatter = new FhirJsonInputFormatter(new FhirJsonDeserializer(), ArrayPool<char>.Shared);
+        private readonly FhirXmlInputFormatter _fhirXmlInputFormatter = new FhirXmlInputFormatter(new FhirXmlDeserializer());
         private readonly FhirXmlOutputFormatter _fhirXmlOutputFormatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), Deserializers.ResourceDeserializer, ModelInfoProvider.Instance);
         private readonly HtmlOutputFormatter _htmlOutputFormatter;
         private readonly FhirJsonOutputFormatter _fhirJsonOutputFormatter;

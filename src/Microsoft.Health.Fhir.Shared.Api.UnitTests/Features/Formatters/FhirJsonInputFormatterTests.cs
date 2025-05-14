@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Single(entry.Errors);
             try
             {
-                new FhirJsonParser().Parse<Resource>(patient);
+                new FhirJsonDeserializer().DeserializeResource(patient);
             }
             catch (Exception ex)
             {
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Single(entry.Errors);
             try
             {
-                new FhirJsonParser().Parse<Resource>(patient);
+                new FhirJsonDeserializer().DeserializeResource(patient);
             }
             catch (Exception ex)
             {
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle)
         {
-            var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
+            var formatter = new FhirJsonInputFormatter(new FhirJsonDeserializer(), ArrayPool<char>.Shared);
 
             var metaData = new DefaultModelMetadata(
                 new EmptyModelMetadataProvider(),
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanRead(Type modelType, string contentType)
         {
-            var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
+            var formatter = new FhirJsonInputFormatter(new FhirJsonDeserializer(), ArrayPool<char>.Shared);
             var modelMetadata = Substitute.For<ModelMetadata>(ModelMetadataIdentity.ForType(modelType));
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;

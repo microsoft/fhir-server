@@ -25,8 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class ResourceToNdjsonBytesSerializerTests
     {
         private readonly ResourceDeserializer _resourceDeserializaer;
-        private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
-        private readonly FhirXmlParser _xmlParser = new FhirXmlParser();
+        private readonly FhirJsonDeserializer _jsonParser = new FhirJsonDeserializer();
+        private readonly FhirXmlDeserializer _xmlParser = new FhirXmlDeserializer();
 
         private readonly ResourceToNdjsonBytesSerializer _serializer;
 
@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public ResourceToNdjsonBytesSerializerTests()
         {
             _resourceDeserializaer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
-                (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.DeserializeResource(str).ToResourceElement())),
+                (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.DeserializeResource(str).ToResourceElement())));
 
             _serializer = new ResourceToNdjsonBytesSerializer();
 
@@ -68,10 +68,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public void GivenAInvalidElementNode_WhenSerialized_ByteArrayShouldBeProduced()
         {
-            var node = ElementNode.FromElement(_resource.ToTypedElement());
+            var node = ElementNode.FromElement(_resource.ToPocoNode());
             (((ScopedNode)node.Select("Observation.text").First()).Current as ElementNode).Value = "invalid";
-            var newElement = new ResourceElement(node);
-            Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
+            var newElement = new ResourceElement(node.ToPocoNode());
+            Assert.Throws<FormatException>(() => ((ISourceNode)newElement.Instance).ToPoco<Resource>().ToJson());
 
             Assert.Equal(Samples.GetInvalidResourceJson().Replace("\r\n", "\n"), Encoding.UTF8.GetString(_serializer.Serialize(newElement)).Replace("\r\n", "\n"));
         }

@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 
             var fhirJsonSerializer = new FhirJsonSerializer();
-            var fhirJsonParser = new FhirJsonParser();
+            var fhirJsonParser = new FhirJsonDeserializer();
 
             var loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
 

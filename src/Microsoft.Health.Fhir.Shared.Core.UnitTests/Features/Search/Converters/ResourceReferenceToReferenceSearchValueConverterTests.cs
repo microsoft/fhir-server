@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
             _reference.Reference = reference;
 
-            IEnumerable<ISearchValue> results = _converter.ConvertTo(_reference.ToTypedElement());
+            IEnumerable<ISearchValue> results = _converter.ConvertTo(_reference.ToPocoNode());
 
             Assert.NotNull(results);
             Assert.Collection(
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         {
             setup(_reference);
 
-            IEnumerable<ISearchValue> values = _converter.ConvertTo(_reference.ToTypedElement());
+            IEnumerable<ISearchValue> values = _converter.ConvertTo(_reference.ToPocoNode());
 
             Assert.NotNull(values);
             Assert.Empty(values);

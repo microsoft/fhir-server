@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            string resourceData = resourceElement.Instance.ToJson();
+            string resourceData = resourceElement.Instance.Poco.ToJson();
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 resourceElement.TryAddSoftDeletedExtension();
             }
 
-            return resourceElement.Instance.ToJson();
+            return resourceElement.Instance.Poco.ToJson();
         }
     }
 }

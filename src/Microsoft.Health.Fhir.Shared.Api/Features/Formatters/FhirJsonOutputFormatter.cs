@@ -7,8 +7,10 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -150,17 +152,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
 
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
-            using (var jsonWriter = new JsonTextWriter(textWriter))
             {
-                jsonWriter.ArrayPool = _charPool;
-
-                if (pretty)
+                var options = new JsonWriterOptions
                 {
-                    jsonWriter.Formatting = Formatting.Indented;
-                }
+                    Indented = pretty,
+                };
 
-                await _fhirJsonSerializer.SerializeAsync(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
-                await jsonWriter.FlushAsync();
+                using var stream = new MemoryStream();
+                using var writer = new Utf8JsonWriter(stream, options);
+
+                FhirJsonSerializer.Default.Serialize(resource, writer);
+                await writer.FlushAsync();
+
+                string json = Encoding.UTF8.GetString(stream.ToArray());
+                await textWriter.WriteAsync(json);
+                await textWriter.FlushAsync();
             }
         }
     }

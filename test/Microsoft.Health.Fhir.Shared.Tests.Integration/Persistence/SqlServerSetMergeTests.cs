@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public SqlServerSetMergeTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _store = (SqlServerFhirDataStore)fixture.GetService<IFhirDataStore>();
-            _jsonSerializer = new FhirJsonSerializer(null);
+            _jsonSerializer = new FhirJsonSerializer();
             _logger = XUnitLogger<SqlServerSetMergeTests>.Create(testOutputHelper);
             _sqlConnectionWrapperFactory = fixture.SqlConnectionWrapperFactory;
         }

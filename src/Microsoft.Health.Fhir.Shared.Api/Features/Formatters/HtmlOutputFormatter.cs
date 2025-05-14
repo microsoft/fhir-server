@@ -8,6 +8,7 @@ using System.Buffers;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -95,16 +96,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var stringBuilder = new StringBuilder();
             await using (var stringWriter = new StringWriter(stringBuilder))
-            await using (var jsonTextWriter = new JsonTextWriter(stringWriter))
             {
-                jsonTextWriter.ArrayPool = _charPool;
-                jsonTextWriter.Formatting = Formatting.Indented;
+                using var stream = new MemoryStream();
+                using var writer = new Utf8JsonWriter(stream);
 
-                await _fhirJsonSerializer.SerializeAsync(
-                    resourceInstance,
-                    jsonTextWriter,
-                    context.HttpContext.GetSummaryTypeOrDefault(),
-                    context.HttpContext.GetElementsOrDefault().ToArray());
+                FhirJsonSerializer.Default.Serialize(resourceInstance, writer);
+                await writer.FlushAsync();
+
+                string json = Encoding.UTF8.GetString(stream.ToArray());
+                await stringWriter.WriteAsync(json);
+                await stringWriter.FlushAsync();
             }
 
             var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())

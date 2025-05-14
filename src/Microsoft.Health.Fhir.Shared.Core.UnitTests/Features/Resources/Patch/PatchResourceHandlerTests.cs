@@ -49,7 +49,7 @@ public class PatchResourceHandlerTests
 
         var wrapper = new ResourceWrapper(
             patient,
-            new RawResource(patient.Instance.ToJson(), FhirResourceFormat.Json, false),
+            new RawResource(patient.ToPoco().ToJson(), FhirResourceFormat.Json, false),
             new ResourceRequest(HttpMethod.Get),
             false,
             null,

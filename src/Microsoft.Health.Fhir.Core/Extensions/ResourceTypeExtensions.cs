@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
         public static ResourceElement ToResourceElement(this ITypedElement typedElement)
         {
-            return new ResourceElement(typedElement);
+            return new ResourceElement(typedElement.ToPocoNode());
         }
     }
 }

@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public ConformanceProviderBase ConformanceProvider { get; private set; }
 
-        public FhirJsonParser JsonParser { get; } = new FhirJsonParser();
+        public FhirJsonDeserializer JsonParser { get; } = new FhirJsonDeserializer();
 
         public ResourceDeserializer Deserializer { get; private set; }
 
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
             ConformanceProvider = Substitute.For<ConformanceProviderBase>();
-            ConformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
+            ConformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns(CapabilityStatement.ToPocoNode().ToResourceElement());
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Mediator = new Mediator(services);
 
             Deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.DeserializeResource(str).ToResourceElement())));
         }
 
         public async Task DisposeAsync()

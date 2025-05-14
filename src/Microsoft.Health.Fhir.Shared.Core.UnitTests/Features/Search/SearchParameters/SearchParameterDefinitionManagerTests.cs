@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
                 .Returns((true, false));
 
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToPocoNode(), CancellationToken.None);
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
@@ -377,7 +377,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test" && p.Component.All(c => c.ResolvedSearchParameter != null)))
                 .Returns((true, false));
 
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToPocoNode(), CancellationToken.None);
 
             var addedParam = _searchParameterDefinitionManager.GetSearchParameter("http://test/Patient-test");
             Assert.NotNull(addedParam);
@@ -425,7 +425,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
                 .Returns((true, false));
 
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToPocoNode(), CancellationToken.None);
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
@@ -566,7 +566,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var wrapper = new ResourceWrapper(
                 new ResourceElement(
-                    rawResource.ToITypedElement(ModelInfoProvider.Instance)),
+                    rawResource.ToITypedElement(ModelInfoProvider.Instance).ToPocoNode()),
                 rawResource,
                 new ResourceRequest("POST"),
                 false,

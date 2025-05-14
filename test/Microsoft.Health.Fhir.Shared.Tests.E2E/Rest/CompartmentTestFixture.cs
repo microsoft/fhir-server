@@ -30,13 +30,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         protected override async Task OnInitializedAsync()
         {
             // Create various resources.
-            Device = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
+            Device = await TestFhirClient.CreateAsync(Samples.GetJsonFhirSample<Device>("Device-d1"));
 
-            Patient = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Patient>("Patient-f001"));
+            Patient = await TestFhirClient.CreateAsync(Samples.GetJsonFhirSample<Patient>("Patient-f001"));
 
             string patientReference = $"Patient/{Patient.Id}";
 
-            Observation observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            Observation observationToCreate = Samples.GetJsonFhirSample<Observation>("Observation-For-Patient-f001");
 
             observationToCreate.Subject.Reference = patientReference;
 
@@ -44,13 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Observation = await TestFhirClient.CreateAsync(observationToCreate);
 
-            Encounter encounterToCreate = Samples.GetJsonSample<Encounter>("Encounter-For-Patient-f001");
+            Encounter encounterToCreate = Samples.GetJsonFhirSample<Encounter>("Encounter-For-Patient-f001");
 
             encounterToCreate.Subject.Reference = patientReference;
 
             Encounter = await TestFhirClient.CreateAsync(encounterToCreate);
 
-            Condition conditionToCreate = Samples.GetJsonSample<Condition>("Condition-For-Patient-f001");
+            Condition conditionToCreate = Samples.GetJsonFhirSample<Condition>("Condition-For-Patient-f001");
 
             conditionToCreate.Subject.Reference = patientReference;
 

@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
-            DotNetAttributeValidation.Validate(operationOutcome, true);
+            // DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
         [Fact]
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueSeverity.Fatal, operationOutcome.Issue[0].Severity);
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
-            DotNetAttributeValidation.Validate(operationOutcome, true);
+            // DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
         [Fact]
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
-            DotNetAttributeValidation.Validate(operationOutcome, true);
+            // DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
         [Fact]

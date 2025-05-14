@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FhirXmlInputFormatter : TextInputFormatter
     {
-        private readonly FhirXmlParser _parser;
+        private readonly FhirXmlDeserializer _parser;
 
-        public FhirXmlInputFormatter(FhirXmlParser parser)
+        public FhirXmlInputFormatter(FhirXmlDeserializer parser)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 using (var textReader = XmlDictionaryReader.CreateTextReader(request.Body, encoding, XmlDictionaryReaderQuotas.Max, onClose: null))
                 {
-                    var model = await _parser.ParseAsync<Resource>(textReader);
+                    var model = _parser.DeserializeResource(textReader);
                     return await InputFormatterResult.SuccessAsync(model);
                 }
             }

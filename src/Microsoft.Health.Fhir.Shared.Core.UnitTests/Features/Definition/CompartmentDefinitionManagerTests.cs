@@ -25,9 +25,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         public CompartmentDefinitionManagerTests()
         {
-            var validCompartmentBundle = Samples.GetJsonSample<Bundle>("ValidCompartmentDefinition");
+            var validCompartmentBundle = Samples.GetJsonFhirSample<Bundle>("ValidCompartmentDefinition");
             _validBuiltCompartment = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
-            _validBuiltCompartment.Build(new BundleWrapper(validCompartmentBundle.ToTypedElement()));
+            _validBuiltCompartment.Build(new BundleWrapper(validCompartmentBundle.ToPocoNode()));
         }
 
         [Theory]
@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [Fact]
         public void GivenAnInvalidCompartmentDefinitionBundle_Issues_MustBeReturned()
         {
-            var invalidCompartmentBundle = Samples.GetJsonSample<Bundle>("InvalidCompartmentDefinition");
+            var invalidCompartmentBundle = Samples.GetJsonFhirSample<Bundle>("InvalidCompartmentDefinition");
             var invalidBuiltCompartment = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
-            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build(new BundleWrapper(invalidCompartmentBundle.ToTypedElement())));
+            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build(new BundleWrapper(invalidCompartmentBundle.ToPocoNode())));
             Assert.Contains("invalid entries", exception.Message);
             Assert.Equal(3, exception.Issues.Count);
             Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal.ToString() && ic.Code == OperationOutcome.IssueType.Invalid.ToString() && ic.Diagnostics.Contains("not a CompartmentDefinition"));

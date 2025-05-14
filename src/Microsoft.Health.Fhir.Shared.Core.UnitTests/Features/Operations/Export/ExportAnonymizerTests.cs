@@ -49,8 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             patient.Name.Add(HumanName.ForFamily("Test"));
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
-            Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToPocoNode()));
+            Patient anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Patient>();
             Assert.Empty(anonymizedResource.Name);
         }
 
@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             patient.BirthDate = "2001-01-01";
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
-            Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToPocoNode()));
+            Patient anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Patient>();
             Assert.Equal("2000-01-01", anonymizedResource.BirthDate);
         }
 
@@ -101,8 +101,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             patient.Id = "123";
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
-            Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToPocoNode()));
+            Patient anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Patient>();
             Assert.Equal("3cafe40f92be6ac77d2792b4b267c2da11e3f3087b93bb19c6c5133786984b44", anonymizedResource.Id);
         }
 
@@ -127,8 +127,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             patient.BirthDate = "2001-01-01";
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
-            Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToPocoNode()));
+            Patient anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Patient>();
             Assert.Equal("2001-02-20", anonymizedResource.BirthDate);
         }
 
@@ -151,8 +151,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             patient.Name.Add(HumanName.ForFamily("input"));
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
-            Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToPocoNode()));
+            Patient anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Patient>();
             Assert.Equal("test", anonymizedResource.Name.First().Family);
         }
 
@@ -176,8 +176,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             condition.Onset = new Age { Value = 20 };
             IAnonymizer anonymizer = await CreateAnonymizerFromConfigContent(configurationContent);
 
-            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(condition.ToTypedElement()));
-            Condition anonymizedResource = resourceElement.Instance.ToPoco<Condition>();
+            ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(condition.ToPocoNode()));
+            Condition anonymizedResource = ((ISourceNode)resourceElement.Instance).ToPoco<Condition>();
             Assert.InRange((anonymizedResource.Onset as Age).Value.GetValueOrDefault(), 20, 20);
         }
 

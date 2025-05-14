@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        private FhirJsonParser _parser;
+        private FhirJsonDeserializer _parser;
         private IResourceWrapperFactory _resourceFactory;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(FhirJsonDeserializer parser, IResourceWrapperFactory resourceFactory)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = _parser.Parse<Resource>(rawResource);
+            var resource = _parser.DeserializeResource(rawResource);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)

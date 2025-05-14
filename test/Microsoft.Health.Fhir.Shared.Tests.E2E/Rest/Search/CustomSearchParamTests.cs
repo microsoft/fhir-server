@@ -54,13 +54,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
 
             var randomName = Guid.NewGuid().ToString().ComputeHash()[..14].ToLower();
-            SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-SpecimenStatus");
+            SearchParameter searchParam = Samples.GetJsonFhirSample<SearchParameter>("SearchParameter-SpecimenStatus");
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
 
             // POST a new Specimen
-            Specimen specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen = Samples.GetJsonFhirSample<Specimen>("Specimen");
             specimen.Status = Specimen.SpecimenStatus.Available;
             var tag = new Coding(null, randomName);
             specimen.Meta = new Meta();
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
-            Specimen specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen2 = Samples.GetJsonFhirSample<Specimen>("Specimen");
             specimen2.Status = Specimen.SpecimenStatus.EnteredInError;
             specimen2.Meta = new Meta();
             specimen2.Meta.Tag.Add(tag);
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var randomName = Guid.NewGuid().ToString().ComputeHash()[28..].ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
-            SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
+            SearchParameter searchParam = Samples.GetJsonFhirSample<SearchParameter>("SearchParameter-Patient-foo");
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName;
@@ -257,18 +257,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
 
             var randomName = Guid.NewGuid().ToString().ComputeHash()[..14].ToLower();
-            SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-idfoo");
+            SearchParameter searchParam = Samples.GetJsonFhirSample<SearchParameter>("SearchParameter-Resource-idfoo");
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
 
             // POST a new Specimen
-            Specimen specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen = Samples.GetJsonFhirSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
             _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
-            Specimen specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen2 = Samples.GetJsonFhirSample<Specimen>("Specimen");
             await Client.CreateAsync(specimen2);
 
             // POST a new patient
@@ -289,10 +289,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Parameters> reindexJobResult;
 
                 // Start a reindex job
-                var reindexParameters = new Parameters
-                {
-                    { "targetResourceTypes", new FhirString("Specimen") },
-                };
+                var reindexParameters = new Parameters();
+                reindexParameters.Add("targetResourcetype", new FhirString("Specimen"));
                 (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(reindexParameters);
 
                 Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
@@ -369,7 +367,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
 
             var randomName = Guid.NewGuid().ToString().ComputeHash()[..14].ToLower();
-            SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-idfoo");
+            SearchParameter searchParam = Samples.GetJsonFhirSample<SearchParameter>("SearchParameter-Resource-idfoo");
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
@@ -380,16 +378,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
             // POST a new Specimen
-            Specimen specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen = Samples.GetJsonFhirSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
             _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
-            Specimen specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            Specimen specimen2 = Samples.GetJsonFhirSample<Specimen>("Specimen");
             await Client.CreateAsync(specimen2);
 
             // POST a new Immunization
-            Immunization immunization = Samples.GetJsonSample<Immunization>("Immunization");
+            Immunization immunization = Samples.GetJsonFhirSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
             _output.WriteLine($"{nameof(expectedImmunization)} Response.StatusCode is {expectedImmunization.Response.StatusCode}");
 
@@ -406,10 +404,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Parameters> reindexJobResult;
 
                 // Start a reindex job
-                var reindexParameters = new Parameters
-                {
-                    { "targetResourceTypes", new FhirString("Specimen,Immunization") },
-                };
+                var reindexParameters = new Parameters();
+                reindexParameters.Add("targetResourceTypes", new FhirString("Specimen,Immunization"));
                 (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(reindexParameters);
 
                 Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
@@ -498,7 +494,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 _output.WriteLine("ReindexJobDocument:");
                 var serializer = new FhirJsonSerializer();
-                serializer.Settings.Pretty = true;
+
+                // serializer.Settings.Pretty = true;
+
                 _output.WriteLine(serializer.SerializeToString(response.Resource));
 
                 var floatParse = float.TryParse(

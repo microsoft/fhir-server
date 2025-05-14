@@ -111,33 +111,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
                 _contextAccessor = _fixture.FhirRequestContextAccessor;
 
-                var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
+                var smartBundle = Samples.GetJsonFhirSample<Bundle>("SmartPatientA");
                 foreach (var entry in smartBundle.Entry)
                 {
                     await PutResource(entry.Resource);
                 }
 
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientB");
+                smartBundle = Samples.GetJsonFhirSample<Bundle>("SmartPatientB");
                 foreach (var entry in smartBundle.Entry)
                 {
                     await PutResource(entry.Resource);
                 }
 
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientC");
+                smartBundle = Samples.GetJsonFhirSample<Bundle>("SmartPatientC");
                 foreach (var entry in smartBundle.Entry)
                 {
                     await PutResource(entry.Resource);
                 }
 
-                smartBundle = Samples.GetJsonSample<Bundle>("SmartCommon");
+                smartBundle = Samples.GetJsonFhirSample<Bundle>("SmartCommon");
                 foreach (var entry in smartBundle.Entry)
                 {
                     await PutResource(entry.Resource);
                 }
 
-                await PutResource(Samples.GetJsonSample<Medication>("Medication"));
-                await PutResource(Samples.GetJsonSample<Organization>("Organization"));
-                await PutResource(Samples.GetJsonSample<Location>("Location-example-hq"));
+                await PutResource(Samples.GetJsonFhirSample<Medication>("Medication"));
+                await PutResource(Samples.GetJsonFhirSample<Organization>("Organization"));
+                await PutResource(Samples.GetJsonFhirSample<Location>("Location-example-hq"));
             }
         }
 
