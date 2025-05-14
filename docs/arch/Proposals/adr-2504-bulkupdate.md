@@ -13,7 +13,7 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - updates `metadata` properties, such as `version` and `last updated date`, whenever a resource is modified.
 - provides a query to retrieve the list of resources that will be updated.
 - returns a response detailing the `resource count succeeded and resource count failed to update per resource type, along with the failure reasons.`
-- Logs an audit entry when the bulk update is triggered, including the `list of resource IDs successfully updated` and `any errors with the list of resource IDs that failed to update.`
+- Logs an audit entry for the bulk update operation, including the `list of resource IDs successfully updated` and `any errors with the list of resource IDs that failed to update.`
 
 ## Working of FHIR Patch
 - Attempting to add an element to a resource that already contains it will result in a 400 Bad Request error.
@@ -40,18 +40,18 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - Transient, connectivity, or availability failures during job processing should not result in duplicate entries being added to a resource. To prevent this, updates should be processed in chunks wrapped within a transaction.
 - If a request to add an element to an array is submitted twice, duplicate entries may be created. This can be avoided by setting the `skipIfExist` query parameter flag to true. `skipIfExist` will be honored only for operation types `add` and `insert`
 - If the update request results in an invalid resource, the update will fail. If one resource becomes invalid, the update will fail for all resources of the same type.
-- Attempting to add an element to resources that already contain those elements will fail in the FHIR Patch call. The same behavior should apply to bulk-delete operations.
-- Attempting to replace an element that doesn't exist will fail in the FHIR Patch call. The same behavior should apply to bulk-delete operations.
-- If the search query returns no resources, a "Resource Not Found" response with a 404 Bad Request status will be returned. This behavior should also apply to bulk-delete operations.
-- Customers should use a `GET query to retrieve the list of resources that will be updated`.
+- Attempting to add an element to resources that already contain those elements will fail in the FHIR Patch call. The same behavior should apply to bulk-update operation.
+- Attempting to replace an element that doesn't exist will fail in the FHIR Patch call. The same behavior should apply to bulk-update operation.
+- If the search query returns no resources, a "Resource Not Found" response with a 404 Bad Request status will be returned. But for bulk-update operation, job should return success with resource updated count as 0
+- Customers should use a `GET` query to retrieve the list of resources that will be updated.
 - To prevent log overloading, audit entries for bulk-update operations should be recorded in chunks, following the same approach used for bulk-delete operations.
-
+- Expected performance
 
 ### Functional behaviour
 
 - **Invocation**  
-  `PATCH [base]/$bulk-update { | /{ResourceType}/$bulk-update }?{search-params}`  
-  *Headers*: `Prefer: respond-async` &nbsp;•&nbsp; *Body*: **FHIR Patch** `Parameters` resource  
+  `PATCH [base]/$bulk-update | /{ResourceType}/{$bulk-update }?{search-params}`  
+  *Headers*: `Prefer: respond-async`, `Content-Type: application/fhir+json` &nbsp;•&nbsp; *Body*: **FHIR Patch** `Parameters` resource  
 
   Example (request for **use‑case #2 – security‑label propagation**):
 
@@ -85,8 +85,8 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - **Scopes** – Allowed on the entire system or a single resource type or multiple resource types. If different fields needs to be updated per resource type then the field value mapping could be provided in different operations.
 - **Trying to add the same value repeatedly to an array** – For a single bulk-update request there should only be one entry added to an array. The system should not add duplicate entry due to internal FHIR failures during job processing. If the same request is sent twice and if skipIfExists flag is set to false then server should add the duplicate entry to an array. If skipIfExists flag is passed as true then skip the records which already have the requested update.
 - **Trying to add an existing element** – Trying to add an existing element to a resource would fail
-- **Trying to replace an element that don't exist** – Trying to replace an element that don't exist would fail
-- **Update call resulting into an invalid resource** – Should error if the PATCH update forms an invalid resource. Is there a case where one resource would result in an invalid resource and other resources of the same type won't?
+- **Trying to replace an element that doesn't exist** – Trying to replace an element that doesn't exist would fail
+- **Update call resulting in an invalid resource** – Should error if the PATCH update forms an invalid resource. Is there a case where one resource would result in an invalid resource and other resources of the same type won't?
 - **Partial updates** – Resources with valid requests should get updated. The failed resources should be logged with the reason.
 - **Logging** – Should have the audit log for each bulk-update call with the resource IDs of the items that have been updated successfully. In case of error, should provide the valid reason with failed to update resource IDs.
 
@@ -123,6 +123,7 @@ sequenceDiagram
 |------|-----------|
 | Submit | Server returns **202 Accepted** with `Content-Location: {pollingUrl}` |
 | Processing | Job queued; workers update resources in chunks (≥ 1 000 items/sec target) |
+| Processing | Job processing; Polling URL returns **202 Accepted** with the progess it has made. Headers: `Items-Updated`, `X-Error-Count`
 | Complete | Polling URL returns **200 OK** when done. Headers: `Items-Updated`, `X-Error-Count` |
 | Outputs | `OperationOutcome` (no PHI) |
 | Cancel | `DELETE {pollingUrl}` ⇒ **202 Accepted** → job status = `cancelled` |
@@ -146,7 +147,7 @@ Proposed
 ---
 
 ## Estimated performance numbers based on previous runs on Update operation
-2000 resources per seconds (For soft $bulk-delete, we roughly achieved 1600 reosurces per seconds)
+For soft $bulk-delete, we achieved around 1600 reosurces per seconds. 
 
 ---
 ## References
