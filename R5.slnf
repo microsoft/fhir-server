@@ -6,6 +6,7 @@
       "src\\Microsoft.Health.Extensions.Xunit\\Microsoft.Health.Extensions.Xunit.csproj",
       "src\\Microsoft.Health.Fhir.Api.UnitTests\\Microsoft.Health.Fhir.R5.Api.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.Api\\Microsoft.Health.Fhir.Api.csproj",
+      "src\\Microsoft.Health.Fhir.Api.OpenIddict\\Microsoft.Health.Fhir.Api.OpenIddict.csproj",
       "src\\Microsoft.Health.Fhir.Azure.UnitTests\\Microsoft.Health.Fhir.Azure.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.Azure\\Microsoft.Health.Fhir.Azure.csproj",
       "src\\Microsoft.Health.Fhir.Core.UnitTests\\Microsoft.Health.Fhir.Core.UnitTests.csproj",
