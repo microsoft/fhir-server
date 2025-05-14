@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAnObservationDefinition_WhenCreating_ThenTheCorrectResponseShouldBeReturned()
         {
-            var resource = Samples.GetJsonSample<ObservationDefinition>("ObservationDefinition-example");
+            var resource = Samples.GetJsonFhirSample<ObservationDefinition>("ObservationDefinition-example");
 
             Resource actual = await _client.CreateAsync(resource);
 
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnObservation_WithInvalidDecimalSpecification_ThenBadRequestShouldBeReturned()
         {
-            var resource = Samples.GetJsonSample<Observation>("ObservationWithInvalidDecimalSpecification");
+            var resource = Samples.GetJsonFhirSample<Observation>("ObservationWithInvalidDecimalSpecification");
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(resource));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var testId = Guid.NewGuid().ToString();
 
-            MedicinalProduct mp = Samples.GetJsonSample<MedicinalProduct>("MedicinalProduct");
+            MedicinalProduct mp = Samples.GetJsonFhirSample<MedicinalProduct>("MedicinalProduct");
 
             mp.Identifier.Add(new Identifier(string.Empty, testId));
 

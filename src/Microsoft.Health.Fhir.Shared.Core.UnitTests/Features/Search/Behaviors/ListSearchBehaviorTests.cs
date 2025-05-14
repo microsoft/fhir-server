@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.Search)]
     public class ListSearchBehaviorTests
     {
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _fhirJsonParser = new FhirJsonDeserializer();
 
         private readonly IFhirDataStore _fhirDataStore;
 
