@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
                     retryCount: 12,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(5));
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(10));
             try
             {
                 var tag = Guid.NewGuid().ToString();
