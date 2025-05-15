@@ -148,9 +148,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool OnlyIds { get; set; }
 
         /// <summary>
-        /// Flag for async operations that want to return a large number of results.
+        /// Flag for async operations.
         /// </summary>
-        public bool IsLargeAsyncOperation { get; internal set; }
+        public bool IsAsyncOperation { get; internal set; }
 
         /// <summary>
         /// Flag for $includes operation.
