@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                Substitute.For<ILogger>());
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                Substitute.For<ILogger>());
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                Substitute.For<ILogger>());
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var createMemberMatchRequest = new MemberMatchRequest(Samples.GetDefaultCoverage().ToPoco<Coverage>().ToResourceElement(), Samples.GetDefaultPatient().ToPoco<Patient>().ToResourceElement());
             validator.Validate(createMemberMatchRequest);

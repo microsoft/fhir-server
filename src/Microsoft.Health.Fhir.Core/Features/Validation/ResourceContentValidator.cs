@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ResourceContentValidator : AbstractValidator<ResourceElement>
     {
         private readonly IModelAttributeValidator _modelAttributeValidator;
-        private readonly ILogger<ResourceContentValidator> _logger;
+        private readonly ILogger _logger;
 
-        public ResourceContentValidator(IModelAttributeValidator modelAttributeValidator, ILogger<ResourceContentValidator> logger)
+        public ResourceContentValidator(IModelAttributeValidator modelAttributeValidator, ILogger logger)
         {
             EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
 

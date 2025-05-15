@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 profileValidator,
                 contextAccessor,
                 config,
-                Substitute.For<ILogger>());
+                Substitute.For<ILogger<UpsertResourceValidator>>());
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 profileValidator,
                 contextAccessor,
                 config,
-                Substitute.For<ILogger>());
+                Substitute.For<ILogger<UpsertResourceValidator>>());
             var resource = Samples.GetDefaultObservation();
 
             var upsertResourceRequest = new UpsertResourceRequest(resource, bundleResourceContext: null);
