@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         {
             Dictionary<string, string> searchParamHashMap = new Dictionary<string, string>();
             searchParamHashMap.Add("Patient", "searchParamHash");
-            var jobRecord = new ReindexJobRecord(searchParamHashMap, new List<string>(), new List<string>(), new List<string>(), maxiumumConcurrency: 1);
+            var jobRecord = new ReindexJobRecord(searchParamHashMap, new List<string>(), new List<string>(), new List<string>());
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
