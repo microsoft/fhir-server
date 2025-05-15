@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
