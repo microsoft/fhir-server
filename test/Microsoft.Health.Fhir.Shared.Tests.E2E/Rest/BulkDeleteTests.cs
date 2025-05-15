@@ -357,6 +357,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenBulkHardDeleteJobWithMoreThanOnePageOfIncludeResults_WhenCompleted_ThenIncludedResultsAreDeleted()
         {
             CheckBulkDeleteEnabled();

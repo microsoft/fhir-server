@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Registration;
 using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
@@ -51,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly CoreFeatureConfiguration _configuration;
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
             IOptions<CoreFeatureConfiguration> configuration,
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -76,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
+            _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -158,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 try
                 {
-                    if (!request.DeleteAll)
+                    if (!request.DeleteAll || !IsIncludeEnabled())
                     {
                         var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
                         throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
@@ -236,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             try
                             {
-                                if (!request.DeleteAll)
+                                if (!request.DeleteAll || !IsIncludeEnabled())
                                 {
                                     tooManyIncludeResults = true;
                                     break;
@@ -514,6 +518,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return results;
+        }
+
+        private bool IsIncludeEnabled()
+        {
+            return _configuration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false);
         }
     }
 }
