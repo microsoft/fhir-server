@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), logger);
 
             var collection = new ServiceCollection();
 
