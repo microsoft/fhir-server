@@ -19,10 +19,10 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest

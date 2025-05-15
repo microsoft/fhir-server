@@ -29,6 +29,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Polly;
+using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+        private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -88,6 +91,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
 
             UpdateExportJob = UpdateExportJobAsync;
+
+            // Retry policy for the actual export job action.
+            _exportSearchRetryPolicy = Policy
+                .Handle<DestinationConnectionException>()
+                .WaitAndRetryAsync(
+                    _exportJobConfiguration.MaxRetryCount,
+                    retryAttempt => TimeSpan.FromMilliseconds(_exportJobConfiguration.RetryDelayMilliseconds),
+                    (exception, timeSpan, retryCount, context) =>
+                    {
+                        _logger.LogWarning(
+                            exception,
+                            "[JobId:{JobId}] Retry {RetryCount} for DestinationConnectionException. Waiting {TimeSpan} before next retry.",
+                            _exportJobRecord?.Id,
+                            retryCount,
+                            timeSpan);
+                    });
         }
 
         public Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
@@ -210,7 +229,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                await _exportSearchRetryPolicy.ExecuteAsync(async () =>
+                {
+                    await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
+                });
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 

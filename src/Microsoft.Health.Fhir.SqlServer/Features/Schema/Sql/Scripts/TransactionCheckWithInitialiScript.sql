@@ -12,13 +12,4 @@ BEGIN
     RETURN
 END
 
-/*************************************************************
-    Schema Version - Make sure to update the version here for new migration
-**************************************************************/
-Go
-
-INSERT INTO dbo.SchemaVersion
-VALUES
-    (87, 'started')
-
-Go
+GO

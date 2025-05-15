@@ -74,20 +74,27 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
         // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
         private async Task LogSearchParamStats(CancellationToken cancellationToken)
         {
-            var searchParamTables = await GetSearchParamTables(cancellationToken);
-            foreach (var searchParamTable in searchParamTables)
+            try
             {
-                var st = DateTime.UtcNow;
-#pragma warning disable CA2100
-                using var sqlCommand = new SqlCommand($"SELECT SearchParamId, count_big(*) FROM dbo.{searchParamTable} GROUP BY SearchParamId") { CommandTimeout = 0 };
-#pragma warning disable CA2100
-                var searchParamCounts = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => { return new SearchParamCount { SearchParamTable = searchParamTable, SearchParamId = reader.GetInt16(0), RowCount = reader.GetInt64(1) }; }, _logger, cancellationToken);
-                foreach (var searchParamCount in searchParamCounts)
+                var searchParamTables = await GetSearchParamTables(cancellationToken);
+                foreach (var searchParamTable in searchParamTables)
                 {
-                    var countStr = JsonSerializer.Serialize(searchParamCount);
-                    _logger.LogInformation($"DatabaseStats.SearchParamCount={countStr}");
-                    await _sqlRetryService.TryLogEvent("DatabaseStats.SearchParamCount", "Warn", countStr, st, cancellationToken);
+                    var st = DateTime.UtcNow;
+#pragma warning disable CA2100
+                    using var sqlCommand = new SqlCommand($"SELECT SearchParamId, count_big(*) FROM dbo.{searchParamTable} GROUP BY SearchParamId") { CommandTimeout = 0 };
+#pragma warning disable CA2100
+                    var searchParamCounts = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => { return new SearchParamCount { SearchParamTable = searchParamTable, SearchParamId = reader.GetInt16(0), RowCount = reader.GetInt64(1) }; }, _logger, cancellationToken);
+                    foreach (var searchParamCount in searchParamCounts)
+                    {
+                        var countStr = JsonSerializer.Serialize(searchParamCount);
+                        _logger.LogInformation($"DatabaseStats.SearchParamCount={countStr}");
+                        await _sqlRetryService.TryLogEvent("DatabaseStats.SearchParamCount", "Warn", countStr, st, cancellationToken);
+                    }
                 }
+            }
+            catch (SqlException e)
+            {
+                _logger.LogWarning(e, "LogSearchParamStats failed.");
             }
         }
 
@@ -153,7 +160,7 @@ SELECT object_name = object_name(object_id)
             }
             catch (Exception e)
             {
-                _logger.LogWarning(e, "DatabaseStats failed.");
+                _logger.LogWarning(e, "LogRawResourceStats failed.");
             }
         }
 
@@ -241,11 +248,11 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
 
         private async Task DropTmpProceduresAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("IF object_id('tmp_GetMaxSurrogateId') IS NOT NULL DROP PROCEDURE dbo.tmp_GetMaxSurrogateId");
+            using var cmd = new SqlCommand("DROP PROCEDURE dbo.tmp_GetMaxSurrogateId");
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            using var cmd2 = new SqlCommand("IF object_id('tmp_GetRawResources') IS NOT NULL DROP PROCEDURE dbo.tmp_GetRawResources");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            using var cmd2 = new SqlCommand("DROP PROCEDURE dbo.tmp_GetRawResources");
+            await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("DropTmpProceduresAsync completed.");
         }

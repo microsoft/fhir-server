@@ -467,13 +467,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 (IReadOnlyList<T> results, string nextContinuationToken) = (null, null);
                 var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
 
+                // Feed ranges should only be used in async operations, but defining for all queries in case unknown code paths are hit.
+                FeedRange queryFeedRange = null;
+                try
+                {
+                    if (searchOptions.FeedRange is not null)
+                    {
+                        queryFeedRange = FeedRange.FromJsonString(searchOptions.FeedRange);
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    _logger.LogWarning("Bad Request (InvalidFeedRange)");
+                    throw new BadRequestException(Resources.InvalidFeedRange);
+                }
+
                 // Set timeout for sequential query execution
                 if (feedOptions.MaxConcurrency == null &&
                     _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
                     string.IsNullOrEmpty(searchOptions.ContinuationToken) &&
                     string.IsNullOrEmpty(continuationToken) &&
                     searchEnumerationTimeoutOverrideIfSequential == null &&
-                    searchOptions.IsLargeAsyncOperation != true)
+                    searchOptions.IsAsyncOperation != true)
                 {
                     searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
 
@@ -481,6 +496,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
                         sqlQuerySpec: sqlQuerySpec,
                         feedOptions: feedOptions,
+                        feedRange: queryFeedRange,
                         mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
                         searchEnumerationTimeoutOverride: searchEnumerationTimeoutOverrideIfSequential,
                         cancellationToken: cancellationToken);
@@ -492,6 +508,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
                             sqlQuerySpec: sqlQuerySpec,
                             feedOptions: feedOptions,
+                            feedRange: queryFeedRange,
                             mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
                             cancellationToken: cancellationToken);
                     }
@@ -499,26 +516,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 else
                 {
                     var mustNotExceedMaxItemCount = searchOptions.MaxItemCountSpecifiedByClient;
-                    FeedRange queryFeedRange = null;
 
-                    // Large async operations also need the full result set. Accounting for the till factor to achieve that.
-                    if (searchOptions.IsLargeAsyncOperation)
+                    // Async operations also need the full result set. Accounting for the till factor to achieve that.
+                    if (searchOptions.IsAsyncOperation)
                     {
                         mustNotExceedMaxItemCount = false;
                         feedOptions.MaxItemCount = (int)(feedOptions.MaxItemCount / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
-
-                        try
-                        {
-                            if (searchOptions.FeedRange is not null)
-                            {
-                                queryFeedRange = FeedRange.FromJsonString(searchOptions.FeedRange);
-                            }
-                        }
-                        catch (ArgumentException)
-                        {
-                            _logger.LogWarning("Bad Request (InvalidFeedRange)");
-                            throw new BadRequestException(Resources.InvalidFeedRange);
-                        }
                     }
 
                     (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
