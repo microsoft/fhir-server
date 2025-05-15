@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,16 +23,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             INarrativeHtmlSanitizer narrativeHtmlSanitizer,
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            ILogger<CreateResourceValidator> logger,
             IOptions<CoreFeatureConfiguration> config)
         {
             var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,
                 profileValidator,
                 fhirRequestContextAccessor,
+                logger,
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Resource)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, logger));
         }
     }
 }

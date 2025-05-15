@@ -12,6 +12,8 @@ using FluentValidation;
 using FluentValidation.Results;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
@@ -19,12 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
     public class NarrativeValidator : AbstractValidator<ResourceElement>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
+        private readonly ILogger _logger;
 
-        public NarrativeValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public NarrativeValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer, ILogger logger)
         {
             EnsureArg.IsNotNull(narrativeHtmlSanitizer, nameof(narrativeHtmlSanitizer));
 
             _narrativeHtmlSanitizer = narrativeHtmlSanitizer;
+            _logger = logger;
         }
 
         public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
@@ -35,15 +39,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         public override ValidationResult Validate(ValidationContext<ResourceElement> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
+            var timer = _logger.StartStopwatch("Narative Validator");
+
             var failures = new List<ValidationFailure>();
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 if (resourceElement.IsDomainResource)
                 {
+                    _logger.LogInformation("Domain resource");
                     failures.AddRange(ValidateResource(resourceElement.Instance));
                 }
                 else if (resourceElement.InstanceType.Equals(KnownResourceTypes.Bundle, System.StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogInformation("Bundle");
                     var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
@@ -53,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
 
             failures.ForEach(x => context.AddFailure(x));
+
+            _logger.LogStopwatch(timer, "End");
             return new ValidationResult(failures);
         }
 

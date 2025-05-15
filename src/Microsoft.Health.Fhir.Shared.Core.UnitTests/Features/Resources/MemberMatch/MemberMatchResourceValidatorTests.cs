@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -45,7 +46,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -76,7 +78,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -123,7 +126,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                Substitute.For<ILogger<MemberMatchResourceValidator>>());
 
             var createMemberMatchRequest = new MemberMatchRequest(Samples.GetDefaultCoverage().ToPoco<Coverage>().ToResourceElement(), Samples.GetDefaultPatient().ToPoco<Patient>().ToResourceElement());
             validator.Validate(createMemberMatchRequest);

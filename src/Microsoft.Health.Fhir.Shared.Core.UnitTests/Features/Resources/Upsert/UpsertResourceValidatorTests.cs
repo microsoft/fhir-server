@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -46,7 +47,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                Substitute.For<ILogger<UpsertResourceValidator>>());
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 
@@ -80,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                Substitute.For<ILogger<UpsertResourceValidator>>());
             var resource = Samples.GetDefaultObservation();
 
             var upsertResourceRequest = new UpsertResourceRequest(resource, bundleResourceContext: null);

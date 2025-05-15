@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -42,10 +43,21 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
 #pragma warning disable CA1849 // Runs synchronously to allow for the logger to be used in a synchronous context.
             if (logParameterTask.Result.CharValue == "Verbose")
-#pragma warning restore CA1068
+#pragma warning restore CA1849
             {
                 logger.LogInformation(message, args);
             }
+        }
+
+        public static (Stopwatch sw, string label) StartStopwatch(this ILogger logger, string label)
+        {
+            logger.LogInformation("Starting Stopwatch {Label}", label);
+            return (Stopwatch.StartNew(), label);
+        }
+
+        public static void LogStopwatch(this ILogger logger, (Stopwatch sw, string label) timer, string message = "")
+        {
+            logger.LogInformation("Stopwatch {Label} Elapsed (ms): {Time} - {Message}", timer.label, timer.sw.ElapsedMilliseconds, message);
         }
     }
 }

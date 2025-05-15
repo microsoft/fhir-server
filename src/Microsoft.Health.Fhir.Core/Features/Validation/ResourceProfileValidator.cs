@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -23,13 +24,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly IProfileValidator _profileValidator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly bool _runProfileValidation;
+        private readonly ILogger _logger;
 
         public ResourceProfileValidator(
             IModelAttributeValidator modelAttributeValidator,
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ILogger logger,
             bool runProfileValidation = false)
-            : base(modelAttributeValidator)
+            : base(modelAttributeValidator, logger)
         {
             EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
             EnsureArg.IsNotNull(profileValidator, nameof(profileValidator));
@@ -38,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _profileValidator = profileValidator;
             _contextAccessor = contextAccessor;
             _runProfileValidation = runProfileValidation;
+            _logger = logger;
         }
 
         public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
@@ -48,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public override ValidationResult Validate(ValidationContext<ResourceElement> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
+            var timer = _logger.StartStopwatch("Resource Profile Validator");
+
             var failures = new List<ValidationFailure>();
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
@@ -58,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     if (bool.TryParse(hValue, out bool headerValue))
                     {
+                        _logger.LogInformation("Profile set");
                         profileValidation = headerValue;
                     }
                 }
@@ -66,7 +73,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                 if (profileValidation)
                 {
+                    _logger.LogStopwatch(timer, "Validating profile");
                     OperationOutcomeIssue[] errors = _profileValidator.TryValidate(resourceElement.Instance);
+                    _logger.LogStopwatch(timer, "Profile validated");
+
                     foreach (OperationOutcomeIssue error in errors
                                  .Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal || (isStrict && x.Severity == IssueSeverity.Warning)))
                     {
@@ -80,10 +90,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     failures.ForEach(x => context.AddFailure(x));
                 }
 
+                _logger.LogStopwatch(timer, "Base validation");
                 ValidationResult baseValidation = base.Validate(context);
                 failures.AddRange(baseValidation.Errors);
             }
 
+            _logger.LogStopwatch(timer, "End");
             return new ValidationResult(failures);
         }
     }
