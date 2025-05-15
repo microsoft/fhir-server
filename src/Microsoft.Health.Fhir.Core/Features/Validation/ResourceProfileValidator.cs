@@ -24,13 +24,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly IProfileValidator _profileValidator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly bool _runProfileValidation;
-        private readonly ILogger _logger;
+        private readonly ILogger<ResourceProfileValidator> _logger;
 
         public ResourceProfileValidator(
             IModelAttributeValidator modelAttributeValidator,
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILogger logger,
+            ILogger<ResourceProfileValidator> logger,
             bool runProfileValidation = false)
             : base(modelAttributeValidator, logger)
         {

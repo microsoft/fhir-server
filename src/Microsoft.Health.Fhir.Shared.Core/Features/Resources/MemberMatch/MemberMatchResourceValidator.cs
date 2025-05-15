@@ -23,13 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config,
-            ILogger logger)
+            ILogger<MemberMatchResourceValidator> logger,
+            ILoggerFactory loggerFactory)
         {
             var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,
                 profileValidator,
                 fhirRequestContextAccessor,
-                logger,
+                loggerFactory.CreateLogger<ResourceProfileValidator>(),
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Coverage)

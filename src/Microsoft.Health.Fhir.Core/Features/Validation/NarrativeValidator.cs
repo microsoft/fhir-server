@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
     public class NarrativeValidator : AbstractValidator<ResourceElement>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
-        private readonly ILogger _logger;
+        private readonly ILogger<NarrativeValidator> _logger;
 
-        public NarrativeValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer, ILogger logger)
+        public NarrativeValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer, ILogger<NarrativeValidator> logger)
         {
             EnsureArg.IsNotNull(narrativeHtmlSanitizer, nameof(narrativeHtmlSanitizer));
 
