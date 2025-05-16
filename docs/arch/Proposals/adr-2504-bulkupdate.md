@@ -3,6 +3,9 @@
 
 ---
 
+## Scope
+This operation is only applicable to Azure Health Data Services - FHIR service
+
 ## Context
 Our platform already supports the FHIR `$import` feature for incremental loads. Customers need a **large‑scale partial‑update capability** that:
 - re‑uses **FHIR Patch** semantics (encoded as a `Parameters` resource — **not** JSON Patch)
@@ -13,7 +16,7 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - updates `metadata` properties, such as `version` and `last updated date`, whenever a resource is modified.
 - provides a query to retrieve the list of resources that will be updated.
 - returns a response detailing the `resource count succeeded and resource count failed to update per resource type, along with the failure reasons.`
-- Logs an audit entry for the bulk update operation, including the `list of resource IDs successfully updated` and `any errors with the list of resource IDs that failed to update.`
+- logs an audit entry for the bulk update operation, including the `list of resource IDs successfully updated` and `any errors with the list of resource IDs that failed to update.`
 
 ## Working of FHIR Patch
 - Attempting to add an element to a resource that already contains it will result in a 400 Bad Request error.
@@ -33,19 +36,28 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 | 6 | Map resources referencing old `Patient` Id to new `Patient` Id |
 | 7 | `MedicationRequest` resources referencing the outdated medication need to be updated to reference the new replacement Medication |
 
-## Decision to make
+### Decision
+- Server processes only one bulk-update job at a time. If a new job is submitted while an existing one is in progress, the request will be rejected with a valid reason provided to the customer. This prevents conflicts during resource updates that could corrupt the data.
+- The BulkUpdate orchestrator retrieves the resources to be updated and partitions them based on `resource type and surrogate ID ranges` (similar to the export job) to create processing jobs. These jobs run in `parallel` to maximize throughput.
+- A single transaction will update `1,000` resources using the Merge stored procedure, similar to other background jobs.
+- Updates on certain resource types could render the user's database invalid. To prevent this, specific resource types like `SearchParameter and ValueSet` will be excluded from bulk-update operations at both the system and resource type levels. (Previously, issues with ValueSet updates were encountered during bundle operations.)
 - Every patch `path` **must start with the `ResourceType` root** (e.g., `Patient.meta.tag`) to disambiguate meta‑level vs element updates. 
 - To patch the `Common properties` users should use `Resource`. (e.g., `"name": "path", "valueString": "Resource"`)
-- The bulk-update job should run to completion, with retry logic in place to handle transient, connectivity, or availability failures.
-- Transient, connectivity, or availability failures during job processing should not result in duplicate entries being added to a resource. To prevent this, updates should be processed in chunks wrapped within a transaction.
-- If a request to add an element to an array is submitted twice, duplicate entries may be created. This can be avoided by setting the `skipIfExist` query parameter flag to true. `skipIfExist` will be honored only for operation types `add` and `insert`
-- If the update request results in an invalid resource, the update will fail. If one resource becomes invalid, the update will fail for all resources of the same type.
-- Attempting to add an element to resources that already contain those elements will fail in the FHIR Patch call. The same behavior should apply to bulk-update operation.
-- Attempting to replace an element that doesn't exist will fail in the FHIR Patch call. The same behavior should apply to bulk-update operation.
-- If the search query returns no resources, a "Resource Not Found" response with a 404 Bad Request status will be returned. But for bulk-update operation, job should return success with resource updated count as 0
-- Customers should use a `GET` query to retrieve the list of resources that will be updated.
+- The bulk-update job must run to completion, with retry logic in place to handle transient, connectivity, or availability failures.
+- Transient, connectivity, or availability failures during job processing should not result in duplicate entries being added to a resource. To prevent this, updates should be processed in chunks wrapped within a `transaction`. 
+- If the user cancels the job, any updates that have already been committed `cannot be rolled back`.
+- If a request to add an element to an array is submitted twice, duplicate entries will be created for operation types add and insert. To avoid duplicates, users can use `upsert` the operation type.
+- A resource will only be updated, along with its metadata (e.g., version and last update time), when an actual change occurs.
+- If the update request results in an invalid resource, the update will fail for all resources of the same type. The error message and the count of resources that failed to update will be reported to the user.
+- Attempting to add an element to resources that already contain that element with `add` operation type, will fail in the FHIR Patch call. The same behavior applies to the bulk-update operation.
+- Attempting to `replace` an element that does not exist will fail in the FHIR Patch call. The same behavior applies to the bulk-update operation.
+- If no resources are returned by the search query, the FHIR Patch call will fail with a "Resource Not Found" response and a 404 Bad Request status. However, for the bulk-update operation, the job should return success with a resource updated count of 0.
+- Customers should use a `GET` query to retrieve the list of resources that will be updated. It is challenging to provide the search query or resource list for asynchronous background jobs.
 - To prevent log overloading, audit entries for bulk-update operations should be recorded in chunks, following the same approach used for bulk-delete operations.
-- Expected performance
+- Bulk-update operations will not allow profile validation on resources for now.
+- Based on previous performance runs, the maximum throughput achievable is approximately `7,000 RPS for a hyperscale` database and `3,500 RPS for a GP` database.
+- Bulk-update is a powerful operation. To prevent malicious usage or improper handling, an additional RBAC role, such as "Super Write Access," should be introduced.
+- Discussions are ongoing with customers regarding whether bulk-updates should allow `_include=* and _revinclude=*`
 
 ### Functional behaviour
 
@@ -83,13 +95,10 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - **Resource‑typed paths** – Every patch `path` **must start with the `ResourceType` root** (e.g., `Patient.meta.tag`) to disambiguate meta‑level vs element updates. Common properties may be patched with `Resource`.
 - **Heterogeneous search rule** – If the search returns *multiple* resource types, the patch is **applied only** to items whose type matches the `ResourceType` prefix in each `path`; other types are ignored.
 - **Scopes** – Allowed on the entire system or a single resource type or multiple resource types. If different fields needs to be updated per resource type then the field value mapping could be provided in different operations.
-- **Trying to add the same value repeatedly to an array** – For a single bulk-update request there should only be one entry added to an array. The system should not add duplicate entry due to internal FHIR failures during job processing. If the same request is sent twice and if skipIfExists flag is set to false then server should add the duplicate entry to an array. If skipIfExists flag is passed as true then skip the records which already have the requested update.
-- **Trying to add an existing element** – Trying to add an existing element to a resource would fail
-- **Trying to replace an element that doesn't exist** – Trying to replace an element that doesn't exist would fail
-- **Update call resulting in an invalid resource** – Should error if the PATCH update forms an invalid resource. Is there a case where one resource would result in an invalid resource and other resources of the same type won't?
-- **Partial updates** – Resources with valid requests should get updated. The failed resources should be logged with the reason.
 - **Logging** – Should have the audit log for each bulk-update call with the resource IDs of the items that have been updated successfully. In case of error, should provide the valid reason with failed to update resource IDs.
-
+- **Partial updates** – Resources with valid requests should get updated. The failed resources should be logged with the reason.
+- **Supports upsert operations** - Unlike FHIR PATCH, with bulk-update user can pass in operation type as `upsert`, which would replace the element if it already exists.
+- **Use existing oprtation type** - Operation type such as `add`, `insert` and `replace` will function in the same way as they do in the FHIR Patch call.
 
 ###  High‑Level Flow
 
@@ -132,24 +141,28 @@ sequenceDiagram
 
 ---
 
-### Status
+## Status
 Proposed
 
 ---
 
-## Consequences
+### Consequences
 
 | Benefit | Consequence |
 |---------|-------------|
 | Mass partial updates without full re‑imports | Higher write load on datastore |
-| Detailed per‑resource audit trail | Increased `AuditEvent` volume |
+| Detailed audit trail | Increased `AuditEvent` volume |
 
 ---
 
-## Estimated performance numbers based on previous runs on Update operation
+### Estimated performance numbers based on previous runs on Update operation
 For soft $bulk-delete, we achieved around 1600 reosurces per seconds. 
 
 ---
+### Some notes
+- New operation is called as bulk-update and not bulk-patch(even though it follows FHIR Patch semantics) because there are some differences between how FHIR Patch works vs how the bulk-update would run. You would find the differences in Decision section above
+
+
 ## References
 * [Asynchronous Bulk Data Request Pattern](https://hl7.org/fhir/async.html)  
 * [FHIR Patch](https://hl7.org/fhir/fhirpatch.html)  
