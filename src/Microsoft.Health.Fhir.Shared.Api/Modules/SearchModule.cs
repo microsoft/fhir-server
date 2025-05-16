@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 typeof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter),
             };
 
-#if STU3 || R4 || R4B
+#if (STU3 || R4 || R4B) && !USE_HL7_LEGACY_PACKAGES
             // These converters are required only for R5.
             searchValueConverterExclusions.Add(typeof(CanonicalToReferenceSearchValueConverter));
             searchValueConverterExclusions.Add(typeof(IdentifierToStringSearchValueConverter));

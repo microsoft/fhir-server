@@ -48,11 +48,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-#if USE_HL7_LEGACY_PACKAGES && R5
-            using Stream file = _modelInfoProvider.OpenVersionedFileStream("resourcepath-codesystem-mappings-legacy.json");
-#else
-            using Stream file = _modelInfoProvider.OpenVersionedFileStream("resourcepath-codesystem-mappings.json");
+            string fileName = "resourcepath-codesystem-mappings.json";
+
+#if USE_HL7_LEGACY_PACKAGES
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "resourcepath-codesystem-mappings-legacy.json";
+            }
 #endif
+
+            using Stream file = _modelInfoProvider.OpenVersionedFileStream(fileName);
             using var reader = new StreamReader(file);
 #pragma warning disable CA2016
             var content = await reader.ReadToEndAsync();
