@@ -61,14 +61,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
         }
 
         [Fact]
@@ -86,14 +86,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
 
             // Checks that one processing job was queued
             var calls = _queueClient.ReceivedCalls();
