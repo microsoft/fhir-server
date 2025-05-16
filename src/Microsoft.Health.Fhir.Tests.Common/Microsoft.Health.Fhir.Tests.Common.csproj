@@ -36,6 +36,7 @@
 	  <EmbeddedResource Include="TestFiles\Normative\Import-Observation.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters-legacy.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidEntries.json" />
@@ -214,7 +215,10 @@
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
     <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
-    <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" >
+      <LogicalName>TestFiles\R5\ValidCompartmentDefinition.json</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-ethnicity.json" />
