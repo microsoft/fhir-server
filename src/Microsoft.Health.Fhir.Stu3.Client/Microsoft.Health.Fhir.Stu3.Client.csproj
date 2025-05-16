@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Microsoft.Health.Fhir.Client</RootNamespace>
-    <DefineConstants>STU3;$(DefineConstants)</DefineConstants>
+    <DefineConstants>STU3;Stu3;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Ensure.That" />

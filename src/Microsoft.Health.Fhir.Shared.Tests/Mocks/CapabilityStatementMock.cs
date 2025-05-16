@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
         {
             capability.Rest[0].Resource.Add(new ResourceComponent
             {
-#if USE_HL7_LEGACY_PACKAGES
+#if Stu3 || USE_HL7_LEGACY_PACKAGES
                 Type = resourceType,
 #else
                 Type = resourceType?.ToString(),

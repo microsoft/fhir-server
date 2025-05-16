@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 "Condition-abatement-age",
                 SearchParamType.Quantity,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
-#if STU3 || R4 || R4B
+#if Stu3 || R4 || R4B
                 expression: "Condition.asserter | Condition.abatement.as(Range)",
 #else
                 expression: "Condition.participant.actor | Condition.abatement.as(Range)",

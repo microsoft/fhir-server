@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (_resourceTypeSearchParameter == null)
                 {
-#if STU3 || R4 || R4B
+#if Stu3 || R4 || R4B
                     _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
 #else
                     _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);

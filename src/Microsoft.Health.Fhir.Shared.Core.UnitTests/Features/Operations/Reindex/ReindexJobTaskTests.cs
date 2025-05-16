@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenRunningJob_WhenExecuted_ThenQueuedQueryCompleted()
         {
-#if STU3 || R4 || R4B
+#if Stu3 || R4 || R4B
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
 #else
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenJobWithNoWork_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
         {
-#if STU3 || R4 || R4B
+#if Stu3 || R4 || R4B
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
 #else
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
@@ -468,7 +468,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenForceReindex_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
         {
-#if STU3 || R4 || R4B
+#if Stu3 || R4 || R4B
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-date";
 #else
             var appointmentBaseTypeUri = "http://hl7.org/fhir/SearchParameter/Appointment-location";
