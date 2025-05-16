@@ -63,7 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
 
+#if USE_HL7_LEGACY_PACKAGES && R5
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters-legacy.json", _modelInfoProvider);
+#else
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
+#endif
 
             SearchParameterDefinitionBuilder.Build(
                 bundle.Entries.Select(e => e.Resource).ToList(),

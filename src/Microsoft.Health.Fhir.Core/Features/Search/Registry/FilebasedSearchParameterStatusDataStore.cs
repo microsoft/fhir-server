@@ -40,7 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (_statusResults == null)
             {
+#if USE_HL7_LEGACY_PACKAGES && R5
+                await using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters-legacy.json");
+#else
                 await using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
+#endif
                 using var reader = new StreamReader(stream);
 #pragma warning disable CA2016
                 var content = await reader.ReadToEndAsync();
