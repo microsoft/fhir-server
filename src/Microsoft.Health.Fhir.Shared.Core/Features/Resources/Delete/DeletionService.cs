@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -137,6 +137,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     versionType: request.VersionType,
                     onlyIds: true,
                     logger: _logger);
+            }
+
+            // Filter results to exclude resourceTypes included in excludedResourceTypes
+            if (excludedResourceTypes != null && excludedResourceTypes.Count > 0)
+            {
+                results = results
+                    .Where(x => !excludedResourceTypes.Contains(x.Resource.ResourceTypeName))
+                    .ToList();
             }
 
             Dictionary<string, long> resourceTypesDeleted = new Dictionary<string, long>();
