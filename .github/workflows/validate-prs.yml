@@ -11,6 +11,10 @@ on:
       - reopened
       - synchronize
       - edited
+      
+permissions:
+  pull-requests: write
+  contents: read
 
 env:
   LABELS: ${{ join( github.event.pull_request.labels.*.name, ' ' ) }}
