@@ -45,11 +45,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
             else
             {
+#if USE_HL7_LEGACY_PACKAGES
+                Assert.Equal(61, types.Length);
+#else
                 Assert.Equal(63, types.Length);
+#endif
             }
         }
 
-#if Stu3 || R4 || R4B  // The equivalent field has been removed from CarePlan in R5 seemingly without any replacement.
+#if Stu3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES  // The equivalent field has been removed from CarePlan in R5 seemingly without any replacement.
         [Fact]
         public void GivenAFhirPathExpressionWithTwoPossibleOutcomeTypes_WhenResolve_TwoTypesReturned()
         {

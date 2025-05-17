@@ -16,7 +16,7 @@
     <EmbeddedResource Include="Data\R5\compartment.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="Data\R5\compartment-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="Data\R5\search-parameters.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="Data\R5\search-parameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'"/>
+    <EmbeddedResource Include="Data\R5\search-parameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />

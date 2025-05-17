@@ -66,7 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             string fileName = "search-parameters.json";
 
 #if USE_HL7_LEGACY_PACKAGES
-            fileName = "search-parameters-legacy.json";
+            // R5 compile time directive not working for tests.
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "search-parameters-legacy.json";
+            }
 #endif
 
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(fileName, _modelInfoProvider);

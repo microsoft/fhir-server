@@ -24,6 +24,21 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
             }
 
+#if USE_HL7_LEGACY_PACKAGES
+            if (ModelInfoProvider.Version == FhirSpecification.R5)
+            {
+                // Try leagacy version
+                var legacyResourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}-legacy.{extension}";
+                var legacyResourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(legacyResourceName);
+
+                if (legacyResourceInfo != null)
+                {
+                    resourceName = legacyResourceName;
+                    resourceInfo = legacyResourceInfo;
+                }
+            }
+#endif
+
             if (resourceInfo == null)
             {
                 // There isn't a version specific over-ride for the requested test file, attempt to find it in the Normative test files.

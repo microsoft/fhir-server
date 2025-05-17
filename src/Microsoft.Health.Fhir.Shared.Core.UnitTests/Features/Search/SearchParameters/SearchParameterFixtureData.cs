@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Assembly
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             var searchValueConverterExclusions = new HashSet<Type>
             {
                 typeof(CanonicalToReferenceSearchValueConverter),

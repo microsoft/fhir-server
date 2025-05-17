@@ -35,8 +35,8 @@
 	  <EmbeddedResource Include="TestFiles\Normative\Flag.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Import-Observation.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
-    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
-    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters-legacy.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidEntries.json" />
@@ -192,7 +192,7 @@
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\binary-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" />
-    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithInvalidBundleEntry.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithInvalidBundleEntry.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R5\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\R5\CommunicationAttachment.json" />
@@ -206,7 +206,8 @@
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64.json" />
-    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
     <EmbeddedResource Include="TestFiles\R5\Includes-TestResources.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />

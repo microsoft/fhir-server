@@ -60,7 +60,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             string fileName = "compartment.json";
 #if USE_HL7_LEGACY_PACKAGES
-            fileName = "compartment-legacy.json";
+            // R5 compile time directive not working for tests.
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "compartment-legacy.json";
+            }
 #endif
             using Stream stream = _modelInfoProvider.OpenVersionedFileStream(fileName);
             using TextReader reader = new StreamReader(stream);

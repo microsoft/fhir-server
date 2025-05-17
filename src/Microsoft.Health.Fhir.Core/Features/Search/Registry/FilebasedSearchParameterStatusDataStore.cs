@@ -42,7 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 string fileName = "unsupported-search-parameters.json";
 #if USE_HL7_LEGACY_PACKAGES
-                fileName = "unsupported-search-parameters-legacy.json";
+                // R5 compile time directive not working for tests.
+                if (_modelInfoProvider.Version == FhirSpecification.R5)
+                {
+                    fileName = "unsupported-search-parameters-legacy.json";
+                }
 #endif
                 await using Stream stream = _modelInfoProvider.OpenVersionedFileStream(fileName);
                 using var reader = new StreamReader(stream);

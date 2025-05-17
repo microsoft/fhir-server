@@ -50,7 +50,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             string fileName = "resourcepath-codesystem-mappings.json";
 #if USE_HL7_LEGACY_PACKAGES
-            fileName = "resourcepath-codesystem-mappings-legacy.json";
+            // R5 compile time directive not working for tests.
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "resourcepath-codesystem-mappings-legacy.json";
+            }
 #endif
             using Stream file = _modelInfoProvider.OpenVersionedFileStream(fileName);
             using var reader = new StreamReader(file);
