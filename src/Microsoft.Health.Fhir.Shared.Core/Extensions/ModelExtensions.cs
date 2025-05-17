@@ -120,6 +120,19 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(searchParam, nameof(searchParam));
 
+#if USE_HL7_LEGACY_PACKAGES
+            return new SearchParameterInfo(
+                searchParam.Name,
+                searchParam.Code,
+                Enum.Parse<ValueSets.SearchParamType>(searchParam.Type?.ToString()),
+                string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
+                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
+                searchParam.Expression,
+                searchParam.Target?.Select(x => x?.ToString()).ToArray(),
+                searchParam.Base?.Select(x => x?.ToString()).ToArray(),
+                searchParam.Description?.Value);
+        }
+#else
             return new SearchParameterInfo(
                 searchParam.Name,
                 searchParam.Code,
@@ -131,6 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Base?.Select(x => x?.ToString()).ToArray(),
                 searchParam.Description);
         }
+#endif
 
         public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)
         {

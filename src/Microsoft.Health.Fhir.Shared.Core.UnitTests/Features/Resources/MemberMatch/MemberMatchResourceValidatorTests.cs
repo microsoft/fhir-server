@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
     [Trait(Traits.Category, Categories.Validate)]
     public class MemberMatchResourceValidatorTests : NarrativeDataTestBase
     {
-#if !Stu3
+#if !STU3
         [Fact]
         public void GivenAnInvalidResource_WhenValidatingMemberMatch_ThenInvalidShouldBeReturned()
         {
