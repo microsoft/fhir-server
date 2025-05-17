@@ -117,7 +117,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(
             "Observation/$validate",
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
+#if USE_HL7_LEGACY_PACKAGES
+            "Element with minimum cardinality 1 cannot be null. At Observation.StatusElement.",
+#else
             "Element 'StatusElement' with minimum cardinality 1 cannot be null. At Observation.StatusElement, line , position",
+#endif
             "Observation.StatusElement")]
         [InlineData(
             "Observation/$validate",

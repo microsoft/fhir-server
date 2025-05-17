@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using SemVer;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -25,7 +26,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
+#if USE_HL7_LEGACY_PACKAGES
+            await TestCapabilityStatementFhirVersion("5.0.0-snapshot1");
+#else
             await TestCapabilityStatementFhirVersion("5.0.0");
+#endif
         }
 
         [Fact]
