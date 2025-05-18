@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
             DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "SeattleForgotten" } } })).Resource;
 #else
@@ -197,10 +197,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             {
                 Meta = meta,
                 Type = Group.GroupType.Person,
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Actual = true,
-#elif USE_HL7_LEGACY_PACKAGES
-                Active = true,
 #else
                 Active = true,
                 Membership = Group.GroupMembershipBasis.Definitional,
@@ -283,7 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             },
                         },
                         WhenPrepared = prepared,
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference
@@ -325,7 +323,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference
