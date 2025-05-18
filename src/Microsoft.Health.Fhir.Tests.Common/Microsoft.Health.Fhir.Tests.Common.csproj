@@ -230,12 +230,12 @@
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" >
       <LogicalName>TestFiles\R5\ValidCompartmentDefinition.json</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-birthsex.json" />
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-careplan.json" />
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-ethnicity.json" />
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-organization.json" />
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient.json" />
-    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-race.json" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-birthsex.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-careplan.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-ethnicity.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-organization.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-race.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore-endpoint.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameter-SpecimenStatus.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
@@ -324,12 +324,12 @@
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Sequence.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-race.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-organization.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-race.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-detailed-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-detailed-race.json" />
