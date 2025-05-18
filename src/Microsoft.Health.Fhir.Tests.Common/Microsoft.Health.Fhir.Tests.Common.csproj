@@ -217,7 +217,8 @@
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json"  Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition-legacy.json"  Condition="'$(UseHl7LegacyPackages)' == 'true'" />
-    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
+    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example-legacy.json"  Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
     <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
@@ -253,8 +254,7 @@
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R4\MedicinalProduct.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example-legacy.json"  Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json"/>
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />

@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
-#if !Stu3
+#if !STU3
             var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
                 SelectMany(x => x).OrderBy(x => x).ToList();
