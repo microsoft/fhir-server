@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             },
                         },
                         WhenPrepared = prepared,
-#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
-#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference
