@@ -194,7 +194,8 @@
     <EmbeddedResource Include="TestFiles\R5\binary-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithInvalidBundleEntry.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\R5\CommunicationAttachment.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
@@ -202,12 +203,16 @@
     <EmbeddedResource Include="TestFiles\R5\Coverage.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.indexes.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json"  Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
