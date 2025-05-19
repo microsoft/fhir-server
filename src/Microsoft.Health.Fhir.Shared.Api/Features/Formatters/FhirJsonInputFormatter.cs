@@ -5,7 +5,9 @@
 
 using System;
 using System.Buffers;
+using System.IO.Pipelines;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -13,22 +15,21 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.IO;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
-        private readonly FhirJsonParser _parser;
-        private readonly IArrayPool<char> _charPool;
+        private readonly FhirJsonPocoDeserializer _parser;
+        private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
-        public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
+        public FhirJsonInputFormatter(FhirJsonPocoDeserializer parser)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
-            EnsureArg.IsNotNull(charPool, nameof(charPool));
 
             _parser = parser;
-            _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
             SupportedEncodings.Add(UTF16EncodingLittleEndian);
@@ -57,72 +58,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var request = context.HttpContext.Request;
 
-            var parserToUse = _parser;
+            Exception delayedException = null;
+            Resource model = null;
 
-            if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
-                request.Path.Value.Equals("/", System.StringComparison.OrdinalIgnoreCase))
+            await using RecyclableMemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream();
+            await request.Body.CopyToAsync(memoryStream);
+            var jsonBytes = new ReadOnlySpan<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+            var jsonReader = new Utf8JsonReader(jsonBytes);
+
+            try
             {
-                var newsettings = _parser.Settings.Clone();
-                newsettings.AllowUnrecognizedEnums = true;
-                newsettings.AcceptUnknownMembers = true;
-                newsettings.ExceptionHandler = (source, args) =>
-                {
-                    context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
-                };
-
-                /*Current parser is initialized with a setting (TruncateDateTimeToDate) that was marked as Obsolete.
-                 To avoid changing existing behavior, same settings (one that was Obsolete) are used below. So, code added to
-                disable the warning.*/
-#pragma warning disable CS0618 // Type or member is obsolete
-                var jsonParserForBundle = new FhirJsonParser(newsettings);
-#pragma warning disable CS0618 // Type or member is obsolete
-
-                parserToUse = jsonParserForBundle;
+                model = _parser.DeserializeResource(ref jsonReader);
+            }
+            catch (Exception ex)
+            {
+                delayedException = ex;
             }
 
-            using (var streamReader = context.ReaderFactory(request.Body, encoding))
-            using (var jsonReader = new JsonTextReader(streamReader))
+            if (model != null)
             {
-                Exception delayedException = null;
-                Resource model = null;
-
-                jsonReader.DateParseHandling = DateParseHandling.None;
-                jsonReader.FloatParseHandling = FloatParseHandling.Decimal;
-                jsonReader.ArrayPool = _charPool;
-                jsonReader.CloseInput = false;
-
-                try
-                {
-                    model = await parserToUse.ParseAsync<Resource>(jsonReader);
-                }
-                catch (Exception ex)
-                {
-                    delayedException = ex;
-                }
-
-                // Some nonempty inputs might deserialize as null, for example whitespace,
-                // or the JSON-encoded value "null". The upstream BodyModelBinder needs to
-                // be notified that we don't regard this as a real input so it can register
-                // a model binding error.
-                // https://github.com/aspnet/Mvc/blob/ce66e953045d3c3c52bd6c2bd9d5385fb52eccdc/src/Microsoft.AspNetCore.Mvc.Formatters.Json/JsonInputFormatter.cs#L221
-                if (model == null && delayedException == null && !context.TreatEmptyInputAsDefaultValue)
-                {
-                    return await InputFormatterResult.NoValueAsync();
-                }
-
-                if (model != null)
-                {
-                    return await InputFormatterResult.SuccessAsync(model);
-                }
-
-                if (delayedException != null)
-                {
-                    // Add model state information to return to the client
-                    context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, delayedException.Message));
-                }
-
-                return await InputFormatterResult.FailureAsync();
+                return await InputFormatterResult.SuccessAsync(model);
             }
+
+            // Add model state information to return to the client
+            context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, delayedException.Message));
+
+            return await InputFormatterResult.FailureAsync();
         }
     }
 }

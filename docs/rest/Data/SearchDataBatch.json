@@ -78,9 +78,9 @@
                 ],
                 "birthDate": "1987-02-20",
                 "gender": "male",
-                "generalPractitioner": {
+                "generalPractitioner": [{
                     "reference": "Practitioner/searchpractitioner2"
-                }
+                }]
             },
             "request": {
                 "method": "PUT",
@@ -109,9 +109,9 @@
                 "active": true,
                 "birthDate": "1975-01-12",
                 "gender": "male",
-                "generalPractitioner": {
+                "generalPractitioner": [{
                     "reference": "Practitioner/searchpractitioner3"
-                }
+                }]
             },
             "request": {
                 "method": "PUT",
@@ -265,9 +265,9 @@
                 "subject": {
                     "reference": "Patient/searchpatient1"
                 },
-                "result": {
+                "result": [{
                     "reference": "Observation/searchobservation1"
-                }
+                }]
             },
             "request": {
                 "method": "POST",
@@ -289,9 +289,9 @@
                 "subject": {
                     "reference": "Patient/searchpatient2"
                 },
-                "result": {
+                "result": [{
                     "reference": "Observation/searchobservation2"
-                }
+                }]
             },
             "request": {
                 "method": "POST",

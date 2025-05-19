@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
                 RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
-                FhirJsonParser fhirJsonParser = _fhirJsonParser;
+                FhirJsonPocoDeserializer fhirJsonParser = _fhirJsonParser;
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
                 // Parallel Resource Handling Function.
@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             RequestContextAccessor<IFhirRequestContext> requestContext,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ResourceIdProvider resourceIdProvider,
-            FhirJsonParser fhirJsonParser,
+            FhirJsonPocoDeserializer fhirJsonParser,
             ILogger<BundleHandler> logger,
             CancellationToken cancellationToken)
         {

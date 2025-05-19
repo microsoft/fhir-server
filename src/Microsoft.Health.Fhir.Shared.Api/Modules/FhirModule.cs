@@ -50,15 +50,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            var jsonParserNoValidation = new FhirJsonPocoDeserializer(new FhirJsonPocoDeserializerSettings { Validator = null });
 #pragma warning disable CS0618 // Type or member is obsolete
-            var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
+
 #pragma warning restore CS0618 // Type or member is obsolete
             var jsonSerializer = new FhirJsonSerializer();
 
             var xmlParser = new FhirXmlParser();
             var xmlSerializer = new FhirXmlSerializer();
 
-            services.AddSingleton(jsonParser);
+            services.AddSingleton(jsonParserNoValidation);
             services.AddSingleton(jsonSerializer);
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
@@ -81,7 +82,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     {
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
-                            var resource = jsonParser.Parse<Resource>(str);
+                            // Reading from the DB does not require validation
+                            Resource resource = jsonParserNoValidation.DeserializeResource(str);
                             return SetMetadata(resource, version, lastModified);
                         }
                     },

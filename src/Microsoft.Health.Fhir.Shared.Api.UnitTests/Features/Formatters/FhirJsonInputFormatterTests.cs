@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle)
         {
-            var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
+            var formatter = new FhirJsonInputFormatter(new FhirJsonPocoDeserializer());
 
             var metaData = new DefaultModelMetadata(
                 new EmptyModelMetadataProvider(),
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanRead(Type modelType, string contentType)
         {
-            var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
+            var formatter = new FhirJsonInputFormatter(new FhirJsonPocoDeserializer());
             var modelMetadata = Substitute.For<ModelMetadata>(ModelMetadataIdentity.ForType(modelType));
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;
