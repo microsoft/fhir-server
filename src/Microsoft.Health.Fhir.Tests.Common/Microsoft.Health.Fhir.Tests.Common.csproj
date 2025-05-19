@@ -214,7 +214,7 @@
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
-    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
     <EmbeddedResource Include="TestFiles\R5\Includes-TestResources.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
