@@ -12,7 +12,9 @@
             "name": [
                 {
                     "family": "Smitty",
-                    "given": [ "Gerald" ]
+                    "given": [
+                        "Gerald"
+                    ]
                 }
             ]
         }
@@ -83,15 +85,13 @@
     ],
     "event": [
         {
-            "concept": {
-                "coding": [
-                    {
-                        "system": "http://ihe.net/xds/connectathon/eventCodes",
-                        "code": "T-D8200",
-                        "display": "Arm"
-                    }
-                ]
-            }
+            "coding": [
+                {
+                    "system": "http://ihe.net/xds/connectathon/eventCodes",
+                    "code": "T-D8200",
+                    "display": "Arm"
+                }
+            ]
         }
     ],
     "facilityType": {
@@ -127,14 +127,7 @@
     ],
     "attester": [
         {
-            "mode": {
-                "coding": [
-                    {
-                        "system": "http://hl7.org/fhir/composition-attestation-mode",
-                        "code": "official"
-                    }
-                ]
-            },
+            "mode": "official",
             "party": {
                 "reference": "Organization/f001"
             }
@@ -179,15 +172,11 @@
                 "title": "Physical",
                 "creation": "2005-12-24T09:35:00+11:00"
             },
-            "profile": [
-                {
-                    "valueCoding": {
-                        "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
-                        "code": "urn:ihe:pcc:handp:2008",
-                        "display": "History and Physical Specification"
-                    }
-                }
-            ]
+            "format": {
+                "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
+                "code": "urn:ihe:pcc:handp:2008",
+                "display": "History and Physical Specification"
+            }
         }
     ]
 }

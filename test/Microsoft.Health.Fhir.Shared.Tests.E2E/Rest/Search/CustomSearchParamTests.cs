@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
         [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
 #else

@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCompleted()
         {
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/Measure-name");
 #else
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/CanonicalResource-name");
@@ -1014,11 +1014,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 case FhirSpecification.Stu3:
                     searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/SearchParameter-url"));
                     break;
-
+#if !USE_HL7_LEGACY_PACKAGES
                 case FhirSpecification.R5:
                     searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/CanonicalResource-url"));
                     break;
-
+#endif
                 default:
                     searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
                     break;

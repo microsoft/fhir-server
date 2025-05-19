@@ -192,7 +192,8 @@
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\binary-example.json" />
-    <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithInvalidBundleEntry.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
@@ -216,16 +217,18 @@
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
-    <EmbeddedResource Include="TestFiles\R5\Includes-TestResources.json" />
+    <EmbeddedResource Include="TestFiles\R5\Includes-TestResources.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Includes-TestResources-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json"  Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition-legacy.json"  Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
-    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example-legacy.json"  Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
-    <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
+    <EmbeddedResource Include="TestFiles\R5\Specimen.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="TestFiles\R5\Specimen-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" >
       <LogicalName>TestFiles\R5\ValidCompartmentDefinition.json</LogicalName>

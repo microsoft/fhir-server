@@ -44,11 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B
             ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.Device);
+#elif R5 && USE_HL7_LEGACY_PACKAGES
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
 #else
             ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.DeviceAssociation);
 #endif
@@ -59,8 +61,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.NonExistentPatient.Id}/$everything";
-#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
+#if STU3 || R4 || R4B
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
+#elif R5 && USE_HL7_LEGACY_PACKAGES
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
 #else
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceAssociationOfNonExistentPatient);
 #endif
