@@ -413,7 +413,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-#if STU3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
 #else
                 var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Contact = new() { new() { Address = new() { City = "Seattle" } }, new() { Address = new() { City = OrganizationCity } } }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
