@@ -155,8 +155,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             {
                 var searchParameterUrls = resources
                     .Where(x => x.ResourceTypeName == KnownResourceTypes.SearchParameter && x.RawResource != null)
-                    .Select(x => _modelInfoProvider.ToTypedElement(x.RawResource).GetStringScalar("url"))
+                    .Select(x =>
+                    {
+                        try
+                        {
+                            return _modelInfoProvider.ToTypedElement(x.RawResource).GetStringScalar("url");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Failed to extract the url from the resource, '{x.ResourceId}'.");
+                            return null;
+                        }
+                    })
+                    .Where(x => x != null)
                     .ToList();
+                _logger.LogInformation($"Creating notification content with {searchParameterUrls.Count} search parameters.");
                 if (searchParameterUrls.Any())
                 {
                     return JsonConvert.SerializeObject(searchParameterUrls);
