@@ -1,7 +1,18 @@
 steps:
 
   - task: DotNetCoreCLI@2
-    displayName: 'dotnet publish Integration Tests'
+    displayName: 'dotnet publish Integration Tests (R5)'
+    condition: contains(variables['Build.Repository.Name'], 'R5')
+    inputs:
+      command: publish
+      projects: 'test/**/Microsoft.Health.Fhir.R5.Tests.Integration.csproj'
+      arguments: '--version-suffix $(build.buildNumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) /p:UseHl7LegacyPackages=false'
+      publishWebProjects: false
+      zipAfterPublish: true
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish Integration Tests (non-R5)'
+    condition: not(contains(variables['Build.Repository.Name'], 'R5'))
     inputs:
       command: publish
       projects: 'test/**/*.csproj'

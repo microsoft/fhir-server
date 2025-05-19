@@ -3,6 +3,7 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.203-azurelinux3.
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
+ARG DOCKER_USE_HL7_LEGACY_PACKAGES=true
 
 WORKDIR /repo
 
@@ -71,13 +72,12 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Clie
 COPY ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems
 
-RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -a $TARGETARCH
-
+RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -a $TARGETARCH /p:UseHl7LegacyPackages=${DOCKER_USE_HL7_LEGACY_PACKAGES
 # now copy over everything else and publish
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH /p:UseHl7LegacyPackages=${DOCKER_USE_HL7_LEGACY_PACKAGES
 
 # Implicitly uses the target platform for the runtime image.
 FROM mcr.microsoft.com/dotnet/aspnet:9.0.4-azurelinux3.0 AS runtime
