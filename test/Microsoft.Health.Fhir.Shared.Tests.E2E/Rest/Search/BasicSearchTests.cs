@@ -1277,11 +1277,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Observation patient = Samples.GetDefaultObservation().ToPoco<Observation>();
             var patients = new Observation[numberOfResources];
-            var systems = new string[]
-            {
-                "http://hl7.org/fhir/v3/ObservationValue",
-                "http://terminology.hl7.org/CodeSystem/v3-ObservationValue",
-            };
 
             for (int i = 0; i < numberOfResources; i++)
             {
@@ -1297,7 +1292,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var subsettedTag = new Coding(system, "SUBSETTED");
                 patients[i].Meta.Tag.Add(subsettedTag);
 #else
-                foreach (var system in ["http://hl7.org/fhir/v3/ObservationValue", "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"])
+                string[] systems =
+                [
+                    "http://hl7.org/fhir/v3/ObservationValue",
+                    "http://terminology.hl7.org/CodeSystem/v3-ObservationValue",
+                ];
+
+                foreach (var system in systems)
                 {
                     var subsettedTag = new Coding(system, "SUBSETTED");
                     patients[i].Meta.Tag.Add(subsettedTag);

@@ -37,11 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly IMediator _mediator;
-#if USE_HL7_LEGACY_PACKAGES
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
-#else
-        private List<Hl7.Fhir.Specification.ArtifactSummary> _summaries = new List<Hl7.Fhir.Specification.ArtifactSummary>();
-#endif
         private DateTime _expirationTime;
         private object _lockSummaries = new object();
 
