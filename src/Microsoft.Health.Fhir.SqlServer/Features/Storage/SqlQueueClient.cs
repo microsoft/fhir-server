@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus", CommandType = CommandType.StoredProcedure };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
             sqlCommand.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
             sqlCommand.Parameters.AddWithValue("@JobId", jobInfo.Id);
             sqlCommand.Parameters.AddWithValue("@Version", jobInfo.Version);
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             sqlCommand.Parameters.AddWithValue("@Worker", worker);
             sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);

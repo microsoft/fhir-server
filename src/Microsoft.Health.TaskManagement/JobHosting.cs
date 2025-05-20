@@ -59,21 +59,47 @@ namespace Microsoft.Health.JobManagement
                         JobInfo nextJob = null;
                         if (_queueClient.IsInitialized())
                         {
-                            try
-                            {
-                                _logger.LogInformation("Dequeuing next job.");
+                            // Add retry logic for dequeuing
+                            int retryCount = 0;
+                            const int maxRetries = 3;
+                            bool succeeded = false;
 
-                                if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                            while (!succeeded && retryCount < maxRetries && !cancellationTokenSource.Token.IsCancellationRequested)
+                            {
+                                try
                                 {
-                                    checkTimeoutJobStopwatch.Restart();
-                                    nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
-                                }
+                                    _logger.LogInformation("Dequeuing next job. Attempt {RetryCount}/{MaxRetries}", retryCount + 1, maxRetries);
 
-                                nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to dequeue new job.");
+                                    if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                                    {
+                                        checkTimeoutJobStopwatch.Restart();
+                                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                    }
+
+                                    nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
+                                    succeeded = true;
+                                }
+                                catch (Exception ex) when (IsSqlTimeoutException(ex) && retryCount < maxRetries - 1)
+                                {
+                                    retryCount++;
+                                    int delayMs = (int)Math.Pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+                                    _logger.LogWarning(ex, "SQL timeout when dequeuing new job. Retrying in {DelayMs}ms. Attempt {RetryCount}/{MaxRetries}", delayMs, retryCount + 1, maxRetries);
+
+                                    try
+                                    {
+                                        await Task.Delay(delayMs, cancellationTokenSource.Token);
+                                    }
+                                    catch (TaskCanceledException)
+                                    {
+                                        _logger.LogInformation("Job dequeue retry cancelled due to shutdown request.");
+                                        break;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Failed to dequeue new job.");
+                                    break;
+                                }
                             }
                         }
 
@@ -275,6 +301,14 @@ namespace Microsoft.Health.JobManagement
             {
                 // do nothing
             }
+        }
+
+        // Helper method to detect SQL timeout exceptions
+        private static bool IsSqlTimeoutException(Exception ex)
+        {
+            var sqlTimeoutExceptionText = "Execution Timeout Expired";
+            return ex.ToString().Contains(sqlTimeoutExceptionText, StringComparison.OrdinalIgnoreCase) ||
+                   (ex.InnerException != null && ex.InnerException.ToString().Contains(sqlTimeoutExceptionText, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
