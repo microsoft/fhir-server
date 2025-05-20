@@ -68,8 +68,8 @@ stages:
   - job: Windows_dotnet9
     pool:
       name: '$(DefaultWindowsPool)'
-    demands:
-      - Agent.OS -equals Windows
+      demands:
+        - Agent.OS -equals Windows
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -118,8 +118,8 @@ stages:
   - job: Guardian
     pool:
       name: '$(DefaultWindowsPool)'
-    demands:
-      - Agent.OS -equals Windows
+      demands:
+        - Agent.OS -equals Windows
       
     steps:
     - template: ./jobs/analyze.yml
