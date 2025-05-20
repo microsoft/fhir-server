@@ -103,9 +103,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 }
                 catch (IncompleteOperationException<List<ResourceWrapper>> ex)
                 {
+                    _logger.LogError(ex, "Deleting resources failed.");
                     resourcesDeleted.AddRange(ex.PartialResults);
                     result.Issues.Add(ex.Message);
                     exception = ex;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Deleting resources failed.");
+                    throw;
                 }
 
                 var deletedResourceCountMap = resourcesDeleted.GroupBy(x => x.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
@@ -117,12 +123,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     }
                 }
 
-                var notification = new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Count)
+                try
                 {
-                    Content = CreateNotificationContent(resourcesDeleted),
-                };
+                    var notification = new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Count)
+                    {
+                        Content = CreateNotificationContent(resourcesDeleted),
+                    };
 
-                await _mediator.Publish(notification, cancellationToken);
+                    await _mediator.Publish(notification, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create and publish the notification content.");
+                    throw;
+                }
 
                 if (exception != null)
                 {
@@ -154,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             try
             {
                 var searchParameterUrls = resources
-                    .Where(x => x.ResourceTypeName == KnownResourceTypes.SearchParameter && x.RawResource != null)
+                    .Where(x => string.Equals(x.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) && x.RawResource != null)
                     .Select(x =>
                     {
                         try
@@ -169,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     })
                     .Where(x => x != null)
                     .ToList();
-                _logger.LogInformation($"Creating notification content with {searchParameterUrls.Count} search parameters.");
+                _logger.LogInformation($"Creating the notification content with {searchParameterUrls.Count} search parameters.");
                 if (searchParameterUrls.Any())
                 {
                     return JsonConvert.SerializeObject(searchParameterUrls);

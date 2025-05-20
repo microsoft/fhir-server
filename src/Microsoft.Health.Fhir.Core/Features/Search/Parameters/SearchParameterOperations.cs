@@ -22,6 +22,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -36,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
+        private readonly AsyncRetryPolicy _retryPolicy;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -61,6 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
+
+            _retryPolicy = Policy
+                .Handle<SearchParameterNotSupportedException>()
+                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count)));
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
@@ -343,68 +350,63 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return null;
         }
 
-        private async Task DeleteSearchParametersAsync(List<string> urls, int pageSize, CancellationToken cancellationToken)
+        private Task DeleteSearchParametersAsync(List<string> urls, int pageSize, CancellationToken cancellationToken)
         {
-            if (urls?.Any() ?? false)
-            {
-                // We need to make sure we have the latest search parameters before trying to delete
-                // existing search parameter. This is to avoid trying to update a search parameter that
-                // was recently added and that hasn't propogated to all fhir-server instances.
-                await GetAndApplySearchParameterUpdates(cancellationToken);
-
-                var count = 0;
-                while (count < urls.Count)
+            return _retryPolicy.ExecuteAsync(
+                async () =>
                 {
-                    var urlsToDelete = urls.Skip(count).Take(pageSize).ToList();
-                    count += urlsToDelete.Count;
-
-                    var tasks = new List<Task>();
-                    foreach (var url in urlsToDelete)
+                    if (urls?.Any(x => x != null) ?? false)
                     {
-                        if (string.IsNullOrWhiteSpace(url))
-                        {
-                            _logger.LogWarning("Skipping the null or empty url.");
-                            continue;
-                        }
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
 
-                        tasks.Add(
-                            Task.Run(
-                                async () =>
+                        var count = 0;
+                        while (count < urls.Count)
+                        {
+                            var urlsToDelete = urls.Skip(count).Take(pageSize).ToList();
+                            count += urlsToDelete.Count;
+
+                            var tasks = new List<Task>();
+                            foreach (var url in urlsToDelete)
+                            {
+                                tasks.Add(
+                                    Task.Run(
+                                        async () =>
+                                        {
+                                            try
+                                            {
+                                                // First we delete the status metadata from the data store as this function depends on
+                                                // the in memory definition manager.  Once complete we remove the SearchParameter from
+                                                // the definition manager.
+                                                _logger.LogInformation("Deleting the search parameter '{Url}'", url);
+                                                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { url }, SearchParameterStatus.PendingDelete, cancellationToken);
+
+                                                // Update the status of the search parameter in the definition manager once the status is updated in the store.
+                                                _searchParameterDefinitionManager.UpdateSearchParameterStatus(url, SearchParameterStatus.PendingDelete);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                _logger.LogError(ex, $"Failed to delete a search parameter with url: {url}");
+                                                throw;
+                                            }
+                                        },
+                                        cancellationToken));
+                            }
+
+                            try
+                            {
+                                if (tasks.Any())
                                 {
-                                    try
-                                    {
-                                        // First we delete the status metadata from the data store as this function depends on
-                                        // the in memory definition manager.  Once complete we remove the SearchParameter from
-                                        // the definition manager.
-                                        _logger.LogInformation("Deleting the search parameter '{Url}'", url);
-                                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { url }, SearchParameterStatus.PendingDelete, cancellationToken);
-
-                                        // Update the status of the search parameter in the definition manager once the status is updated in the store.
-                                        _searchParameterDefinitionManager.UpdateSearchParameterStatus(url, SearchParameterStatus.PendingDelete);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogError(ex, $"Failed to delete a search parameter with url: {url}");
-                                        throw;
-                                    }
-                                },
-                                cancellationToken));
-                    }
-
-                    try
-                    {
-                        if (tasks.Any())
-                        {
-                            await Task.WhenAll(tasks);
+                                    await Task.WhenAll(tasks);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, $"Failed to delete {tasks.Where(x => !x.IsCompleted).Count()} search parameters.");
+                                throw;
+                            }
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to delete {tasks.Where(x => !x.IsCompleted).Count()} search parameters.");
-                        throw;
-                    }
-                }
-            }
+                });
         }
     }
 }
