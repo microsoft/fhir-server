@@ -142,8 +142,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             // Filter results to exclude resourceTypes included in excludedResourceTypes
             if (excludedResourceTypes != null && excludedResourceTypes.Count > 0)
             {
+                var excludedResourceTypesSet = new HashSet<string>(excludedResourceTypes, StringComparer.OrdinalIgnoreCase);
                 results = results
-                    .Where(x => !excludedResourceTypes.Contains(x.Resource.ResourceTypeName))
+                    .Where(x => !excludedResourceTypesSet.Contains(x.Resource.ResourceTypeName))
                     .ToList();
             }
 
