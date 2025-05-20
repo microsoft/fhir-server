@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
 
-        private readonly HashSet<string> _exlcudedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
+        private readonly HashSet<string> _excludedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
         {
             KnownQueryParameterNames.BulkHardDelete,
             KnownQueryParameterNames.HardDelete,
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
-            searchParameters = searchParameters.Where(param => !_exlcudedParameters.Contains(param.Item1)).ToList();
+            searchParameters = searchParameters.Where(param => !_excludedParameters.Contains(param.Item1)).ToList();
 
             if (softDeleteCleanup && searchParameters.Any(param => param.Item1 != KnownQueryParameterNames.LastUpdated))
             {
