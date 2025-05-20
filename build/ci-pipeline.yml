@@ -69,7 +69,7 @@ stages:
     pool:
       name: '$(DefaultWindowsPool)'
       demands:
-        - ImageOverride -equals MMSWindows2022-vNext
+        - ImageOverride -equals $(DefaultWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -119,7 +119,7 @@ stages:
     pool:
       name: '$(DefaultWindowsPool)'
       demands:
-        - ImageOverride -equals MMSWindows2022-vNext
+        - ImageOverride -equals $(DefaultWindowsImage)
       
     steps:
     - template: ./jobs/analyze.yml
