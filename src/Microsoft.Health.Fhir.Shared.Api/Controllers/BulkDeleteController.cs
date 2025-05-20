@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             KnownQueryParameterNames.BulkHardDelete,
             KnownQueryParameterNames.HardDelete,
             KnownQueryParameterNames.PurgeHistory,
+            KnownQueryParameterNames.ExcludedResourceTypes,
         };
 
         public BulkDeleteController(
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDelete)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDelete(HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, string excludedResourceTypes = null)
+        public async Task<IActionResult> BulkDelete(HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ExcludedResourceTypes)] string excludedResourceTypes = null)
         {
             return await SendDeleteRequest(null, hardDeleteModel.IsHardDelete, purgeHistory, false, excludedResourceTypes);
         }
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDeleteResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, string excludedResourceTypes = null)
+        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ExcludedResourceTypes)] string excludedResourceTypes = null)
         {
             return await SendDeleteRequest(typeParameter, hardDeleteModel.IsHardDelete, purgeHistory, false, excludedResourceTypes);
         }
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDeleteSoftDeleted)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteSoftDeleted([FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, string excludedResourceTypes = null)
+        public async Task<IActionResult> BulkDeleteSoftDeleted([FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ExcludedResourceTypes)] string excludedResourceTypes = null)
         {
             return await SendDeleteRequest(null, true, purgeHistory, true, excludedResourceTypes);
         }
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDeleteSoftDeletedResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteSoftDeletedByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, string excludedResourceTypes = null)
+        public async Task<IActionResult> BulkDeleteSoftDeletedByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ExcludedResourceTypes)] string excludedResourceTypes = null)
         {
             return await SendDeleteRequest(typeParameter, true, purgeHistory, true, excludedResourceTypes);
         }
