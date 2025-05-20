@@ -35,7 +35,15 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower(),
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$ClientId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [SecureString]$ClientSecret
     )
 
     Set-StrictMode -Version Latest
@@ -132,7 +140,7 @@ function Add-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
-    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $(tenant-admin-service-principal-id), $(tenant-admin-service-principal-password)
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
         
     Install-Module -Name Microsoft.Graph -Force
 

@@ -22,7 +22,15 @@ function Remove-AadTestAuthEnvironment {
         
         [Parameter(Mandatory = $true )]
         [ValidateNotNullOrEmpty()]
-        [String]$TenantId
+        [String]$TenantId,
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$ClientId,
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [SecureString]$ClientSecret
     )
 
     Set-StrictMode -Version Latest
@@ -41,7 +49,7 @@ function Remove-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
-    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $(tenant-admin-service-principal-name), $(tenant-admin-service-principal-password)
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
 
     
     Install-Module -Name Microsoft.Graph -Force
