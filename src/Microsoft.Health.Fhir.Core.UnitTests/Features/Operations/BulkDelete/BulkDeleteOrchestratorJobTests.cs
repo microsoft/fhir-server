@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 return Task.FromResult(result);
             });
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, "test", "test", "test");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 return Task.FromResult(result);
             });
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, "Patient", null, "test", "test", "test");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, "Patient", null, null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 return Task.FromResult(result);
             });
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, "test", "test", "test");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,

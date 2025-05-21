@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 request.DeleteOperation,
                 request.ResourceType,
                 searchParameters,
+                request.ExcludedResourceTypes,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,
