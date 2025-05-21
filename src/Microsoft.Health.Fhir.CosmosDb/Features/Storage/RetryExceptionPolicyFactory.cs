@@ -112,13 +112,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 .WaitAndRetryAsync(
                     retryCount: maxRetries,
                     sleepDurationProvider: (retryAttempt, exception, context) => SleepDurationProvider(retryAttempt, exception),
-                    onRetryAsync: (e, _, _, ctx) =>
+                    onRetryAsync: (e, timeSpan, retryAttempt, ctx) =>
                     {
-                        if (e is CosmosException cosmosException && cosmosException.StatusCode == HttpStatusCode.ServiceUnavailable)
+                        // Log details about each retry attempt for better visibility
+                        string statusCode = "N/A";
+                        string diagnostics = "N/A";
+
+                        // Single type check for CosmosException to improve performance
+                        if (e is CosmosException cosmosException)
                         {
-                            var diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
-                            _logger.LogWarning(cosmosException, "Received a ServiceUnavailable response from Cosmos DB. Retrying. Diagnostics: {CosmosDiagnostics}", diagnostics);
+                            statusCode = cosmosException.StatusCode.ToString();
+                            diagnostics = cosmosException.Diagnostics?.ToString() ?? "empty";
                         }
+
+                        var retryType = useExponentialRetry ? "exponential" : "fixed";
+                        var waitTime = timeSpan.TotalMilliseconds;
+
+                        _logger.LogWarning(
+                                e,
+                                "Cosmos DB operation failed. Retrying attempt {RetryAttempt}/{MaxRetries}. Status: {StatusCode}. Wait: {WaitTimeMs}ms ({RetryType}).",
+                                retryAttempt,
+                                maxRetries,
+                                statusCode,
+                                waitTime,
+                                retryType);
 
                         if (maxWaitTimeInSeconds == -1)
                         {

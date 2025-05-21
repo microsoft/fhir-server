@@ -66,6 +66,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Includes-TestResources.json" />
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\MemberMatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\PatientWithUnknownElements.json" />
@@ -206,6 +207,7 @@
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-with-base64.json" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
+    <EmbeddedResource Include="TestFiles\R5\Includes-TestResources.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
@@ -231,6 +233,8 @@
     <EmbeddedResource Include="TestFiles\R5\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchParameterUnsupportedType.json" />
     <EmbeddedResource Include="TestFiles\R5\SearchDataBatch.json" />
+    <EmbeddedResource Include="TestFiles\R5\SearchParameter-Resource-idfoo.json" />
+    <EmbeddedResource Include="TestFiles\R5\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
@@ -279,6 +283,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-with-base64.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Immunization.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Includes-TestResources.json" />
     <EmbeddedResource Include="TestFiles\Stu3\InvalidObservation.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\MemberMatch.json" />

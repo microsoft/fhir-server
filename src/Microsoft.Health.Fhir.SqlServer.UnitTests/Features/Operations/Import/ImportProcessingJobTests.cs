@@ -191,6 +191,132 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
+        [Fact]
+        public async Task GivenImportInputWithErrorContainerName_WhenExecuted_ThenErrorContainerNameShouldBeUsed()
+        {
+            // Arrange
+            ImportProcessingJobDefinition inputData = GetInputData();
+            inputData.ErrorContainerName = "custom-error-container";
+            ImportProcessingJobResult result = new ImportProcessingJobResult();
+
+            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
+            IImporter importer = Substitute.For<IImporter>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
+
+            // Setup the mock loader to return a channel and task
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
+                    Task loadTask = Task.CompletedTask;
+                    resourceChannel.Writer.Complete();
+                    return (resourceChannel, loadTask);
+                });
+
+            // Setup the import error store
+            importErrorStore.ErrorFileLocation.Returns("error-location");
+
+            // Setup the error store factory with custom container
+            importErrorStoreFactory.InitializeAsync(
+                Arg.Is<string>(container => container == "custom-error-container"),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(new ImportProcessingProgress());
+
+            var job = new ImportProcessingJob(
+                mediator,
+                queueClient,
+                loader,
+                importer,
+                importErrorStoreFactory,
+                contextAccessor,
+                loggerFactory,
+                auditLogger);
+
+            // Act
+            await job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None);
+
+            // Assert
+            await importErrorStoreFactory.Received(1).InitializeAsync(
+                Arg.Is<string>(container => container == "custom-error-container"),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenImportInputWithoutErrorContainerName_WhenExecuted_ThenDefaultErrorContainerShouldBeUsed()
+        {
+            // Arrange
+            ImportProcessingJobDefinition inputData = GetInputData();
+            inputData.ErrorContainerName = null; // No custom error container name
+            ImportProcessingJobResult result = new ImportProcessingJobResult();
+
+            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
+            IImporter importer = Substitute.For<IImporter>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
+
+            // Setup the mock loader to return a channel and task
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
+                    Task loadTask = Task.CompletedTask;
+                    resourceChannel.Writer.Complete();
+                    return (resourceChannel, loadTask);
+                });
+
+            // Setup the import error store
+            importErrorStore.ErrorFileLocation.Returns("error-location");
+
+            // Setup the error store factory without custom container (default method)
+            importErrorStoreFactory.InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(new ImportProcessingProgress());
+
+            var job = new ImportProcessingJob(
+                mediator,
+                queueClient,
+                loader,
+                importer,
+                importErrorStoreFactory,
+                contextAccessor,
+                loggerFactory,
+                auditLogger);
+
+            // Act
+            await job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None);
+
+            // Assert
+            await importErrorStoreFactory.Received(1).InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+            // And verify the overload with container name was NOT called
+            await importErrorStoreFactory.DidNotReceive().InitializeAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+        }
+
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
             long succeedCountFromProgress = currentResult.SucceededResources;

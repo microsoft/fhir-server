@@ -22,6 +22,7 @@ jobs:
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
         $clientSecret = "$(tenant-admin-service-principal-password)"
+        $clientSecret_secure =  ConvertTo-SecureString -AsPlainText $clientSecret -Force
         $tenantId = "$(tenant-id)"
 
         $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
@@ -40,4 +41,4 @@ jobs:
         Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
         Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
-        Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantId $tenantId
+        Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantId $tenantId -ClientId $clientId -ClientSecret $clientSecret_secure

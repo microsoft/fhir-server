@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             if (AreIncludeResultsTruncated())
             {
-                var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch));
+                var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
                 throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
             }
 
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 if (tooManyIncludeResults)
                 {
-                    exceptions.Add(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch)));
+                    exceptions.Add(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch)));
                 }
 
                 deleteTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<Dictionary<string, long>> result) =>
@@ -433,7 +433,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private bool AreIncludeResultsTruncated()
         {
-            return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase));
+            return _contextAccessor.RequestContext.BundleIssues.Any(
+                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
         }
 
         private static Dictionary<string, long> AppendDeleteResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)

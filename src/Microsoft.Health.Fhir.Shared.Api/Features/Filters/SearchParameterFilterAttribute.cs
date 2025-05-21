@@ -7,7 +7,7 @@ using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Task = System.Threading.Tasks.Task;
 

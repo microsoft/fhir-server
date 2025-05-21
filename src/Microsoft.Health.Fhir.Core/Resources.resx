@@ -765,7 +765,30 @@
     <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
   </data>
   <data name="TooManyIncludeResults" xml:space="preserve">
-    <value>The number of included results exceeded the limit of {0}</value>
-    <comment>{0} is the limit of how many include results the service will return.</comment>
+    <value>The search criteria provided returns partial included resources. Use '_includesCount' parameter to retrieve all included resources (Default: {0}, Max: {1}).</value>
+  </data>
+  <data name="UnsupportedIncludesOperation" xml:space="preserve">
+    <value>The '$includes' operation is not supported.</value>
+  </data>
+  <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
+    <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
+  </data>
+  <data name="InvalidSearchIncludesCountSpecified" xml:space="preserve">
+    <value>The '_includesCount' parameter value must be an integer greater than zero.</value>
+  </data>
+  <data name="MissingIncludesContinuationToken" xml:space="preserve">
+    <value>"The 'includesCt' parameter must be provided for the $includes operation."</value>
+  </data>
+  <data name="IncludesContinuationTokenIgnored" xml:space="preserve">
+    <value>The 'includesCt' parameter is ignored for a non-$includes request.</value>
+  </data>
+  <data name="TooManyParameters" xml:space="preserve">
+    <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
+  </data>
+  <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
+    <value>Not referenced only supports the value *:*</value>
+  </data>
+  <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
+    <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
   </data>
 </root>

@@ -60,11 +60,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _output.WriteLine($"database {stat}");
             }
 
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.TokenSearchParam.TableName
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier")));
         }
 
         [Fact]
@@ -81,28 +80,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
             var statsFromCache = SqlServerSearchService.GetStatsFromCache();
             var model = ((SqlServerSearchService)_fixture.SearchService).Model;
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.TokenSearchParam.TableName
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == model.GetSearchParamId(new Uri(researchStudyFocusUri))));
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.DateTimeSearchParam.TableName
+                  && _.SearchParamId == model.GetSearchParamId(new Uri(researchStudyFocusUri)));
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.DateTimeSearchParam.TableName
                   && _.ColumnName == "StartDateTime"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date"))));
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.DateTimeSearchParam.TableName
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date")));
+            Assert.Single(statsFromCache, _ => _.TableName == VLatest.DateTimeSearchParam.TableName
                   && _.ColumnName == "EndDateTime"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
-                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date"))));
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date")));
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4)
             {
-                Assert.Single(statsFromCache.Where(
-                    _ => _.TableName == VLatest.TokenSearchParam.TableName
+                Assert.Single(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                       && _.ColumnName == "Code"
                       && _.ResourceTypeId == model.GetResourceTypeId("ResearchSubject")
-                      && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status"))));
+                      && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status")));
             }
         }
     }

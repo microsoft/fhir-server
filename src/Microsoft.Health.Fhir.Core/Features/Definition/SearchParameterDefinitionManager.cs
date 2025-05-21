@@ -267,11 +267,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 throw new ResourceNotFoundException(string.Format(Core.Resources.CustomSearchParameterNotfound, url));
             }
 
-            // for search parameters with a base resource type we need to delete the search parameter
-            // from all derived types as well, so we iterate across all resources
-            foreach (var resourceType in TypeLookup.Keys)
+            // find all derived resources from the list of base resources
+            var allResourceTypes = GetDerivedResourceTypes(searchParameterInfo.BaseResourceTypes);
+            foreach (var resourceType in allResourceTypes)
             {
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
+                if (removedParam.Url != searchParameterInfo.Url)
+                {
+                    _logger.LogError("Error, Search Param {RemovedParam} removed from Search Param Definition manager.  It does not match deleted Search Param {Url}", removedParam.Url, url);
+                }
             }
 
             if (calculateHash)
@@ -388,6 +392,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
             while (continuationToken != null);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
+        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            var completeResourceList = new HashSet<string>(resourceTypes);
+
+            foreach (var baseResourceType in resourceTypes)
+            {
+                if (baseResourceType == KnownResourceTypes.Resource)
+                {
+                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                    // We added all possible resource types, so no need to continue
+                    break;
+                }
+
+                if (baseResourceType == KnownResourceTypes.DomainResource)
+                {
+                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                    // Remove types that inherit from Resource directly
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                    completeResourceList.UnionWith(domainResourceChildResourceTypes);
+                }
+            }
+
+            return completeResourceList;
         }
     }
 }

@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken()
-                : EverythingOperationContinuationToken.FromJson(ContinuationTokenConverter.Decode(continuationToken));
+                : EverythingOperationContinuationToken.FromJson(ContinuationTokenEncoder.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchResult searchResult;
             string encodedInternalContinuationToken = string.IsNullOrEmpty(token.InternalContinuationToken)
                 ? null
-                : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
+                : ContinuationTokenEncoder.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
             // We will need to store the id of the patient that links to this one if we are processing a "seealso" link
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 if (!searchResult.Results.Any() && nextContinuationToken != null)
                 {
                     // Run patient $everything on links.
-                    return await SearchAsync(parentPatientId, start, end, since, type, ContinuationTokenConverter.Encode(nextContinuationToken), cancellationToken);
+                    return await SearchAsync(parentPatientId, start, end, since, type, ContinuationTokenEncoder.Encode(nextContinuationToken), cancellationToken);
                 }
             }
 
