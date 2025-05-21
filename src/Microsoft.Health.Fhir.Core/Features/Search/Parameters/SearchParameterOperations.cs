@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -246,19 +247,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default)
         {
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Starting GetAndApplySearchParameterUpdates...");
             var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] {updatedSearchParameterStatus.Count} search parameter status to update.");
 
             // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: Deleted)...");
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: Deleted) completed.");
             }
 
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
             {
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParam.Uri} to PendingDeleted...");
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.AbsolutePath, SearchParameterStatus.PendingDelete);
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParam.Uri} to PendingDeleted completed.");
             }
 
             var paramsToAdd = new List<ITypedElement>();
@@ -276,8 +283,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
+                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: {searchParam.Status})...");
+
                     // if the previous version of the search parameter exists we should delete the old information currently stored
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
+                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: {searchParam.Status}) completed.");
                 }
 
                 paramsToAdd.Add(searchParamResource);
@@ -286,23 +296,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Now add the new or updated parameters to the SearchParameterDefinitionManager
             if (paramsToAdd.Any())
             {
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Adding {paramsToAdd.Count} search parameters to the definition manager...");
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Adding {paramsToAdd.Count} search parameters to the definition manager completed.");
             }
+
+            var updatedStatus = updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Applying {updatedStatus.Count} search parameter status...");
 
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(
                 updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList(),
                 cancellationToken);
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Applying {updatedStatus.Count} search parameter status completed.");
+
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] GetAndApplySearchParameterUpdates completed:{Environment.NewLine}{string.Join(Environment.NewLine, updatedStatus.Select(x => x.Uri))}");
         }
 
         public async Task Handle(BulkDeleteMetricsNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Handling BulkDeleteMetricsNotification...");
             var content = notification?.Content?.ToString();
             if (!string.IsNullOrWhiteSpace(content))
             {
                 try
                 {
                     var urls = JsonSerializer.Deserialize<List<string>>(content);
+                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Found {urls.Count} search parameters to delete...");
+
                     if (urls.Any())
                     {
                         await DeleteSearchParametersAsync(urls, DefaultDeleteTasksPerPage, cancellationToken);
@@ -314,6 +335,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw;
                 }
             }
+
+            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Handling BulkDeleteMetricsNotification completed.");
         }
 
         private void DeleteSearchParameter(string url)
@@ -357,6 +380,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     if (urls?.Any(x => x != null) ?? false)
                     {
+                        _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {urls.Count} search parameters...");
                         await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         var count = 0;
@@ -404,6 +428,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                 _logger.LogError(ex, $"Failed to delete {tasks.Where(x => !x.IsCompleted).Count()} search parameters.");
                                 throw;
                             }
+
+                            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {urls.Count} search parameters completed.");
                         }
                     }
                 });
