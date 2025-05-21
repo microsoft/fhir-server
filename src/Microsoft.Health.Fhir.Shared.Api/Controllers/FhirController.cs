@@ -209,50 +209,44 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 switch (preferHeader)
                 {
                     case ReturnPreference.Minimal:
+                        var minimalResult = new FhirResult(null)
                         {
-                            var minimalResult = new FhirResult(null)
-                            {
-                                StatusCode = statusCode,
-                            };
+                            StatusCode = statusCode,
+                        };
 
-                            foreach (var header in result.Headers)
-                            {
-                                minimalResult.Headers[header.Key] = header.Value;
-                            }
-
-                            result = minimalResult;
+                        foreach (var header in result.Headers)
+                        {
+                            minimalResult.Headers[header.Key] = header.Value;
                         }
 
+                        result = minimalResult;
                         break;
 
                     case ReturnPreference.OperationOutcome:
-                        {
-                            var operationOutcome = new OperationOutcome();
-                            var message = createResponse.Outcome.Outcome == SaveOutcomeType.Created ? "A new resource was created." : "A resource already exists.";
-                            operationOutcome.Issue.Add(
-                                new OperationOutcome.IssueComponent()
+                        var operationOutcome = new OperationOutcome();
+                        var message = createResponse.Outcome.Outcome == SaveOutcomeType.Created ? Resources.ConditionalCreateResourceCreated : Resources.ConditionalCreateResourceAlreadyExists;
+                        operationOutcome.Issue.Add(
+                            new OperationOutcome.IssueComponent()
+                            {
+                                Severity = OperationOutcome.IssueSeverity.Information,
+                                Diagnostics = message,
+                                Details = new CodeableConcept()
                                 {
-                                    Severity = OperationOutcome.IssueSeverity.Information,
-                                    Diagnostics = message,
-                                    Details = new CodeableConcept()
-                                    {
-                                        Text = message,
-                                    },
-                                });
+                                    Text = message,
+                                },
+                            });
 
-                            var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
-                            {
-                                StatusCode = statusCode,
-                            };
+                        var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
+                        {
+                            StatusCode = statusCode,
+                        };
 
-                            foreach (var header in result.Headers)
-                            {
-                                operationOutcomeResult.Headers[header.Key] = header.Value;
-                            }
-
-                            result = operationOutcomeResult;
+                        foreach (var header in result.Headers)
+                        {
+                            operationOutcomeResult.Headers[header.Key] = header.Value;
                         }
 
+                        result = operationOutcomeResult;
                         break;
                 }
             }
