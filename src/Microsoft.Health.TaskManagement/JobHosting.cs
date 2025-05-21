@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
@@ -303,12 +304,20 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        // Helper method to detect SQL timeout exceptions
+        // Helper method to check if the exception is a SQL timeout exception
         private static bool IsSqlTimeoutException(Exception ex)
         {
-            var sqlTimeoutExceptionText = "Execution Timeout Expired";
-            return ex.ToString().Contains(sqlTimeoutExceptionText, StringComparison.OrdinalIgnoreCase) ||
-                   (ex.InnerException != null && ex.InnerException.ToString().Contains(sqlTimeoutExceptionText, StringComparison.OrdinalIgnoreCase));
+            if (ex is SqlException sqlException && sqlException.Number == -2)
+            {
+                return true;
+            }
+
+            if (ex.InnerException != null)
+            {
+                return IsSqlTimeoutException(ex.InnerException);
+            }
+
+            return false;
         }
     }
 }

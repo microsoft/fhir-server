@@ -3,6 +3,7 @@
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
     <PackageReference Include="Newtonsoft.Json" />
