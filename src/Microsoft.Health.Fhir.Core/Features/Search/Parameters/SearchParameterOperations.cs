@@ -381,16 +381,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     if (urls?.Any(x => x != null) ?? false)
                     {
                         _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {urls.Count} search parameters...");
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
-
+                        var urlMap = urls.ToHashSet();
+                        var allSearchParameterStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+                        var searchParameterStatusesToUpdate = allSearchParameterStatuses
+                            .Where(x => urlMap.TryGetValue(x.Uri.AbsoluteUri, out _) && (x.Status != SearchParameterStatus.PendingDelete && x.Status != SearchParameterStatus.Deleted))
+                            .ToList();
+                        _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParameterStatusesToUpdate.Count} search parameter statuses...");
                         var count = 0;
-                        while (count < urls.Count)
+                        while (count < searchParameterStatusesToUpdate.Count)
                         {
-                            var urlsToDelete = urls.Skip(count).Take(pageSize).ToList();
-                            count += urlsToDelete.Count;
+                            var statusesInPage = searchParameterStatusesToUpdate.Skip(count).Take(pageSize).ToList();
+                            count += statusesInPage.Count;
 
                             var tasks = new List<Task>();
-                            foreach (var url in urlsToDelete)
+                            foreach (var status in statusesInPage)
                             {
                                 tasks.Add(
                                     Task.Run(
@@ -398,18 +402,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                         {
                                             try
                                             {
-                                                // First we delete the status metadata from the data store as this function depends on
-                                                // the in memory definition manager.  Once complete we remove the SearchParameter from
-                                                // the definition manager.
-                                                _logger.LogInformation("Deleting the search parameter '{Url}'", url);
-                                                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { url }, SearchParameterStatus.PendingDelete, cancellationToken);
+                                                status.Status = SearchParameterStatus.PendingDelete;
+                                                status.LastUpdated = Clock.UtcNow;
+
+                                                _logger.LogInformation("Deleting the search parameter '{Url}'", status.Uri);
+                                                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<ResourceSearchParameterStatus>() { status }, cancellationToken);
 
                                                 // Update the status of the search parameter in the definition manager once the status is updated in the store.
-                                                _searchParameterDefinitionManager.UpdateSearchParameterStatus(url, SearchParameterStatus.PendingDelete);
+                                                _searchParameterDefinitionManager.UpdateSearchParameterStatus(status.Uri.AbsoluteUri, SearchParameterStatus.PendingDelete);
                                             }
                                             catch (Exception ex)
                                             {
-                                                _logger.LogError(ex, $"Failed to delete a search parameter with url: {url}");
+                                                _logger.LogError(ex, $"Failed to delete a search parameter with url: {status.Uri}");
                                                 throw;
                                             }
                                         },

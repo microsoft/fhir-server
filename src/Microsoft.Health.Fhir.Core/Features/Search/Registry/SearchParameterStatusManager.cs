@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -172,6 +171,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+        }
+
+        internal async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<ResourceSearchParameterStatus> searchParameterStatuses, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(searchParameterStatuses);
+
+            var searchParameterStatusesToUpdate = new List<ResourceSearchParameterStatus>();
+            var searchParameterUpdated = new List<SearchParameterInfo>();
+            foreach (var status in searchParameterStatuses)
+            {
+                _logger.LogInformation("Updating the search parameter status of '{Uri}' to '{NewStatus}'", status.Uri, status.Status);
+
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.AbsoluteUri, out var sp))
+                {
+                    sp.IsSearchable = status.Status == SearchParameterStatus.Enabled;
+                    sp.IsSupported = status.Status == SearchParameterStatus.Supported || status.Status == SearchParameterStatus.Enabled;
+                    if (sp.IsSearchable && (status.SortStatus == SortParameterStatus.Supported || status.SortStatus == SortParameterStatus.Enabled))
+                    {
+                        sp.SortStatus = SortParameterStatus.Enabled;
+                    }
+
+                    searchParameterUpdated.Add(sp);
+                }
+                else
+                {
+                    _logger.LogError("Missing search parameter in the definition manager: '{Uri}' ", status.Uri);
+                }
+            }
+
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatuses, cancellationToken);
+            await _mediator.Publish(new SearchParametersUpdatedNotification(searchParameterUpdated), cancellationToken);
         }
 
         internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
