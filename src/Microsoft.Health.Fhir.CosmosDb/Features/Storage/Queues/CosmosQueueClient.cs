@@ -32,17 +32,20 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
     private readonly AsyncPolicy _retryPolicy;
+    private readonly ILogger<CosmosQueueClient> _logger;
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
         ICosmosQueryFactory queryFactory,
         ICosmosDbDistributedLockFactory distributedLockFactory,
-        RetryExceptionPolicyFactory retryExceptionPolicyFactory)
+        RetryExceptionPolicyFactory retryExceptionPolicyFactory,
+        ILogger<CosmosQueueClient> logger)
     {
         _containerFactory = EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
         _queryFactory = EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
         _distributedLockFactory = EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
         _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
+        _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
         _retryPolicy = _retryExceptionPolicyFactory.BackgroundWorkerRetryPolicy;
     }
@@ -256,9 +259,17 @@ public class CosmosQueueClient : IQueueClient
             }
         }
 
-        await SaveJobGroupAsync(item, cancellationToken);
-
-        return item.ToJobInfo(toReturn).ToList();
+        try
+        {
+            await SaveJobGroupAsync(item, cancellationToken);
+            return item.ToJobInfo(toReturn).ToList();
+        }
+        catch (JobConflictException)
+        {
+            // If another worker has modified this job group while we were processing it,
+            // return an empty result. The job will be re-evaluated on the next dequeue attempt.
+            return Array.Empty<JobInfo>();
+        }
     }
 
     /// <inheritdoc />
@@ -573,7 +584,19 @@ public class CosmosQueueClient : IQueueClient
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {
-            throw new JobExecutionException("Job data too large.", ex);
+            throw new JobExecutionException("Job data too large.", ex, false);
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed && !ignoreEtag)
+        {
+            // This occurs when multiple workers are attempting to dequeue the same job
+            // Instead of failing, we will just log this and return. This is handled at the caller level.
+            _logger.LogWarning(
+                ex,
+                "Job conflict detected. Another worker has modified the job group while we were processing it. Job ID: {JobId}, Group ID: {GroupId}, Queue Type: {QueueType}",
+                definition.Id,
+                definition.GroupId,
+                definition.QueueType);
+            throw new JobConflictException("Job was modified by another worker.", ex);
         }
     }
 

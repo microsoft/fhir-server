@@ -44,12 +44,14 @@ namespace Microsoft.Health.JobManagement
         private static void LogInformation<T>(int logType, ILogger<T> logger, Exception exception, JobInfo jobInfo, string message, params object[] args)
         {
             // Combine prefix and message.
-            string fullMessage = "[GroupId:{GroupId}/JobId:{JobId}] " + message;
+            string fullMessage = "[GroupId:{GroupId}/JobId:{JobId}/Type:{Type}] " + message;
 
             // Combine arguments.
             List<object> finalArgs = new List<object>();
             finalArgs.Add(jobInfo?.GroupId);
             finalArgs.Add(jobInfo?.Id);
+            finalArgs.Add(jobInfo?.QueueType);
+
             if (args != null)
             {
                 foreach (object messageArgument in args)

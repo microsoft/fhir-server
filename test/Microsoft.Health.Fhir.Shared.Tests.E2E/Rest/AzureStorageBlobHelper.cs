@@ -11,7 +11,6 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using IdentityServer4.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
