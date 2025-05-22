@@ -1,0 +1,350 @@
+{
+  "resourceType": "ExampleScenario",
+  "id": "example",
+  "text": {
+    "status": "generated",
+    "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative with Details\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eid\u003c/b\u003e: example\u003c/p\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: draft\u003c/p\u003e\u003cp\u003e\u003cb\u003epurpose\u003c/b\u003e: Purpose: this serves to enable remote performing of medication administration, by using remote / mobile devices to a) Get the planned medication administrations and b) Record the performing of these administrations without a permanent connection to the EHR.\u003c/p\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eactor\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eactorId\u003c/b\u003e: Nurse\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: person\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Nurse\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The Nurse\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eactor\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eactorId\u003c/b\u003e: MAP\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: entity\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Nurse\u0027s Tablet\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The entity that receives the Administration Requests to show the nurse to perform them\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eactor\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eactorId\u003c/b\u003e: OP\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: entity\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: MAR / Scheduler\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The Medication Administration Order Placer\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eactor\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eactorId\u003c/b\u003e: MAC\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: entity\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: MAR / EHR\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The entity that receives the Medication Administration reports\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Initial Prescription\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The initial prescription which describes \u0026quot;medication X, 3 times per day\u0026quot; - the exact scheduling is not   in the initial prescription (it is left for the care teams to decide on the schedule).\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.001\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 1, morning\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 1, morning\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.002\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 1, lunch\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 1, lunch\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.003\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 1, evening\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 1, evening\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.004\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 2, morning\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 2, morning\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.005\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 2, lunch\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 2, lunch\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.006\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Request for day 2, evening\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The administration request for day 2, evening\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iheadm001a\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationAdministration\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Morning meds - taken\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Administration report for day 1, morning: Taken\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iheadm001b\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationAdministration\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Morning meds - not taken\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Administration report for day 1, morning: NOT Taken\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001bundle\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationRequest\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Bundle of Medication Requests\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: All the medication Requests for Day 1\u003c/p\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.001\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.002\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.003\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.004\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.005\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003econtainedInstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherx001.006\u003c/p\u003e\u003c/blockquote\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iheadm002\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: MedicationAdministration\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Lunch meds - taken\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Administration report for day 1, lunch: Taken\u003c/p\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eversion\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eversionId\u003c/b\u003e: iheadm002v1\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Medication just taken\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eversion\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eversionId\u003c/b\u003e: iheadm002v2\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Medication rejected\u003c/p\u003e\u003c/blockquote\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003einstance\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceId\u003c/b\u003e: iherxqry\u003c/p\u003e\u003cp\u003e\u003cb\u003eresourceType\u003c/b\u003e: SearchParameter\u003c/p\u003e\u003cp\u003e\u003cb\u003ename\u003c/b\u003e: Search query1\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: The search administration request for day 1, morning\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003eprocess\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003etitle\u003c/b\u003e: Mobile Medication Administration\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: This scenario demonstrates the process of getting the relevant medication instructions for a patient visit and reporting the results of administration. The scenario is as follows: After the prescription is issued, the institution schedules each individual administration event in the Medication Administration Record (MAR). When preparing for a visit, the nurse queries the MAR for the scheduled administrations, obtaining a bundle of records. The nurse then performs the care activities and registers the results in the device. Upon synchronization of the device and the institution, the results of administration are uploaded to the EHR, thus updating the MAR.\u003c/p\u003e\u003cp\u003e\u003cb\u003epreConditions\u003c/b\u003e: Medication administration requests are in the EHR / MAR, scheduled for each individual intake.\u003c/p\u003e\u003cp\u003e\u003cb\u003epostConditions\u003c/b\u003e: Medication administration Reports are submitted, EHR is updated.\u003c/p\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e1\u003c/td\u003e\u003ctd\u003e1. Get today\u0027s schedule\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003ctd\u003eMAP\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eProcesses\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003epause\u003c/b\u003e: true\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e4\u003c/td\u003e\u003ctd\u003eNotify (alert)\u003c/td\u003e\u003ctd\u003eMAP\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e5\u003c/td\u003e\u003ctd\u003eRead orders\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003ctd\u003eMAP\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003epause\u003c/b\u003e: true\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e5\u003c/td\u003e\u003ctd\u003eAsk if patient took meds\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003ealternative\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003etitle\u003c/b\u003e: Patient took drugs\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Invoke if patient took medications\u003c/p\u003e\u003ch3\u003eSteps\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003ealternative\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003etitle\u003c/b\u003e: No drugs\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: No, patient did not take drugs\u003c/p\u003e\u003ch3\u003eSteps\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003ealternative\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003etitle\u003c/b\u003e: Not clear\u003c/p\u003e\u003cp\u003e\u003cb\u003edescription\u003c/b\u003e: Unknown whether patient took medications or not\u003c/p\u003e\u003ch3\u003eSteps\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003epause\u003c/b\u003e: true\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e6\u003c/td\u003e\u003ctd\u003eAdminister drug\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eOperations\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eNumber\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eName\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiator\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eReceiver\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eInitiatorActive\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e7\u003c/td\u003e\u003ctd\u003eRegister administration\u003c/td\u003e\u003ctd\u003eNurse\u003c/td\u003e\u003ctd\u003eMAP\u003c/td\u003e\u003ctd\u003etrue\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003epause\u003c/b\u003e: true\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eProcesses\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003epause\u003c/b\u003e: true\u003c/p\u003e\u003c/blockquote\u003e\u003cblockquote\u003e\u003cp\u003e\u003cb\u003estep\u003c/b\u003e\u003c/p\u003e\u003ch3\u003eProcesses\u003c/h3\u003e\u003ctable\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/blockquote\u003e\u003c/blockquote\u003e\u003c/div\u003e"
+  },
+  "status": "draft",
+  "purpose": "Purpose: this serves to enable remote performing of medication administration, by using remote / mobile devices to a) Get the planned medication administrations and b) Record the performing of these administrations without a permanent connection to the EHR.",
+  "actor": [
+    {
+      "actorId": "Nurse",
+      "type": "person",
+      "name": "Nurse",
+      "description": "The Nurse"
+    },
+    {
+      "actorId": "MAP",
+      "type": "entity",
+      "name": "Nurse\u0027s Tablet",
+      "description": "The entity that receives the Administration Requests to show the nurse to perform them"
+    },
+    {
+      "actorId": "OP",
+      "type": "entity",
+      "name": "MAR / Scheduler",
+      "description": "The Medication Administration Order Placer"
+    },
+    {
+      "actorId": "MAC",
+      "type": "entity",
+      "name": "MAR / EHR",
+      "description": "The entity that receives the Medication Administration reports"
+    }
+  ],
+  "instance": [
+    {
+      "resourceId": "iherx001",
+      "resourceType": "MedicationRequest",
+      "name": "Initial Prescription",
+      "description": "The initial prescription which describes \"medication X, 3 times per day\" - the exact scheduling is not   in the initial prescription (it is left for the care teams to decide on the schedule)."
+    },
+    {
+      "resourceId": "iherx001.001",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 1, morning",
+      "description": "The administration request for day 1, morning"
+    },
+    {
+      "resourceId": "iherx001.002",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 1, lunch",
+      "description": "The administration request for day 1, lunch"
+    },
+    {
+      "resourceId": "iherx001.003",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 1, evening",
+      "description": "The administration request for day 1, evening"
+    },
+    {
+      "resourceId": "iherx001.004",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 2, morning",
+      "description": "The administration request for day 2, morning"
+    },
+    {
+      "resourceId": "iherx001.005",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 2, lunch",
+      "description": "The administration request for day 2, lunch"
+    },
+    {
+      "resourceId": "iherx001.006",
+      "resourceType": "MedicationRequest",
+      "name": "Request for day 2, evening",
+      "description": "The administration request for day 2, evening"
+    },
+    {
+      "resourceId": "iheadm001a",
+      "resourceType": "MedicationAdministration",
+      "name": "Morning meds - taken",
+      "description": "Administration report for day 1, morning: Taken"
+    },
+    {
+      "resourceId": "iheadm001b",
+      "resourceType": "MedicationAdministration",
+      "name": "Morning meds - not taken",
+      "description": "Administration report for day 1, morning: NOT Taken"
+    },
+    {
+      "resourceId": "iherx001bundle",
+      "resourceType": "MedicationRequest",
+      "name": "Bundle of Medication Requests",
+      "description": "All the medication Requests for Day 1",
+      "containedInstance": [
+        {
+          "resourceId": "iherx001.001"
+        },
+        {
+          "resourceId": "iherx001.002"
+        },
+        {
+          "resourceId": "iherx001.003"
+        },
+        {
+          "resourceId": "iherx001.004"
+        },
+        {
+          "resourceId": "iherx001.005"
+        },
+        {
+          "resourceId": "iherx001.006"
+        }
+      ]
+    },
+    {
+      "resourceId": "iheadm002",
+      "resourceType": "MedicationAdministration",
+      "name": "Lunch meds - taken",
+      "description": "Administration report for day 1, lunch: Taken",
+      "version": [
+        {
+          "versionId": "iheadm002v1",
+          "description": "Medication just taken"
+        },
+        {
+          "versionId": "iheadm002v2",
+          "description": "Medication rejected"
+        }
+      ]
+    },
+    {
+      "resourceId": "iherxqry",
+      "resourceType": "SearchParameter",
+      "name": "Search query1",
+      "description": "The search administration request for day 1, morning"
+    }
+  ],
+  "process": [
+    {
+      "title": "Mobile Medication Administration",
+      "description": "This scenario demonstrates the process of getting the relevant medication instructions for a patient visit and reporting the results of administration. The scenario is as follows: After the prescription is issued, the institution schedules each individual administration event in the Medication Administration Record (MAR). When preparing for a visit, the nurse queries the MAR for the scheduled administrations, obtaining a bundle of records. The nurse then performs the care activities and registers the results in the device. Upon synchronization of the device and the institution, the results of administration are uploaded to the EHR, thus updating the MAR.",
+      "preConditions": "Medication administration requests are in the EHR / MAR, scheduled for each individual intake.",
+      "postConditions": "Medication administration Reports are submitted, EHR is updated.",
+      "step": [
+        {
+          "operation": {
+            "number": "1",
+            "name": "1. Get today\u0027s schedule",
+            "initiator": "Nurse",
+            "receiver": "MAP"
+          }
+        },
+        {
+          "process": [
+            {
+              "title": "P1. Query Administration Requests",
+              "description": "Query for medication administration orders,\\n- For today\u0027s shifts\\n- For today\u0027s patients",
+              "step": [
+                {
+                  "operation": {
+                    "number": "2",
+                    "name": "2.Query for medication administration orders,\\n- For today\u0027s shifts\\n- For today\u0027s patients",
+                    "initiator": "MAP",
+                    "receiver": "OP",
+                    "request": {
+                      "resourceId": "iherxqry"
+                    },
+                    "response": {
+                      "resourceId": "iherx001bundle"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "pause": true
+        },
+        {
+          "operation": {
+            "number": "4",
+            "name": "Notify (alert)",
+            "initiator": "MAP",
+            "receiver": "Nurse"
+          }
+        },
+        {
+          "operation": {
+            "number": "5",
+            "name": "Read orders",
+            "initiator": "Nurse",
+            "receiver": "MAP"
+          }
+        },
+        {
+          "pause": true
+        },
+        {
+          "operation": {
+            "number": "5",
+            "name": "Ask if patient took meds",
+            "initiator": "Nurse",
+            "receiver": "Nurse"
+          }
+        },
+        {
+          "alternative": [
+            {
+              "title": "Patient took drugs",
+              "description": "Invoke if patient took medications",
+              "step": [
+                {
+                  "process": [
+                    {
+                      "title": "Register Meds taken",
+                      "step": [
+                        {
+                          "operation": {
+                            "number": "1a",
+                            "name": "Register Meds taken",
+                            "initiator": "Nurse",
+                            "receiver": "MAP",
+                            "initiatorActive": true
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "No drugs",
+              "description": "No, patient did not take drugs",
+              "step": [
+                {
+                  "process": [
+                    {
+                      "title": "Register Meds NOT taken",
+                      "step": [
+                        {
+                          "operation": {
+                            "number": "1b",
+                            "name": "Register Meds NOT taken",
+                            "initiator": "Nurse",
+                            "receiver": "MAP",
+                            "initiatorActive": true
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Not clear",
+              "description": "Unknown whether patient took medications or not",
+              "step": [
+                {
+                  "pause": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "pause": true
+        },
+        {
+          "operation": {
+            "number": "6",
+            "name": "Administer drug",
+            "initiator": "Nurse",
+            "receiver": "Nurse"
+          }
+        },
+        {
+          "operation": {
+            "number": "7",
+            "name": "Register administration",
+            "initiator": "Nurse",
+            "receiver": "MAP",
+            "initiatorActive": true
+          }
+        },
+        {
+          "pause": true
+        },
+        {
+          "process": [
+            {
+              "title": "P2. Update administration reports",
+              "step": [
+                {
+                  "operation": {
+                    "number": "8",
+                    "name": "Nurse updates administration report",
+                    "initiator": "Nurse",
+                    "receiver": "MAP",
+                    "initiatorActive": true,
+                    "request": {
+                      "resourceId": "iheadm002"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "pause": true
+        },
+        {
+          "process": [
+            {
+              "title": "P3. Upload administration reports",
+              "description": "The nurse\u0027s system uploads the administration results to the server",
+              "step": [
+                {
+                  "operation": {
+                    "number": "9",
+                    "name": "Refresh",
+                    "initiator": "MAP",
+                    "receiver": "MAC",
+                    "request": {
+                      "resourceId": "iheadm001"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "tag": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+        "code": "HTEST",
+        "display": "test health data"
+      }
+    ]
+  }
+}
