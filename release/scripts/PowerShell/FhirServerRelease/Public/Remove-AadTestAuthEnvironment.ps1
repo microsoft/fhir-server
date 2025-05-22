@@ -22,7 +22,15 @@ function Remove-AadTestAuthEnvironment {
         
         [Parameter(Mandatory = $true )]
         [ValidateNotNullOrEmpty()]
-        [String]$TenantId
+        [String]$TenantId,
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$ClientId,
+
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [SecureString]$ClientSecret
     )
 
     Set-StrictMode -Version Latest
@@ -41,11 +49,18 @@ function Remove-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
+
+    
+    Install-Module -Name Microsoft.Graph -Force
+
+    Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
+
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
     if ($application) {
         Write-Host "Removing API application $fhirServiceAudience"
-        Remove-AzureAdApplication -ObjectId $application.ObjectId | Out-Null
+        Remove-AzureAdApplication -ObjectId $application.Id | Out-Null
     }
 
     foreach ($user in $testAuthEnvironment.Users) {
@@ -64,7 +79,7 @@ function Remove-AadTestAuthEnvironment {
         
         if ($aadClientApplication) {
             Write-Host "Removing application $displayName"
-            Remove-AzureAdApplication -ObjectId $aadClientApplication.ObjectId | Out-Null
+            Remove-AzureAdApplication -ObjectId $aadClientApplication.Id | Out-Null
         }
     }
 }

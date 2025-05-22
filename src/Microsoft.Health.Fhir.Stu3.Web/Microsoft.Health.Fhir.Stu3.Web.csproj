@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
-    <PackageReference Include="IdentityServer4" NoWarn="NU1902" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
@@ -16,7 +15,6 @@
     <PackageReference Include="prometheus-net.AspNetCore" />
     <PackageReference Include="prometheus-net.DotNetRuntime" />
     <PackageReference Include="prometheus-net.SystemMetrics" />
-
     <!-- Referenced to mitigate CVE-2021-26701 -->
     <PackageReference Include="System.Text.Encodings.Web" />
     <!-- Referenced to mitigate CVE-2020-1045 -->
@@ -24,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api.OpenIddict\Microsoft.Health.Fhir.Api.OpenIddict.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />

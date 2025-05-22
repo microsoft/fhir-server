@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private readonly SqlQueryParameterManager _inner;
         private readonly HashSet<SqlParameter> _setToHash = new();
+        private readonly HashSet<short> _searchParamIds = new();
 
         public HashingSqlQueryParameterManager(SqlQueryParameterManager inner)
         {
@@ -34,6 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
+
+        public HashSet<short> SearchParamIds => _searchParamIds;
 
         /// <summary>
         /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId. Do not add ResourceId to hash.
@@ -63,6 +66,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
         public object AddParameter(Column column, object value, bool includeInHash)
         {
+            if (column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name) // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.
+            {
+                _searchParamIds.Add((short)value);
+            }
+
             if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name // logic uses "ResourceTypeId" string value. Resource table is chosen arbitrarily.
                     || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
                     || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name) // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.

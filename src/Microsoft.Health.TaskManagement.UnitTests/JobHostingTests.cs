@@ -96,7 +96,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         (token) =>
                         {
                             Interlocked.Increment(ref executeCount);
-                            throw new JobExecutionException(errorMessage, error);
+                            throw new JobExecutionException(errorMessage, error, false);
                         });
                 }
                 else if (definition2.Equals(t.Definition))

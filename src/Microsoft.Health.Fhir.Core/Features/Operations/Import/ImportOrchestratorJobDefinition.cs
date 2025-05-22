@@ -59,5 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// With this flag set to true, it can be ingested with negative version value.
         /// </summary>
         public bool AllowNegativeVersions { get; set; }
+
+        /// <summary>
+        /// Custom container name for error logs. If not specified, the default container will be used.
+        /// </summary>
+        public string ErrorContainerName { get; set; }
     }
 }

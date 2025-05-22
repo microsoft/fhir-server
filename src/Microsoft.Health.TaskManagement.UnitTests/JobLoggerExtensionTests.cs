@@ -17,9 +17,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
     public sealed class JobLoggerExtensionTests
     {
         [Fact]
-        public void WhenLoggingANullJobInformation_PreFixLoggWithEmptyJobInformation()
+        public void WhenLoggingNullJobInformation_PrefixLogWithEmptyJobInformation()
         {
-            const string expectedString = "[GroupId:(null)/JobId:(null)] Message: test.";
+            const string expectedString = "[GroupId:(null)/JobId:(null)/Type:(null)] Message: test.";
             ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
 
             JobInfo info = null;
@@ -28,9 +28,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
-        public void WhenLoggingAEmptyJobInformation_PreFixLoggWithEmptyJobInformation()
+        public void WhenLoggingEmptyJobInformation_PrefixLogWithEmptyJobInformation()
         {
-            const string expectedString = "[GroupId:0/JobId:0] Message: test.";
+            const string expectedString = "[GroupId:0/JobId:0/Type:0] Message: test.";
             ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
 
             JobInfo info = new JobInfo();
@@ -39,45 +39,48 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
-        public void WhenLoggingAJobInformation_PreFixLoggWithJobInformation_AndLogOneParameter()
+        public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogOneParameter()
         {
-            const string expectedString = "[GroupId:2112/JobId:999] Message: test.";
+            const string expectedString = "[GroupId:2112/JobId:999/Type:33] Message: test.";
             ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
 
             var info = new JobInfo()
             {
                 GroupId = 2112,
                 Id = 999,
+                QueueType = 33,
             };
 
             logger.LogJobInformation(info, "Message: {message}.", "test");
         }
 
         [Fact]
-        public void WhenLoggingAJobInformation_PreFixLoggWithJobInformation_AndLogThreeParameters()
+        public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogThreeParameters()
         {
-            const string expectedString = "[GroupId:1234/JobId:4321] Param1: A / Param2: b / Param3: C3.";
+            const string expectedString = "[GroupId:1234/JobId:4321/Type:45] Param1: A / Param2: b / Param3: C3.";
             ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
 
             var info = new JobInfo()
             {
                 GroupId = 1234,
                 Id = 4321,
+                QueueType = 45,
             };
 
             logger.LogJobError(info, "Param1: {param1} / Param2: {param2} / Param3: {param3}.", "A", "b", "C3");
         }
 
         [Fact]
-        public void WhenLoggingAJobInformation_PreFixLoggWithJobInformation_AndLogFiveParameters()
+        public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogFiveParameters()
         {
-            const string expectedString = "[GroupId:222/JobId:333] Param1: 'A' / Param2: B / Param3: 3 / Param4: 'D' / Param5: 55.";
+            const string expectedString = "[GroupId:222/JobId:333/Type:44] Param1: 'A' / Param2: B / Param3: 3 / Param4: 'D' / Param5: 55.";
             ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
 
             var info = new JobInfo()
             {
                 GroupId = 222,
                 Id = 333,
+                QueueType = 44,
             };
 
             logger.LogJobWarning(info, "Param1: '{P1}' / Param2: {P2} / Param3: {P3} / Param4: '{P4}' / Param5: {P5}.", "A", "B", 3, "D", 55);

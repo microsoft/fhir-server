@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next();
+            return await next(cancellationToken);
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-                if (prevSearchParamResource != null)
+                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
                     // to the fhirpath or the datatype
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next();
+            return await next(cancellationToken);
         }
     }
 }

@@ -38,7 +38,6 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 #if !STU3
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 #endif
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -48,6 +47,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -195,6 +195,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             try
             {
+                Stopwatch stopwatch = Stopwatch.StartNew();
                 BundleProcessingLogic processingLogic = _bundleOrchestrator.IsEnabled ? _bundleProcessingLogic : BundleProcessingLogic.Sequential;
 
                 var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -211,7 +212,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
 
-                    var response = new BundleResponse(responseBundle.ToResourceElement());
+                    var response = new BundleResponse(
+                        responseBundle.ToResourceElement(),
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, processingLogic));
 
                     await PublishNotification(responseBundle, BundleType.Batch);
 
@@ -224,12 +227,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
+                    if (processingLogic == BundleProcessingLogic.Sequential && _requestCount <= 1)
+                    {
+                        // In this scenario, if the transactional bundle contains a single element, then the execution is forced to be done as parallel.
+                        _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
+                        processingLogic = BundleProcessingLogic.Parallel;
+                    }
+
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.TransactionResponse,
                     };
 
-                    var response = await ExecuteTransactionForAllRequestsAsync(responseBundle, processingLogic, cancellationToken);
+                    await ExecuteTransactionForAllRequestsAsync(responseBundle, processingLogic, cancellationToken);
+
+                    var response = new BundleResponse(
+                        responseBundle.ToResourceElement(),
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, processingLogic));
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 
@@ -443,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
         }
 
-        private async Task<BundleResponse> ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
+        private async Task ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
             try
             {
@@ -451,22 +465,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     using (var transaction = _transactionHandler.BeginTransaction())
                     {
-                        await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
+                        await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, BundleProcessingLogic.Sequential, cancellationToken);
                         transaction.Complete();
                     }
                 }
                 else
                 {
-                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
+                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, BundleProcessingLogic.Parallel, cancellationToken);
                 }
             }
-            catch (TransactionAbortedException)
+            catch (InvalidOperationException ioe) when (ioe.IsCompletedTransactionException())
             {
-                _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
+                _logger.LogError(ioe, "Failed to commit a transaction. This SqlTransaction has completed.");
+                throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.InternalServerError);
+            }
+            catch (TransactionAbortedException tae)
+            {
+                _logger.LogError(tae, "Failed to commit a transaction. Throwing BadRequest as a default exception.");
                 throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
             }
-
-            return new BundleResponse(responseBundle.ToResourceElement());
         }
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)

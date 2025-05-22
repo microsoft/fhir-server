@@ -73,5 +73,38 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.DoesNotContain(KnownFhirPaths.AzureSoftDeletedExtensionUrl, importResource.ResourceWrapper.RawResource.Data);
             Assert.DoesNotContain("soft-deleted", importResource.ResourceWrapper.RawResource.Data);
         }
+
+        [Theory]
+        [InlineData("abcdef", true)]
+        [InlineData("ABCDEF", true)]
+        [InlineData("aBcdEf", true)]
+        [InlineData("a1B2c3d4E5f", true)]
+        [InlineData("0123456789", true)]
+        [InlineData("a1B2c.3d4E5f.", true)]
+        [InlineData("-a1B2c3d4E5f-", true)]
+        [InlineData("a1B&2c3d4E5f&", false)]
+        [InlineData("/a1B2c3d4E5f/", false)]
+        [InlineData("#a1B2c#3d4E5f", false)]
+        [InlineData("abc\r\ndef", false)]
+        [InlineData("01234567890123456789012345678901234567890123456789012345678901234", false)]
+        [InlineData(null, false)]
+        [InlineData("", false)]
+        public void GivenImportWithInvalidResourceId_WhenParsed_BadRequestExceptionShouldBeThrown(string id, bool validId)
+        {
+            Patient patient = new Patient();
+            patient.Id = id;
+            patient.Name.Add(HumanName.ForFamily("Test"));
+
+            string patientAsString = _jsonSerializer.SerializeToString(patient);
+            try
+            {
+                _importResourceParser.Parse(0, 0, 0, patientAsString, ImportMode.IncrementalLoad);
+                Assert.True(validId);
+            }
+            catch (BadRequestException)
+            {
+                Assert.False(validId);
+            }
+        }
     }
 }
