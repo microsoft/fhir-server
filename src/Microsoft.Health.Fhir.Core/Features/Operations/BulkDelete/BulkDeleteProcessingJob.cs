@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to create and publish the notification content.");
+                    _logger.LogError(ex, "Failed to create and publish the notification.");
                     throw;
                 }
 

@@ -255,11 +255,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             }
                             catch (IncompleteOperationException<List<ResourceWrapper>> ex)
                             {
-                                if (ex.PartialResults?.Any() ?? false)
-                                {
-                                    deletedResources.AddRange(ex.PartialResults);
-                                }
-
+                                deletedResources.AddRange(ex.PartialResults);
                                 _logger.LogError(ex, "Error with include delete");
                                 throw;
                             }
