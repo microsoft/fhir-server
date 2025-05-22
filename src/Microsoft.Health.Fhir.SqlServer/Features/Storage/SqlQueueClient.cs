@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -131,11 +132,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
-            var jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
-            if (jobInfo != null)
+            // Return object
+            JobInfo jobInfo = null;
+
+            // Add retry logic
+            int retryCount = 0;
+            const int maxRetries = 3;
+            bool succeeded = false;
+
+            while (!succeeded && retryCount < maxRetries && !cancellationToken.IsCancellationRequested)
             {
-                jobInfo.QueueType = queueType;
+                try
+                {
+                    _logger.LogInformation("Dequeuing next job. Attempt {RetryCount}/{MaxRetries}", retryCount + 1, maxRetries);
+                    var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+                    jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
+                    if (jobInfo != null)
+                    {
+                        jobInfo.QueueType = queueType;
+                    }
+
+                    succeeded = true;
+                }
+                catch (Exception ex) when (IsSqlTimeoutException(ex) && retryCount < maxRetries - 1)
+                {
+                    retryCount++;
+                    int delayMs = (int)Math.Pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+                    _logger.LogWarning(ex, "SQL timeout when dequeuing new job. Retrying in {DelayMs}ms. Attempt {RetryCount}/{MaxRetries}", delayMs, retryCount + 1, maxRetries);
+
+                    try
+                    {
+                        await Task.Delay(delayMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogInformation("Job dequeue retry cancelled due to shutdown request.");
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to dequeue new job.");
+                    break;
+                }
             }
 
             return jobInfo;
@@ -270,6 +309,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
+        }
+
+        // Helper method to check if the exception is a SQL timeout exception
+        private static bool IsSqlTimeoutException(Exception ex)
+        {
+            if (ex is SqlException sqlException && sqlException.Number == -2)
+            {
+                return true;
+            }
+
+            if (ex.InnerException != null)
+            {
+                return IsSqlTimeoutException(ex.InnerException);
+            }
+
+            return false;
         }
     }
 }

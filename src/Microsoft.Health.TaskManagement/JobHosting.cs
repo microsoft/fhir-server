@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
@@ -58,83 +57,58 @@ namespace Microsoft.Health.JobManagement
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         JobInfo nextJob = null;
+
                         if (_queueClient.IsInitialized())
-                        {
-                            // Add retry logic for dequeuing
-                            int retryCount = 0;
-                            const int maxRetries = 3;
-                            bool succeeded = false;
-
-                            while (!succeeded && retryCount < maxRetries && !cancellationTokenSource.Token.IsCancellationRequested)
-                            {
-                                try
-                                {
-                                    _logger.LogInformation("Dequeuing next job. Attempt {RetryCount}/{MaxRetries}", retryCount + 1, maxRetries);
-
-                                    if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
-                                    {
-                                        checkTimeoutJobStopwatch.Restart();
-                                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
-                                    }
-
-                                    nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
-                                    succeeded = true;
-                                }
-                                catch (Exception ex) when (IsSqlTimeoutException(ex) && retryCount < maxRetries - 1)
-                                {
-                                    retryCount++;
-                                    int delayMs = (int)Math.Pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
-                                    _logger.LogWarning(ex, "SQL timeout when dequeuing new job. Retrying in {DelayMs}ms. Attempt {RetryCount}/{MaxRetries}", delayMs, retryCount + 1, maxRetries);
-
-                                    try
-                                    {
-                                        await Task.Delay(delayMs, cancellationTokenSource.Token);
-                                    }
-                                    catch (TaskCanceledException)
-                                    {
-                                        _logger.LogInformation("Job dequeue retry cancelled due to shutdown request.");
-                                        break;
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Failed to dequeue new job.");
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (nextJob != null)
-                        {
-                            using (Activity activity = JobHostingActivitySource.StartActivity(
-                                JobHostingActivitySource.Name,
-                                ActivityKind.Server))
-                            {
-                                if (activity == null)
-                                {
-                                    _logger.LogWarning("Failed to start an activity.");
-                                }
-
-                                activity?.SetTag("CreateDate", nextJob.CreateDate);
-                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
-                                activity?.SetTag("Id", nextJob.Id);
-                                activity?.SetTag("QueueType", nextJob.QueueType);
-                                activity?.SetTag("Version", nextJob.Version);
-
-                                _logger.LogJobInformation(nextJob, "Job dequeued.");
-                                await ExecuteJobAsync(nextJob);
-                            }
-                        }
-                        else
                         {
                             try
                             {
-                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
-                                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                                _logger.LogInformation("Dequeuing next job.");
+
+                                if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                                {
+                                    checkTimeoutJobStopwatch.Restart();
+                                    nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                }
+
+                                nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
                             }
-                            catch (TaskCanceledException)
+                            catch (Exception ex)
                             {
-                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                                _logger.LogError(ex, "Failed to dequeue new job.");
+                            }
+
+                            if (nextJob != null)
+                            {
+                                using (Activity activity = JobHostingActivitySource.StartActivity(
+                                    JobHostingActivitySource.Name,
+                                    ActivityKind.Server))
+                                {
+                                    if (activity == null)
+                                    {
+                                        _logger.LogWarning("Failed to start an activity.");
+                                    }
+
+                                    activity?.SetTag("CreateDate", nextJob.CreateDate);
+                                    activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                                    activity?.SetTag("Id", nextJob.Id);
+                                    activity?.SetTag("QueueType", nextJob.QueueType);
+                                    activity?.SetTag("Version", nextJob.Version);
+
+                                    _logger.LogJobInformation(nextJob, "Job dequeued.");
+                                    await ExecuteJobAsync(nextJob);
+                                }
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                                }
+                                catch (TaskCanceledException)
+                                {
+                                    _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                                }
                             }
                         }
                     }
@@ -143,8 +117,8 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                 // If any worker crashes or complete after cancellation due to shutdown,
-                 // cancel all workers and wait for completion so they don't crash unnecessarily.
+                // If any worker crashes or complete after cancellation due to shutdown,
+                // cancel all workers and wait for completion so they don't crash unnecessarily.
                 await Task.WhenAny(workers.ToArray());
 #if NET6_0
                 cancellationTokenSource.Cancel();
@@ -302,22 +276,6 @@ namespace Microsoft.Health.JobManagement
             {
                 // do nothing
             }
-        }
-
-        // Helper method to check if the exception is a SQL timeout exception
-        private static bool IsSqlTimeoutException(Exception ex)
-        {
-            if (ex is SqlException sqlException && sqlException.Number == -2)
-            {
-                return true;
-            }
-
-            if (ex.InnerException != null)
-            {
-                return IsSqlTimeoutException(ex.InnerException);
-            }
-
-            return false;
         }
     }
 }
