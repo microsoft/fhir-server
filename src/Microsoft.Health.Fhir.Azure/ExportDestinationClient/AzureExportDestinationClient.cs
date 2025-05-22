@@ -87,8 +87,16 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 // The blob container has added a 6 attempt retry that creates an aggregate exception if it can't find the blob.
                 var innerException = (RequestFailedException)ex.InnerExceptions[0];
-                _logger.LogWarning(innerException, "{Error}", innerException.Message);
-                throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+                if (ex.InnerExceptions[0].Message.Contains("No such host is known", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(ex, "Storage account not found");
+                    throw new DestinationConnectionException(Resources.StorageAccountNotFound, HttpStatusCode.InternalServerError);
+                }
+                else
+                {
+                    _logger.LogWarning(innerException, "{Error}", innerException.Message);
+                    throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+                }
             }
             catch (AccessTokenProviderException ex)
             {
