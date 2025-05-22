@@ -5,12 +5,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -20,31 +18,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexUtilities : IReindexUtilities
     {
         private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private ISearchIndexer _searchIndexer;
-        private ResourceDeserializer _deserializer;
-        private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         public ReindexUtilities(
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            ISearchIndexer searchIndexer,
-            ResourceDeserializer deserializer,
-            ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             SearchParameterStatusManager searchParameterStatusManager,
             IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
-            EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
-            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _fhirDataStoreFactory = fhirDataStoreFactory;
-            _searchIndexer = searchIndexer;
-            _deserializer = deserializer;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterStatusManager = searchParameterStatusManager;
             _resourceWrapperFactory = resourceWrapperFactory;
         }
@@ -56,14 +42,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         /// <param name="results">The resource batch to process</param>
         /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
+        /// <param name="batchSize">The number of resources to reindex at a time (e.g. 1000)</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, int batchSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
 
             var updateSearchIndices = new List<ResourceWrapper>();
+
+            // This should never happen, but in case it does, we will set a low default to ensure we don't get stuck in loop
+            if (batchSize == 0)
+            {
+                batchSize = 500;
+            }
 
             foreach (var entry in results.Results)
             {
@@ -84,25 +77,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.BulkUpdateSearchParameterIndicesAsync(updateSearchIndices, cancellationToken);
-            }
-        }
+                for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
+                {
+                    var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
+                    await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
 
-        public async Task<(bool success, string message)> UpdateSearchParameterStatus(
-            IReadOnlyCollection<string> searchParameterUris,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, SearchParameterStatus.Enabled, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                }
             }
-            catch (SearchParameterNotSupportedException spx)
-            {
-                var errorMessage = spx.Issues.FirstOrDefault()?.Diagnostics ?? Core.Resources.SearchParameterUnknownNotSupported;
-                return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported, errorMessage));
-            }
-
-            return (true, null);
         }
     }
 }

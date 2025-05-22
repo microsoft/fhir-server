@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Newtonsoft.Json;
+
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
@@ -25,16 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public long Count { get; set; }
 
         /// <summary>
-        /// The count of items that have been reindexed
-        /// </summary>
-        public long CountReindexed { get; set; }
-
-        /// <summary>
-        /// Used as a pointer to the Start surrogateId param when searching resources by a range of Start/End resource surrogateIds
-        /// </summary>
-        public long CurrentResourceSurrogateId { get; set; }
-
-        /// <summary>
         /// The Min resource surrogate id for the resource
         /// </summary>
         public long StartResourceSurrogateId { get; set; }
@@ -43,5 +35,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// The Max resource surrogate id for the resource
         /// </summary>
         public long EndResourceSurrogateId { get; set; }
+
+        /// <summary>
+        /// The continuation token for the search results
+        /// </summary>
+        [JsonIgnore]
+        public string ContinuationToken { get; set; }
+
+        /// <summary>
+        /// Determines whether the Count property should be serialized.
+        /// </summary>
+        public bool ShouldSerializeCount()
+        {
+            return Count != 0;
+        }
     }
 }

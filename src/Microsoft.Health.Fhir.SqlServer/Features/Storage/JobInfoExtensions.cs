@@ -44,41 +44,118 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(sqlDataReader, nameof(sqlDataReader));
 
-            var jobQueueTable = VLatest.JobQueue;
-            long groupId = sqlDataReader.Read(jobQueueTable.GroupId, 0);
-            long id = sqlDataReader.Read(jobQueueTable.JobId, 1);
-            object definitionObj = sqlDataReader.GetValue(2);
-            string definition = definitionObj is DBNull ? null : (string)definitionObj;
-            long version = sqlDataReader.Read(jobQueueTable.Version, 3);
-            JobStatus status = (JobStatus)sqlDataReader.Read(jobQueueTable.Status, 4);
-            long priority = sqlDataReader.Read(jobQueueTable.Priority, 5);
-            long? data = sqlDataReader.Read(jobQueueTable.Data, 6);
-            string result = sqlDataReader.Read(jobQueueTable.Result, 7);
-            DateTime createDate = sqlDataReader.Read(jobQueueTable.CreateDate, 8);
-            object startDateObj = sqlDataReader.GetValue(9);
-            DateTime? startDate = startDateObj is DBNull ? null : (DateTime)startDateObj;
-            object endDateObj = sqlDataReader.GetValue(10);
-            DateTime? endDate = endDateObj is DBNull ? null : (DateTime)endDateObj;
-            DateTime heartbeatDate = sqlDataReader.Read(jobQueueTable.HeartbeatDate, 11);
-            bool cancelRequested = sqlDataReader.Read(jobQueueTable.CancelRequested, 12);
-
-            JobInfo jobInfo = new JobInfo()
+            try
             {
-                Id = id,
-                GroupId = groupId,
-                Definition = definition,
-                Version = version,
-                Status = status,
-                Priority = priority,
-                Data = data,
-                Result = result,
-                CreateDate = createDate,
-                StartDate = startDate,
-                EndDate = endDate,
-                HeartbeatDateTime = heartbeatDate,
-                CancelRequested = cancelRequested,
-            };
-            return jobInfo;
+                var jobQueueTable = VLatest.JobQueue;
+                var jobInfo = new JobInfo();
+
+                // Helper function to safely get column ordinal
+                int? GetOrdinal(string columnName)
+                {
+                    for (int i = 0; i < sqlDataReader.FieldCount; i++)
+                    {
+                        if (string.Equals(sqlDataReader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return i;
+                        }
+                    }
+
+                    return null;
+                }
+
+                // Helper function to safely convert numeric types
+                long GetInt64Value(int ordinal)
+                {
+                    if (sqlDataReader.IsDBNull(ordinal))
+                    {
+                        return 0;
+                    }
+
+                    return sqlDataReader.GetFieldType(ordinal).Name switch
+                    {
+                        "Byte" => sqlDataReader.GetByte(ordinal),
+                        "Int16" => sqlDataReader.GetInt16(ordinal),
+                        "Int32" => sqlDataReader.GetInt32(ordinal),
+                        "Int64" => sqlDataReader.GetInt64(ordinal),
+                        _ => 0,
+                    };
+                }
+
+                // Helper function to safely read nullable value
+                T? ReadNullable<T>(string columnName, Func<int, T> reader)
+                    where T : struct
+                {
+                    var ordinal = GetOrdinal(columnName);
+                    return ordinal.HasValue && !sqlDataReader.IsDBNull(ordinal.Value) ? reader(ordinal.Value) : null;
+                }
+
+                // Required field - JobId
+                var jobIdOrdinal = GetOrdinal("JobId");
+                if (!jobIdOrdinal.HasValue)
+                {
+                    throw new InvalidOperationException("Required column 'JobId' was not found in the result set.");
+                }
+
+                jobInfo.Id = GetInt64Value(jobIdOrdinal.Value);
+
+                // All other fields are optional
+                var queueTypeOrdinal = GetOrdinal("QueueType");
+                jobInfo.QueueType = queueTypeOrdinal.HasValue ? sqlDataReader.GetByte(queueTypeOrdinal.Value) : (byte)0;
+
+                var statusOrdinal = GetOrdinal(jobQueueTable.Status.Metadata.Name);
+                jobInfo.Status = statusOrdinal.HasValue && !sqlDataReader.IsDBNull(statusOrdinal.Value)
+                    ? (JobStatus)sqlDataReader.GetByte(statusOrdinal.Value)
+                    : null;
+
+                jobInfo.GroupId = ReadNullable(jobQueueTable.GroupId.Metadata.Name, ordinal => GetInt64Value(ordinal)) ?? 0;
+                jobInfo.Version = ReadNullable(jobQueueTable.Version.Metadata.Name, ordinal => GetInt64Value(ordinal)) ?? 0;
+                jobInfo.Priority = ReadNullable(jobQueueTable.Priority.Metadata.Name, ordinal => GetInt64Value(ordinal)) ?? 0;
+                jobInfo.Data = ReadNullable(jobQueueTable.Data.Metadata.Name, ordinal => GetInt64Value(ordinal));
+
+                var resultOrdinal = GetOrdinal(jobQueueTable.Result.Metadata.Name);
+                jobInfo.Result = resultOrdinal.HasValue && !sqlDataReader.IsDBNull(resultOrdinal.Value)
+                    ? sqlDataReader.GetString(resultOrdinal.Value)
+                    : null;
+
+                var definitionOrdinal = GetOrdinal(jobQueueTable.Definition.Metadata.Name);
+                jobInfo.Definition = definitionOrdinal.HasValue && !sqlDataReader.IsDBNull(definitionOrdinal.Value)
+                    ? sqlDataReader.GetString(definitionOrdinal.Value)
+                    : null;
+
+                var createDateOrdinal = GetOrdinal(jobQueueTable.CreateDate.Metadata.Name);
+                jobInfo.CreateDate = createDateOrdinal.HasValue && !sqlDataReader.IsDBNull(createDateOrdinal.Value)
+                    ? sqlDataReader.GetDateTime(createDateOrdinal.Value)
+                    : DateTime.UtcNow;
+
+                var heartbeatDateOrdinal = GetOrdinal(jobQueueTable.HeartbeatDate.Metadata.Name);
+                jobInfo.HeartbeatDateTime = heartbeatDateOrdinal.HasValue && !sqlDataReader.IsDBNull(heartbeatDateOrdinal.Value)
+                    ? sqlDataReader.GetDateTime(heartbeatDateOrdinal.Value)
+                    : DateTime.UtcNow;
+
+                var cancelRequestedOrdinal = GetOrdinal(jobQueueTable.CancelRequested.Metadata.Name);
+                jobInfo.CancelRequested = cancelRequestedOrdinal.HasValue && !sqlDataReader.IsDBNull(cancelRequestedOrdinal.Value)
+                    ? sqlDataReader.GetBoolean(cancelRequestedOrdinal.Value)
+                    : false;
+
+                jobInfo.StartDate = ReadNullable(jobQueueTable.StartDate.Metadata.Name, ordinal => sqlDataReader.GetDateTime(ordinal));
+                jobInfo.EndDate = ReadNullable(jobQueueTable.EndDate.Metadata.Name, ordinal => sqlDataReader.GetDateTime(ordinal));
+
+                return jobInfo;
+            }
+            catch (Exception ex) when (ex is IndexOutOfRangeException ||
+                                     ex is InvalidOperationException ||
+                                     ex is InvalidCastException)
+            {
+                var columnInfo = new List<string>();
+                for (int i = 0; i < sqlDataReader.FieldCount; i++)
+                {
+                    columnInfo.Add($"{sqlDataReader.GetName(i)} ({sqlDataReader.GetFieldType(i).Name})");
+                }
+
+                throw new InvalidOperationException(
+                    $"Failed to read job info from SQL result set. Available columns and types: {string.Join(", ", columnInfo)}",
+                    ex);
+            }
         }
     }
 }

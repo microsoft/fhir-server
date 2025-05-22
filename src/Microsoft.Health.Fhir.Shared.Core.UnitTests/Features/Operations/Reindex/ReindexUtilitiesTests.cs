@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, NullLogger<SearchParameterStatusManager>.Instance);
-            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterStatusManager, _resourceWrapperFactory);
+            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchParameterStatusManager, _resourceWrapperFactory);
         }
 
         [Fact]
@@ -62,6 +62,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var searchIndices1 = new List<SearchIndexEntry>() { searchIndexEntry1 };
             var searchIndices2 = new List<SearchIndexEntry>() { searchIndexEntry2 };
+
+            var batchSize = 1000;
 
             _searchIndexer.Extract(Arg.Any<Core.Models.ResourceElement>()).Returns(searchIndices1);
 
@@ -74,43 +76,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resultList.Add(entry2);
             var result = new SearchResult(resultList, "token", null, new List<Tuple<string, string>>());
 
-            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
+            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, batchSize, CancellationToken.None);
 
             await _fhirDataStore.Received().BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(c => c.Count() == 2), Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenHandlingAReindexJobCompletedRequest_ThenResultShouldBeSuccess()
-        {
-            var paramUris = new List<string>();
-            paramUris.Add("http://searchParam");
-
-            var searchParam = new SearchParameterInfo(
-                "test",
-                "test",
-                ValueSets.SearchParamType.String,
-                new Uri("http://searchParam"));
-
-            _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>()).Returns(searchParam);
-
-            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
-
-            Assert.True(success);
-        }
-
-        [Fact]
-        public async Task GivenASupportedSearchParamNotSupportedException_WhenHandlingAReindexJobCompletedRequest_ThenResultShouldBeFalse()
-        {
-            var paramUris = new List<string>();
-            paramUris.Add("http://searchParam");
-
-            _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Any<string>()))
-                .Do(e => throw new SearchParameterNotSupportedException("message"));
-
-            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
-
-            Assert.False(success);
         }
 
         private SearchResultEntry CreateSearchResultEntry(string jsonName, IReadOnlyCollection<SearchIndexEntry> searchIndices)
