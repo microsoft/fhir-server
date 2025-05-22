@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await CleanupAsync(resourcesToCreate);
 
                 // Create search parameter resources.
-                var resources = await CreateAsync(resourcesToCreate);
+                await CreateAsync(resourcesToCreate);
 
                 // Invoke bulk-delete on the search parameters.
                 using HttpRequestMessage request = GenerateBulkDeleteRequest(
