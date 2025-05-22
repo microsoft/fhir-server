@@ -23,8 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
-using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -39,7 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
-        private readonly AsyncRetryPolicy _retryPolicy;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -65,10 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
-
-            _retryPolicy = Policy
-                .Handle<SearchParameterNotSupportedException>()
-                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count)));
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
@@ -247,18 +240,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Starting GetAndApplySearchParameterUpdates...");
             var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] {updatedSearchParameterStatus.Count} search parameter status to update.");
 
             // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: Deleted)...");
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: Deleted) completed.");
             }
 
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
@@ -281,11 +270,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
-                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: {searchParam.Status})...");
-
                     // if the previous version of the search parameter exists we should delete the old information currently stored
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
-                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {searchParam.Uri} (Status: {searchParam.Status}) completed.");
                 }
 
                 paramsToAdd.Add(searchParamResource);
@@ -294,37 +280,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Now add the new or updated parameters to the SearchParameterDefinitionManager
             if (paramsToAdd.Any())
             {
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Adding {paramsToAdd.Count} search parameters to the definition manager...");
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Adding {paramsToAdd.Count} search parameters to the definition manager completed.");
             }
 
             var updatedStatus = updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Applying {updatedStatus.Count} search parameter status...");
 
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(
                 updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList(),
                 cancellationToken);
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Applying {updatedStatus.Count} search parameter status completed.");
-
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] GetAndApplySearchParameterUpdates completed:{Environment.NewLine}{string.Join(Environment.NewLine, updatedStatus.Select(x => x.Uri))}");
         }
 
         public async Task Handle(BulkDeleteMetricsNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Handling BulkDeleteMetricsNotification...");
             var content = notification?.Content?.ToString();
             if (!string.IsNullOrWhiteSpace(content))
             {
                 try
                 {
                     var urls = JsonSerializer.Deserialize<List<string>>(content);
-                    _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Found {urls.Count} search parameters to delete...");
-
-                    if (urls.Any())
+                    if (urls.Any(x => !string.IsNullOrWhiteSpace(x)))
                     {
                         await DeleteSearchParametersAsync(urls, DefaultDeleteTasksPerPage, cancellationToken);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Ignoring the notification as its content doesn't have any search parameter Uri.");
                     }
                 }
                 catch (JsonException ex)
@@ -333,8 +314,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw;
                 }
             }
-
-            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Handling BulkDeleteMetricsNotification completed.");
+            else
+            {
+                _logger.LogInformation("Ignoring the notification as its content is empty.");
+            }
         }
 
         private void DeleteSearchParameter(string url)
@@ -371,70 +354,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return null;
         }
 
-        private Task DeleteSearchParametersAsync(List<string> urls, int pageSize, CancellationToken cancellationToken)
+        private async Task DeleteSearchParametersAsync(List<string> urls, int pageSize, CancellationToken cancellationToken)
         {
-            return _retryPolicy.ExecuteAsync(
-                async () =>
+            if (urls?.Any() ?? false)
+            {
+                var urlMap = urls.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var allSearchParameterStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+                var searchParameterStatusesToUpdate = allSearchParameterStatuses
+                    .Where(x => urlMap.TryGetValue(x.Uri.OriginalString, out _) && (x.Status != SearchParameterStatus.PendingDelete && x.Status != SearchParameterStatus.Deleted))
+                    .ToList();
+                _logger.LogInformation($"Updating the status of {searchParameterStatusesToUpdate.Count} search parameters (out of {urls.Count} urls) to PendingDelete...");
+                var count = 0;
+                while (count < searchParameterStatusesToUpdate.Count)
                 {
-                    if (urls?.Any(x => x != null) ?? false)
+                    var statusesInPage = searchParameterStatusesToUpdate.Skip(count).Take(pageSize).ToList();
+                    count += statusesInPage.Count;
+
+                    var urlsString = string.Join(Environment.NewLine, statusesInPage.Select(x => x.Uri.OriginalString));
+                    try
                     {
-                        _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {urls.Count} search parameters...");
-                        var urlMap = urls.ToHashSet();
-                        var allSearchParameterStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-                        var searchParameterStatusesToUpdate = allSearchParameterStatuses
-                            .Where(x => urlMap.TryGetValue(x.Uri.AbsoluteUri, out _) && (x.Status != SearchParameterStatus.PendingDelete && x.Status != SearchParameterStatus.Deleted))
-                            .ToList();
-                        _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParameterStatusesToUpdate.Count} search parameter statuses...");
-                        var count = 0;
-                        while (count < searchParameterStatusesToUpdate.Count)
-                        {
-                            var statusesInPage = searchParameterStatusesToUpdate.Skip(count).Take(pageSize).ToList();
-                            count += statusesInPage.Count;
-
-                            var tasks = new List<Task>();
-                            foreach (var status in statusesInPage)
+                        statusesInPage.ForEach(
+                            x =>
                             {
-                                tasks.Add(
-                                    Task.Run(
-                                        async () =>
-                                        {
-                                            try
-                                            {
-                                                status.Status = SearchParameterStatus.PendingDelete;
-                                                status.LastUpdated = Clock.UtcNow;
+                                x.Status = SearchParameterStatus.PendingDelete;
+                                x.LastUpdated = Clock.UtcNow;
+                            });
 
-                                                _logger.LogInformation("Deleting the search parameter '{Url}'", status.Uri);
-                                                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<ResourceSearchParameterStatus>() { status }, cancellationToken);
+                        _logger.LogInformation($"Updating the status of search parameters:{Environment.NewLine}{urlsString}");
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(statusesInPage, cancellationToken);
 
-                                                // Update the status of the search parameter in the definition manager once the status is updated in the store.
-                                                _searchParameterDefinitionManager.UpdateSearchParameterStatus(status.Uri.AbsoluteUri, SearchParameterStatus.PendingDelete);
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                _logger.LogError(ex, $"Failed to delete a search parameter with url: {status.Uri}");
-                                                throw;
-                                            }
-                                        },
-                                        cancellationToken));
-                            }
-
-                            try
+                        statusesInPage.ForEach(
+                            x =>
                             {
-                                if (tasks.Any())
-                                {
-                                    await Task.WhenAll(tasks);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, $"Failed to delete {tasks.Where(x => !x.IsCompleted).Count()} search parameters.");
-                                throw;
-                            }
-
-                            _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Deleting {urls.Count} search parameters completed.");
-                        }
+                                _searchParameterDefinitionManager.UpdateSearchParameterStatus(
+                                    x.Uri.OriginalString,
+                                    SearchParameterStatus.PendingDelete);
+                            });
                     }
-                });
+                    catch (Exception ex)
+                    {
+                        // Note: ignore the exception and continue updating the rest.
+                        _logger.LogError(ex, $"Failed to update the status of search parameters:{Environment.NewLine}{urlsString}");
+                    }
+                }
+            }
         }
     }
 }

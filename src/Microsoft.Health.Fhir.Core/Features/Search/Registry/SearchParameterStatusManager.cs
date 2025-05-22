@@ -177,31 +177,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             EnsureArg.IsNotNull(searchParameterStatuses);
 
-            var searchParameterStatusesToUpdate = new List<ResourceSearchParameterStatus>();
-            var searchParameterUpdated = new List<SearchParameterInfo>();
-            foreach (var status in searchParameterStatuses)
+            _logger.LogInformation($"Updating the status of {searchParameterStatuses.Count} search parameters.");
+            if (searchParameterStatuses.Any())
             {
-                _logger.LogInformation("Updating the search parameter status of '{Uri}' to '{NewStatus}'", status.Uri, status.Status);
-
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.AbsoluteUri, out var sp))
+                try
                 {
-                    sp.IsSearchable = status.Status == SearchParameterStatus.Enabled;
-                    sp.IsSupported = status.Status == SearchParameterStatus.Supported || status.Status == SearchParameterStatus.Enabled;
-                    if (sp.IsSearchable && (status.SortStatus == SortParameterStatus.Supported || status.SortStatus == SortParameterStatus.Enabled))
+                    var searchParameterUpdated = new List<SearchParameterInfo>();
+                    foreach (var status in searchParameterStatuses)
                     {
-                        sp.SortStatus = SortParameterStatus.Enabled;
+                        if (_searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var sp))
+                        {
+                            sp.IsSearchable = status.Status == SearchParameterStatus.Enabled;
+                            sp.IsSupported = status.Status == SearchParameterStatus.Supported || status.Status == SearchParameterStatus.Enabled;
+                            if (sp.IsSearchable && (status.SortStatus == SortParameterStatus.Supported || status.SortStatus == SortParameterStatus.Enabled))
+                            {
+                                sp.SortStatus = SortParameterStatus.Enabled;
+                            }
+
+                            searchParameterUpdated.Add(sp);
+                        }
+                        else
+                        {
+                            _logger.LogError("Missing search parameter in the definition manager: '{Uri}' ", status.Uri);
+                        }
                     }
 
-                    searchParameterUpdated.Add(sp);
+                    await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatuses, cancellationToken);
+                    await _mediator.Publish(new SearchParametersUpdatedNotification(searchParameterUpdated), cancellationToken);
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogError("Missing search parameter in the definition manager: '{Uri}' ", status.Uri);
+                    _logger.LogError(ex, $"Failed to update the status of {searchParameterStatuses.Count} search parameters.");
+                    throw;
                 }
             }
-
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatuses, cancellationToken);
-            await _mediator.Publish(new SearchParametersUpdatedNotification(searchParameterUpdated), cancellationToken);
         }
 
         internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)

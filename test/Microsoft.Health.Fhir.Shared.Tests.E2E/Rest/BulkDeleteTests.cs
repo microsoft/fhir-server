@@ -366,6 +366,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableTheory]
         [InlineData(true)]
+        [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
             CheckBulkDeleteEnabled();
@@ -397,6 +398,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
                     });
 
+                DebugOutput("Sending a bulk-delete request...");
                 using HttpResponseMessage response = await _httpClient.SendAsync(request);
                 Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
@@ -811,7 +813,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void DebugOutput(string message)
         {
-#if true
+#if false
             _output.WriteLine(message);
 #endif
         }
