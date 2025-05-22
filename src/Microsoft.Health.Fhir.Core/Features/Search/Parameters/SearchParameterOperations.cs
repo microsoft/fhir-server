@@ -263,9 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
             {
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParam.Uri} to PendingDeleted...");
-                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.AbsolutePath, SearchParameterStatus.PendingDelete);
-                _logger.LogInformation($"[Debug: {DateTime.UtcNow.ToString("s")}] Updating {searchParam.Uri} to PendingDeleted completed.");
+                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
             var paramsToAdd = new List<ITypedElement>();
