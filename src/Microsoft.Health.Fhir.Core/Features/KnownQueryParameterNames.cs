@@ -137,5 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// The $includes count parameter.
         /// </summary>
         public const string IncludesCount = "_includesCount";
+
+        public const string ReverseInclude = "_revinclude";
     }
 }

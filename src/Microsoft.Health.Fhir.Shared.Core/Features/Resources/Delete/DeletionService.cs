@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IAuditLogger _auditLogger;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IAuditLogger auditLogger,
             IOptions<CoreFeatureConfiguration> configuration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
+            IResourceDeserializer resourceDeserializer,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -80,6 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -496,6 +499,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             return auditTask;
         }
+
+        private async Task RemoveReferences(SearchResultEntry resource, CancellationToken cancellationToken)
+        {
+            /* 1. Get a list of all resources referencing the target (/<target type>?_id=<target id>&_revinclude=*:*)
+             * 2. Filter the target from the results
+             * 3. Edit each result to not reference the target
+             * 4. Send update as a large batch
+             * 5. Repeat 3&4 for each page of $include results if there is more than one page
+             * 5. End
+             */
+
+            using (var searchService = _searchServiceFactory.Invoke())
+            {
+                var parameters = new List<Tuple<string, string>>()
+                {
+                    Tuple.Create(KnownQueryParameterNames.Id, resource.Resource.ResourceId),
+                    Tuple.Create(KnownQueryParameterNames.ReverseInclude, "*:*"),
+                };
+                var results = await searchService.Value.SearchAsync(
+                    resourceType: resource.Resource.ResourceTypeName,
+                    queryParameters: parameters,
+                    cancellationToken: cancellationToken);
+
+                var resourcesWithReferences = results.Results.Select(entry => _resourceDeserializer.Deserialize(entry.Resource));
+
+                foreach(var reference in resourcesWithReferences)
+                {
+                    reference.
+                }
+            }
 
         private bool AreIncludeResultsTruncated()
         {
