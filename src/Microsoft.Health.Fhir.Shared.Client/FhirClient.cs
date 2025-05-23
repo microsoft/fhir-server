@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -103,13 +104,13 @@ namespace Microsoft.Health.Fhir.Client
 
         public HttpClient HttpClient { get; }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
+            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, additionalHeaders, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -124,6 +125,14 @@ namespace Microsoft.Health.Fhir.Client
             if (!string.IsNullOrEmpty(provenanceHeader))
             {
                 message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
+            }
+
+            if (additionalHeaders?.Any() ?? false)
+            {
+                foreach (var header in additionalHeaders)
+                {
+                    message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
