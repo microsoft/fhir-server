@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 Group group = new Group();
                 group.Member = new System.Collections.Generic.List<Group.MemberComponent>();
-#if !R5
+#if !R5 || USE_HL7_LEGACY_PACKAGES
                 group.Actual = true;
 #else
                 group.Membership = Group.GroupMembershipBasis.Enumerated;

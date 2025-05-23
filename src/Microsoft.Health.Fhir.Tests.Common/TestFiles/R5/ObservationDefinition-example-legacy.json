@@ -1,0 +1,90 @@
+﻿{
+  "resourceType": "ObservationDefinition",
+  "id": "example",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>status</b>: active</p><p><b>category</b>: <span>Laboratory</span></p><p><b>code</b>: <span>Albumin/Protein.total in Serum or Plasma by Electrophoresis</span></p><p><b>permittedDataType</b>: Quantity</p><p><b>multipleResultsAllowed</b>: false</p><p><b>method</b>: <span>Total measurement</span></p><p><b>preferredReportName</b>: Serum albumin/​Protein total</p><h3>QuantitativeDetails</h3><table><tr><td>-</td><td><b>Unit</b></td><td><b>DecimalPrecision</b></td></tr><tr><td>*</td><td><span>%</span></td><td>0</td></tr></table><blockquote><p><b>qualifiedValue</b></p><p><b>context</b>: <span>Normal Range</span></p><p><b>rangeCategory</b>: reference</p><p><b>range</b>: 50-?</p></blockquote><blockquote><p><b>qualifiedValue</b></p><p><b>context</b>: <span>Normal Range</span></p><p><b>rangeCategory</b>: critical</p><p><b>range</b>: ?-40</p></blockquote></div>"
+  },
+  "status": "active",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "13980-8",
+        "display": "Albumin/Protein.total in Serum or Plasma by Electrophoresis"
+      }
+    ]
+  },
+  "permittedDataType": [
+    "Quantity"
+  ],
+  "multipleResultsAllowed": false,
+  "method": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "115341008",
+        "display": "Total measurement"
+      }
+    ]
+  },
+  "preferredReportName": "Serum albumin/​Protein total",
+  "quantitativeDetails": {
+    "unit": {
+      "coding": [
+        {
+          "system": "http://unitsofmeasure.org",
+          "code": "%",
+          "display": "%"
+        }
+      ]
+    },
+    "decimalPrecision": 0
+  },
+  "qualifiedValue": [
+    {
+      "context": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/referencerange-meaning",
+            "code": "normal",
+            "display": "Normal Range"
+          }
+        ]
+      },
+      "rangeCategory": "reference",
+      "range": {
+        "low": {
+          "value": 50
+        }
+      }
+    },
+    {
+      "context": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/referencerange-meaning",
+            "code": "normal",
+            "display": "Normal Range"
+          }
+        ]
+      },
+      "rangeCategory": "critical",
+      "range": {
+        "high": {
+          "value": 40
+        }
+      }
+    }
+  ]
+}
