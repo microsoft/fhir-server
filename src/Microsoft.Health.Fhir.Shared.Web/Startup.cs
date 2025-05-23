@@ -137,6 +137,7 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+                services.Configure<SqlQueueClientConfiguration>(Configuration.GetSection(SqlQueueClientConfiguration.SectionName));
             }
         }
 

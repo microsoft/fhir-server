@@ -6,12 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -25,23 +27,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
+        private readonly SqlQueueClientConfiguration _queueClientConfiguration;
 
-        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        public SqlQueueClient(
+            SchemaInformation schemaInformation,
+            ISqlRetryService sqlRetryService,
+            ILogger<SqlQueueClient> logger,
+            IOptions<SqlQueueClientConfiguration> queueClientConfiguration = null)
         {
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _queueClientConfiguration = queueClientConfiguration?.Value ?? new SqlQueueClientConfiguration();
         }
 
-        public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger, IOptions<SqlQueueClientConfiguration> queueClientConfiguration = null)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _queueClientConfiguration = queueClientConfiguration?.Value ?? new SqlQueueClientConfiguration();
         }
 
         public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.CommandTimeout.TotalSeconds };
             cmd.Parameters.AddWithValue("@QueueType", queueType);
             cmd.Parameters.AddWithValue("@GroupId", groupId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -49,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.CommandTimeout.TotalSeconds };
             cmd.Parameters.AddWithValue("@QueueType", queueType);
             cmd.Parameters.AddWithValue("@JobId", jobId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -57,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus", CommandType = CommandType.StoredProcedure };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus", CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.CompleteJobTimeout.TotalSeconds };
             sqlCommand.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
             sqlCommand.Parameters.AddWithValue("@JobId", jobInfo.Id);
             sqlCommand.Parameters.AddWithValue("@Version", jobInfo.Version);
@@ -113,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.DequeueTimeout.TotalSeconds };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             sqlCommand.Parameters.AddWithValue("@Worker", worker);
             sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
@@ -123,11 +132,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
-            var jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
-            if (jobInfo != null)
+            // Return object
+            JobInfo jobInfo = null;
+
+            // Add retry logic
+            int retryCount = 0;
+            const int maxRetries = 3;
+            bool succeeded = false;
+
+            while (!succeeded && retryCount < maxRetries && !cancellationToken.IsCancellationRequested)
             {
-                jobInfo.QueueType = queueType;
+                try
+                {
+                    _logger.LogInformation("Dequeuing next job. Attempt {RetryCount}/{MaxRetries}", retryCount + 1, maxRetries);
+                    var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+                    jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
+                    if (jobInfo != null)
+                    {
+                        jobInfo.QueueType = queueType;
+                    }
+
+                    succeeded = true;
+                }
+                catch (Exception ex) when (IsSqlTimeoutException(ex) && retryCount < maxRetries - 1)
+                {
+                    retryCount++;
+                    int delayMs = (int)Math.Pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+                    _logger.LogWarning(ex, "SQL timeout when dequeuing new job. Retrying in {DelayMs}ms. Attempt {RetryCount}/{MaxRetries}", delayMs, retryCount + 1, maxRetries);
+
+                    try
+                    {
+                        await Task.Delay(delayMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogInformation("Job dequeue retry cancelled due to shutdown request.");
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to dequeue new job.");
+                    break;
+                }
             }
 
             return jobInfo;
@@ -135,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.EnqueueTimeout.TotalSeconds };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, definitions.Select(d => new StringListRow(d)));
             if (groupId.HasValue)
@@ -157,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.EnqueueTimeout.TotalSeconds };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, [new StringListRow(definition)]);
             sqlCommand.Parameters.AddWithValue("@GroupId", groupId);
@@ -210,7 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.ArchiveJobs") { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("dbo.ArchiveJobs") { CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.CommandTimeout.TotalSeconds };
             cmd.Parameters.AddWithValue("@QueueType", queueType);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
@@ -220,7 +267,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var cancel = false;
             try
             {
-                using var cmd = new SqlCommand("dbo.PutJobHeartbeat") { CommandType = CommandType.StoredProcedure };
+                using var cmd = new SqlCommand("dbo.PutJobHeartbeat") { CommandType = CommandType.StoredProcedure, CommandTimeout = (int)_queueClientConfiguration.CommandTimeout.TotalSeconds };
                 cmd.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
                 cmd.Parameters.AddWithValue("@JobId", jobInfo.Id);
                 cmd.Parameters.AddWithValue("@Version", jobInfo.Version);
@@ -237,10 +284,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return cancel;
         }
 
-        private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)
+        private void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)
         {
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetJobs";
+            cmd.CommandTimeout = (int)_queueClientConfiguration.CommandTimeout.TotalSeconds;
             cmd.Parameters.AddWithValue("@QueueType", queueType);
             if (jobId.HasValue)
             {
@@ -261,6 +309,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
+        }
+
+        // Helper method to check if the exception is a SQL timeout exception
+        private static bool IsSqlTimeoutException(Exception ex)
+        {
+            if (ex is SqlException sqlException && sqlException.Number == -2)
+            {
+                return true;
+            }
+
+            if (ex.InnerException != null)
+            {
+                return IsSqlTimeoutException(ex.InnerException);
+            }
+
+            return false;
         }
     }
 }
