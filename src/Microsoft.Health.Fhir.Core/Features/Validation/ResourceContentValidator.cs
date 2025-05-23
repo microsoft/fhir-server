@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
@@ -24,12 +26,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ResourceContentValidator : AbstractValidator<ResourceElement>
     {
         private readonly IModelAttributeValidator _modelAttributeValidator;
+        private readonly ILogger _logger;
 
-        public ResourceContentValidator(IModelAttributeValidator modelAttributeValidator)
+        public ResourceContentValidator(IModelAttributeValidator modelAttributeValidator, ILogger logger)
         {
             EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
 
             _modelAttributeValidator = modelAttributeValidator;
+            _logger = logger;
         }
 
         public override Task<FluentValidation.Results.ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
@@ -40,6 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public override FluentValidation.Results.ValidationResult Validate(ValidationContext<ResourceElement> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
+            var timer = _logger.StartStopwatch("Resource Content Validator");
+
             var failures = new List<ValidationFailure>();
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
@@ -57,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             failures.ForEach(x => context.AddFailure(x));
+
+            _logger.LogStopwatch(timer, "End");
             return new FluentValidation.Results.ValidationResult(failures);
         }
     }
