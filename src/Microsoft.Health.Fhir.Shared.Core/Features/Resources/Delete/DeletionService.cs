@@ -205,6 +205,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 logger: _logger);
                         }
 
+                        // Filter results to exclude resourceTypes included in excludedResourceTypes
+                        if (excludedResourceTypes != null && excludedResourceTypes.Count > 0)
+                        {
+                            var excludedResourceTypesSet = new HashSet<string>(excludedResourceTypes, StringComparer.OrdinalIgnoreCase);
+                            results = results
+                                .Where(x => !excludedResourceTypesSet.Contains(x.Resource.ResourceTypeName))
+                                .ToList();
+                        }
+
                         if (AreIncludeResultsTruncated())
                         {
                             tooManyIncludeResults = true;

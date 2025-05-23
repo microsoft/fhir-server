@@ -67,26 +67,8 @@ DELETE {{bulkDeleteLocation}}
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### Get patients
-GET {{hostname}}/Patient
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### Get observations
-GET {{hostname}}/Observation
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### Get groups
-GET {{hostname}}/Group
-Authorization: Bearer {{bearer.response.body.access_token}}
-
 ### Bulk Delete everything except patients
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?excludedResourceTypes=patient
-Prefer: respond-async
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### Bulk Delete everything
-# @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&excludedResourceTypes=patient
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
