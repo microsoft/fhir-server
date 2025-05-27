@@ -3,14 +3,14 @@
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R4;R4B</DefineConstants>
+    <DefineConstants>R4;R4B;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4B" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Specification.R4B" Condition="'$(UseHl7LegacyPackages)' == 'true'" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4B" Condition="'$(UseHl7LegacyPackages)' != 'true'" PrivateAssets="build;analyzers" />
     <PackageReference Include="Hl7.Fhir.R4B" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />

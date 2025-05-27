@@ -14,7 +14,8 @@
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="Hl7.Fhir.Base" />
+    <PackageReference Include="Hl7.Fhir.Serialization" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <PackageReference Include="Hl7.Fhir.Base" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
