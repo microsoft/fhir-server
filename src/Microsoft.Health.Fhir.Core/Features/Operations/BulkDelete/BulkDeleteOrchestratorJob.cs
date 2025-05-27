@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     baseDefinition.Url,
                     baseDefinition.BaseUrl,
                     baseDefinition.ParentRequestId,
-                    numResources,
                     baseDefinition.VersionType);
             }
 

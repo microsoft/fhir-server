@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Messages
 
         public string ResourceType { get; }
 
-        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
+        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; set; }
 
         public BundleResourceContext BundleResourceContext { get; }
 

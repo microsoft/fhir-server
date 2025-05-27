@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.BulkDeleteJobLocation, Name = RouteNames.GetBulkDeleteStatusById)]
-        [AuditEventType(AuditEventSubType.Export)]
+        [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> GetBulkDeleteStatusById(long idParameter)
         {
             var result = await _mediator.GetBulkDeleteStatusAsync(idParameter, HttpContext.RequestAborted);
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteJobLocation, Name = RouteNames.CancelBulkDelete)]
-        [AuditEventType(AuditEventSubType.Export)]
+        [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> CancelBulkDelete(long idParameter)
         {
             var result = await _mediator.CancelBulkDeleteAsync(idParameter, HttpContext.RequestAborted);

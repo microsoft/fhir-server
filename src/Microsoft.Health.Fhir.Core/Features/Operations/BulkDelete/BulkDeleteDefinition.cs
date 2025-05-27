@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             string url,
             string baseUrl,
             string parentRequestId,
-            long startingResourceCount = 0,
             ResourceVersionType versionType = ResourceVersionType.Latest)
         {
             TypeId = (int)jobType;
@@ -34,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             Url = url;
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
-            ExpectedResourceCount = startingResourceCount;
             VersionType = versionType;
         }
 
@@ -66,9 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.ParentRequestId)]
         public string ParentRequestId { get; private set; }
-
-        [JsonProperty(JobRecordProperties.ExpectedResourceCount)]
-        public long ExpectedResourceCount { get; private set; }
 
         [JsonProperty(JobRecordProperties.VersionType)]
         public ResourceVersionType VersionType { get; private set; }
