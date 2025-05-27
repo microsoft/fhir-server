@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 RequestUri = new Uri(_httpClient.BaseAddress, QueryHelpers.AddQueryString("$bulk-delete", new Dictionary<string, string>
                 {
                     { "_tag", tag },
-                    { "_excludedResourceTypes", "Observation,Location" },
+                    { "excludedResourceTypes", "Observation,Location" },
                 })),
             };
             request.Headers.Add(KnownHeaders.Prefer, "respond-async");
@@ -458,20 +458,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Monitor the job until completion
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, expectedResults);
 
+            // Verify Patient and Organization were deleted (should not be able to find them)
+            var patientResults = await _fhirClient.SearchAsync($"Patient?_tag={tag}");
+            Assert.Empty(patientResults.Resource.Entry);
+
+            var organizationResults = await _fhirClient.SearchAsync($"Organization?_tag={tag}");
+            Assert.Empty(organizationResults.Resource.Entry);
+
             // Verify Observation was not deleted (should be able to find it)
             var observationResults = await _fhirClient.SearchAsync($"Observation?_tag={tag}");
-            Assert.Equal(1, observationResults.Resource.Total);
+            Assert.Single(observationResults.Resource.Entry);
 
             // Verify Location was not deleted (should be able to find it)
             var locationResults = await _fhirClient.SearchAsync($"Location?_tag={tag}");
-            Assert.Equal(1, locationResults.Resource.Total);
-
-            // Verify Patient and Organization were deleted (should not be able to find them)
-            var patientResults = await _fhirClient.SearchAsync($"Patient?_tag={tag}");
-            Assert.Equal(0, patientResults.Resource.Total);
-
-            var organizationResults = await _fhirClient.SearchAsync($"Organization?_tag={tag}");
-            Assert.Equal(0, organizationResults.Resource.Total);
+            Assert.Single(locationResults.Resource.Entry);
         }
 
         private async Task RunBulkDeleteRequest(
