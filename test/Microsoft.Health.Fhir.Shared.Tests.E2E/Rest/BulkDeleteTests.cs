@@ -348,6 +348,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 queryParams: new Dictionary<string, string>
                 {
                     { "_include", "Observation:subject" },
+                });
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkHardDeleteJobWithMoreThanOnePageOfIncludeResults_WhenCompleted_ThenIncludedResultsAreDeleted()
+        {
+            CheckBulkDeleteEnabled();
+
+            var resourceTypes = new Dictionary<string, long>()
+            {
+                { "Patient", 2000 },
+                { "Group", 1 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 2000);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
+
+            using HttpRequestMessage request = GenerateBulkDeleteRequest(
+                tag,
+                "Group/$bulk-delete",
+                queryParams: new Dictionary<string, string>
+                {
+                    { "_include", "Group:member" },
                     { KnownQueryParameterNames.BulkHardDelete, "true" },
                 });
 
@@ -444,6 +473,54 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             Assert.Equal(expectedResults.Keys.Count, resultsChecked);
+        }
+
+        private async Task CreateGroupWithPatients(string tag, int count)
+        {
+            Bundle createBundle = new Bundle();
+            createBundle.Type = Bundle.BundleType.Batch;
+            createBundle.Entry = new List<Bundle.EntryComponent>();
+
+            Group group = new Group();
+            group.Member = new List<Group.MemberComponent>();
+#if !R5
+            group.Actual = true;
+#else
+            group.Membership = Group.GroupMembershipBasis.Enumerated;
+#endif
+            group.Type = Group.GroupType.Person;
+
+            group.Meta = new Meta();
+            group.Meta.Tag = new List<Coding> { new Coding("http://e2etests", tag) };
+
+            for (int i = 0; i < count; i++)
+            {
+                var id = Guid.NewGuid();
+                var patient = new Patient();
+                patient.Meta = new Meta();
+                patient.Meta.Tag = new List<Coding> { new Coding("http://e2etests", tag) };
+                patient.Id = id.ToString();
+
+                createBundle.Entry.Add(new Bundle.EntryComponent { Resource = patient, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"Patient/{id}" } });
+
+                group.Member.Add(new Group.MemberComponent { Entity = new ResourceReference($"Patient/{id}") });
+
+                if (i > 0 && i % 490 == 0)
+                {
+                    // Since bundles can only hold 500 resources Patients need to be made in multiple calls
+                    using FhirResponse<Bundle> subResponse = await _fhirClient.PostBundleAsync(createBundle);
+                    Assert.Equal(HttpStatusCode.OK, subResponse.StatusCode);
+
+                    createBundle = new Bundle();
+                    createBundle.Type = Bundle.BundleType.Batch;
+                    createBundle.Entry = new List<Bundle.EntryComponent>();
+                }
+            }
+
+            createBundle.Entry.Add(new Bundle.EntryComponent { Resource = group, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Group" } });
+
+            using FhirResponse<Bundle> response = await _fhirClient.PostBundleAsync(createBundle);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         private void CheckBulkDeleteEnabled()

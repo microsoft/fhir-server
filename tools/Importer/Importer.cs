@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly string Endpoints = ConfigurationManager.AppSettings["FhirEndpoints"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
+        private static readonly string StorageAccountName = ConfigurationManager.AppSettings["StorageAccountName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
         private static readonly int BatchSize = int.Parse(ConfigurationManager.AppSettings["BatchSize"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             Console.WriteLine($"{DateTime.UtcNow:s}: {globalPrefix}: Starting...");
-            var blobContainerClient = GetContainer(ConnectionString, ContainerName);
+            var blobContainerClient = GetContainer(ConnectionString, ContainerName, StorageAccountName);
             var blobs = blobContainerClient.GetBlobs().Where(_ => _.Name.EndsWith(UseBundleBlobs ? ".json" : ".ndjson", StringComparison.OrdinalIgnoreCase));
             ////Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
             ////var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
@@ -378,7 +379,7 @@ namespace Microsoft.Health.Fhir.Importer
 
         private static string GetTextFromBlob(BlobItem blob)
         {
-            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName, StorageAccountName).GetBlobClient(blob.Name).Download().Value.Content);
             var text = reader.ReadToEnd();
             return text;
         }
@@ -392,7 +393,7 @@ namespace Microsoft.Health.Fhir.Importer
             var sw = Stopwatch.StartNew();
             foreach (var blob in blobs.OrderBy(_ => RandomNumberGenerator.GetInt32(1000))) // shuffle blobs
             {
-                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName, StorageAccountName).GetBlobClient(blob.Name).Download().Value.Content);
                 while (!reader.EndOfStream)
                 {
                     Interlocked.Increment(ref totalReads);
@@ -408,11 +409,21 @@ namespace Microsoft.Health.Fhir.Importer
             Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static BlobContainerClient GetContainer(string connectionString, string containerName)
+        private static BlobContainerClient GetContainer(string connectionString, string containerName, string storageAccountName)
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(connectionString);
+                BlobServiceClient blobServiceClient;
+                if (!string.IsNullOrEmpty(connectionString))
+                {
+                    blobServiceClient = new BlobServiceClient(connectionString);
+                }
+                else
+                {
+                    var defaultAzureCredential = new DefaultAzureCredential();
+                    blobServiceClient = new BlobServiceClient(new Uri($"https://{storageAccountName}.blob.core.windows.net"), defaultAzureCredential);
+                }
+
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
 
                 if (!blobContainerClient.Exists())

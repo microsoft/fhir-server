@@ -41,9 +41,9 @@ function Add-AadTestAuthEnvironment {
         [ValidateNotNullOrEmpty()]
         [String]$ClientId,
 
-        [Parameter(Mandatory = $true )]
+        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [String]$ClientSecret
+        [SecureString]$ClientSecret
     )
 
     Set-StrictMode -Version Latest
@@ -140,9 +140,7 @@ function Add-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
-    $securedSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
-
-    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $securedSecret
+    $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
         
     Install-Module -Name Microsoft.Graph -Force
 

@@ -244,6 +244,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
             }
 
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+            {
+                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
+            }
+
             var paramsToAdd = new List<ITypedElement>();
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
             {
