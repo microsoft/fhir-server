@@ -736,6 +736,10 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="SearchParameterStatusManagerDuplicate" xml:space="preserve">
+    <value>SearchParameter with Uri: {0} is a duplicate of another search parameter and cannot have it's status changed.</value>
+    <comment>Uri of duplicate search parameter.</comment>
+  </data>
   <data name="PartialDeleteSuccess" xml:space="preserve">
     <value>Deleted {0} versions of the target resource.</value>
     <comment>{0} is replaced with the number of deleted versions of the resource.</comment>

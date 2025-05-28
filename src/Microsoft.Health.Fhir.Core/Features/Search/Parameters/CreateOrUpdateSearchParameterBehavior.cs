@@ -4,9 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using FluentValidation.Results;
+using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -21,7 +24,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private ISearchParameterOperations _searchParameterOperations;
         private IFhirDataStore _fhirDataStore;
 
-        public CreateOrUpdateSearchParameterBehavior(ISearchParameterOperations searchParameterOperations, IFhirDataStore fhirDataStore)
+        public CreateOrUpdateSearchParameterBehavior(
+            ISearchParameterOperations searchParameterOperations,
+            IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
