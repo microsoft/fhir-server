@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             DeleteOperation deleteOperation,
             string type,
             IList<Tuple<string, string>> searchParameters,
+            IList<string> excludedResourceTypes,
             string url,
             string baseUrl,
             string parentRequestId,
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             DeleteOperation = deleteOperation;
             Type = type;
             SearchParameters = searchParameters;
+            ExcludedResourceTypes = excludedResourceTypes ?? new List<string>();
             Url = url;
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
@@ -50,6 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.SearchParameters)]
         public IList<Tuple<string, string>> SearchParameters { get; private set; }
+
+        [JsonProperty(JobRecordProperties.ExcludedResourceTypes)]
+        public IList<string> ExcludedResourceTypes { get; private set; }
 
         [JsonProperty(JobRecordProperties.Url)]
         public string Url { get; private set; }

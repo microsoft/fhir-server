@@ -119,12 +119,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<List<ResourceWrapper>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<List<ResourceWrapper>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)
         {
-            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, null, cancellationToken);
+            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, cancellationToken);
         }
 
-        private async Task<List<ResourceWrapper>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, string continuationToken, CancellationToken cancellationToken)
+        private async Task<List<ResourceWrapper>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, IList<string> excludedResourceTypes, string continuationToken, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -148,6 +148,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     logger: _logger);
             }
 
+            // Filter results to exclude resourceTypes included in excludedResourceTypes
+            if (excludedResourceTypes != null && excludedResourceTypes.Count > 0)
+            {
+                var excludedResourceTypesSet = new HashSet<string>(excludedResourceTypes, StringComparer.OrdinalIgnoreCase);
+                results = results
+                    .Where(x => !excludedResourceTypesSet.Contains(x.Resource.ResourceTypeName))
+                    .ToList();
+            }
+
             var deletedResources = new List<ResourceWrapper>();
 
             // If there is more than one page of results included then delete all included results for the first page of resources.
@@ -168,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                     };
                     clonedRequest.ConditionalParameters = cloneList;
-                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, ict, cancellationToken);
+                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, excludedResourceTypes, ict, cancellationToken);
 
                     if (subresult != null)
                     {
@@ -231,6 +240,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 logger: _logger);
                         }
 
+                        // Filter results to exclude resourceTypes included in excludedResourceTypes
+                        if (excludedResourceTypes != null && excludedResourceTypes.Count > 0)
+                        {
+                            var excludedResourceTypesSet = new HashSet<string>(excludedResourceTypes, StringComparer.OrdinalIgnoreCase);
+                            results = results
+                                .Where(x => !excludedResourceTypesSet.Contains(x.Resource.ResourceTypeName))
+                                .ToList();
+                        }
+
                         // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
                         if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
                         {
@@ -249,7 +267,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                     Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                                 };
                                 clonedRequest.ConditionalParameters = cloneList;
-                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, ict, cancellationToken);
+                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, excludedResourceTypes, ict, cancellationToken);
 
                                 deletedResources.AddRange(subresult);
                             }
