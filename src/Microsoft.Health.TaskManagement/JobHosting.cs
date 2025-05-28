@@ -57,7 +57,6 @@ namespace Microsoft.Health.JobManagement
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         JobInfo nextJob = null;
-
                         if (_queueClient.IsInitialized())
                         {
                             try
