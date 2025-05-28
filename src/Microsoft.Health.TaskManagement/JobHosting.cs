@@ -75,39 +75,39 @@ namespace Microsoft.Health.JobManagement
                             {
                                 _logger.LogError(ex, "Failed to dequeue new job.");
                             }
+                        }
 
-                            if (nextJob != null)
+                        if (nextJob != null)
+                        {
+                            using (Activity activity = JobHostingActivitySource.StartActivity(
+                                JobHostingActivitySource.Name,
+                                ActivityKind.Server))
                             {
-                                using (Activity activity = JobHostingActivitySource.StartActivity(
-                                    JobHostingActivitySource.Name,
-                                    ActivityKind.Server))
+                                if (activity == null)
                                 {
-                                    if (activity == null)
-                                    {
-                                        _logger.LogWarning("Failed to start an activity.");
-                                    }
-
-                                    activity?.SetTag("CreateDate", nextJob.CreateDate);
-                                    activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
-                                    activity?.SetTag("Id", nextJob.Id);
-                                    activity?.SetTag("QueueType", nextJob.QueueType);
-                                    activity?.SetTag("Version", nextJob.Version);
-
-                                    _logger.LogJobInformation(nextJob, "Job dequeued.");
-                                    await ExecuteJobAsync(nextJob);
+                                    _logger.LogWarning("Failed to start an activity.");
                                 }
+
+                                activity?.SetTag("CreateDate", nextJob.CreateDate);
+                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                                activity?.SetTag("Id", nextJob.Id);
+                                activity?.SetTag("QueueType", nextJob.QueueType);
+                                activity?.SetTag("Version", nextJob.Version);
+
+                                _logger.LogJobInformation(nextJob, "Job dequeued.");
+                                await ExecuteJobAsync(nextJob);
                             }
-                            else
+                        }
+                        else
+                        {
+                            try
                             {
-                                try
-                                {
-                                    _logger.LogInformation("Empty queue. Delaying until next iteration.");
-                                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
-                                }
-                                catch (TaskCanceledException)
-                                {
-                                    _logger.LogInformation("Queue is stopping, worker is shutting down.");
-                                }
+                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
                             }
                         }
                     }
