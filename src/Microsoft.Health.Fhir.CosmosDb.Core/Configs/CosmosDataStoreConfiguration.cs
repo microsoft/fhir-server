@@ -88,5 +88,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
         /// Options to determine if the parallel query execution is needed across physical partitions to speed up the selective queries
         /// </summary>
         public CosmosDataStoreParallelQueryOptions ParallelQueryOptions { get; } = new CosmosDataStoreParallelQueryOptions { MaxQueryConcurrency = 500 };
+
+        /// <summary>
+        /// Option to print Diagnostics returned from Cosmos SDK for each response
+        /// </summary>
+        public bool LogSdkDiagnostics { get; set; } = false;
+
+        /// <summary>
+        /// This represent the end to end elapsed time of the request. If the request is
+        /// still in progress it will return the current elapsed time since the start of
+        /// the request.
+        /// </summary>
+        public bool LogSdkClientElapsedTime { get; set; } = false;
     }
 }

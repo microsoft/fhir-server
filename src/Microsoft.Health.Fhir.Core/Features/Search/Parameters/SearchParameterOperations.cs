@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
                 }
 
-                _logger.LogTrace("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
+                _logger.LogInformation("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(
@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (FhirException fex)
             {
+                _logger.LogError(fex, "Error adding search parameter.");
                 fex.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,
@@ -117,6 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error adding search parameter.");
                 var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);
                 customSearchException.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
@@ -147,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // First we delete the status metadata from the data store as this function depends on
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
-                _logger.LogTrace("Deleting the search parameter '{Url}'", searchParameterUrl);
+                _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
                 await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
 
                 // Update the status of the search parameter in the definition manager once the status is updated in the store.
@@ -155,6 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (FhirException fex)
             {
+                _logger.LogError(fex, "Error deleting search parameter.");
                 fex.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,
@@ -164,6 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error deleting search parameter.");
                 var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
                 customSearchException.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
@@ -209,11 +213,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // As any part of the SearchParameter may have been changed, including the URL
                 // the most reliable method of updating the SearchParameter is to delete the previous
                 // data and insert the updated version
-                _logger.LogTrace("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
+                _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
 
-                _logger.LogTrace("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
+                _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(
                     new List<string>() { searchParameterWrapper.Url },
@@ -222,6 +226,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (FhirException fex)
             {
+                _logger.LogError(fex, "Error updating search parameter.");
                 fex.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,
@@ -231,6 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error updating search parameter.");
                 var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchUpdateError);
                 customSearchException.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
@@ -258,6 +264,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
+            }
+
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+            {
+                _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
             var paramsToAdd = new List<ITypedElement>();

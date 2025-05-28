@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -12,14 +13,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using IdentityServer4.Models;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
+        private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
@@ -1055,7 +1056,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null)
         {
             var inputResource = new InputResource() { Url = location };
             if (setResourceType)
@@ -1071,6 +1072,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 Input = new List<InputResource>() { inputResource },
                 Mode = importMode.ToString(),
                 AllowNegativeVersions = allowNegativeVersions,
+                ErrorContainerName = errorContainerName,
             };
         }
 
@@ -1738,6 +1740,69 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenImportRequest_WhenImportDataHasInvalidResourceIds_ResourcesShouldNotBeImported()
+        {
+            var errorContainerName = Guid.NewGuid().ToString("N").ToLower();
+            var ids = new Dictionary<string, bool>
+            {
+                { "#badresourceid", false },
+                { Guid.NewGuid().ToString("N"), true },
+                { "/badresourceid/", false },
+                { Guid.NewGuid().ToString("N"), true },
+                { "bad#resource/id", false },
+                { Guid.NewGuid().ToString(), true },
+                { "?badresource&id", false },
+                { "abc.123.ABC", true },
+                { string.Empty, false },
+                { Guid.NewGuid().ToString() + Guid.NewGuid().ToString(), false },
+            };
+
+            var ndjsons = new StringBuilder();
+            foreach (var id in ids.Keys)
+            {
+                ndjsons.Append(PrepareResource(id, null, null));
+            }
+
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(
+                ndjsons.ToString(),
+                _fixture.StorageAccount);
+
+            var request = CreateImportRequest(
+                location: location,
+                importMode: ImportMode.IncrementalLoad,
+                errorContainerName: errorContainerName);
+            var result = await ImportCheckAsync(request, null, ids.Values.Where(x => !x).Count());
+
+            // Check if resources with the valid id are imported successfully.
+            foreach (var pair in ids.Where(x => x.Value))
+            {
+                var readResponse = await _client.ReadAsync<Patient>(ResourceType.Patient, pair.Key);
+                Assert.Equal(pair.Key, readResponse.Resource?.Id);
+            }
+
+            // Check errors having resources with the invalid id.
+            var invalidIds = ids.Where(x => !x.Value).Select(x => x.Key).ToList();
+            var errors = await ReadErrorsAsync(result.Error.ToArray()[0].Url);
+
+            Assert.Equal(invalidIds.Count, errors.Count);
+            invalidIds.ForEach(
+                id =>
+                {
+                    var found = false;
+                    foreach (var error in errors)
+                    {
+                        if (error.Issue.Where(x => x.Details?.Text?.Contains(id) ?? false).Any())
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    Assert.True(found, $"An error not found for resource id: '{id}'");
+                });
+        }
+
         private async Task<ImportJobResult> ImportCheckAsync(ImportRequest request, TestFhirClient client = null, int? errorCount = null)
         {
             client = client ?? _client;
@@ -1802,6 +1867,31 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             return _fhirJsonSerializer.SerializeToString(rtn) + Environment.NewLine;
+        }
+
+        private async Task<List<OperationOutcome>> ReadErrorsAsync(string url)
+        {
+            EnsureArg.IsNotEmptyOrWhiteSpace(url);
+
+            var resources = new List<OperationOutcome>();
+            var content = await ImportTestHelper.DownloadFileAsync(url, _fixture.StorageAccount);
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                using (var reader = new StringReader(content))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var resource = _fhirJsonParser.Parse<Hl7.Fhir.Model.Resource>(line);
+                        if (resource?.TypeName?.Equals(nameof(OperationOutcome), StringComparison.OrdinalIgnoreCase) ?? false)
+                        {
+                            resources.Add((OperationOutcome)resource);
+                        }
+                    }
+                }
+            }
+
+            return resources;
         }
     }
 }

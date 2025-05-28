@@ -132,25 +132,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Due to unauthorized request, import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    throw new JobExecutionException(ex.Message, error, ex, false);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Input file deleted, renamed, or moved during job. Import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    throw new JobExecutionException(ex.Message, error, ex, false);
                 }
                 catch (IntegrationDataStoreException ex)
                 {
                     _logger.LogJobWarning(ex, jobInfo, "Failed to access input files.");
                     var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    throw new JobExecutionException(ex.Message, error, ex, false);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    throw new JobExecutionException(ex.Message, error, ex, false);
                 }
 
                 jobInfo.Data = result.SucceededResources + result.FailedResources;
@@ -164,37 +164,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
+                throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
             }
             catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex);
+                throw new JobExecutionException(ex.Message, error, ex, false);
             }
             catch (OverflowException ex)
             {
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex);
+                throw new JobExecutionException(ex.Message, error, ex, false);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "Error container name contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed. The name must begin and end with a letter or a number. The name can't contain two consecutive hyphens.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(error.ErrorMessage, error, ex);
+                throw new JobExecutionException(error.ErrorMessage, error, ex, false);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name length is not within the permissible limits", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "The error container name must be between 3 and 63 characters long.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(error.ErrorMessage, error, ex);
+                throw new JobExecutionException(error.ErrorMessage, error, ex, false);
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex);
+                throw new JobExecutionException(ex.Message, error, ex, false);
             }
         }
 

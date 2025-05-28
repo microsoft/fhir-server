@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -19,6 +20,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
@@ -27,20 +29,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IMediator _mediator;
         private readonly ICosmosQueryLogger _queryLogger;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
+            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
             _queryLogger = queryLogger;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _logger = logger;
         }
 
@@ -112,6 +117,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 int.TryParse(responseMessage.Headers["x-ms-item-count"], out var count) ? count : 0,
                 double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
                 responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
+
+            if (_cosmosDataStoreConfiguration.LogSdkDiagnostics)
+            {
+                _queryLogger.LogQueryDiagnostics(responseMessage.Headers.ActivityId, responseMessage.Diagnostics);
+            }
+
+            if (_cosmosDataStoreConfiguration.LogSdkClientElapsedTime && responseMessage.Diagnostics != null)
+            {
+                _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
+            }
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             if (fhirRequestContext == null)

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -17,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ListedCapabilityStatement()
         {
+            Id = new ResourceIdProvider().Create();
             Status = new DefaultOptionHashSet<string>("draft", StringComparer.Ordinal);
             Kind = new DefaultOptionHashSet<string>("capability", StringComparer.Ordinal);
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));

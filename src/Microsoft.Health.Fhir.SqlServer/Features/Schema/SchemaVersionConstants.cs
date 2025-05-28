@@ -7,9 +7,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     public static class SchemaVersionConstants
     {
-        public const int Min = (int)SchemaVersion.V83;
-        public const int Max = (int)SchemaVersion.V87;
-        public const int MinForUpgrade = (int)SchemaVersion.V83; // this is used for upgrade tests only
+        public const int Min = (int)SchemaVersion.V87;
+        public const int Max = (int)SchemaVersion.V89;
+        public const int MinForUpgrade = (int)SchemaVersion.V85; // this is used for upgrade tests only
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int Merge = (int)SchemaVersion.V50;
         public const int IncrementalImport = (int)SchemaVersion.V53;
         public const int LakePrerequisite = (int)SchemaVersion.V84;
+        public const int MergeThrottling = (int)SchemaVersion.V87;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

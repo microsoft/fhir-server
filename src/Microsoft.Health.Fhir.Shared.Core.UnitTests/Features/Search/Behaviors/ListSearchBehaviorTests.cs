@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                () => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); },
+                (ct) => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); },
                 CancellationToken.None);
 
             Assert.Equal(_nonEmptyBundle, response.Bundle);
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                () =>
+                (ct) =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                () =>
+                (ct) =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                () =>
+                (ct) =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 },

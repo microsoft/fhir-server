@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -38,6 +39,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchParameterConflictingCodeValidator _searchParameterConflictingCodeValidator;
@@ -51,6 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             IAuthorizationService<DataActions> authorizationService,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
+            ISearchParameterOperations searchParameterOperations,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator,
             ILogger<SearchParameterValidator> logger)
@@ -59,11 +63,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _modelInfoProvider = modelInfoProvider;
+            _searchParameterOperations = searchParameterOperations;
             _contextAccessor = contextAccessor;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _searchParameterConflictingCodeValidator = searchParameterConflictingCodeValidator;
@@ -109,6 +116,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
                 else
                 {
+                    // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
                     {

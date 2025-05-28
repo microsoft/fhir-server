@@ -311,23 +311,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.MaxItemCountSpecifiedByClient = true;
 
-                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                if (isAsyncOperation)
                 {
-                    if (isAsyncOperation)
-                    {
-                        searchOptions.IsLargeAsyncOperation = true;
-                        searchOptions.MaxItemCount = searchParams.Count.Value;
-                    }
-                    else
-                    {
-                        searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+                    searchOptions.IsAsyncOperation = true;
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
+                else if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                {
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                        _contextAccessor.RequestContext?.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Information,
-                                OperationOutcomeConstants.IssueType.Informational,
-                                string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
-                    }
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
                 }
                 else
                 {
@@ -386,7 +383,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resourceTypes = searchParams.Parameters
                     .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
-                    .Where(ModelInfoProvider.IsKnownResource)
+                    .Where(q => ModelInfoProvider.IsKnownResource(q))
                     .Distinct().ToList();
 
                 if (resourceTypes.Any())
@@ -468,7 +465,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                     }
 
-                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                    // Don't add the smart compartment twice. this is a patch for bug number AB#152447.
+                    if (!searchExpressions.Any(e => e.ValueInsensitiveEquals(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null))))
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                    }
                 }
                 else
                 {

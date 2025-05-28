@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ICollectionDataUpdater dataCollectionUpdater = new CosmosDbSearchParameterStatusInitializer(
                 () => _filebasedSearchParameterStatusDataStore,
                 new CosmosQueryFactory(
-                    new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
+                    new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, _cosmosDataStoreConfiguration, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
                     NullFhirCosmosQueryLogger.Instance),
                 _cosmosDataStoreConfiguration);
 
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var cosmosAccessor = Substitute.For<IAccessTokenProvider>();
             cosmosAccessor.TokenCredential.Returns(GetTokenCredential());
 
-            var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
+            var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, _cosmosDataStoreConfiguration, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance);
             var documentClientInitializer = new FhirCosmosClientInitializer(
@@ -232,7 +232,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => _container.CreateMockScope(),
                 new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
                 new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance),
-                retryExceptionPolicyFactory);
+                retryExceptionPolicyFactory,
+                NullLogger<CosmosQueueClient>.Instance);
 
             _cosmosFhirOperationDataStore = new CosmosFhirOperationDataStore(
                 _queueClient,
