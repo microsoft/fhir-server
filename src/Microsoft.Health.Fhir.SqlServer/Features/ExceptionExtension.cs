@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using Microsoft.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
@@ -21,8 +22,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
 
         internal static bool IsExecutionTimeout(this Exception e)
         {
-            var str = e.ToString().ToLowerInvariant();
-            return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
+            if (e is SqlException sqlException && sqlException.Number == -2)
+            {
+                return true;
+            }
+
+            if (e.InnerException != null)
+            {
+                return IsExecutionTimeout(e.InnerException);
+            }
+
+            return false;
         }
 
         private static bool HasDeadlockErrorPattern(string str)

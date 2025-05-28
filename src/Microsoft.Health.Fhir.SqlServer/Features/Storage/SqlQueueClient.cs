@@ -26,10 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
 
-        public SqlQueueClient(
-            SchemaInformation schemaInformation,
-            ISqlRetryService sqlRetryService,
-            ILogger<SqlQueueClient> logger)
+        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
@@ -139,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     jobInfo.QueueType = queueType;
                 }
             }
-            catch (Exception ex) when (IsSqlTimeoutException(ex))
+            catch (Exception ex) when (ex.IsExecutionTimeout())
             {
                 _logger.LogWarning(ex, "SQL timeout when dequeuing new job.");
             }
@@ -279,22 +276,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
-        }
-
-        // Helper method to check if the exception is a SQL timeout exception
-        private static bool IsSqlTimeoutException(Exception ex)
-        {
-            if (ex is SqlException sqlException && sqlException.Number == -2)
-            {
-                return true;
-            }
-
-            if (ex.InnerException != null)
-            {
-                return IsSqlTimeoutException(ex.InnerException);
-            }
-
-            return false;
         }
     }
 }
