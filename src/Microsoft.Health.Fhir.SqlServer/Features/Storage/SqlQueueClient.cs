@@ -6,14 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -62,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
-            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus" };
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.PutJobStatus", CommandType = CommandType.StoredProcedure };
             sqlCommand.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
             sqlCommand.Parameters.AddWithValue("@JobId", jobInfo.Id);
             sqlCommand.Parameters.AddWithValue("@Version", jobInfo.Version);
