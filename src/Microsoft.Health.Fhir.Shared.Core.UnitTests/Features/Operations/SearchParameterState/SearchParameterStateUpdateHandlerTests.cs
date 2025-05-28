@@ -70,9 +70,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            // Create a proper IScopeProvider<ISearchService> mock
+            var searchServiceScope = Substitute.For<IScoped<ISearchService>>();
+            searchServiceScope.Value.Returns(_searchService);
+            var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
+            searchServiceProvider.Invoke().Returns(searchServiceScope);
+
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchServiceProvider,
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
-            _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope(); // Ensure this factory is properly initialized
+
+            // Create a proper IScope<IFhirOperationDataStore> mock
+            _fhirOperationDataStoreFactory = () =>
+            {
+                var scope = Substitute.For<IScoped<IFhirOperationDataStore>>();
+                scope.Value.Returns(_fhirOperationDataStore);
+                return scope;
+            };
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
