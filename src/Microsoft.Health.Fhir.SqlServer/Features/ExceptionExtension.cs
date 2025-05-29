@@ -22,17 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
 
         internal static bool IsExecutionTimeout(this Exception e)
         {
-            if (e is SqlException sqlException && sqlException.Number == -2)
-            {
-                return true;
-            }
-
-            if (e.InnerException != null)
-            {
-                return IsExecutionTimeout(e.InnerException);
-            }
-
-            return false;
+            var str = e.ToString().ToLowerInvariant();
+            return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasDeadlockErrorPattern(string str)
