@@ -338,13 +338,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenAuthorizeIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
-            const string pathSegment = "AadSmartOnFhirProxy/authorize?client_id=1234&response_type=json&redirect_uri=httptest&aud=localhost";
+            const string pathSegment = "AadSmartOnFhirProxy/authorize?client_id=globalAdminServicePrincipal&response_type=code&redirect_uri=http://localhost&aud=localhost&grant_type=authorization_code";
             await ExecuteAndValidate(
                 async () => await _client.HttpClient.GetAsync(pathSegment),
                 "smart-on-fhir-authorize",
                 pathSegment,
                 HttpStatusCode.Redirect,
-                "1234",
+                "globalAdminServicePrincipal",
                 "client_id");
         }
 
@@ -367,11 +367,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             const string pathSegment = "AadSmartOnFhirProxy/token";
             var formFields = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>("client_id", "1234"),
-                new KeyValuePair<string, string>("grant_type", "grantType"),
+                new KeyValuePair<string, string>("client_id", "globalAdminServicePrincipal"),
+                new KeyValuePair<string, string>("grant_type", "client_credentials"),
                 new KeyValuePair<string, string>("code", "code"),
-                new KeyValuePair<string, string>("redirect_uri", "redirectUri"),
-                new KeyValuePair<string, string>("client_secret", "client_secret"),
+                new KeyValuePair<string, string>("redirect_uri", "http://localhost"),
+                new KeyValuePair<string, string>("client_secret", "globalAdminServicePrincipal"),
             };
 
             var content = new FormUrlEncodedContent(formFields);
@@ -380,8 +380,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 async () => await _client.HttpClient.PostAsync(pathSegment, content),
                 "smart-on-fhir-token",
                 pathSegment,
-                HttpStatusCode.BadRequest,
-                "1234",
+                HttpStatusCode.OK,
+                "globalAdminServicePrincipal",
                 "client_id",
                 new Dictionary<string, string>() { [KnownHeaders.CustomAuditHeaderPrefix + "test"] = "test" });
         }

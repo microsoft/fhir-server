@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource, cancellationToken);
             }
 
-            return await next();
+            return await next(cancellationToken);
         }
     }
 }

@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            var affectedRowsParam = new SqlParameter("@affectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(affectedRowsParam);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             return (int)affectedRowsParam.Value;

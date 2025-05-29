@@ -136,7 +136,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)Rest\Directory.Build.props" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

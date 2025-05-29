@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
+                _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
                 SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
                 updated.Add(paramInfo);

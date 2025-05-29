@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
             // https://learn.microsoft.com/en-us/dotnet/api/overview/azure/app-auth-migration?view=azure-dotnet
-            var accessTokenContext = new TokenRequestContext(scopes: [resourceUri + "/.default"]);
+            Uri resourceUriScope = new Uri(resourceUri, "/.default"); // Safe URI concatenation.
+            var accessTokenContext = new TokenRequestContext(scopes: [resourceUriScope.ToString()]);
 
             AccessToken accessToken;
             try

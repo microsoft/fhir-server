@@ -4,7 +4,8 @@
     <HealthcareSharedPackageVersion>9.0.10</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>9.0.3</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>9.0.4</DotNetSdkPackageVersion>
+    <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
@@ -59,8 +60,7 @@
     <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="IdentityServer4" Version="4.1.2" />
-    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="MediatR" Version="12.5.0" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
@@ -111,6 +111,12 @@
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
+    <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="Polly" Version="8.5.2" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />

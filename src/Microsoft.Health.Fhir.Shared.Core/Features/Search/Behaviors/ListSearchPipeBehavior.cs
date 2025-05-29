@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // if _list was not requested, or _list was requested with invalid value, continue...
             if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
-                return await next();
+                return await next(cancellationToken);
             }
 
             ResourceWrapper listWrapper =
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
 
             query = query.Concat(new[] { Tuple.Create(KnownQueryParameterNames.Id, string.Join(",", references.Select(x => x.ResourceId))) });
             request.Queries = query.ToArray();
-            return await next();
+            return await next(cancellationToken);
         }
 
         public SearchResourceResponse CreateEmptySearchResponse(SearchResourceRequest request)

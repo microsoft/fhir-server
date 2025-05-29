@@ -45,17 +45,19 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="services">The services collection.</param>
         /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
         /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
+        /// <param name="mvcBuilderAction">Mvc builder actions</param>
         /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
         public static IFhirServerBuilder AddFhirServer(
             this IServiceCollection services,
             IConfiguration configurationRoot = null,
-            Action<FhirServerConfiguration> configureAction = null)
+            Action<FhirServerConfiguration> configureAction = null,
+            Action<IMvcBuilder> mvcBuilderAction = null)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
 
-            services.AddControllers(options =>
+            var builder = services.AddControllers(options =>
                 {
                     options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;
@@ -64,6 +66,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
                 });
+
+            mvcBuilderAction?.Invoke(builder);
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
