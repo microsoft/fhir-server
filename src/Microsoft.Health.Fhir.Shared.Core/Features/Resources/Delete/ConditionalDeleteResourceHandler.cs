@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -83,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
                 return await DeleteSingleAsync(request, cancellationToken);
             }
-            catch (IncompleteOperationException<List<string>> exception)
+            catch (IncompleteOperationException<IReadOnlySet<string>> exception)
             {
                 _fhirContext.RequestContext.ResponseHeaders[KnownHeaders.ItemsDeleted] = exception.PartialResults.Count.ToString();
                 throw;
@@ -146,8 +145,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            var result = await _deleter.DeleteMultipleAsync(request, cancellationToken);
-            return new DeleteResourceResponse(result?.Count ?? 0);
+            long numDeleted = (await _deleter.DeleteMultipleAsync(request, cancellationToken)).Sum(result => result.Value);
+            return new DeleteResourceResponse((int)numDeleted);
         }
     }
 }

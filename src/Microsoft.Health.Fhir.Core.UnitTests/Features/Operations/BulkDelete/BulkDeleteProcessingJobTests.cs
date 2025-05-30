@@ -66,8 +66,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
+            var substituteResults = new Dictionary<string, long>();
+            substituteResults.Add("Patient", 3);
+
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
-                .Returns(args => CreateResources(KnownResourceTypes.Patient, 3));
+                .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
@@ -88,8 +91,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
+            var substituteResults = new Dictionary<string, long>();
+            substituteResults.Add("Patient", 3);
+
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
-                .Returns(args => CreateResources(KnownResourceTypes.Patient, 3));
+                .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
@@ -105,28 +111,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Checks that the processing job removed the resource type that was processed and lists the remaining two resource types
             var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
             Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
-        }
-
-        private List<ResourceWrapper> CreateResources(string resourceType, int count)
-        {
-            var resources = new List<ResourceWrapper>();
-            while (count-- > 0)
-            {
-                resources.Add(
-                    new ResourceWrapper(
-                        Guid.NewGuid().ToString(),
-                        Guid.NewGuid().ToString(),
-                        resourceType,
-                        null,
-                        null,
-                        DateTimeOffset.UtcNow,
-                        false,
-                        null,
-                        null,
-                        null));
-            }
-
-            return resources;
         }
     }
 }

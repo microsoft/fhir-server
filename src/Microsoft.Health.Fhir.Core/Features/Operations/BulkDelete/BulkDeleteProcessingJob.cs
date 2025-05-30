@@ -82,14 +82,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                var resourcesDeleted = new List<ResourceWrapper>();
+                IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
+                List<ResourceWrapper> deletedSearchParameters = new List<ResourceWrapper>();
 
                 try
                 {
-                    var deleteResult = await deleter.Value.DeleteMultipleAsync(
+                    resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
                         new ConditionalDeleteResourceRequest(
                             types[0],
                             (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
@@ -99,13 +100,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             versionType: definition.VersionType,
                             allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
-                    resourcesDeleted.AddRange(deleteResult);
+                        definition.ExcludedResourceTypes,
+                        deletedSearchParameters);
                 }
-                catch (IncompleteOperationException<List<ResourceWrapper>> ex)
+                catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     _logger.LogError(ex, "Deleting resources failed.");
-                    resourcesDeleted.AddRange(ex.PartialResults);
+                    resourcesDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
@@ -115,12 +116,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     throw;
                 }
 
-                var deletedResourceCountMap = resourcesDeleted.GroupBy(x => x.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
-                foreach (var item in deletedResourceCountMap)
+                foreach (var (key, value) in resourcesDeleted)
                 {
-                    if (!result.ResourcesDeleted.TryAdd(item.Key, item.Value))
+                    if (!result.ResourcesDeleted.TryAdd(key, value))
                     {
-                        result.ResourcesDeleted[item.Key] += item.Value;
+                        result.ResourcesDeleted[key] += value;
                     }
                 }
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 {
                     var notification = new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Count)
                     {
-                        Content = CreateNotificationContent(resourcesDeleted),
+                        Content = CreateNotificationContent(deletedSearchParameters),
                     };
 
                     await _mediator.Publish(notification, cancellationToken);

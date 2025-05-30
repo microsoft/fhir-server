@@ -19,7 +19,6 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
-using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -271,12 +270,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var allResourceTypes = GetDerivedResourceTypes(searchParameterInfo.BaseResourceTypes);
             foreach (var resourceType in allResourceTypes)
             {
-                if (TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam))
+                if (TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam) && removedParam?.Url != searchParameterInfo.Url)
                 {
-                    if (removedParam?.Url != searchParameterInfo.Url)
-                    {
-                        _logger.LogError("Error, Search Param {RemovedParam} removed from Search Param Definition manager.  It does not match deleted Search Param {Url}", removedParam?.Url, url);
-                    }
+                    _logger.LogError("Error, Search Param {RemovedParam} removed from Search Param Definition manager.  It does not match deleted Search Param {Url}", removedParam?.Url, url);
                 }
             }
 
