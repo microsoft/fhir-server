@@ -554,7 +554,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             if (deletedSearchParameters != null && (resources?.Any(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) ?? false))
             {
-                deletedSearchParameters.ToList().AddRange(resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)));
+                foreach (var resource in resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
+                {
+                    deletedSearchParameters.Add(resource);
+                }
             }
         }
 
