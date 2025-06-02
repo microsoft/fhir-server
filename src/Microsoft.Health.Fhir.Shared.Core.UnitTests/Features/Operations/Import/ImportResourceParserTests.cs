@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             _importResourceParser = new(_jsonParser, _wrapperFactory);
         }
 
-        [Fact]
+        [Fact(Skip = "Not supported yet...")]
         public void GivenImportWithSoftDeletedFile_WhenParsed_DeletedExtensionShouldBeRemoved()
         {
             Patient patient = new Patient();

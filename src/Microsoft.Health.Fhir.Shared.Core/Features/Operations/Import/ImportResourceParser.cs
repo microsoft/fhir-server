@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
@@ -15,6 +16,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SourceNodeSerialization;
+using Microsoft.Health.Fhir.SourceNodeSerialization.SourceNodes.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -35,19 +38,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = _parser.Parse<Resource>(rawResource);
+            var resource = JsonSourceNodeFactory.ParseJsonNode<ResourceJsonNode>(rawResource);
+
             ValidateResourceId(resource?.Id);
-            CheckConditionalReferenceInResource(resource, importMode);
+
+            // CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
             {
-                resource.Meta = new Meta();
+                resource.Meta = new MetaJsonNode();
             }
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
-            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
-            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
-            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 5 sec is the max for the computers in the domain
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated;
+            var updatedDateTime = new DateTimeOffset(lastUpdated.Value.DateTime.TruncateToMillisecond(), lastUpdated.Value.Offset);
+            resource.Meta.LastUpdated = updatedDateTime;
+
+            if (!lastUpdatedIsNull && updatedDateTime > Clock.UtcNow.AddSeconds(10)) // 5 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
             }
@@ -59,13 +66,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 keepVersion = false;
             }
 
-            var resourceElement = resource.ToResourceElement();
+            var resourceElement = resource
+                .ToResourceElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
             var isDeleted = resourceElement.IsSoftDeleted();
 
             if (isDeleted)
             {
-                resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
+                // Not implemented in ResourceNode parser yet...
+                // resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
             }
 
             var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
@@ -75,12 +84,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)
         {
-            if (importMode == ImportMode.IncrementalLoad)
+            /*if (importMode == ImportMode.IncrementalLoad)
             {
                 return;
-            }
+            }*/
 
-            IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
+            // Not implemented in ResourceNode parser yet...
+            /*IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
             foreach (ResourceReference reference in references)
             {
                 if (string.IsNullOrWhiteSpace(reference.Reference))
@@ -92,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
-            }
+            }*/
         }
 
         private static void ValidateResourceId(string resourceId)

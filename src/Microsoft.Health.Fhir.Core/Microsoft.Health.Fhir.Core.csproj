@@ -65,6 +65,7 @@
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.SourceNodeSerialization\Microsoft.Health.Fhir.SourceNodeSerialization.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
   </ItemGroup>

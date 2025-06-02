@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SourceNodeSerialization.SourceNodes.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -43,7 +44,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return (T)resource.ResourceInstance ?? resource.Instance.ToPoco<T>();
+            return (T)resource.Poco.Value;
+        }
+
+        public static ResourceJsonNode ToJsonNode(this ResourceElement resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            return (ResourceJsonNode)resource.ResourceInstance ?? throw new NotSupportedException();
         }
 
         public static Resource ToPoco(this ResourceElement resource)
