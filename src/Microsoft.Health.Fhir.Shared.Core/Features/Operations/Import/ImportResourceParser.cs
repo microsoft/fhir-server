@@ -20,14 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        private static readonly Regex ResourceIdValidationRegex = new Regex(
+        private static readonly Regex ResourceIdValidationRegex = new(
             "^[A-Za-z0-9\\-\\.]{1,64}$",
             RegexOptions.Compiled);
 
-        private FhirJsonParser _parser;
+        private FhirJsonPocoDeserializer _parser;
         private IResourceWrapperFactory _resourceFactory;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(FhirJsonPocoDeserializer parser, IResourceWrapperFactory resourceFactory)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
@@ -35,7 +35,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = _parser.Parse<Resource>(rawResource);
+            if (!_parser.TryDeserializeResource(rawResource, out Resource resource, out var error))
+            {
+                throw new BadRequestException(string.Join(", ", error.Select(x => x.Message)));
+            }
+
             ValidateResourceId(resource?.Id);
             CheckConditionalReferenceInResource(resource, importMode);
 

@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            var jsonParserNoValidation = new FhirJsonPocoDeserializer(new FhirJsonPocoDeserializerSettings { Validator = null });
 #pragma warning disable CS0618 // Type or member is obsolete
             var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -58,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             var xmlParser = new FhirXmlParser();
             var xmlSerializer = new FhirXmlSerializer();
 
+            services.AddSingleton(jsonParserNoValidation);
             services.AddSingleton(jsonParser);
             services.AddSingleton(jsonSerializer);
             services.AddSingleton(xmlParser);
