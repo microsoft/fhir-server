@@ -981,7 +981,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void DebugOutput(string message)
         {
-#if false
+#if true
             _output.WriteLine(message);
 #endif
         }
