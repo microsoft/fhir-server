@@ -29,7 +29,12 @@ namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Features.Search.Converters
         public async Task GivenMoneyWithValueAndCurrency_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 480;
+
+#if USE_HL7_LEGACY_PACKAGES
+            const Money.Currencies currency = Money.Currencies.USD;
+#else
             const Currencies currency = Currencies.USD;
+#endif
 
             await Test(
                 m =>

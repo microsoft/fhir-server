@@ -117,7 +117,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(
             "Observation/$validate",
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
+#if USE_HL7_LEGACY_PACKAGES
+            "Element with minimum cardinality 1 cannot be null. At Observation.StatusElement.",
+#else
             "Element 'StatusElement' with minimum cardinality 1 cannot be null. At Observation.StatusElement, line , position",
+#endif
             "Observation.StatusElement")]
         [InlineData(
             "Observation/$validate",
@@ -222,7 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
-#if !Stu3
+#if !STU3
             var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
                 SelectMany(x => x).OrderBy(x => x).ToList();

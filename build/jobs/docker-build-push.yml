@@ -44,4 +44,5 @@ jobs:
                       --platform ${{ parameters.buildPlatform }} \
                       --build-arg FHIR_VERSION=${{ parameters.version }} \
                       --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
+                      $(if [ "${{ parameters.version }}" = "R5" ]; then echo '--build-arg DOCKER_USE_HL7_LEGACY_PACKAGES=false'; else echo '--build-arg DOCKER_USE_HL7_LEGACY_PACKAGES=true'; fi) \
                       --push .

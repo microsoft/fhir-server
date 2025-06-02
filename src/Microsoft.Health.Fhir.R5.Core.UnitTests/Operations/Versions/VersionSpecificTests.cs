@@ -30,7 +30,11 @@ namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Operations.Versions
         {
             var version = _provider.SupportedVersion.ToString();
 
+#if USE_HL7_LEGACY_PACKAGES
+            Assert.Equal("5.0.0-snapshot1", version);
+#else
             Assert.Equal("5.0.0", version);
+#endif
         }
     }
 }
