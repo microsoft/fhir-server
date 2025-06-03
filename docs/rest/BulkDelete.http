@@ -1,4 +1,3 @@
-# .SUMMARY Sample requests for Bulk Delete
 # These commands will remove all the data in your database,
 # sometimes without a way to recover it.
 #
@@ -65,5 +64,11 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Cancel Bulk Delete request
 DELETE {{bulkDeleteLocation}}
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete everything except patients
+# @name bulkDelete
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&excludedResourceTypes=patient
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
