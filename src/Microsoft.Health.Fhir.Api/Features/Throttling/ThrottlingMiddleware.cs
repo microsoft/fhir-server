@@ -288,7 +288,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            context.Response.Headers.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
+            context.Response.OnStarting(() =>
+            {
+                context.Response.Headers.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
+                return Task.CompletedTask;
+            });
 
             context.Response.ContentLength = _throttledBody.Length;
             context.Response.ContentType = ThrottledContentType;
@@ -301,8 +305,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _logger.LogWarning($"Returning 429 from unhandled {nameof(RequestRateExceededException)}");
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-
-            context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter);
+            context.Response.OnStarting(() =>
+            {
+                context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter);
+                return Task.CompletedTask;
+            });
 
             Memory<byte> body = CreateThrottledBody(exception.Message);
 

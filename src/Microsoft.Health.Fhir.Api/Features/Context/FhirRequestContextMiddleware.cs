@@ -46,7 +46,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
             if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
             {
-                context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
+                context.Response.OnStarting(() =>
+                {
+                    context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
+                    return Task.CompletedTask;
+                });
             }
 
             var fhirRequestContext = new FhirRequestContext(
@@ -57,7 +61,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            context.Response.Headers[KnownHeaders.RequestId] = correlationId;
+            context.Response.OnStarting(() =>
+            {
+                context.Response.Headers[KnownHeaders.RequestId] = correlationId;
+                return Task.CompletedTask;
+            });
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 

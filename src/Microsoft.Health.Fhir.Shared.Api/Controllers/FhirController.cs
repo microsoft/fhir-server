@@ -465,7 +465,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (maxDeleteCount.HasValue)
             {
-                Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
+                HttpContext.Response.OnStarting(() =>
+                {
+                    Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
+                    return System.Threading.Tasks.Task.CompletedTask;
+                });
             }
 
             return FhirResult.NoContent().SetETagHeader(response?.WeakETag);
