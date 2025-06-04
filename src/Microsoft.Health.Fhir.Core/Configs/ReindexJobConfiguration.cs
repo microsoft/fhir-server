@@ -34,12 +34,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls the time between queries of resources to be reindexed
         /// </summary>
-        public int QueryDelayIntervalInMilliseconds { get; set; } = 500;
+        public int QueryDelayIntervalInMilliseconds { get; set; } = 100;
 
         /// <summary>
         /// Controls how many resources will be returned in a batch for reindexing
         /// </summary>
-        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 100;
+        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 10000;
+
+        /// <summary>
+        /// Controls how many resources will be batched to reindex within a job (e.g. Job of 10k will batch 1k at a time to database to reindex)
+        /// </summary>
+        public uint MaximumNumberOfResourcesPerWrite { get; set; } = 1000;
 
         /// <summary>
         /// Controls how many reindex jobs are allowed to be running at one time
