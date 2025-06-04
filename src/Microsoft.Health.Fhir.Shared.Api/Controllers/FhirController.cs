@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (maxDeleteCount.HasValue)
             {
-                HttpContext.Response.OnStarting(() =>
+                Response.OnStarting(() =>
                 {
                     Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
                     return System.Threading.Tasks.Task.CompletedTask;

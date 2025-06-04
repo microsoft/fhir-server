@@ -83,7 +83,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 try
                 {
-                    response.Headers[header.Key] = header.Value;
+                    response.OnStarting(() =>
+                    {
+                        response.Headers[header.Key] = header.Value;
+                        return Task.CompletedTask;
+                    });
                 }
                 catch (InvalidOperationException ioe)
                 {
