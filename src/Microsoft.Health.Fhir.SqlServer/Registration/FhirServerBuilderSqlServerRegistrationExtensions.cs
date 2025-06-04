@@ -181,7 +181,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     .Singleton()
                     .AsSelf() // this is needed to create the instance the delegates resolve
                     .AsService<IHostedService>()
-                    .AsService<INotificationHandler<StorageInitializedNotification>>();
+                    .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
