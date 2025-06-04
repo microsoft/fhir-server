@@ -42,17 +42,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             string correlationId = correlationIdProvider.Invoke();
 
-            // https://www.hl7.org/fhir/http.html#custom
-            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
-            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
-            {
-                context.Response.OnStarting(() =>
-                {
-                    context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
-                    return Task.CompletedTask;
-                });
-            }
-
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
@@ -61,11 +50,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            context.Response.OnStarting(() =>
+            // https://www.hl7.org/fhir/http.html#custom
+            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
+            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
             {
-                context.Response.Headers[KnownHeaders.RequestId] = correlationId;
-                return Task.CompletedTask;
-            });
+                fhirRequestContext.ResponseHeaders[KnownHeaders.CorrelationId] = requestId;
+            }
+
+            fhirRequestContext.ResponseHeaders[KnownHeaders.RequestId] = correlationId;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 

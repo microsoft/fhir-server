@@ -24,6 +24,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                             x.Response.StatusCode = StatusCodes.Status408RequestTimeout;
                         }
                     },
+                    GetFhirRequestContextAccessor(),
                     Options.Create(_throttlingConfiguration),
                     Options.Create(new SecurityConfiguration { Enabled = _securityEnabled }),
                     NullLogger<ThrottlingMiddleware>.Instance));
@@ -261,6 +263,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                GetFhirRequestContextAccessor(),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 NullLogger<ThrottlingMiddleware>.Instance);
@@ -281,6 +284,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                GetFhirRequestContextAccessor(),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 NullLogger<ThrottlingMiddleware>.Instance);
@@ -320,5 +324,13 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         public Task InitializeAsync() => Task.CompletedTask;
 
         async Task IAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
+
+        private FhirRequestContextAccessor GetFhirRequestContextAccessor()
+        {
+            return new FhirRequestContextAccessor()
+            {
+                RequestContext = new FhirRequestContext("foo", "http://bar/", "https://baz/", "foo"),
+            };
+        }
     }
 }
