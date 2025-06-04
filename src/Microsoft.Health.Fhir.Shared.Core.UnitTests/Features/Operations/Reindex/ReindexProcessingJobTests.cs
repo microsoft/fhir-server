@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -119,100 +120,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
         }
-
-        /*
-        [Fact]
-        public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
-        {
-            // Add one parameter that needs to be indexed
-            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
-            param.IsSearchable = false;
-
-            _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
-
-            ReindexJobRecord job = CreateReindexJobRecord(maxResourcePerQuery: 3);
-            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
-
-            job.QueryList.TryAdd(new ReindexJobQueryStatus("Patient", "token") { Status = OperationStatus.Running }, 1);
-            job.Resources.Add("Patient");
-            job.ResourceCounts.TryAdd("Patient", new SearchResultReindex()
-            {f
-                Count = 1,
-                EndResourceSurrogateId = 1,
-                StartResourceSurrogateId = 1,
-            });
-            JobInfo jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // setup search results
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true).
-                Returns(
-                    x => CreateSearchResult("token1", 3),
-                    x => CreateSearchResult("token2", 3),
-                    x => CreateSearchResult("token3", 3),
-                    x => CreateSearchResult("token4", 3),
-                    x => CreateSearchResult(null, 2));
-
-            await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken);
-
-            param.IsSearchable = true;
-
-            Assert.Equal(OperationStatus.Completed, job.Status);
-            Assert.Equal(_mockedSearchCount, job.QueryList.Count);
-        }
-
-        [Fact]
-        public async Task GivenQueryWhichContinuallyFails_WhenExecuted_ThenJobWillBeMarkedFailed()
-        {
-            // Add one parameter that needs to be indexed
-            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
-            param.IsSearchable = false;
-
-            var job = CreateReindexJobRecord(maxResourcePerQuery: 3);
-            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
-
-            job.QueryList.TryAdd(new ReindexJobQueryStatus("Patient", "token") { Status = OperationStatus.Running }, 1);
-            JobInfo jobInfo = new JobInfo()
-            {
-                Id = 1,
-                Definition = JsonConvert.SerializeObject(job),
-                QueueType = (byte)QueueType.Reindex,
-                GroupId = 1,
-                CreateDate = DateTime.UtcNow,
-                Status = JobStatus.Running,
-            };
-
-            // setup search results
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>()).
-                Returns(CreateSearchResult(null, 2));
-
-            _reindexUtilities.ProcessSearchResultsAsync(Arg.Any<SearchResult>(), Arg.Any<Dictionary<string, string>>(), Arg.Any<CancellationToken>())
-                .Throws(new Exception("Failed to process query"));
-
-            await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken);
-
-            param.IsSearchable = true;
-
-            Assert.Equal(_reindexJobConfiguration.ConsecutiveFailuresThreshold, job.QueryList.Keys.First().FailureCount);
-            Assert.Equal(OperationStatus.Failed, job.Status);
-        }
-        */
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
         {

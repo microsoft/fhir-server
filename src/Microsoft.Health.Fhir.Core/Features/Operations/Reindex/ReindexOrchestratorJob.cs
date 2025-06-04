@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (OperationCanceledException)
             {
                 _logger.LogInformation("The reindex job was canceled, Id: {Id}", _jobInfo.Id);
-                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Timeout, "Reindex job was cancelled by caller.");
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Reindex job was cancelled by caller.");
             }
             catch (Exception ex)
             {
@@ -209,6 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (!CheckJobRecordForAnyWork())
             {
+                // TODO: Although we have no jobs to process, should be marking any Supported Params as Enabled if we reach this point?
                 return null;
             }
 
@@ -567,9 +569,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Track completed jobs by their IDs and by resource type
             var processedJobIds = new HashSet<long>();
             var completedJobsByResourceType = new Dictionary<string, List<JobInfo>>();
-            var activeJobs = jobInfos.Where(j => j.Id != _jobInfo.GroupId &&
-                                           (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
-                                     .ToList();
+            var activeJobs = jobInfos.Where(j =>
+            {
+                if (j.Id == _jobInfo.GroupId)
+                {
+                    return false;
+                }
+
+                // Only include jobs where TypeId == 8 (ReindexProcessingJob)
+                try
+                {
+                    var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
+                    return def.TypeId == 8 && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+                }
+                catch
+                {
+                    return false;
+                }
+            }).ToList();
 
             // Track job counts and timing
             int lastActiveJobCount = activeJobs.Count;
@@ -625,10 +642,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             linkedCts.Token);
 
                         // Update active jobs
-                        activeJobs = updatedJobs
-                            .Where(j => j.Id != _jobInfo.GroupId &&
-                                   (j.Status == JobStatus.Running || j.Status == JobStatus.Created))
-                            .ToList();
+                        activeJobs = updatedJobs.Where(j =>
+                        {
+                            if (j.Id == _jobInfo.GroupId)
+                            {
+                                return false;
+                            }
+
+                            // Only include jobs where TypeId == 8 (ReindexProcessingJob)
+                            try
+                            {
+                                var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
+                                return def.TypeId == 8 && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+                            }
+                            catch
+                            {
+                                return false;
+                            }
+                        }).ToList();
 
                         // Process newly completed jobs by resource type
                         var newlyCompletedJobs = updatedJobs

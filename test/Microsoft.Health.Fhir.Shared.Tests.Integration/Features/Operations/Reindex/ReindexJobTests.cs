@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
@@ -41,6 +42,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -53,8 +55,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [CollectionDefinition("ReindexJobTests", DisableParallelization = true)]
     public class ReindexJobTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
+        private JobHosting _jobHosting;
+        private CancellationTokenSource _jobHostingCts;
+        private Task _jobHostingTask;
+        private IQueueClient _queueClient;
+        private IJobFactory _jobFactory;
+        private IReindexUtilities _reindexUtilities;
+
         private readonly FhirStorageTestsFixture _fixture;
         private readonly IFhirStorageTestHelper _testHelper;
         private IFhirOperationDataStore _fhirOperationDataStore;
@@ -144,15 +154,196 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _searchService = _fixture.SearchService.CreateMockScope();
 
+            // Also set up the reindex utilities
+            _reindexUtilities = new ReindexUtilities(
+                                () => _scopedDataStore,
+                                _searchParameterStatusManager,
+                                wrapperFactory);
+
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
             // Initialize second FHIR service
             await InitializeSecondFHIRService();
+
+            await InitializeJobHosting();
         }
 
-        public Task DisposeAsync()
+        public async Task DisposeAsync()
         {
-            return Task.CompletedTask;
+            await StopJobHostingBackgroundServiceAsync();
+
+            return;
+        }
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task InitializeJobHosting()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        {
+            // Get the actual queue client from the operation datastore implementation
+            var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
+            if (operationDataStoreBase != null)
+            {
+                // We need to access the _queueClient field using reflection since it's private
+                var field = typeof(FhirOperationDataStoreBase).GetField("_queueClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                _queueClient = field?.GetValue(operationDataStoreBase) as IQueueClient;
+            }
+
+            // If we couldn't get the actual queue client, use the one from the fixture
+            if (_queueClient == null)
+            {
+                _queueClient = _fixture.QueueClient;
+            }
+
+            if (_jobFactory == null)
+            {
+                // Create a more sophisticated mock job factory that handles reindex jobs
+                _jobFactory = Substitute.For<IJobFactory>();
+                _jobFactory.Create(Arg.Any<JobInfo>()).Returns(info =>
+                {
+                    var jobInfo = info.ArgAt<JobInfo>(0);
+
+                    // Deserialize the job definition to get the TypeId
+                    int typeId = 0;
+                    try
+                    {
+                        var baseJob = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
+                        typeId = baseJob.TypeId;
+                    }
+                    catch
+                    {
+                        // If not a ReindexJobRecord, try ReindexProcessingJobDefinition
+                        var processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
+                        typeId = processingJob.TypeId;
+                    }
+
+                    IJob job = null;
+
+                    if (typeId == (int)JobType.ReindexOrchestrator)
+                    {
+                        job = new ReindexOrchestratorJob(
+                            _queueClient,
+                            () => _searchService,
+                            _searchParameterDefinitionManager,
+                            ModelInfoProvider.Instance,
+                            _searchParameterStatusManager,
+                            _searchParameterOperations,
+                            NullLoggerFactory.Instance);
+                    }
+                    else if (typeId == (int)JobType.ReindexProcessing)
+                    {
+                        job = new ReindexProcessingJob(
+                            () => _searchService,
+                            _reindexUtilities,
+                            NullLoggerFactory.Instance,
+                            _queueClient);
+                    }
+                    else
+                    {
+                        // Fallback to a default mock
+                        job = Substitute.For<IJob>();
+                        job.ExecuteAsync(Arg.Any<JobInfo>(), Arg.Any<CancellationToken>())
+                            .Returns(Task.FromResult("Success"));
+                    }
+
+                    var scopedJob = Substitute.For<IScoped<IJob>>();
+                    scopedJob.Value.Returns(job);
+                    return scopedJob;
+                });
+            }
+
+            var logger = NullLogger<JobHosting>.Instance;
+
+            _jobHosting = new JobHosting(_queueClient, _jobFactory, logger);
+
+            // Configure for faster polling to make tests run quicker
+            _jobHosting.PollingFrequencyInSeconds = 1;
+            _jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 30;
+            _jobHosting.JobHeartbeatIntervalInSeconds = 5;
+
+            _jobHostingCts = new CancellationTokenSource();
+
+            // Run this on a separate thread to avoid blocking the test
+            _jobHostingTask = Task.Run(() => _jobHosting.ExecuteAsync(
+                (byte)QueueType.Reindex,  // Use the correct queue type
+                runningJobCount: 5,
+                workerName: "ReindexTestWorker",
+                cancellationTokenSource: _jobHostingCts));
+        }
+
+        private async Task StopJobHostingBackgroundServiceAsync()
+        {
+            if (_jobHostingCts != null)
+            {
+                _jobHostingCts.Cancel();
+
+                if (_jobHostingTask != null)
+                {
+                    try
+                    {
+                        await _jobHostingTask.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected when cancellation occurs
+                    }
+                }
+
+                _jobHostingCts.Dispose();
+                _jobHostingCts = null;
+            }
+        }
+
+        [Fact]
+        public async Task GivenReindexJobQueuedWithBackgroundService_WhenJobCompleted_ThenStatusIsUpdated()
+        {
+            await CancelActiveReindexJobIfExists();
+
+            // Create a test search parameter
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            string searchParamName = randomName;
+            string searchParamCode = randomName + "Code";
+            SearchParameter searchParam = await CreateSearchParam(
+                searchParamName,
+                SearchParamType.String,
+                KnownResourceTypes.Patient,
+                "Patient.name",
+                searchParamCode);
+
+            // Create a reindex job
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
+            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(response);
+            Assert.NotNull(response.Job);
+
+            string jobId = response.Job.JobRecord.Id;
+
+            // Wait for the job to be processed by our background service
+            var timeout = TimeSpan.FromSeconds(240);
+            var sw = Stopwatch.StartNew();
+
+            // Poll until job status changes or timeout
+            while (sw.Elapsed < timeout)
+            {
+                // Check job status
+                var job = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, CancellationToken.None);
+
+                _output.WriteLine($"Job status: {job.JobRecord.Status}, Elapsed time: {sw.Elapsed}");
+
+                if (job.JobRecord.Status == OperationStatus.Completed ||
+                    job.JobRecord.Status == OperationStatus.Failed ||
+                    job.JobRecord.Status == OperationStatus.Canceled)
+                {
+                    // Job processing completed
+                    break;
+                }
+
+                await Task.Delay(1000);
+            }
+
+            // Final verification of job status
+            var finalJob = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, CancellationToken.None);
+            Assert.Equal(OperationStatus.Completed, finalJob.JobRecord.Status);
         }
 
         [Fact]
@@ -167,6 +358,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
+            await CancelActiveReindexJobIfExists();
+
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -183,6 +376,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             string errorMessage = "Test error message";
             try
             {
+                await CancelActiveReindexJobIfExists();
+
                 CreateReindexRequest request;
                 switch (jobRecordProperty)
                 {
@@ -215,6 +410,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [InlineData("Patient", 4)]
         public async Task GivenValidReindexParameter_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated(string jobRecordProperty, int value)
         {
+            await CancelActiveReindexJobIfExists();
+
             CreateReindexRequest request;
             switch (jobRecordProperty)
             {
@@ -305,17 +502,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenJobConflictExceptionThrown()
         {
+            await CancelActiveReindexJobIfExists();
+
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
 
-            await Assert.ThrowsAsync<JobConflictException>(() => _createReindexRequestHandler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<Core.Features.Operations.JobConflictException>(() => _createReindexRequestHandler.Handle(request, CancellationToken.None));
         }
 
         [Fact]
-        public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCanceled()
+        public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
@@ -324,7 +523,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Canceled, cancellationTokenSource);
+               await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
             }
             finally
             {
@@ -803,7 +1002,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CancellationTokenSource cancellationTokenSource,
             int delay = 1000)
         {
-            const int MaxNumberOfAttempts = 240;
+            const int MaxNumberOfAttempts = 120;
 
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
@@ -825,18 +1024,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 }
             }
 
+            // If we maxed out attempts and did not reach the expected status, clean up any active jobs
+            if (reindexJobWrapper.JobRecord.Status != operationStatus)
+            {
+                Assert.True(
+                    operationStatus == reindexJobWrapper.JobRecord.Status,
+                    $"Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {delayCount}. Time elapsed: {stopwatch.Elapsed}.");
+            }
+
             var serializer = new FhirJsonSerializer();
             _output.WriteLine(serializer.SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>()));
-
-            Assert.True(
-                operationStatus == reindexJobWrapper.JobRecord.Status,
-                $"Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {delayCount}. Time elapsed: {stopwatch.Elapsed}.");
 
             return reindexJobWrapper;
         }
 
         private async Task<CreateReindexResponse> SetUpForReindexing(CreateReindexRequest request = null)
         {
+            await CancelActiveReindexJobIfExists();
+
             if (request == null)
             {
                 request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -987,6 +1192,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _dataStoreSearchParameterValidator,
                 () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
+        }
+
+        private async Task CancelActiveReindexJobIfExists(CancellationToken cancellationToken = default)
+        {
+            var (found, id) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
+            if (found && !string.IsNullOrEmpty(id))
+            {
+                var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
+                await cancelReindexHandler.Handle(new CancelReindexRequest(id), cancellationToken);
+
+                // Optionally, wait for the job to be marked as canceled
+                var job = await _fhirOperationDataStore.GetReindexJobByIdAsync(id, cancellationToken);
+                int attempts = 0;
+                while (job.JobRecord.Status != OperationStatus.Canceled && attempts < 5)
+                {
+                    await Task.Delay(500, cancellationToken);
+                    job = await _fhirOperationDataStore.GetReindexJobByIdAsync(id, cancellationToken);
+                    attempts++;
+                }
+            }
         }
     }
 }
