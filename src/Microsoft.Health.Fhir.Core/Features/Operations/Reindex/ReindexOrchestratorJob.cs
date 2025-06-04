@@ -210,7 +210,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (!CheckJobRecordForAnyWork())
             {
-                // TODO: Although we have no jobs to process, should be marking any Supported Params as Enabled if we reach this point?
+                // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
+                await UpdateSearchParameterStatus(notYetIndexedParams.Select(p => new JobInfo { Definition = JsonConvert.SerializeObject(new ReindexProcessingJobDefinition { SearchParameterUrls = new List<string> { p.Url.OriginalString } }) }).ToList(), cancellationToken);
                 return null;
             }
 
