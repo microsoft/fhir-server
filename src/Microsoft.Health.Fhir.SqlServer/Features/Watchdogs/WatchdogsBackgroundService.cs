@@ -13,11 +13,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
+    internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await Task.WhenAll(tasks);
         }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;
