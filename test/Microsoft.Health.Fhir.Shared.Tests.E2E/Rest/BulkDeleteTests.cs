@@ -385,6 +385,95 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
+        [SkippableFact]
+        public async Task GivenBulkDeleteRequestWithMultipleExcludedResourceTypes_WhenCompleted_ThenExcludedResourcesAreNotDeleted()
+        {
+            CheckBulkDeleteEnabled();
+
+            string tag = Guid.NewGuid().ToString();
+
+            // Create resources of different types with the same tag
+            var patient = await _fhirClient.CreateResourcesAsync<Patient>(2, tag);
+
+            var observation = Activator.CreateInstance<Observation>();
+            observation.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept("test", "test");
+            await _fhirClient.CreateAsync(observation);
+
+            var location = Activator.CreateInstance<Location>();
+            location.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+
+            await _fhirClient.CreateAsync(location);
+
+            var organization = Activator.CreateInstance<Organization>();
+            organization.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            organization.Active = true;
+            await _fhirClient.CreateAsync(organization);
+
+            // Wait to ensure resources are created before bulk delete
+            await Task.Delay(2000);
+
+            // Create the request with Observation and Location as excluded resource types
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+                RequestUri = new Uri(_httpClient.BaseAddress, QueryHelpers.AddQueryString("$bulk-delete", new Dictionary<string, string>
+                {
+                    { "_tag", tag },
+                    { "excludedResourceTypes", "Observation,Location" },
+                })),
+            };
+            request.Headers.Add(KnownHeaders.Prefer, "respond-async");
+
+            // Send the request
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // Expected deleted resource counts (Observation and Location should not be deleted)
+            var expectedResults = new Dictionary<string, long>
+            {
+                { "Patient", 2 },
+                { "Organization", 1 },
+            };
+
+            // Monitor the job until completion
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // Verify Patient and Organization were deleted (should not be able to find them)
+            var patientResults = await _fhirClient.SearchAsync($"Patient?_tag={tag}");
+            Assert.Empty(patientResults.Resource.Entry);
+
+            var organizationResults = await _fhirClient.SearchAsync($"Organization?_tag={tag}");
+            Assert.Empty(organizationResults.Resource.Entry);
+
+            // Verify Observation was not deleted (should be able to find it)
+            var observationResults = await _fhirClient.SearchAsync($"Observation?_tag={tag}");
+            Assert.Single(observationResults.Resource.Entry);
+
+            // Verify Location was not deleted (should be able to find it)
+            var locationResults = await _fhirClient.SearchAsync($"Location?_tag={tag}");
+            Assert.Single(locationResults.Resource.Entry);
+        }
+
         private async Task RunBulkDeleteRequest(
             Dictionary<string, long> expectedResults,
             bool addUndeletedResource = false,
@@ -525,7 +614,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void CheckBulkDeleteEnabled()
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete"), "$bulk-delete not enabled on this server");
+            var supported = _fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete");
+            Console.WriteLine($"Bulk delete operation supported: {supported}");
+            Skip.IfNot(supported, "$bulk-delete not enabled on this server");
         }
     }
 }

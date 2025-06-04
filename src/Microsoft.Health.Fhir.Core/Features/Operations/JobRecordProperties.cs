@@ -178,5 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string ExpectedResourceCount = "expectedResourceCount";
 
         public const string VersionType = "versionType";
+
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
     }
 }
