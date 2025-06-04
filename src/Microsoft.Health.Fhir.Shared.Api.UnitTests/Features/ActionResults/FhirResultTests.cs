@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -95,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             context.HttpContext.Response.Headers["testKey2"] = "1";
 
             await result.ExecuteResultAsync(context);
+            await context.HttpContext.Response.WriteAsync("trigger response start");
 
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());
