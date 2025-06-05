@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         private static RequestContextAccessor<IFhirRequestContext> GetRequestContext(bool isSmartUserRequest)
         {
-            IFhirRequestContext fhirRequestContext = new FhirRequestContext("foo", "bar", "baz", "foo", requestHeaders: null, responseHeaders: new Dictionary<string, StringValues>());
+            IFhirRequestContext fhirRequestContext = new FhirRequestContext("foo", "bar", "baz", "foo");
             fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = isSmartUserRequest;
             fhirRequestContext.RouteName = "rush";
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = new FhirRequestContextAccessor()

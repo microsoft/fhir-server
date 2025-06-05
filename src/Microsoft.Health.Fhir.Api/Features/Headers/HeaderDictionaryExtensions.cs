@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
@@ -19,6 +22,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// <param name="responseHeaders">The response headers</param>
         /// <param name="retryAfterTimeSpan">The time</param>
         public static void AddRetryAfterHeaders(this IHeaderDictionary responseHeaders, TimeSpan? retryAfterTimeSpan)
+        {
+            AddRetryAfterHeaders(responseHeaders as IDictionary<string, StringValues>, retryAfterTimeSpan);
+        }
+
+        /// <summary>
+        /// Adds x-ms-retry-after-ms and Retry-After response headers. The former is used by Cosmos DB and is expressed in ms, the latter is the W3C standard header and expressed in
+        /// seconds. The seconds will be >= 1 unless the timespan is really 0.
+        /// </summary>
+        /// <param name="responseHeaders">The response headers</param>
+        /// <param name="retryAfterTimeSpan">The time</param>
+        public static void AddRetryAfterHeaders(this IDictionary<string, StringValues> responseHeaders, TimeSpan? retryAfterTimeSpan)
         {
             retryAfterTimeSpan ??= TimeSpan.FromSeconds(1); // in case this is missing, provide some value so we that the header is always there
 

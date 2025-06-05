@@ -36,9 +36,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
                 method: OperationsConstants.Reindex,
                 uriString: "$reindex",
                 baseUriString: "$reindex",
-                correlationId: "id",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>())
+                correlationId: "id")
             {
                 IsBackgroundTask = true,
                 AuditEventType = OperationsConstants.Reindex,

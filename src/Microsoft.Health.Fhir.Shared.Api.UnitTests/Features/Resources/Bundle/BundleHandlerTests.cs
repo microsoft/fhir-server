@@ -528,7 +528,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 {
                     info.Arg<RouteContext>().Handler = context =>
                     {
-                        IHeaderDictionary headers = context.Response.Headers;
+                        IDictionary<string, StringValues> headers = _fhirRequestContext.ResponseHeaders;
                         headers.TryGetValue(headerName, out StringValues existing);
                         headers[headerName] = (existing == default(StringValues) ? 2.0 : double.Parse(existing.ToString()) + 2.0).ToString(CultureInfo.InvariantCulture);
                         return Task.CompletedTask;

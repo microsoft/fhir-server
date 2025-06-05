@@ -146,9 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     method: "Export",
                     uriString: "$export",
                     baseUriString: "$export",
-                    correlationId: _exportJobRecord.Id,
-                    requestHeaders: new Dictionary<string, StringValues>(),
-                    responseHeaders: new Dictionary<string, StringValues>())
+                    correlationId: _exportJobRecord.Id)
                 {
                     IsBackgroundTask = true,
                 };

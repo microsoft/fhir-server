@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly FhirRequestContext _fhirRequestContext;
         private readonly IUrlResolver _urlResolver;
 
         /// <summary>
@@ -96,6 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _fhirRequestContext = (FhirRequestContext)_fhirRequestContextAccessor.RequestContext;
             _urlResolver = urlResolver;
         }
 
@@ -465,7 +467,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (maxDeleteCount.HasValue)
             {
-                Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
+                _fhirRequestContext.ResponseHeaders[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
             }
 
             return FhirResult.NoContent().SetETagHeader(response?.WeakETag);

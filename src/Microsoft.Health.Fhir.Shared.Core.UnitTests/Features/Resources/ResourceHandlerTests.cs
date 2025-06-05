@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
+            contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id");
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
             _resourceIdProvider = new ResourceIdProvider();
 

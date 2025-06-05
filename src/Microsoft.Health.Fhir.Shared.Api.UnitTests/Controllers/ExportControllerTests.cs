@@ -316,9 +316,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                method: "export",
                uriString: "https://test.com/",
                baseUriString: "https://test.com/",
-               correlationId: "export",
-               requestHeaders: new Dictionary<string, StringValues>(),
-               responseHeaders: new Dictionary<string, StringValues>());
+               correlationId: "export");
 
             _urlResolver
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
