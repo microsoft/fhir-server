@@ -23,6 +23,9 @@ COPY .editorconfig \
 COPY ./src/Microsoft.Health.Fhir.ValueSets/Microsoft.Health.Fhir.ValueSets.csproj \
      ./src/Microsoft.Health.Fhir.ValueSets/Microsoft.Health.Fhir.ValueSets.csproj
 
+COPY ./src/Microsoft.Health.Fhir.SourceNodeSerialization/Microsoft.Health.Fhir.SourceNodeSerialization.csproj \
+     ./src/Microsoft.Health.Fhir.SourceNodeSerialization/Microsoft.Health.Fhir.SourceNodeSerialization.csproj
+
 COPY ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj \
      ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj
 

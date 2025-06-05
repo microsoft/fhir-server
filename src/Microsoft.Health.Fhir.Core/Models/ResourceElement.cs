@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.SourceNodeSerialization.SourceNodes;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -33,6 +35,17 @@ namespace Microsoft.Health.Fhir.Core.Models
             Instance = instance;
             _context = new Lazy<EvaluationContext>(() =>
                 new EvaluationContext().WithResourceOverrides(instance));
+
+            Poco = new Lazy<Base>(() =>
+            {
+                if (ResourceInstance is Base resourcePoco)
+                {
+                    return resourcePoco;
+                }
+
+                // Perform conversion from ITypedElement to Base (more expensive)
+                return instance.ToPoco(ModelInfoProvider.Instance.ModelInspector);
+            });
         }
 
         internal ResourceElement(ITypedElement instance, object resourceInstance)
@@ -46,7 +59,14 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         internal object ResourceInstance { get; }
 
+        internal bool IsJsonNode => ResourceInstance is IResourceNode;
+
         public ITypedElement Instance { get; }
+
+        /// <summary>
+        /// Provides a lazy-loaded POCO representation of the resource (this might perform an initial conversion, so is more expensive)
+        /// </summary>
+        public Lazy<Base> Poco { get; }
 
         public string Id => Scalar<string>("Resource.id");
 

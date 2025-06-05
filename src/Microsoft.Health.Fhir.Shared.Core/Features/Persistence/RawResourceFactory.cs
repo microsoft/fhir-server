@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SourceNodeSerialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -35,6 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
+            if (resource.IsJsonNode)
+            {
+                return CreateJsonNode(resource, keepMeta, keepVersion);
+            }
+
             var poco = resource.ToPoco<Resource>();
 
             poco.Meta = poco.Meta ?? new Meta();
@@ -54,6 +60,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
 
                 return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, keepMeta);
+            }
+            finally
+            {
+                if (!keepMeta)
+                {
+                    poco.Meta.VersionId = versionId;
+                }
+            }
+        }
+
+        private static RawResource CreateJsonNode(ResourceElement resource, bool keepMeta, bool keepVersion)
+        {
+            var poco = resource.ToJsonNode();
+
+            var versionId = poco.Meta.VersionId;
+
+            try
+            {
+                // Clear meta version if keepMeta is false since this is set based on generated values when saving the resource
+                if (!keepMeta)
+                {
+                    poco.Meta.VersionId = null;
+                }
+                else if (!keepVersion)
+                {
+                    // Assume it's 1, though it may get changed by the database.
+                    poco.Meta.VersionId = "1";
+                }
+
+                return new RawResource(poco.SerializeToString(), FhirResourceFormat.Json, keepMeta);
             }
             finally
             {

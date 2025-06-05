@@ -10,6 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core
         public VersionInfo SupportedVersion { get; } = new VersionInfo(ModelInfo.Version);
 
         public IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider { get; } = new PocoStructureDefinitionSummaryProvider();
+
+        public ModelInspector ModelInspector => ModelInfo.ModelInspector;
 
         public string GetFhirTypeNameForType(Type type)
         {
