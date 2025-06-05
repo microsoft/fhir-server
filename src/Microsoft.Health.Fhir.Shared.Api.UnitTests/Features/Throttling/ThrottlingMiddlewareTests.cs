@@ -261,9 +261,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
+            FhirRequestContextAccessor fhirRequestContextAccessor = GetFhirRequestContextAccessor();
+
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
-                GetFhirRequestContextAccessor(),
+                fhirRequestContextAccessor,
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 NullLogger<ThrottlingMiddleware>.Instance);
@@ -272,8 +274,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             await _httpContext.Response.WriteAsync("trigger response start");
 
             Assert.Equal(429, _httpContext.Response.StatusCode);
-            Assert.True(_httpContext.Response.Headers.TryGetValue("Retry-After", out var values));
-            Assert.Equal("1", values.ToString());
+            Assert.False(_httpContext.Response.Headers.TryGetValue("Retry-After", out var values));
+            Assert.True(fhirRequestContextAccessor.RequestContext.ResponseHeaders.TryGetValue("Retry-After", out var values1));
+            Assert.Equal("1", values1.ToString());
         }
 
         [Theory]
