@@ -52,8 +52,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
             await httpContext.Response.WriteAsync("trigger response start");
 
-            Assert.True(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
-            Assert.Equal(new StringValues(expectedRequestId), value);
+            Assert.False(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
+            Assert.True(fhirRequestContextAccessor.RequestContext.ResponseHeaders.TryGetValue("X-Request-Id", out StringValues value1));
+            Assert.Equal(new StringValues(expectedRequestId), value1);
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
