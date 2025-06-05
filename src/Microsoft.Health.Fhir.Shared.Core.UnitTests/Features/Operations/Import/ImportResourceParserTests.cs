@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     {
         private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();
 
-        private readonly FhirJsonParser _jsonParser = new();
+        private readonly FhirJsonPocoDeserializer _jsonParser = new(new FhirJsonPocoDeserializerSettings { Validator = null });
 
         private readonly ResourceWrapperFactory _wrapperFactory;
 
