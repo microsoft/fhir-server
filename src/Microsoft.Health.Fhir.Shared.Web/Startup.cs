@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AsSelf();
             services.AddFactory<IScoped<JobHosting>>();
 
-            services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<StorageInitializedNotification>>()
+            services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<HostingBackgroundService>()
                 .Singleton()
                 .AsSelf()
