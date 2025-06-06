@@ -22,6 +22,7 @@ internal class JsonElementSourceNode : ISourceNode, IResourceTypeSupplier, IAnno
     private readonly int? _arrayIndex;
     private readonly JsonElement? _valueElement;
     private Dictionary<string, Lazy<IEnumerable<ISourceNode>>> _cachedNodes;
+    internal const char ChoiceTypeSuffix = '*';
 
     private JsonElementSourceNode(JsonElement? valueElement, JsonElement? contentElement, string name, int? arrayIndex, string location)
     {
@@ -104,7 +105,21 @@ internal class JsonElementSourceNode : ISourceNode, IResourceTypeSupplier, IAnno
             return _cachedNodes.SelectMany(x => x.Value.Value);
         }
 
-        return _cachedNodes.TryGetValue(name, out Lazy<IEnumerable<ISourceNode>> nodes) ? nodes.Value : [];
+        if (name.EndsWith(ChoiceTypeSuffix))
+        {
+            string matchPrefix = name.TrimEnd(ChoiceTypeSuffix);
+            return _cachedNodes
+                .Where(x => x.Key.StartsWith(matchPrefix, StringComparison.Ordinal))
+                .SelectMany(x => x.Value.Value)
+                .ToArray();
+        }
+
+        if (_cachedNodes.TryGetValue(name, out Lazy<IEnumerable<ISourceNode>> exactMatch))
+        {
+            return exactMatch.Value;
+        }
+
+        return [];
     }
 
     internal static JsonElementSourceNode FromRoot(JsonElement rootNode, string name = "")

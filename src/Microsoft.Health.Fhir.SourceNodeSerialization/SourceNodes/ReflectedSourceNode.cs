@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
@@ -52,26 +53,58 @@ internal class ReflectedSourceNode : BaseSourceNode<IExtensionData>
                 {
                     list.Add((propName, new Lazy<IEnumerable<ISourceNode>>(() => [new ReflectedSourceNode((IExtensionData)thisProp.GetValue(Resource), $"{Location}.{propName}", propName)])));
                 }
+                else if (typeof(ICollection).IsAssignableFrom(thisProp.PropertyType))
+                {
+                    var value = (ICollection)thisProp.GetValue(Resource);
+                    if (value == null)
+                    {
+                        continue;
+                    }
+
+                    list.Add((propName, new Lazy<IEnumerable<ISourceNode>>(() =>
+                        {
+                            var propertyList = new List<ISourceNode>();
+
+                            foreach (var item in value)
+                            {
+                                if (item is IExtensionData extensionData)
+                                {
+                                    propertyList.Add(new ReflectedSourceNode(extensionData, $"{Location}.{propName}", propName));
+                                }
+                                else
+                                {
+                                    propertyList.Add(FhirStringSourceNode(thisProp, propName));
+                                }
+                            }
+
+                            return propertyList;
+                        })));
+                }
                 else
                 {
-                    list.Add((propName, new Lazy<IEnumerable<ISourceNode>>(() => [new FhirStringSourceNode(
-                        () =>
-                        {
-                            var value = thisProp.GetValue(Resource);
-                            return value switch
-                            {
-                                null => null,
-                                string valueStr => valueStr,
-                                _ => PrimitiveTypeConverter.ConvertTo<string>(value),
-                            };
-                        },
-                        propName,
-                        $"{Location}.{propName}")])));
+                    list.Add((propName, new Lazy<IEnumerable<ISourceNode>>(() => [FhirStringSourceNode(thisProp, propName)])));
                 }
             }
 
             return list;
         });
+
+        FhirStringSourceNode FhirStringSourceNode(PropertyDescriptor thisProp, string propName)
+        {
+            return new FhirStringSourceNode(
+                () =>
+                {
+                    var value = thisProp.GetValue(Resource);
+                    return value switch
+                    {
+                        null => null,
+                        string valueStr => valueStr,
+                        _ => PrimitiveTypeConverter.ConvertTo<string>(value),
+                    };
+                },
+                propName,
+                $"{Location}.{propName}");
+        }
     }
 
     public override string Name { get; }

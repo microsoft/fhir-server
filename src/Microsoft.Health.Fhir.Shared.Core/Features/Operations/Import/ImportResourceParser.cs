@@ -11,12 +11,14 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SourceNodeSerialization;
+using Microsoft.Health.Fhir.SourceNodeSerialization.Extensions;
 using Microsoft.Health.Fhir.SourceNodeSerialization.SourceNodes.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
@@ -38,11 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = JsonSourceNodeFactory.ParseJsonNode<ResourceJsonNode>(rawResource);
+            var resource = ResourceJsonNode.Parse(rawResource);
 
             ValidateResourceId(resource?.Id);
-
-            // CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
             {
@@ -66,43 +66,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 keepVersion = false;
             }
 
+            // Returns true if the extension was removed, false if it was not present.
+            var isDeleted = resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
+
             var resourceElement = resource
                 .ToResourceElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
-            var isDeleted = resourceElement.IsSoftDeleted();
-
-            if (isDeleted)
-            {
-                // Not implemented in ResourceNode parser yet...
-                // resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
-            }
+            CheckConditionalReferenceInResourceJsonNode(resourceElement, importMode);
 
             var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWapper);
         }
 
-        private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)
+        private static void CheckConditionalReferenceInResourceJsonNode(ResourceElement resource, ImportMode importMode)
         {
-            /*if (importMode == ImportMode.IncrementalLoad)
+            if (importMode == ImportMode.IncrementalLoad)
             {
                 return;
-            }*/
+            }
 
-            // Not implemented in ResourceNode parser yet...
-            /*IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
-            foreach (ResourceReference reference in references)
+            IEnumerable<(string Path, string ReferenceValue)> references = resource.Instance.GetReferenceValues();
+            foreach (var reference in references)
             {
-                if (string.IsNullOrWhiteSpace(reference.Reference))
+                if (string.IsNullOrWhiteSpace(reference.ReferenceValue))
                 {
                     continue;
                 }
 
-                if (reference.Reference.Contains('?', StringComparison.Ordinal))
+                if (reference.ReferenceValue.Contains('?', StringComparison.Ordinal))
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
-            }*/
+            }
         }
 
         private static void ValidateResourceId(string resourceId)

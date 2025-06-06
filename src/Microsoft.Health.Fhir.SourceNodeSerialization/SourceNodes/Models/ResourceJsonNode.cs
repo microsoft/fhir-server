@@ -17,17 +17,30 @@ public class ResourceJsonNode : IExtensionData, IResourceNode
     [JsonPropertyName("resourceType")]
     public string ResourceType { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("id")]
     public string Id { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("meta")]
     public MetaJsonNode Meta { get; set; } = new();
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement> ExtensionData { get; set; }
 
+    /// <summary>
+    /// Wraps the JSON representation of the resource in an ISourceNode.
+    /// </summary>
     public ISourceNode ToSourceNode()
     {
         return new ReflectedSourceNode(this, null);
+    }
+
+    /// <summary>
+    /// Uses System.Text.Json to parse a JSON string into a ResourceJsonNode.
+    /// </summary>
+    public static ResourceJsonNode Parse(string json)
+    {
+        return JsonSourceNodeFactory.ParseJsonNode<ResourceJsonNode>(json);
     }
 }

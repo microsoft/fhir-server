@@ -56,6 +56,16 @@ public abstract class BaseSourceNode<T> : ISourceNode, IResourceTypeSupplier, IA
             return _cachedNodes.SelectMany(x => x.Node.Value);
         }
 
+        if (name.EndsWith(JsonElementSourceNode.ChoiceTypeSuffix))
+        {
+            // e.g. value* which should return valueString etc.
+            string matchPrefix = name.TrimEnd(JsonElementSourceNode.ChoiceTypeSuffix);
+            return _cachedNodes
+                .Where(x => x.Name.StartsWith(matchPrefix, StringComparison.Ordinal))
+                .SelectMany(x => x.Node.Value)
+                .ToArray();
+        }
+
         return _cachedNodes
             .Where(x => string.Equals(name, x.Name, StringComparison.Ordinal))
             .SelectMany(x => x.Node.Value);
