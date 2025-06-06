@@ -115,7 +115,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
                  HttpContext.RequestAborted,
                  importRequest.AllowNegativeVersions,
-                 importRequest.ErrorContainerName);
+                 importRequest.ErrorContainerName,
+                 importRequest.EventualConsistency);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);

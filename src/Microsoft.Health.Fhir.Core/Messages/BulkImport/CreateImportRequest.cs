@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
             bool allowNegativeVersions = false,
-            string errorContainerName = null)
+            string errorContainerName = null,
+            bool eventualConsistency = false)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             ImportMode = importMode;
             AllowNegativeVersions = allowNegativeVersions;
             ErrorContainerName = errorContainerName;
+            EventualConsistency = eventualConsistency;
         }
 
         /// <summary>
@@ -78,5 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Custom container name for error logs. If not specified, the default container will be used.
         /// </summary>
         public string ErrorContainerName { get; }
+
+        /// <summary>
+        /// Flag indicating whether FHIR index updates are handled in the same SQL transaction with Resource inserts.
+        /// Flag is relevant only for resource creates. Default value is false.
+        /// </summary>
+        public bool EventualConsistency { get; set; }
     }
 }

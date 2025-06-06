@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, retries == 0, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, retries == 0, false, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -167,13 +167,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, CancellationToken cancellationToken)
+        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
             {
                 return results;
             }
+
+            var singleTransaction = enlistInTransaction || !eventualConsistency;
 
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
@@ -187,7 +189,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
-            var singleTransaction = enlistInTransaction;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
                 var resource = resourceExt.Wrapper;
@@ -388,7 +389,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
+                            {
+                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            }
+
                             throw;
                         }
                     }
@@ -402,7 +407,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
-        internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken)
+        internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             if (resources.Count == 0) // do not go to the database
             {
@@ -693,7 +698,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
             {
                 var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, cancellationToken);
+                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, cancellationToken);
             }
         }
 

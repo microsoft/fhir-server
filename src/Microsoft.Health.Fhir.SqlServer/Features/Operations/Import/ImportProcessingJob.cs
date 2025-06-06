@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
-                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, definition.AllowNegativeVersions, cancellationToken);
+                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, definition.AllowNegativeVersions, definition.EventualConsistency, cancellationToken);
 
                 result.SucceededResources = importProgress.SucceededResources;
                 result.FailedResources = importProgress.FailedResources;
