@@ -56,7 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
 
-            Assert.Null(result);
+            Assert.NotNull(result?.Outcome);
+            Assert.Equal(SaveOutcomeType.MatchFound, result.Outcome.Outcome);
 
             await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
         }

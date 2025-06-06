@@ -48,7 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
         public override Task<UpsertResourceResponse> HandleSingleMatch(ConditionalCreateResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            return Task.FromResult<UpsertResourceResponse>(null);
+            var saveOutcome = new SaveOutcome(new Models.RawResourceElement(match.Resource), SaveOutcomeType.MatchFound);
+            return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
         }
     }
 }

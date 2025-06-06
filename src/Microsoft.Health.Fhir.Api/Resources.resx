@@ -432,4 +432,10 @@
   <data name="NonroutableHost" xml:space="preserve">
     <value>The request host cannot be used as it is not routable.</value>
   </data>
+  <data name="ConditionalCreateResourceCreated" xml:space="preserve">
+    <value>A new resource was created.</value>
+  </data>
+  <data name="ConditionalCreateResourceAlreadyExists" xml:space="preserve">
+    <value>The resource already exists.</value>
+  </data>
 </root>
