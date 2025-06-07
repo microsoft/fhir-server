@@ -42,7 +42,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable. Justification: SQLServerFhirModel is maintained in memory during all process execution.
     public sealed class SqlServerFhirModel : ISqlServerFhirModel
+#pragma warning restore CA1001
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;

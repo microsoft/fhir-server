@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -20,18 +20,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
     {
         private readonly ILogger _logger = Substitute.For<ILogger>();
 
+        private const int Megabyte = 1 * 1024 * 1024;
         private const string DefaultKey = "key";
         private const string DefaultValue = "value";
 
         [Theory]
-        [InlineData(01, 01 * 1024 * 1024)]
-        [InlineData(14, 14 * 1024 * 1024)]
-        [InlineData(55, 55 * 1024 * 1024)]
-        public void GivenAnEmptyCache_CheckTheCacheMemoryLimit(int limitSizeInMegabytes, long expectedLimitSizeInBytes)
+        [InlineData(01 * Megabyte)]
+        [InlineData(14 * Megabyte)]
+        [InlineData(55 * Megabyte)]
+        public void GivenAnEmptyCache_CheckTheCacheMemoryLimit(long expectedLimitSizeInBytes)
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes, TimeSpan.FromMinutes(1), _logger);
+            var cache = new FhirMemoryCache<string>(name: "cache", limitSizeInBytes: expectedLimitSizeInBytes, entryExpirationTime: TimeSpan.FromMinutes(1), _logger);
 
             Assert.Equal(expectedLimitSizeInBytes, cache.CacheMemoryLimit);
+        }
+
+        [Fact]
+        public void GivenACache_DoNotPassTheLimitInBytes_WhenTheTotalNumberOfAttemptsIsHigherThanTheSupported()
+        {
+            const int maxNumberOfAttempts = 15000;
+
+            long totalSizeAttemptedToBeAddedToCache = 0;
+
+            const long maxCacheSize = Megabyte;
+
+            var cache = new FhirMemoryCache<int>(name: "cache", limitSizeInBytes: maxCacheSize, entryExpirationTime: TimeSpan.FromMinutes(10), _logger);
+
+            long maxNumberOfElements = -1;
+            for (var i = 0; i < maxNumberOfAttempts; i++)
+            {
+                string key = Guid.NewGuid().ToString();
+                int newEntrySize = ASCIIEncoding.Unicode.GetByteCount(key) + sizeof(int);
+
+                bool ingested = cache.TryAdd(key, 2112);
+                if (ingested == true)
+                {
+                    maxNumberOfElements = cache.Count;
+                }
+
+                totalSizeAttemptedToBeAddedToCache += newEntrySize;
+
+                if (!ingested)
+                {
+                    // Ensure requests to non-existing values do not crash.
+                    Assert.Equal(default(int), cache.Get(key));
+                    Assert.False(cache.TryGet(key, out int defaultValue));
+                }
+            }
+
+            // Ensure number of elements is lower than the number of attempts, as new entries were rejected due max size.
+            Assert.True(maxNumberOfElements < maxNumberOfAttempts);
+
+            // Ensure size of attempts is higher than limit.
+            Assert.True(totalSizeAttemptedToBeAddedToCache > cache.CacheMemoryLimit);
         }
 
         [Fact]
@@ -40,21 +81,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Throws<ArgumentNullException>(
                 () => new FhirMemoryCache<string>(
                     null,
-                    limitSizeInMegabytes: 0,
+                    limitSizeInBytes: 0,
                     TimeSpan.FromMinutes(1),
                     _logger));
 
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => new FhirMemoryCache<string>(
                     Guid.NewGuid().ToString(),
-                    limitSizeInMegabytes: 0,
+                    limitSizeInBytes: 0,
                     TimeSpan.FromMinutes(1),
                     _logger));
 
             Assert.Throws<ArgumentNullException>(
                 () => new FhirMemoryCache<string>(
                     Guid.NewGuid().ToString(),
-                    limitSizeInMegabytes: 1,
+                    limitSizeInBytes: Megabyte,
                     TimeSpan.FromMinutes(1),
                     null));
 
@@ -96,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseEnabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger, ignoreCase: true);
+            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInBytes: Megabyte, TimeSpan.FromMinutes(1), _logger, ignoreCase: true);
 
             cache.GetOrAdd(DefaultKey, DefaultValue);
 
@@ -148,28 +189,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 
             Assert.True(cache.TryGet(DefaultKey, out var result));
             Assert.Equal(DefaultValue, result);
+            Assert.Equal(1, cache.Count);
         }
 
         [Fact]
-        public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOut()
+        public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingGet()
         {
             var cache = CreateRegularMemoryCache<string>();
 
             cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet(DefaultKey, out var result));
-            Assert.Equal(DefaultValue, result);
+            Assert.NotNull(cache.Get(DefaultKey));
+            Assert.Equal(DefaultValue, cache.Get(DefaultKey));
+            Assert.Equal(1, cache.Count);
         }
 
         [Fact]
-        public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOutAndValue()
+        public void GivenAnEmptyCache_WorkForSupportedTypes()
         {
-            var cache = CreateRegularMemoryCache<string>();
+            var cache1 = CreateRegularMemoryCache<string>();
+            cache1.TryAdd(DefaultKey, "foo");
+            Assert.Equal(1, cache1.Count);
 
-            cache.GetOrAdd(DefaultKey, DefaultValue);
+            var cache2 = CreateRegularMemoryCache<int>();
+            cache2.TryAdd(DefaultKey, 1);
+            Assert.Equal(1, cache2.Count);
 
-            Assert.True(cache.TryGet(DefaultKey, out var result));
-            Assert.Equal(DefaultValue, result);
+            var cache3 = CreateRegularMemoryCache<long>();
+            cache3.TryAdd(DefaultKey, 1);
+            Assert.Equal(1, cache3.Count);
+
+            var cache4 = CreateRegularMemoryCache<byte[]>();
+            cache4.TryAdd(DefaultKey, new byte[] { 0 });
+            Assert.Equal(1, cache4.Count);
         }
 
         [Fact]
@@ -186,9 +238,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.False(cache.TryGet(DefaultKey, out result));
         }
 
-        private IMemoryCache<T> CreateRegularMemoryCache<T>()
+        private IFhirMemoryCache<T> CreateRegularMemoryCache<T>()
         {
-            return new FhirMemoryCache<T>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
+            return new FhirMemoryCache<T>(name: "cache", limitSizeInBytes: Megabyte, entryExpirationTime: TimeSpan.FromMinutes(10), _logger);
         }
     }
 }
