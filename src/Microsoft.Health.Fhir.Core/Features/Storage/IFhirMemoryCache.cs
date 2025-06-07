@@ -7,9 +7,11 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
-    public interface IMemoryCache<T>
+    public interface IFhirMemoryCache<T>
     {
         long CacheMemoryLimit { get; }
+
+        long Count { get; }
 
         T GetOrAdd(string key, T value);
 
