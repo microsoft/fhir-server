@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                 int newEntrySize = ASCIIEncoding.Unicode.GetByteCount(key) + sizeof(int);
 
                 bool ingested = cache.TryAdd(key, 2112);
-                if (ingested == true)
+                if (ingested)
                 {
                     maxNumberOfElements = cache.Count;
                 }
