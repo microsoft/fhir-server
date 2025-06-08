@@ -39,14 +39,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         public void GivenACache_DoNotPassTheLimitInBytes_WhenTheTotalNumberOfAttemptsIsHigherThanTheSupported()
         {
             const int maxNumberOfAttempts = 15000;
-
-            long totalSizeAttemptedToBeAddedToCache = 0;
-
             const long maxCacheSize = Megabyte;
 
             var cache = new FhirMemoryCache<int>(name: "cache", limitSizeInBytes: maxCacheSize, entryExpirationTime: TimeSpan.FromMinutes(10), _logger);
 
+            long totalSizeAttemptedToBeAddedToCache = 0;
+            int notIngestedElements = 0;
             long maxNumberOfElements = -1;
+
             for (var i = 0; i < maxNumberOfAttempts; i++)
             {
                 string key = Guid.NewGuid().ToString();
@@ -62,6 +62,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 
                 if (!ingested)
                 {
+                    notIngestedElements++;
+
                     // Ensure requests to non-existing values do not crash.
                     Assert.Equal(default(int), cache.Get(key));
                     Assert.False(cache.TryGet(key, out int defaultValue));
@@ -69,10 +71,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             }
 
             // Ensure number of elements is lower than the number of attempts, as new entries were rejected due max size.
-            Assert.True(maxNumberOfElements < maxNumberOfAttempts);
+            Assert.True(maxNumberOfElements < maxNumberOfAttempts, "In this test not all elements should be ingested, as the memory limit should be reached.");
 
             // Ensure size of attempts is higher than limit.
-            Assert.True(totalSizeAttemptedToBeAddedToCache > cache.CacheMemoryLimit);
+            Assert.True(totalSizeAttemptedToBeAddedToCache > cache.CacheMemoryLimit, "In this test, the attempts of additions should be higher than the max allowed size limit.");
         }
 
         [Fact]
