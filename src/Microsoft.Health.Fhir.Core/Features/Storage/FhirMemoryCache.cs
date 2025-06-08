@@ -130,14 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             key = FormatKey(key);
             object cachedValue = _cache.Get(key);
 
-            if (cachedValue == null)
-            {
-                return default(T);
-            }
-            else
-            {
-                return (T)cachedValue;
-            }
+            return cachedValue == null ? default(T) : (T)cachedValue;
         }
 
         /// <summary>
