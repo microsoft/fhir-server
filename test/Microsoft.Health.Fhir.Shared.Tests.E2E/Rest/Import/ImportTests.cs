@@ -57,8 +57,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_WithExceptionOnDate_ImportShouldFail_ButIndexesShouldLoadedByTransactionWatchdog()
+        [Theory]
+        [InlineData(false)] // eventualConsistency=false
+        [InlineData(true)] // eventualConsistency=true
+        public async Task GivenIncremental_WithExceptionOnDate_ImportShouldFail_AndResourcesShouldBeCommittedDependingOnConsistencyLevel(bool eventualConsistency)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -66,7 +68,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             ExecuteSql("IF object_id('DateTimeSearchParam_Trigger') IS NOT NULL DROP TRIGGER DateTimeSearchParam_Trigger");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
 
@@ -80,7 +81,7 @@ RAISERROR('TestError',18,127)
 
                 var id = Guid.NewGuid().ToString("N");
                 var ndJson = CreateTestPatient(id, birhDate: "2000-01-01");
-                var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, eventualConsistency: true);
+                var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, eventualConsistency: eventualConsistency);
                 var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
                 var jobId = long.Parse(checkLocation.LocalPath.Split('/').Last());
                 var message = await ImportWaitAsync(checkLocation, false);
@@ -88,17 +89,27 @@ RAISERROR('TestError',18,127)
                 var result = (string)ExecuteSql($"SELECT Result FROM dbo.JobQueue WHERE QueueType = 2 AND Status = 3 AND GroupId = {jobId}");
                 Assert.Contains("TestError", result); // job result should contain all details
                 ExecuteSql("DROP TRIGGER DateTimeSearchParam_Trigger");
-                //// we should be able to get resource by id
-                var resourceSurrogateId = (long)ExecuteSql($"SELECT ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = 103 AND ResourceId = '{id}'");
-                Assert.True(resourceSurrogateId > 0);
-                //// but not by date
+
+                // with eventual consistency we should be able to get resource by id
+                var resourceSurrogateId = (long)ExecuteSql($"SELECT isnull((SELECT ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = 103 AND ResourceId = '{id}'),0)");
+                if (eventualConsistency)
+                {
+                    Assert.True(resourceSurrogateId > 0);
+                }
+                else
+                {
+                    Assert.True(resourceSurrogateId == 0);
+                    return;
+                }
+
+                // but not by date
                 var cnt = (int)ExecuteSql($"SELECT count(*) FROM dbo.DateTimeSearchParam WHERE ResourceTypeId = 103 AND ResourceSurrogateId = {resourceSurrogateId}");
                 Assert.Equal(0, cnt);
 
                 // Watchdog should update indexes in 63 seconds
                 var sw = Stopwatch.StartNew();
                 while ((int)ExecuteSql($"SELECT count(*) FROM dbo.DateTimeSearchParam WHERE ResourceTypeId = 103 AND ResourceSurrogateId = {resourceSurrogateId}") == 0
-                       && sw.Elapsed.Seconds < 100)
+                       && sw.Elapsed.TotalSeconds < 100)
                 {
                     await Task.Delay(1000);
                 }
