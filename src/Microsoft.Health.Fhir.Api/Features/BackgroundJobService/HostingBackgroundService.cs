@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.JobManagement;
 
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// <summary>
     /// The background service used to host the <see cref="JobHosting"/>.
     /// </summary>
-    public class HostingBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
+    public class HostingBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly IScopeProvider<JobHosting> _jobHostingFactory;
         private readonly OperationsConfiguration _operationsConfiguration;
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;
