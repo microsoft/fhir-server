@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
     {
         private const int DefaultLimitSizeInBytes = 50 * 1024 * 1024;
         private const int DefaultExpirationTimeInMinutes = 24 * 60;
+        private const double DefaultCompactionPercentage = 0.05;
 
         private readonly string _cacheName;
         private readonly ILogger _logger;
@@ -35,7 +36,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         {
         }
 
-        public FhirMemoryCache(string name, long limitSizeInBytes, TimeSpan entryExpirationTime, ILogger logger, bool ignoreCase = false)
+        public FhirMemoryCache(
+            string name,
+            long limitSizeInBytes,
+            TimeSpan entryExpirationTime,
+            ILogger logger,
+            bool ignoreCase = false,
+            double compactionPercentage = DefaultCompactionPercentage)
         {
             EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsGt(limitSizeInBytes, 0, nameof(limitSizeInBytes));
@@ -46,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             _cacheOptions = new MemoryCacheOptions()
             {
                 SizeLimit = limitSizeInBytes, // Sets the maximum size of the cache.
+                CompactionPercentage = compactionPercentage, // Sets the amount the cache is compacted by when the maximum size is exceeded.
             };
 
             _cache = new MemoryCache(Options.Create(_cacheOptions));
@@ -56,6 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             _disposed = false;
         }
+
+        public string Name => _cacheName;
+
+        public double CompactionPercentage => _cacheOptions.CompactionPercentage;
 
         public long CacheMemoryLimit => _cacheOptions.SizeLimit ?? 0;
 
@@ -69,6 +81,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Value in cache</returns>
         public T GetOrAdd(string key, T value)
         {
+            return GetOrAdd(key, value, FhirMemoryCacheItemPriority.Normal);
+        }
+
+        /// <summary>
+        /// Get or add the value to cache.
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <param name="value">Value</param>
+        /// <param name="priority">Priority</param>
+        /// <returns>Value in cache</returns>
+        public T GetOrAdd(string key, T value, FhirMemoryCacheItemPriority priority)
+        {
             CheckDisposed();
 
             EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
@@ -81,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             T cachedValue = _cache.GetOrCreate(key, entry =>
             {
-                MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(size: SizeOfEntryInCache(key, value));
+                MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(SizeOfEntryInCache(key, value), priority);
                 SetEntryPolicy(entry, newCacheEntryPolicy);
 
                 return value;
@@ -98,6 +122,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Returns true if the item was added to the cache, returns false if there is an item with the same key in cache.</returns>
         public bool TryAdd(string key, T value)
         {
+            return TryAdd(key, value, FhirMemoryCacheItemPriority.Normal);
+        }
+
+        /// <summary>
+        /// Add the value to cache if it does not exist.
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <param name="value">Value</param>
+        /// <param name="priority">Priority</param>
+        /// <returns>Returns true if the item was added to the cache, returns false if there is an item with the same key in cache.</returns>
+        public bool TryAdd(string key, T value, FhirMemoryCacheItemPriority priority)
+        {
             CheckDisposed();
 
             EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
@@ -108,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             key = FormatKey(key);
 
-            MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(size: SizeOfEntryInCache(key, value));
+            MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(SizeOfEntryInCache(key, value), priority);
 
             _cache.Set<T>(key, value, newCacheEntryPolicy);
 
@@ -219,11 +255,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             entry.Priority = options.Priority;
         }
 
-        private MemoryCacheEntryOptions GetDefaultCacheItemPolicy(long size) => new MemoryCacheEntryOptions()
+        private static CacheItemPriority ParsePriority(FhirMemoryCacheItemPriority itemPriority)
+        {
+            // Using a switch/case for safer parse logic, instead of int mapping.
+            switch (itemPriority)
+            {
+                case FhirMemoryCacheItemPriority.Low:
+                    return CacheItemPriority.Low;
+                case FhirMemoryCacheItemPriority.Normal:
+                    return CacheItemPriority.Normal;
+                case FhirMemoryCacheItemPriority.High:
+                    return CacheItemPriority.High;
+                case FhirMemoryCacheItemPriority.NeverRemove:
+                    return CacheItemPriority.NeverRemove;
+                default:
+                    throw new InvalidOperationException("Unknown priority for a memory cache item.");
+            }
+        }
+
+        private MemoryCacheEntryOptions GetDefaultCacheItemPolicy(long size, FhirMemoryCacheItemPriority priority) => new MemoryCacheEntryOptions()
         {
             AbsoluteExpirationRelativeToNow = _entryExpirationTime,
             Size = size, // Defines the size of the new entry being added to cache.
-            Priority = CacheItemPriority.Normal,
+            Priority = ParsePriority(priority),
         };
 
         private void Dispose(bool disposing)

@@ -36,45 +36,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenACache_DoNotPassTheLimitInBytes_WhenTheTotalNumberOfAttemptsIsHigherThanTheSupported()
+        public void GivenACacheWithCompressionPercentageZero_DoNotAddMoreElements_WhenTheTotalNumberCacheLimitIsReached()
         {
+            // In this test, a few behaviors are validated:
+            // - Compaction percentage is set to ZERO - as a validation, a ZERO compaction percentage should not reduce the cache size once is full.
+            // - No more elements should be added after the max cache size is reached.
+            // - At the end of the test all elements should still be present in cache, even if with different priorities.
+
             const int maxNumberOfAttempts = 15000;
             const long maxCacheSize = Megabyte;
 
-            var cache = new FhirMemoryCache<int>(name: "cache", limitSizeInBytes: maxCacheSize, entryExpirationTime: TimeSpan.FromMinutes(10), _logger);
+            var cache = new FhirMemoryCache<int>(
+                name: "cache",
+                limitSizeInBytes: maxCacheSize,
+                entryExpirationTime: TimeSpan.FromMinutes(10),
+                _logger,
+                compactionPercentage: 0);
 
+            long totalSizeAddedToCache = 0;
             long totalSizeAttemptedToBeAddedToCache = 0;
+            int ingestedElements = 0;
             int notIngestedElements = 0;
-            long maxNumberOfElements = -1;
 
             for (var i = 0; i < maxNumberOfAttempts; i++)
             {
                 string key = Guid.NewGuid().ToString();
                 int newEntrySize = ASCIIEncoding.Unicode.GetByteCount(key) + sizeof(int);
 
-                bool ingested = cache.TryAdd(key, 2112);
-                if (ingested)
-                {
-                    maxNumberOfElements = cache.Count;
-                }
+                bool ingested = cache.TryAdd(key, 2112, (FhirMemoryCacheItemPriority)(i % 4));
 
                 totalSizeAttemptedToBeAddedToCache += newEntrySize;
 
-                if (!ingested)
+                if (ingested)
+                {
+                    if (notIngestedElements > 0)
+                    {
+                        // Ensuring that, once an element is refused, no new elements are added.
+                        // As this is a test, and all elements have the same size, this is an expected behavior.
+                        // But in real production scenarios, as the size of elements can vary and the compression percentage is not zero, then new elements could be added.
+                        Assert.Fail("Once the cache refuses elements (due the total size reached) then no new elements should be added");
+                    }
+
+                    ingestedElements++;
+                    totalSizeAddedToCache += newEntrySize;
+                }
+                else
                 {
                     notIngestedElements++;
 
                     // Ensure requests to non-existing values do not crash.
                     Assert.Equal(default(int), cache.Get(key));
                     Assert.False(cache.TryGet(key, out int defaultValue));
+
+                    // Validates the attempts vs limit.
+                    Assert.True(totalSizeAttemptedToBeAddedToCache > cache.CacheMemoryLimit, "If element is rejected, then total size attempted to be added must be higher than cache memory limit.");
                 }
             }
 
-            // Ensure number of elements is lower than the number of attempts, as new entries were rejected due max size.
-            Assert.True(maxNumberOfElements < maxNumberOfAttempts, "In this test not all elements should be ingested, as the memory limit should be reached.");
-
-            // Ensure size of attempts is higher than limit.
-            Assert.True(totalSizeAttemptedToBeAddedToCache > cache.CacheMemoryLimit, "In this test, the attempts of additions should be higher than the max allowed size limit.");
+            Assert.True(ingestedElements == cache.Count, "Ingested elements should be equal to cache size.");
+            Assert.True(ingestedElements < maxNumberOfAttempts, "In this test not all elements should be ingested, as the memory limit should be reached.");
+            Assert.True(ingestedElements + notIngestedElements == maxNumberOfAttempts);
+            Assert.True(totalSizeAddedToCache <= maxCacheSize, "In this test the total size added to cache should be lower than the max allowed cache size.");
         }
 
         [Fact]
