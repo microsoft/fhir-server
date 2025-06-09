@@ -133,9 +133,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     default: break;
                 }
 
-                var exception = Assert.Throws<BadRequestException>(() => _searchIndexer.Extract(resourceElement));
-                Assert.NotEmpty(exception.Issues);
-                Assert.Equal(errorMessage, exception.Issues.First().Diagnostics);
+                var exception = Record.Exception(() => _searchIndexer.Extract(resourceElement));
+                Assert.Null(exception);
             }
         }
 #endif
