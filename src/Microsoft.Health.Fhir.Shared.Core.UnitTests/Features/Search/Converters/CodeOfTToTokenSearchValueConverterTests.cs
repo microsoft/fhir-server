@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             await Test(
                 code => code.Value = null,
                 ValidateNull,
-                new Code<ResourceType>(null));
+                new Code<ResourceType>[] { });
         }
     }
 }
