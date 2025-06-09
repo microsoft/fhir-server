@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]
-        public void GivenAnInValidResource_WhenExtract_ThenExceptionIsThrown()
+        public void GivenAnValidResource_WhenExtract_ThenExceptionIsNotThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidBundleEntry");
 
