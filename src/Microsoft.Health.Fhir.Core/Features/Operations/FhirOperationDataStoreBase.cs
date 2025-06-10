@@ -262,8 +262,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         foreach (var job in jobInfos)
         {
-            var jobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(job.Definition, _jsonSerializerSettings);
-            acquiredJobs.Add(new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(job.Version.ToString())));
+            var jobRecord = await GetReindexJobByIdAsync(job.Id.ToString(), cancellationToken);
+            acquiredJobs.Add(jobRecord);
         }
 
         return acquiredJobs;
