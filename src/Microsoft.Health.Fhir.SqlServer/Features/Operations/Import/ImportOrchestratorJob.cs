@@ -281,6 +281,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     GroupId = groupId,
                     ImportMode = coordDefinition.ImportMode,
                     AllowNegativeVersions = coordDefinition.AllowNegativeVersions,
+                    EventualConsistency = coordDefinition.EventualConsistency,
                     ErrorContainerName = coordDefinition.ErrorContainerName,
                 };
 
