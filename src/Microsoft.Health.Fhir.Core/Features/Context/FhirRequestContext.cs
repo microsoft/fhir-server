@@ -65,14 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
                 RequestHeaders = new ConcurrentDictionary<string, StringValues>();
             }
 
-            if (responseHeaders != null && responseHeaders.Any())
-            {
-                ResponseHeaders = new ConcurrentDictionary<string, StringValues>(responseHeaders);
-            }
-            else
-            {
-                ResponseHeaders = new ConcurrentDictionary<string, StringValues>();
-            }
+            ResponseHeaders = responseHeaders != null && responseHeaders.Any()
+                ? new ConcurrentDictionary<string, StringValues>(responseHeaders)
+                : new ConcurrentDictionary<string, StringValues>();
 
             IncludePartiallyIndexedSearchParams = false;
         }
