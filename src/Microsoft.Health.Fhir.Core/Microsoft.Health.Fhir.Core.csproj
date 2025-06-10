@@ -13,10 +13,14 @@
     <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\R4\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
-    <EmbeddedResource Include="Data\R5\compartment.json" />
-    <EmbeddedResource Include="Data\R5\search-parameters.json" />
-    <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
-    <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" />
+    <EmbeddedResource Include="Data\R5\compartment.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="Data\R5\compartment-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="Data\R5\search-parameters.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="Data\R5\search-parameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="Data\R5\unsupported-search-parameters-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
+    <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings-legacy.json" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
     <EmbeddedResource Include="Data\Stu3\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\Stu3\compartment.json" />
     <EmbeddedResource Include="Data\OperationDefinition\anonymized-export.json" />
@@ -51,7 +55,10 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Core" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
-    <PackageReference Include="Hl7.Fhir.Base" />
+    <PackageReference Include="Hl7.Fhir.Support.Poco" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <PackageReference Include="Hl7.Fhir.Serialization" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <PackageReference Include="Hl7.FhirPath" Condition="'$(UseHl7LegacyPackages)' == 'true'" />
+    <PackageReference Include="Hl7.Fhir.Base" Condition="'$(UseHl7LegacyPackages)' != 'true'" />
     <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" />
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />

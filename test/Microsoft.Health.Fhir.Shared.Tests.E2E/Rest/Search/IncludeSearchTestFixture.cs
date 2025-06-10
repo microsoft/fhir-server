@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
             DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "SeattleForgotten" } } })).Resource;
 #else
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             {
                 Meta = meta,
                 Type = Group.GroupType.Person,
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B || USE_HL7_LEGACY_PACKAGES
                 Actual = true,
 #else
                 Active = true,
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             },
                         },
                         WhenPrepared = prepared,
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
 #endif
-#if Stu3
+#if STU3
                         Status = MedicationDispense.MedicationDispenseStatus.InProgress,
 #else
                         Status = MedicationDispense.MedicationDispenseStatusCodes.InProgress,
@@ -305,20 +305,25 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     {
                         Meta = meta,
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
-#if Stu3
+#if STU3
                         Intent = MedicationRequest.MedicationRequestIntent.Order,
                         Status = MedicationRequest.MedicationRequestStatus.Completed,
                         Requester = new MedicationRequest.RequesterComponent
                         {
                             Agent = new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
+
+#elif USE_HL7_LEGACY_PACKAGES
+                        IntentElement = new Code<MedicationRequest.medicationRequestIntent> { Value = MedicationRequest.medicationRequestIntent.Order },
+                        StatusElement = new Code<MedicationRequest.medicationrequestStatus> { Value = MedicationRequest.medicationrequestStatus.Completed },
+                        Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 #else
                         IntentElement = new Code<MedicationRequest.MedicationRequestIntent> { Value = MedicationRequest.MedicationRequestIntent.Order },
                         StatusElement = new Code<MedicationRequest.MedicationrequestStatus> { Value = MedicationRequest.MedicationrequestStatus.Completed },
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
-#if Stu3 || R4 || R4B
+#if STU3 || R4 || R4B
                         Medication = medication.Code,
 #else
                         Medication = new CodeableReference

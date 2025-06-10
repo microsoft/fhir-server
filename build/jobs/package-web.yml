@@ -5,10 +5,19 @@ steps:
 
   # Package web
 
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet publish ${{parameters.csproj}}'
-    inputs:
-      command: publish
-      projects: '${{parameters.csproj}}'
-      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) --no-build -f $(defaultBuildFramework)'
-      publishWebProjects: false
+  - ${{ if eq(parameters.csproj, '**/Microsoft.Health.Fhir.R5.Web.csproj') }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet publish ${{parameters.csproj}} (R5)'
+      inputs:
+        command: publish
+        projects: '${{parameters.csproj}}'
+        arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) --no-build -f $(defaultBuildFramework) /p:UseHl7LegacyPackages=false'
+        publishWebProjects: false
+  - ${{ if ne(parameters.csproj, '**/Microsoft.Health.Fhir.R5.Web.csproj') }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet publish ${{parameters.csproj}}'
+      inputs:
+        command: publish
+        projects: '${{parameters.csproj}}'
+        arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) --no-build -f $(defaultBuildFramework)'
+        publishWebProjects: false

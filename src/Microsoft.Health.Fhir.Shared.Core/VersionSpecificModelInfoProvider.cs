@@ -39,7 +39,11 @@ namespace Microsoft.Health.Fhir.Core
         {
             if (ignoreCase)
             {
+#if USE_HL7_LEGACY_PACKAGES
+                return ModelInfo.SupportedResources.Contains(name, StringComparer.OrdinalIgnoreCase);
+#else
                 return ModelInfo.IsKnownResource(name);
+#endif
             }
 
             var classMapping = ModelInfo.ModelInspector.FindClassMapping(name);
