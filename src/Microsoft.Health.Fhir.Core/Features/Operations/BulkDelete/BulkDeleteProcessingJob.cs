@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     method: "BulkDelete",
                     uriString: definition.Url,
                     baseUriString: definition.BaseUrl,
-                    correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId.ToString())
+                    correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId)
                 {
                     IsBackgroundTask = true,
                 };
