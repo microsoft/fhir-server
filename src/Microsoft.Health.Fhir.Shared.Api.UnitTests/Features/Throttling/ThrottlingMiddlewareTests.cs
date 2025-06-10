@@ -271,7 +271,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             await throttlingMiddleware.Invoke(_httpContext);
-            await _httpContext.Response.WriteAsync("trigger response start");
 
             Assert.Equal(429, _httpContext.Response.StatusCode);
             Assert.False(_httpContext.Response.Headers.TryGetValue("Retry-After", out var values));

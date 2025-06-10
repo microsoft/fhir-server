@@ -39,7 +39,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportDataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportDataTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTestHelper.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTestProviderMiddleware.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestStorageAccount.cs" />

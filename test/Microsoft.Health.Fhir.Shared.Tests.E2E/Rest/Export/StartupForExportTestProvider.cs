@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using MediatR;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -52,13 +51,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             services.Add<MetricHandler>()
                     .Singleton()
                     .AsService<INotificationHandler<ExportTaskMetricsNotification>>();
-        }
-
-        public override void Configure(IApplicationBuilder app)
-        {
-            base.Configure(app);
-
-            app.UseMiddleware<ExportTestProviderMiddleware>();
         }
     }
 }

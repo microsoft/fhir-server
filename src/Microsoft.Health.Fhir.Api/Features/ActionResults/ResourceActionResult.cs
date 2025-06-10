@@ -91,23 +91,18 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 finalHeaders.TryAdd(header.Key, header.Value);
             }
 
-            response.OnStarting(() =>
+            foreach (KeyValuePair<string, StringValues> header in finalHeaders)
             {
-                foreach (KeyValuePair<string, StringValues> header in finalHeaders)
+                try
                 {
-                    try
-                    {
-                        response.Headers[header.Key] = header.Value;
-                    }
-                    catch (InvalidOperationException ioe)
-                    {
-                        // Catching operations that change non-concurrent collections.
-                        throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
-                    }
+                    response.Headers[header.Key] = header.Value;
                 }
-
-                return Task.CompletedTask;
-            });
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
+            }
 
             ActionResult result;
             if (Result == null)

@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             string Provider() => expectedRequestId;
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
-            await httpContext.Response.WriteAsync("trigger response start");
 
             Assert.False(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
             Assert.True(fhirRequestContextAccessor.RequestContext.ResponseHeaders.TryGetValue("X-Request-Id", out StringValues value1));
