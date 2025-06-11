@@ -115,6 +115,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource already exists..
+        /// </summary>
+        public static string ConditionalCreateResourceAlreadyExists {
+            get {
+                return ResourceManager.GetString("ConditionalCreateResourceAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A new resource was created..
+        /// </summary>
+        public static string ConditionalCreateResourceCreated {
+            get {
+                return ResourceManager.GetString("ConditionalCreateResourceCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
         /// </summary>
         public static string ConditionalOperationInBundleNotSelectiveEnough {

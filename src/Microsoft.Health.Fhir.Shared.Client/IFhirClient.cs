@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,10 +24,10 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default);
