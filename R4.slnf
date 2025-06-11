@@ -27,6 +27,7 @@
       "src\\Microsoft.Health.Fhir.Shared.Core.UnitTests\\Microsoft.Health.Fhir.Shared.Core.UnitTests.shproj",
       "src\\Microsoft.Health.Fhir.Shared.Core\\Microsoft.Health.Fhir.Shared.Core.shproj",
       "src\\Microsoft.Health.Fhir.Shared.Tests\\Microsoft.Health.Fhir.Shared.Tests.Common.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Tests.Fakes\\Microsoft.Health.Fhir.Shared.Tests.Fakes.shproj",
       "src\\Microsoft.Health.Fhir.Shared.Web\\Microsoft.Health.Fhir.Shared.Web.shproj",
       "src\\Microsoft.Health.Fhir.SqlServer.UnitTests\\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.SqlServer\\Microsoft.Health.Fhir.SqlServer.csproj",

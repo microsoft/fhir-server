@@ -19,19 +19,25 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// Shared Create Tests
+    /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class CreateTests : IClassFixture<HttpIntegrationTestFixture>
+    public partial class CreateTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly ITestOutputHelper _outputHelper;
         private readonly TestFhirClient _client;
 
-        public CreateTests(HttpIntegrationTestFixture fixture)
+        public CreateTests(HttpIntegrationTestFixture fixture, ITestOutputHelper outputHelper)
         {
+            _outputHelper = outputHelper;
             _client = fixture.TestFhirClient;
         }
 
