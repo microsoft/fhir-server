@@ -56,15 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             _baseUriString = baseUriString;
             CorrelationId = correlationId;
 
-            if (requestHeaders != null && requestHeaders.Any())
-            {
-                RequestHeaders = new ConcurrentDictionary<string, StringValues>(requestHeaders);
-            }
-            else
-            {
-                RequestHeaders = new ConcurrentDictionary<string, StringValues>();
-            }
+            RequestHeaders = requestHeaders ?? new ConcurrentDictionary<string, StringValues>();
 
+            // To avoid concurrent issues while updating the Response Header, we are replacing regular
+            // (non-thread safe) Dictionary with ConcurrentDictionary.
             ResponseHeaders = responseHeaders != null && responseHeaders.Any()
                 ? new ConcurrentDictionary<string, StringValues>(responseHeaders)
                 : new ConcurrentDictionary<string, StringValues>();
