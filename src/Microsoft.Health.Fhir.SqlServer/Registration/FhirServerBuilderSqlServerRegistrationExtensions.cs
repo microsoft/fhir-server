@@ -34,6 +34,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Registration;
+using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -160,8 +161,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SmartCompartmentSearchRewriter>()
-                            .Singleton()
-                            .AsSelf();
+                .Singleton()
+                .AsSelf();
 
             services.Add<SqlStoreClient>()
                 .Singleton()
@@ -175,6 +176,12 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFactory<IScoped<TransactionWatchdog>>();
 
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+
+            services.RemoveServiceTypeExact<SqlStatisticsWatchdog, INotificationHandler<JobCompletedNotification>>()
+                .Add<SqlStatisticsWatchdog>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

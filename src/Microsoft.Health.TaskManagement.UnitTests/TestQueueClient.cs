@@ -81,6 +81,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
         }
 
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsAsync(byte queueType, bool returnDefinition, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             var dequeuedJobs = new List<JobInfo>();

@@ -25,17 +25,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
+        private readonly SqlStatisticsWatchdog _sqlStatisticsWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
-            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
+            SqlStatisticsWatchdog sqlStatisticsWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
+            _sqlStatisticsWatchdog = EnsureArg.IsNotNull(sqlStatisticsWatchdog, nameof(sqlStatisticsWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -54,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _sqlStatisticsWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             await Task.WhenAny(tasks);

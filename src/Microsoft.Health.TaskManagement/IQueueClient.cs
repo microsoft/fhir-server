@@ -76,7 +76,7 @@ namespace Microsoft.Health.JobManagement
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Sends heartbeat to keep job alive
+        /// Sends heartbeat to keep job alive        /// Sends heartbeat to keep job alive
         /// </summary>
         /// <param name="jobInfo">Job Info</param>
         /// <param name="cancellationToken">Cancellation Token</param>
@@ -106,5 +106,14 @@ namespace Microsoft.Health.JobManagement
         /// <param name="requestCancellationOnFailure">Cancel other jobs with same group id if this job failed.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets all active jobs (status Created or Running)
+        /// </summary>
+        /// <param name="queueType">Queue Type</param>
+        /// <param name="returnDefinition">Return definition</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Collection of active jobs</returns>
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsAsync(byte queueType, bool returnDefinition, CancellationToken cancellationToken);
     }
 }

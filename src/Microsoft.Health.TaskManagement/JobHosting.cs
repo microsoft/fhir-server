@@ -10,8 +10,10 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement
@@ -22,8 +24,9 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
+        private readonly IMediator _mediator; // Using IMediator directly now
 
-        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
+        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger, IMediator mediator = null)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(jobFactory, nameof(jobFactory));
@@ -32,6 +35,7 @@ namespace Microsoft.Health.JobManagement
             _queueClient = queueClient;
             _jobFactory = jobFactory;
             _logger = logger;
+            _mediator = mediator; // Optional mediator for notifications
         }
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
@@ -236,6 +240,9 @@ namespace Microsoft.Health.JobManagement
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 _logger.LogJobInformation(jobInfo, "Job completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+
+                // Publish job completion notification if mediator is available
+                await PublishJobCompletedNotificationAsync(jobInfo, CancellationToken.None);
             }
             catch (Exception completeEx)
             {
@@ -274,6 +281,24 @@ namespace Microsoft.Health.JobManagement
             catch
             {
                 // do nothing
+            }
+        }
+
+        private async Task PublishJobCompletedNotificationAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        {
+            if (_mediator != null)
+            {
+                try
+                {
+                    // Create and publish a JobCompletedNotification
+                    var notification = new JobCompletedNotification(jobInfo);
+                    await _mediator.Publish(notification, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't fail the job completion if notification fails
+                    _logger.LogWarning(ex, "Failed to publish job completion notification for job {JobId} of type {QueueType}. This won't affect job completion.", jobInfo.Id, jobInfo.QueueType);
+                }
             }
         }
     }

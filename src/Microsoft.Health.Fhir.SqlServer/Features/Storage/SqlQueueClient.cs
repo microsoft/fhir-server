@@ -252,6 +252,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return cancel;
         }
 
+        public async Task<IReadOnlyList<JobInfo>> GetActiveJobsAsync(byte queueType, bool returnDefinition, CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand() { CommandText = "dbo.GetActiveJobs", CommandType = CommandType.StoredProcedure };
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+
+            var result = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetActiveJobsAsync failed.");
+
+            if (!returnDefinition)
+            {
+                foreach (var job in result)
+                {
+                    job.Definition = null;
+                }
+            }
+
+            return result;
+        }
+
         private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)
         {
             cmd.CommandType = CommandType.StoredProcedure;

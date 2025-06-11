@@ -334,6 +334,12 @@ public class CosmosQueueClient : IQueueClient
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<JobInfo>> GetActiveJobsAsync(byte queueType, bool returnDefinition, CancellationToken cancellationToken)
+    {
+        throw new System.NotImplementedException("GetActiveJobsAsync is not implemented for CosmosDB queue client.");
+    }
+
+    /// <inheritdoc />
     public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
     {
         return await _retryPolicy.ExecuteAsync(async () =>
