@@ -123,11 +123,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
-            var jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
-            if (jobInfo != null)
+            // Return object
+            JobInfo jobInfo = null;
+
+            try
             {
-                jobInfo.QueueType = queueType;
+                _logger.LogInformation("Dequeuing next job.");
+                var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+                jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
+                if (jobInfo != null)
+                {
+                    jobInfo.QueueType = queueType;
+                }
+            }
+            catch (Exception ex) when (ex.IsExecutionTimeout())
+            {
+                _logger.LogWarning(ex, "SQL timeout when dequeuing new job.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to dequeue new job.");
             }
 
             return jobInfo;

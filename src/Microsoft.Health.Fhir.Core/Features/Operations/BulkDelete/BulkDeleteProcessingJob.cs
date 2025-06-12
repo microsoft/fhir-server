@@ -89,7 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             deleteAll: true,
                             versionType: definition.VersionType,
                             allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
-                        cancellationToken);
+                        cancellationToken,
+                        definition.ExcludedResourceTypes);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
                 }
 
                 if (types.Count > 1)

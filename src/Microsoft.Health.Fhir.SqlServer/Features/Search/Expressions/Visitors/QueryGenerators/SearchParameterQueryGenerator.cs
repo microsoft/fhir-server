@@ -145,10 +145,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
                 {
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.CurrentResource.ResourceId}");
+                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceId}");
 
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.CurrentResource.ResourceTypeId}");
+                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceTypeId}");
                 }
             }
 
