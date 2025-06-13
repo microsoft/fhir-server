@@ -59,14 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
             RequestHeaders = requestHeaders ?? new ConcurrentDictionary<string, StringValues>();
 
-            if (responseHeaders != null && responseHeaders.Any())
-            {
-                ResponseHeaders = new ConcurrentDictionary<string, StringValues>(responseHeaders);
-            }
-            else
-            {
-                ResponseHeaders = new ConcurrentDictionary<string, StringValues>();
-            }
+            // To avoid concurrent issues while updating the Response Header, we are replacing regular
+            // (non-thread safe) Dictionary with ConcurrentDictionary.
+            ResponseHeaders = responseHeaders != null && responseHeaders.Any()
+                ? new ConcurrentDictionary<string, StringValues>(responseHeaders)
+                : new ConcurrentDictionary<string, StringValues>();
 
             IncludePartiallyIndexedSearchParams = false;
         }
