@@ -364,9 +364,7 @@ RAISERROR('Test',18,127)
                 "POST",
                 "https://localhost/Patient",
                 "https://localhost/",
-                Guid.NewGuid().ToString(),
-                new Dictionary<string, StringValues>(),
-                new Dictionary<string, StringValues>());
+                Guid.NewGuid().ToString());
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 

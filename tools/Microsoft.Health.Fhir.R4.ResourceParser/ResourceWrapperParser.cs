@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
                 Thread.Sleep(500);
             }
 
-            fhirRequestContextAccessor.RequestContext = new FhirRequestContext("EXE", "http://null/", "https://null/", "null", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
+            fhirRequestContextAccessor.RequestContext = new FhirRequestContext("EXE", "http://null/", "https://null/", "null");
 
             _resourceWrapperFactory = resourceWrapperFactory;
             _fhirJsonParser = fhirJsonParser;
