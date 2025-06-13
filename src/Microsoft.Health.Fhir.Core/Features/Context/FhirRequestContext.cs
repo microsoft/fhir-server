@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using Azure.Core;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Models;
@@ -56,14 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             _baseUriString = baseUriString;
             CorrelationId = correlationId;
 
-            if (requestHeaders != null && requestHeaders.Any())
-            {
-                RequestHeaders = new ConcurrentDictionary<string, StringValues>(requestHeaders);
-            }
-            else
-            {
-                RequestHeaders = new ConcurrentDictionary<string, StringValues>();
-            }
+            RequestHeaders = requestHeaders ?? new ConcurrentDictionary<string, StringValues>();
 
             if (responseHeaders != null && responseHeaders.Any())
             {

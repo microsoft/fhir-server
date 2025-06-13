@@ -16,6 +16,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     public class FhirRequestContextMiddleware
     {
         private readonly RequestDelegate _next;
+        internal const string XContentTypeOptions = "X-Content-Type-Options";
+        private const string XContentTypeOptionsValue = "nosniff";
+
+        internal const string XFrameOptions = "X-Frame-Options";
+        private const string XFrameOptionsValue = "SAMEORIGIN";
+
+        internal const string ContentSecurityPolicy = "Content-Security-Policy";
+        private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
         public FhirRequestContextMiddleware(RequestDelegate next)
         {
@@ -58,6 +66,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
 
             fhirRequestContext.ResponseHeaders[KnownHeaders.RequestId] = correlationId;
+
+            fhirRequestContext.ResponseHeaders[XContentTypeOptions] = XContentTypeOptionsValue;
+            fhirRequestContext.ResponseHeaders[XFrameOptions] = XFrameOptionsValue;
+            fhirRequestContext.ResponseHeaders[ContentSecurityPolicy] = ContentSecurityPolicyValue;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 

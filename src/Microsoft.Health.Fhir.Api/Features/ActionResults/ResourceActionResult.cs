@@ -80,27 +80,29 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 response.StatusCode = (int)StatusCode.Value;
             }
 
-            Dictionary<string, StringValues> finalHeaders = new Dictionary<string, StringValues>();
             foreach (KeyValuePair<string, StringValues> header in Headers)
-            {
-                finalHeaders.TryAdd(header.Key, header.Value);
-            }
-
-            foreach (KeyValuePair<string, StringValues> header in fhirContextAccessor.RequestContext.ResponseHeaders)
-            {
-                finalHeaders.TryAdd(header.Key, header.Value);
-            }
-
-            foreach (KeyValuePair<string, StringValues> header in finalHeaders)
             {
                 try
                 {
-                    response.Headers[header.Key] = header.Value;
+                    response.Headers.TryAdd(header.Key, header.Value);
                 }
                 catch (InvalidOperationException ioe)
                 {
                     // Catching operations that change non-concurrent collections.
                     throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
+            }
+
+            foreach (KeyValuePair<string, StringValues> header in fhirContextAccessor.RequestContext.ResponseHeaders)
+            {
+                try
+                {
+                    response.Headers.TryAdd(header.Key, header.Value);
+                }
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header from FHIR Context '{header.Key}'.", ioe);
                 }
             }
 
