@@ -15,6 +15,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
@@ -70,6 +71,41 @@ namespace Microsoft.Health.Fhir.Importer
 
             endpoints = [.. Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries)];
             SetupAuth();
+
+            if (bool.TryParse(ConfigurationManager.AppSettings["UseBulkImport"], out var useBulkImport) && useBulkImport)
+            {
+                BlobContainerClient blobContainerClient1 = GetContainer(ConnectionString, ContainerName, StorageAccountName);
+                int batchSize = 25; // Set as needed
+                var ndjsonUrls = blobContainerClient1.GetBlobs()
+                    .Where(b => b.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase))
+                    .Select(b => $"https://{StorageAccountName}.blob.core.windows.net/{ContainerName}/{b.Name}")
+                    .ToList();
+
+                var batches = ndjsonUrls
+                .Select((url, idx) => new { url, idx })
+                .GroupBy(x => x.idx / batchSize)
+                .Select(g => g.Select(x => x.url).ToArray())
+                .ToList();
+
+                int maxParallelJobs = 4;
+
+                Parallel.ForEach(
+                    batches.Select((batch, idx) => new { batch, idx }),
+                    new ParallelOptions { MaxDegreeOfParallelism = maxParallelJobs },
+                    batchInfo =>
+                    {
+                        ImportViaBulkWithMI(batchInfo.batch, batchInfo.idx);
+                    });
+
+                // for (int i = 0; i < ndjsonUrls.Count; i += batchSize)
+                // {
+                //    var batch = ndjsonUrls.Skip(i).Take(batchSize).ToArray();
+                //    Console.WriteLine($"Importing batch {(i / batchSize) + 1}: {string.Join(", ", batch)}");
+                //    ImportViaBulkWithMI(batch);
+                // }
+
+                return;
+            }
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             if (BatchSize > 0)
@@ -153,8 +189,8 @@ namespace Microsoft.Health.Fhir.Importer
                                 {
                                     var currWrites = Interlocked.Read(ref totalWrites);
                                     var currReads = Interlocked.Read(ref totalReads);
-                                    var minBlob = currentBlobRanges.Min(_ => _.Item1);
-                                    var maxBlob = currentBlobRanges.Max(_ => _.Item2);
+                                    var minBlob = currentBlobRanges.Where(x => x != null).Min(_ => _.Item1);
+                                    var maxBlob = currentBlobRanges.Where(x => x != null).Max(_ => _.Item2);
                                     Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
                                     swReport.Restart();
                                 }
@@ -203,6 +239,100 @@ namespace Microsoft.Health.Fhir.Importer
                    .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
                    .Append('}');
             return builder.ToString();
+        }
+
+        private static void ImportViaBulkWithMI(string[] ndjsonBlobUrls, int batchNumber)
+        {
+            var parameters = new
+            {
+                resourceType = "Parameters",
+                parameter = new List<object>
+                {
+                    new { name = "inputFormat", valueString = "application/fhir+ndjson" },
+                    new { name = "inputSource", valueUri = $"https://{StorageAccountName}.blob.core.windows.net/{ContainerName}/" },
+                }
+                .Concat(
+                    ndjsonBlobUrls.Select(url => new
+                    {
+                        name = "input",
+                        part = new object[]
+                        {
+                            new { name = "url", valueUri = url },
+                        },
+                    }))
+                .ToList(),
+            };
+
+            var parametersJson = JsonConvert.SerializeObject(parameters);
+
+            var importUrl = new Uri(endpoints[0].TrimEnd('/') + "/$import");
+            using var content = new StringContent(parametersJson, Encoding.UTF8, "application/fhir+json");
+            using var request = new HttpRequestMessage(HttpMethod.Post, importUrl)
+            {
+                Content = content,
+            };
+
+            request.Headers.Add("Prefer", "respond-async");
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/fhir+json");
+            Console.WriteLine($"Triggering $import with MI: {importUrl}");
+            HttpResponseMessage response = httpClient.Send(request);
+            Console.WriteLine($"[Batch {batchNumber}] Starting import with {ndjsonBlobUrls.Length} files.");
+            Console.WriteLine($"[Batch {batchNumber}] $import status: {response.StatusCode}");
+
+            //// Print all response headers for debugging
+            // foreach (var header in response.Headers)
+            // {
+            //    Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
+            // }
+
+            //// Print all content headers for debugging
+            // foreach (var header in response.Content.Headers)
+            // {
+            //    Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
+            // }
+
+            if (response.IsSuccessStatusCode)
+            {
+                string statusUrl = null;
+                if (response.Headers.TryGetValues("Content-Location", out var values))
+                {
+                    statusUrl = values.FirstOrDefault();
+                }
+                else if (response.Content.Headers.TryGetValues("Content-Location", out var contentValues))
+                {
+                    statusUrl = contentValues.FirstOrDefault();
+                }
+
+                Console.WriteLine($"Check status at: {statusUrl}");
+
+                if (!string.IsNullOrEmpty(statusUrl))
+                {
+                    var statusUri = new Uri(statusUrl); // Convert string to Uri
+                    while (true)
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds(30));
+                        var statusResponse = httpClient.GetAsync(statusUri).Result; // Use Uri overload
+                        var statusContent = statusResponse.Content.ReadAsStringAsync().Result;
+                        Console.WriteLine($"[Batch {batchNumber}] $import status: {statusResponse.StatusCode}");
+
+                        // Console.WriteLine(statusContent);
+
+                        if (statusResponse.StatusCode == HttpStatusCode.OK ||
+                            statusResponse.StatusCode == HttpStatusCode.BadRequest ||
+                            statusResponse.StatusCode == HttpStatusCode.InternalServerError)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                string error = response.Content.ReadAsStringAsync().Result;
+                Console.WriteLine(error);
+            }
+
+            Console.WriteLine(response.Content.ReadAsStringAsync().Result);
         }
 
         private static void PostBundle(string bundle, IndexIncrementor incrementor)
