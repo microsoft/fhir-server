@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 try
                 {
-                    response.Headers.TryAdd(header.Key, header.Value);
+                    response.Headers[header.Key] = header.Value;
                 }
                 catch (InvalidOperationException ioe)
                 {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 try
                 {
-                    response.Headers.TryAdd(header.Key, header.Value);
+                    response.Headers[header.Key] = header.Value;
                 }
                 catch (InvalidOperationException ioe)
                 {
