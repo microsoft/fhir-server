@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
             configuration["FhirServer:Security:Enabled"] = "true";
+            configuration["DevelopmentIdentityProvider:Enabled"] = "true";
 
             string inProcEndpoint = "https://inprochost";
             configuration["FhirServer:Security:Authentication:Authority"] = inProcEndpoint;

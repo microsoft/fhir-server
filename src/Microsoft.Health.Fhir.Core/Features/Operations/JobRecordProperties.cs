@@ -189,6 +189,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string VersionType = "versionType";
 
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
+        
         public const string Parameters = "parameters";
 
         public const string ReadNextPage = "readNextPage";
