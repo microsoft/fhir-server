@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.Headers["testKey1"] = "3";
             result.Headers["testKey2"] = "2";
-            context.HttpContext.Response.Headers["testKey2"] = "1";
+            contextAccessor.RequestContext.ResponseHeaders["testKey2"] = "1";
 
             await result.ExecuteResultAsync(context);
             await context.HttpContext.Response.WriteAsync("trigger response start");
