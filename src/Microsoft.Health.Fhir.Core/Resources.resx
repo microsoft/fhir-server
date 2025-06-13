@@ -766,6 +766,9 @@
   <data name="UnsupportedIncludesOperation" xml:space="preserve">
     <value>The '$includes' operation is not supported.</value>
   </data>
+  <data name="UnsupportedBulkUpdateOperation" xml:space="preserve">
+    <value>The 'bulk-update' operation is not supported.</value>
+  </data>
   <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
     <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
   </data>

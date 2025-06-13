@@ -2,17 +2,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-#pragma warning disable CA1028 // Enum Storage should be Int32
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages
 {
-    public enum QueueType : byte
+    public class CreateBulkUpdateResponse
     {
-        Unknown = 0, // should not be used
-        Export = 1,
-        Import = 2,
-        Defrag = 3,
-        BulkDelete = 4,
-        BulkUpdate = 5,
+        public CreateBulkUpdateResponse(long id)
+        {
+            Id = id;
+        }
+
+        public long Id { get; }
     }
 }
-#pragma warning restore CA1028 // Enum Storage should be Int32

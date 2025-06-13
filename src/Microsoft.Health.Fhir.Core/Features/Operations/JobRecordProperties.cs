@@ -175,8 +175,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ParentRequestId = "parentRequestId";
 
+        public const string TotalResources = "TotalResources";
+
+        public const string ResourcesUpdated = "resourcesUpdated";
+
+        public const string ResourcesPatchFailed = "resourcesPatchFailed";
+
+        public const string ResourcesUpdateFailed = "resourcesUpdateFailed";
+
+        public const string ResourcesIgnored = "resourcesIgnored";
+
         public const string ExpectedResourceCount = "expectedResourceCount";
 
         public const string VersionType = "versionType";
+
+        public const string Parameters = "parameters";
+
+        public const string ReadNextPage = "readNextPage";
     }
 }

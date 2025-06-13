@@ -32,6 +32,11 @@ public static class QueueClientExtensions
         return queueClient.DequeueAsync((byte)queueType, worker, heartbeatTimeoutSec, cancellationToken, jobId);
     }
 
+    public static Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(this IQueueClient queueClient, QueueType queueType, CancellationToken cancellationToken)
+    {
+        return queueClient.GetActiveJobsByQueueTypeAsync((byte)queueType, cancellationToken);
+    }
+
     public static Task<JobInfo> GetJobByIdAsync(this IQueueClient queueClient, QueueType queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
     {
         return queueClient.GetJobByIdAsync((byte)queueType, jobId, returnDefinition, cancellationToken);

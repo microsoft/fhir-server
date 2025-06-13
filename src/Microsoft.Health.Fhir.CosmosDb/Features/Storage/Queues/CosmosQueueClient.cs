@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -334,6 +335,13 @@ public class CosmosQueueClient : IQueueClient
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<JobGroupWrapper> jobs = await GetActiveJobsByQueueTypeInternalAsync(queueType, cancellationToken);
+        return jobs.SelectMany(job => job.ToJobInfo(job.Definitions)).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
     {
         return await _retryPolicy.ExecuteAsync(async () =>
@@ -490,6 +498,22 @@ public class CosmosQueueClient : IQueueClient
             var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
 
             return response.ToList();
+    }
+
+    private async Task<IReadOnlyList<JobGroupWrapper>> GetActiveJobsByQueueTypeInternalAsync(
+        byte queueType,
+        CancellationToken cancellationToken)
+    {
+        QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+           JOIN d in c.definitions
+           WHERE c.queueType = @queueType 
+           AND (d.status = 0 OR
+               (d.status = 1)")
+            .WithParameter("@queueType", queueType);
+
+        var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
+
+        return response.ToList();
     }
 
     private async Task<IReadOnlyList<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>> GetJobsByIdsInternalAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
