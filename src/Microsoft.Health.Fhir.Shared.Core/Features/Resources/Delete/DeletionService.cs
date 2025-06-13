@@ -420,6 +420,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var parallelBag = new ConcurrentBag<(string, string, bool)>();
             try
             {
+                if (request.RemoveReferences)
+                {
+                    foreach (var item in resourcesToDelete)
+                    {
+                        await RemoveReferences(item, request, cancellationToken);
+                    }
+                }
+
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
                 var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
@@ -500,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return auditTask;
         }
 
-        private async Task RemoveReferences(SearchResultEntry resource, CancellationToken cancellationToken)
+        private async Task RemoveReferences(SearchResultEntry resource, ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             /* 1. Get a list of all resources referencing the target (/<target type>?_id=<target id>&_revinclude=*:*)
              * 2. Filter the target from the results
@@ -521,14 +529,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     resourceType: resource.Resource.ResourceTypeName,
                     queryParameters: parameters,
                     cancellationToken: cancellationToken);
+                var includesContinuationToken = results.IncludesContinuationToken;
+                var revincludeResults = results.Results.Where(result => result.Resource.ResourceId != resource.Resource.ResourceId);
 
-                var resourcesWithReferences = results.Results.Select(entry => _resourceDeserializer.Deserialize(entry.Resource));
-
-                foreach(var reference in resourcesWithReferences)
+                while (revincludeResults.Any())
                 {
-                    reference.
+                    var resourcesWithReferences = revincludeResults.Select(entry => _resourceDeserializer.Deserialize(entry.Resource));
+
+                    var modifiedResources = new List<ResourceWrapperOperation>();
+                    foreach (var reference in resourcesWithReferences)
+                    {
+                        ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceId);
+                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: false);
+                        modifiedResources.Add(new ResourceWrapperOperation(
+                            wrapper,
+                            allowCreate: false,
+                            keepHistory: true,
+                            weakETag: null,
+                            requireETagOnUpdate: false,
+                            keepVersion: false,
+                            bundleResourceContext: request.BundleResourceContext));
+                    }
+
+                    using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+
+                    await fhirDataStore.Value.MergeAsync(modifiedResources, cancellationToken);
+
+                    if (includesContinuationToken != null)
+                    {
+                        await searchService.Value.SearchAsync() // still need to add support for multiple pages of includes results
+                    }
                 }
             }
+        }
 
         private bool AreIncludeResultsTruncated()
         {

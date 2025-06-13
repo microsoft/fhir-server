@@ -48,6 +48,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeletionService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)features\resources\delete\ReferenceRemover.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidator.cs" />
