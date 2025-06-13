@@ -11,15 +11,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -33,19 +36,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly IMediator _mediator;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
+        private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ILogger<BulkDeleteProcessingJob> _logger;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
             Func<IScoped<ISearchService>> searchService,
-            IQueueClient queueClient)
+            IQueueClient queueClient,
+            IModelInfoProvider modelInfoProvider,
+            ILogger<BulkDeleteProcessingJob> logger)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -75,6 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
+                List<ResourceWrapper> deletedSearchParameters = new List<ResourceWrapper>();
 
                 try
                 {
@@ -88,13 +98,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             versionType: definition.VersionType,
                             allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
+                        definition.ExcludedResourceTypes,
+                        deletedSearchParameters);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
+                    _logger.LogError(ex, "Deleting resources failed.");
                     resourcesDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Deleting resources failed.");
+                    throw;
                 }
 
                 foreach (var (key, value) in resourcesDeleted)
@@ -105,7 +122,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     }
                 }
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
+                try
+                {
+                    var notification = new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Count)
+                    {
+                        Content = CreateNotificationContent(deletedSearchParameters),
+                    };
+
+                    await _mediator.Publish(notification, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create and publish the notification.");
+                    throw;
+                }
 
                 if (exception != null)
                 {
@@ -129,6 +159,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             finally
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
+            }
+        }
+
+        private string CreateNotificationContent(List<ResourceWrapper> resources)
+        {
+            try
+            {
+                var searchParameterUrls = resources
+                    .Where(x => string.Equals(x.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) && x.RawResource != null)
+                    .Select(x =>
+                    {
+                        try
+                        {
+                            return _modelInfoProvider.ToTypedElement(x.RawResource).GetStringScalar("url");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Failed to extract the url from the resource, '{x.ResourceId}'.");
+                            return null;
+                        }
+                    })
+                    .Where(x => x != null)
+                    .ToList();
+                _logger.LogInformation($"Creating the notification content with {searchParameterUrls.Count} search parameters.");
+                if (searchParameterUrls.Any())
+                {
+                    return JsonConvert.SerializeObject(searchParameterUrls);
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to create the notification content for {resources.Count} search parameters.");
+                throw;
             }
         }
     }
