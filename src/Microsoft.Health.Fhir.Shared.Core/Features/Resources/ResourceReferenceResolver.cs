@@ -74,6 +74,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
                         }
+                        else if (results.Count > 1)
+                        {
+                            throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReferenceToMultipleResources, reference.Reference));
+                        }
 
                         string resourceId = results.First(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Resource.ResourceId;
 

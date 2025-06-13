@@ -108,10 +108,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
+            IEnumerable<SearchResultEntry> searchResultEntries = Enumerable.Empty<SearchResultEntry>();
+
+            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
+
+            var searchResult = new SearchResult(searchResultEntries, null, null, new Tuple<string, string>[0]);
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            foreach (var entry in bundle.Entry)
+            {
+                var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
+                Assert.Equal(exception.Message, expectedMessage);
+            }
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolvedToMultipleResources_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
             SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
             SearchResultEntry mockSearchEntry1 = GetMockSearchEntry("123", KnownResourceTypes.Patient);
 
-            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
+            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' resolved to multiple resources.";
 
             var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
