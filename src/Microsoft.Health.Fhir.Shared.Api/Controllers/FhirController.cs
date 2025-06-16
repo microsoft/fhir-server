@@ -200,60 +200,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Ok();
             }
 
-            IResourceElement resourceElement = createResponse.Outcome.RawResourceElement;
-            var statusCode = createResponse.Outcome.Outcome == SaveOutcomeType.Created ? HttpStatusCode.Created : HttpStatusCode.OK;
-            var result = FhirResult.Create(resourceElement, statusCode)
+            var statusCode = HttpStatusCode.Created;
+            var message = Resources.ConditionalCreateResourceCreated;
+            if (createResponse.Outcome.Outcome != SaveOutcomeType.Created)
+            {
+                statusCode = HttpStatusCode.OK;
+                message = Resources.ConditionalCreateResourceAlreadyExists;
+            }
+
+            return FhirResult.Create(
+                createResponse.Outcome.RawResourceElement,
+                statusCode,
+                preferHeader,
+                message)
                 .SetETagHeader()
                 .SetLastModifiedHeader()
                 .SetLocationHeader(_urlResolver);
-            if (preferHeader != null)
-            {
-                switch (preferHeader)
-                {
-                    case ReturnPreference.Minimal:
-                        var minimalResult = new FhirResult(null)
-                        {
-                            StatusCode = statusCode,
-                        };
-
-                        foreach (var header in result.Headers)
-                        {
-                            minimalResult.Headers[header.Key] = header.Value;
-                        }
-
-                        result = minimalResult;
-                        break;
-
-                    case ReturnPreference.OperationOutcome:
-                        var operationOutcome = new OperationOutcome();
-                        var message = createResponse.Outcome.Outcome == SaveOutcomeType.Created ? Resources.ConditionalCreateResourceCreated : Resources.ConditionalCreateResourceAlreadyExists;
-                        operationOutcome.Issue.Add(
-                            new OperationOutcome.IssueComponent()
-                            {
-                                Severity = OperationOutcome.IssueSeverity.Information,
-                                Diagnostics = message,
-                                Details = new CodeableConcept()
-                                {
-                                    Text = message,
-                                },
-                            });
-
-                        var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
-                        {
-                            StatusCode = statusCode,
-                        };
-
-                        foreach (var header in result.Headers)
-                        {
-                            operationOutcomeResult.Headers[header.Key] = header.Value;
-                        }
-
-                        result = operationOutcomeResult;
-                        break;
-                }
-            }
-
-            return result;
         }
 
         /// <summary>

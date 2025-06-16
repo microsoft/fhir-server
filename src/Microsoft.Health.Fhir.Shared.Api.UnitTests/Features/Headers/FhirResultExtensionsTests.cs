@@ -5,7 +5,10 @@
 
 using System;
 using System.Globalization;
+using System.Net;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -106,6 +109,55 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var fhirResult = FhirResult.Create(_mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
 
             Assert.Equal("W/\"etag\"", fhirResult.Headers[HeaderNames.ETag]);
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData(ReturnPreference.Minimal, null)]
+        [InlineData(ReturnPreference.Representation, null)]
+        [InlineData(ReturnPreference.OperationOutcome, "operation outcome message.")]
+        public void GivenAPreferHeader_WhenCreatingFhirResult_ThenFhirResultCreatedShouldMatchReturnPreference(
+            ReturnPreference? returnPreference,
+            string operationOutcomeMessage)
+        {
+            var fhirResult = FhirResult.Create(
+                _mockResource,
+                HttpStatusCode.OK,
+                returnPreference,
+                operationOutcomeMessage);
+
+            if (!returnPreference.HasValue)
+            {
+                Assert.Equal(_mockResource, fhirResult.Result);
+                Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+                return;
+            }
+
+            switch (returnPreference.Value)
+            {
+                case ReturnPreference.Minimal:
+                    Assert.Null(fhirResult.Result);
+                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+                    break;
+
+                case ReturnPreference.Representation:
+                    Assert.Equal(_mockResource, fhirResult.Result);
+                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+                    break;
+
+                case ReturnPreference.OperationOutcome:
+                    Assert.Equal(nameof(OperationOutcome), fhirResult.Result.InstanceType);
+                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+                    var resource = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+                    Assert.Contains(
+                        resource.Issue,
+                        x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));
+                    break;
+
+                default:
+                    Assert.Fail("Unknown return preference.");
+                    break;
+            }
         }
     }
 }
