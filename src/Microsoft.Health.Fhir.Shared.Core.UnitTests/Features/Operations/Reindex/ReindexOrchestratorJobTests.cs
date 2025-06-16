@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Fix: Properly set up the mock with explicit CancellationToken argument matching
             _searchParameterStatusmanager
-                .GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(status);
 
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
