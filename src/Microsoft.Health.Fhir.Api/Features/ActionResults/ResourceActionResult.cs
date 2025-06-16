@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     {
         protected ResourceActionResult()
         {
-            Headers = new HeaderDictionary();
+            Headers = new ConcurrentDictionary<string, StringValues>();
         }
 
         protected ResourceActionResult(TResult result)
@@ -51,17 +52,17 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Gets or sets the action result Headers.
         /// </summary>
-        internal IHeaderDictionary Headers { get; }
+        internal IDictionary<string, StringValues> Headers { get; }
 
         public override async Task ExecuteResultAsync(ActionContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            RequestContextAccessor<IFhirRequestContext> fhirContext = null;
+            RequestContextAccessor<IFhirRequestContext> fhirContextAccessor = null;
 
             try
             {
-                fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+                fhirContextAccessor = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
             }
             catch (ObjectDisposedException ode)
             {
@@ -70,9 +71,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             HttpResponse response = context.HttpContext.Response;
 
-            if (fhirContext.GetMissingResourceCode() != null)
+            if (fhirContextAccessor.GetMissingResourceCode() != null)
             {
-                response.StatusCode = (int)fhirContext.GetMissingResourceCode().Value;
+                response.StatusCode = (int)fhirContextAccessor.GetMissingResourceCode().Value;
             }
             else if (StatusCode.HasValue)
             {
@@ -89,6 +90,19 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 {
                     // Catching operations that change non-concurrent collections.
                     throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
+            }
+
+            foreach (KeyValuePair<string, StringValues> header in fhirContextAccessor.RequestContext.ResponseHeaders)
+            {
+                try
+                {
+                    response.Headers[header.Key] = header.Value;
+                }
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header from FHIR Context '{header.Key}'.", ioe);
                 }
             }
 

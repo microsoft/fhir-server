@@ -53,9 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 method: "bulkdeletetest",
                 uriString: _testUrl,
                 baseUriString: _testUrl,
-                correlationId: "bulkdeletetest",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>());
+                correlationId: "bulkdeletetest");
 
             _handler = new CreateBulkDeleteHandler(
                 _authorizationService,
