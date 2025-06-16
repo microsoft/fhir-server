@@ -218,21 +218,28 @@ END
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
 
-            ExecuteSql("INSERT INTO Parameters (Id,Number) SELECT 'MergeResources.NoTransaction.IsEnabled', 1");
-
             ExecuteSql(@"
-CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
-FOR INSERT
+CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam FOR INSERT
 AS
-BEGIN
-  RAISERROR('Test',18,127)
-  RETURN
-END
+RAISERROR('Test',18,127)
             ");
 
             try
             {
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, new[] { mergeWrapper }, false, 0, cts.Token);
+                // no eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, cts.Token);
+            }
+            catch (SqlException e)
+            {
+                Assert.Equal("Test", e.Message);
+            }
+
+            Assert.Equal(0, GetCount("Resource")); // resource not inserted
+
+            try
+            {
+                // eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
             }
             catch (SqlException e)
             {
@@ -357,9 +364,7 @@ END
                 "POST",
                 "https://localhost/Patient",
                 "https://localhost/",
-                Guid.NewGuid().ToString(),
-                new Dictionary<string, StringValues>(),
-                new Dictionary<string, StringValues>());
+                Guid.NewGuid().ToString());
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
@@ -379,13 +384,13 @@ END
                 Deserializers.ResourceDeserializer);
         }
 
-        private void ExecuteSql(string sql)
+        private object ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
-            cmd.ExecuteNonQuery();
+            return cmd.ExecuteScalar();
         }
 
         private long GetCount(string table)
