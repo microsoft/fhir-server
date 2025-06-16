@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -189,9 +190,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-
-                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
-                    app.UseBaseHeaders();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
 

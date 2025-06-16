@@ -53,9 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 method: "bulkdeletetest",
                 uriString: _testUrl,
                 baseUriString: _testUrl,
-                correlationId: "bulkdeletetest",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>());
+                correlationId: "bulkdeletetest");
 
             _handler = new CreateBulkDeleteHandler(
                 _authorizationService,
@@ -92,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                     };
             });
 
-            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false);
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null);
 
             var response = await _handler.Handle(request, CancellationToken.None);
             Assert.NotNull(response);
@@ -111,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
             _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Conflict));
 
-            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false);
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null);
 
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
@@ -124,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(userRole);
 
-            var request = new CreateBulkDeleteRequest(deleteOperation, null, null, false);
+            var request = new CreateBulkDeleteRequest(deleteOperation, null, null, false, null);
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
@@ -135,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _contextAccessor.RequestContext.BundleIssues.Clear();
             _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
-            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, null, new List<Tuple<string, string>>(), false);
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, null, new List<Tuple<string, string>>(), false, null);
             await Assert.ThrowsAsync<JobNotExistException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
     }
