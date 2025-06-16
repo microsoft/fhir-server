@@ -602,6 +602,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             for (int i = searchParameters.Length - 1; i >= 0; i--)
             {
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParameters[i].Url.OriginalString);
+                Assert.DoesNotContain(
+                    _searchParameterDefinitionManager.UrlLookup,
+                    _ => _searchParameterDefinitionManager.UrlLookup.TryGetValue(searchParameters[i].Url.OriginalString, out var _));
+                Assert.DoesNotContain(
+                    _searchParameterDefinitionManager.TypeLookup["Patient"],
+                    _ => _searchParameterDefinitionManager.TypeLookup["Patient"].TryGetValue(searchParameters[i].Url.OriginalString, out var q)
+                        && !q.Any(x => string.Equals(x.Url.OriginalString, searchParameters[i].Url.OriginalString)));
             }
         }
 
