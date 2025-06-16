@@ -7,15 +7,21 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
 
@@ -31,12 +37,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";
         private readonly string _validEntriesFile = "SearchParameters.json";
         private readonly ConcurrentDictionary<string, SearchParameterInfo> _uriDictionary;
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> _resourceTypeDictionary;
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> _resourceTypeDictionary;
+        private readonly ISearchParameterComparer _searchParameterComparer;
 
         public SearchParameterDefinitionBuilderTests()
         {
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
-            _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
+            _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer>>());
         }
 
         [Theory]
@@ -75,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
             Assert.Equal(6, _uriDictionary.Count);
 
@@ -95,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
             Assert.Equal(
                 ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
@@ -111,8 +119,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
-            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
+            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -135,15 +143,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
-            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
+            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
                 ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
+        }
+
+        [Theory]
+        [MemberData(nameof(GetSearchParameterConflictsData))]
+        public void GivenSearchParametersWithConflicts_WhenBuilt_ThenResourceTypeDictionaryShouldContainSuperSetSearchParameters(
+            string resourceType,
+            string code,
+            SearchParameter[] searchParameters,
+            string[] searchParametersShouldBeAdded)
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
+            SearchParameterDefinitionBuilder.Build(
+                bundle.Entries.Select(e => e.Resource).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            SearchParameterDefinitionBuilder.Build(
+                searchParameters.Select(x => x.ToTypedElement()).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+            Assert.Equal(searchParametersShouldBeAdded.Length, _resourceTypeDictionary[resourceType][code].Count);
+
+            int i = 0;
+            while (_resourceTypeDictionary[resourceType][code].Any())
+            {
+                if (_resourceTypeDictionary[resourceType][code].TryDequeue(out var sp))
+                {
+                    Assert.Equal(searchParametersShouldBeAdded[i++], sp.Url.OriginalString);
+                }
+                else
+                {
+                    Assert.Fail("TryDequeue failed.");
+                }
+            }
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)
@@ -155,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 typeof(EmbeddedResourceManager).Assembly);
 
             InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(
-                () => SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance));
+                () => SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance));
 
             Assert.Contains(ex.Issues, issue =>
                 issue.Severity == IssueSeverity.Fatal.ToString() &&
@@ -164,18 +216,480 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         private void ValidateSearchParameters(
-            IDictionary<string, SearchParameterInfo> searchParametersDictionary,
+            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary,
             params (string, SearchParamType, string)[] expectedEntries)
         {
             Assert.Equal(expectedEntries.Length, searchParametersDictionary.Count);
 
             foreach ((string code, SearchParamType searchParameterType, string expression) in expectedEntries)
             {
-                Assert.True(searchParametersDictionary.TryGetValue(code, out SearchParameterInfo searchParameter));
+                Assert.True(searchParametersDictionary.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q));
 
-                Assert.Equal(code, searchParameter.Code);
-                Assert.Equal(searchParameterType.ToValueSet(), searchParameter.Type);
-                Assert.Equal(expression, searchParameter.Expression);
+                var searchParameter = q.FirstOrDefault();
+                Assert.Equal(code, searchParameter?.Code);
+                Assert.Equal(searchParameterType.ToValueSet(), searchParameter?.Type);
+                Assert.Equal(expression, searchParameter?.Expression);
+            }
+        }
+
+        public static IEnumerable<object[]> GetSearchParameterConflictsData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.unknown",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp20",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp2",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp3",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+                new object[]
+                {
+                    "Patient",
+                    "us-core-race",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Patient },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Patient },
+#endif
+                            Code = "us-core-race",
+                            Expression = "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                            Name = "us-core-race",
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race3",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race4",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race2",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                    },
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
             }
         }
     }

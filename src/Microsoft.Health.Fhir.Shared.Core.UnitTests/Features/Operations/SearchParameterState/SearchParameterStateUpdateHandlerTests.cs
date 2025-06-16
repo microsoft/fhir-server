@@ -64,10 +64,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly ISearchParameterComparer _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), _searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
             _fhirOperationDataStoreFactory = () => _fhirOperationDataStore.CreateMockScope();
 
@@ -175,9 +176,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 });
             ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
             _searchParameterDefinitionManager.UrlLookup = urlLookup;
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
-            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").ToDictionary(x => x.Code.ToString())));
-            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").ToDictionary(x => x.Code.ToString())));
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
 
             // _searchParameterStatusManager.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(System.Threading.Tasks.Task.CompletedTask);

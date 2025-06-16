@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -54,14 +55,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ISearchParameterComparer _searchParameterComparer;
 
         public SearchParameterDefinitionManagerTests()
         {
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), _searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
@@ -527,7 +530,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
                 .Returns((true, false));
 
-            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, searchService.CreateMockScopeProvider(), _searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -546,6 +549,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var questionnaireParams = searchParameterDefinitionManager.GetSearchParameters("QuestionnaireResponse");
             Assert.Single(questionnaireParams, p => p.Name == "questionnaire2");
+        }
+
+        [Fact]
+        public void GivenExistingSearchParameters_WhenDeletingSearchParameter_ThenSearchParameterShouldBeDeleted()
+        {
+            var searchParameters = new SearchParameterInfo[]
+            {
+                new SearchParameterInfo(
+                    name: "us-core-race",
+                    code: "us-core-race",
+                    searchParamType: SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-race4"),
+                    expression: "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3 | Patient.exp4",
+                    baseResourceTypes: new List<string> { "Patient" }),
+                new SearchParameterInfo(
+                    name: "us-core-race",
+                    code: "us-core-race",
+                    searchParamType: SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-race3"),
+                    expression: "Patient.exp | Patient.exp1 | Patient.exp2 | Patient.exp3",
+                    baseResourceTypes: new List<string> { "Patient" }),
+                new SearchParameterInfo(
+                    name: "us-core-race",
+                    code: "us-core-race",
+                    searchParamType: SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-race2"),
+                    expression: "Patient.exp | Patient.exp1 | Patient.exp2",
+                    baseResourceTypes: new List<string> { "Patient" }),
+                new SearchParameterInfo(
+                    name: "us-core-race",
+                    code: "us-core-race",
+                    searchParamType: SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-race1"),
+                    expression: "Patient.exp | Patient.exp1",
+                    baseResourceTypes: new List<string> { "Patient" }),
+                new SearchParameterInfo(
+                    name: "us-core-race",
+                    code: "us-core-race",
+                    searchParamType: SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-race"),
+                    expression: "Patient.exp",
+                    baseResourceTypes: new List<string> { "Patient" }),
+            };
+
+            _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
+                searchParameters.ToDictionary(x => x.Url.OriginalString));
+            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            _searchParameterDefinitionManager.TypeLookup.TryAdd(
+                "Patient",
+                new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParameters.GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+            for (int i = searchParameters.Length - 1; i >= 0; i--)
+            {
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParameters[i].Url.OriginalString);
+            }
         }
 
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
