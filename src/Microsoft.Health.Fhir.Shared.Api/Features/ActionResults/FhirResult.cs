@@ -52,40 +52,35 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             if (returnPreference != null)
             {
-                switch (returnPreference)
+                if (returnPreference == ReturnPreference.Minimal)
                 {
-                    case ReturnPreference.Minimal:
-                        var minimalResult = new FhirResult(null)
+                    var minimalResult = new FhirResult(null)
+                    {
+                        StatusCode = statusCode,
+                    };
+
+                    return minimalResult;
+                }
+                else if (returnPreference == ReturnPreference.OperationOutcome)
+                {
+                    var operationOutcome = new OperationOutcome();
+                    operationOutcome.Issue.Add(
+                        new OperationOutcome.IssueComponent()
                         {
-                            StatusCode = statusCode,
-                        };
-
-                        result = minimalResult;
-                        break;
-
-                    case ReturnPreference.OperationOutcome:
-                        var operationOutcome = new OperationOutcome();
-                        operationOutcome.Issue.Add(
-                            new OperationOutcome.IssueComponent()
+                            Severity = OperationOutcome.IssueSeverity.Information,
+                            Diagnostics = operationOutcomeMessage,
+                            Details = new CodeableConcept()
                             {
-                                Severity = OperationOutcome.IssueSeverity.Information,
-                                Diagnostics = operationOutcomeMessage,
-                                Details = new CodeableConcept()
-                                {
-                                    Text = operationOutcomeMessage,
-                                },
-                            });
+                                Text = operationOutcomeMessage,
+                            },
+                        });
 
-                        var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
-                        {
-                            StatusCode = statusCode,
-                        };
+                    var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
+                    {
+                        StatusCode = statusCode,
+                    };
 
-                        result = operationOutcomeResult;
-                        break;
-
-                    default:
-                        break;
+                    return operationOutcomeResult;
                 }
             }
 

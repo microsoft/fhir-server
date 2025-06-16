@@ -126,37 +126,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
                 returnPreference,
                 operationOutcomeMessage);
 
-            if (!returnPreference.HasValue)
+            if (!returnPreference.HasValue || returnPreference.Value == ReturnPreference.Representation)
             {
                 Assert.Equal(_mockResource, fhirResult.Result);
                 Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
-                return;
             }
-
-            switch (returnPreference.Value)
+            else if (returnPreference.Value == ReturnPreference.Minimal)
             {
-                case ReturnPreference.Minimal:
-                    Assert.Null(fhirResult.Result);
-                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
-                    break;
-
-                case ReturnPreference.Representation:
-                    Assert.Equal(_mockResource, fhirResult.Result);
-                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
-                    break;
-
-                case ReturnPreference.OperationOutcome:
-                    Assert.Equal(nameof(OperationOutcome), fhirResult.Result.InstanceType);
-                    Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
-                    var resource = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
-                    Assert.Contains(
-                        resource.Issue,
-                        x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));
-                    break;
-
-                default:
-                    Assert.Fail("Unknown return preference.");
-                    break;
+                Assert.Null(fhirResult.Result);
+                Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+            }
+            else
+            {
+                Assert.Equal(nameof(OperationOutcome), fhirResult.Result.InstanceType);
+                Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
+                var resource = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+                Assert.Contains(
+                    resource.Issue,
+                    x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));
             }
         }
     }
