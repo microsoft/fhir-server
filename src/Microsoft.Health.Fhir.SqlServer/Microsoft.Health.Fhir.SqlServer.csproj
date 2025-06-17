@@ -53,7 +53,7 @@
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
 
- <ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -65,9 +65,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Update="Features\Schema\Migrations\91.sql">
-      <MutableClassVersion>Latest</MutableClassVersion>
-    </EmbeddedResource>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -78,7 +75,7 @@
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
