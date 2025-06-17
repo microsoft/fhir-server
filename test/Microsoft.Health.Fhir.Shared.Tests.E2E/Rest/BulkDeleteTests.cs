@@ -26,7 +26,6 @@ using Polly;
 using Xunit;
 using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Encounter;
-using Resource = Hl7.Fhir.Model.Resource;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
