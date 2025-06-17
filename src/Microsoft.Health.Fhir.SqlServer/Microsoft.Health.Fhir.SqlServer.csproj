@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>90</LatestSchemaVersion>
+    <LatestSchemaVersion>91</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -65,6 +65,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Update="Features\Schema\Migrations\91.sql">
+      <MutableClassVersion>Latest</MutableClassVersion>
+    </EmbeddedResource>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
