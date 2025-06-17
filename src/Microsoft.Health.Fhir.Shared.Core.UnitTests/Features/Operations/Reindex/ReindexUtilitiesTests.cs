@@ -65,9 +65,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var batchSize = 1000;
 
-            // Alternative solution with concrete instance
-            var resourceElement = Substitute.For<ResourceElement>();
-            _searchIndexer.Extract(resourceElement).Returns(searchIndices1);
+            // Fix for the AmbiguousArgumentsException
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(searchIndices1);
 
             var entry1 = CreateSearchResultEntry("Patient", searchIndices1);
             _output.WriteLine($"Loaded Patient with id: {entry1.Resource.ResourceId}");
