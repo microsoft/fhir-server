@@ -211,11 +211,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(
                 createResponse.Outcome.RawResourceElement,
                 statusCode,
+                true,
+                true,
+                true,
+                _urlResolver,
                 preferHeader,
-                message)
-                .SetETagHeader()
-                .SetLastModifiedHeader()
-                .SetLocationHeader(_urlResolver);
+                message);
         }
 
         /// <summary>
