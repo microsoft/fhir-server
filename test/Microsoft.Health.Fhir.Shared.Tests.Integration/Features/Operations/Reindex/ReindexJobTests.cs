@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -101,6 +102,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task InitializeAsync()
         {
+            // First delete any leftover resources from previous test runs
+            var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            await DeleteTestResources(cleanupCts.Token);
+            cleanupCts.Dispose();
+
             _dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
             {
                 x[1] = null;
@@ -170,6 +176,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task DisposeAsync()
         {
+            // Clean up resources before finishing test class
+            await DeleteTestResources();
+
             await StopJobHostingBackgroundServiceAsync();
 
             return;
@@ -1211,6 +1220,93 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     job = await _fhirOperationDataStore.GetReindexJobByIdAsync(id, cancellationToken);
                     attempts++;
                 }
+            }
+        }
+
+        private async Task DeleteTestResources(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _output.WriteLine("Starting DeleteTestResources cleanup");
+
+                // 1. Cancel any active reindex jobs
+                await CancelActiveReindexJobIfExists(cancellationToken);
+
+                // 2. Delete all reindex job records from the database
+                await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(cancellationToken);
+                _output.WriteLine("Deleted all reindex job records");
+
+                // 3. Clean up patient and observation resources using queries
+                try
+                {
+                    // Get all patients created by test
+                    var patientResults = await _searchService.Value.SearchAsync("Patient", new List<Tuple<string, string>>(), cancellationToken);
+                    foreach (var result in patientResults.Results)
+                    {
+                        await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(), false, false, cancellationToken);
+                        _output.WriteLine($"Deleted Patient resource: {result.Resource.ResourceId}");
+                    }
+
+                    // Get all observations created by test
+                    var observationResults = await _searchService.Value.SearchAsync("Observation", new List<Tuple<string, string>>(), cancellationToken);
+                    foreach (var result in observationResults.Results)
+                    {
+                        await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(), false, false, cancellationToken);
+                        _output.WriteLine($"Deleted Observation resource: {result.Resource.ResourceId}");
+                    }
+
+                    // Get all search parameters created by test
+                    var searchResults = await _searchService.Value.SearchAsync("SearchParameter", new List<Tuple<string, string>>(), cancellationToken);
+                    foreach (var result in searchResults.Results)
+                    {
+                        // First remove from definition manager (in-memory)
+                        ResourceWrapper wrapper = result.Resource;
+                        string url = null;
+
+                        // Extract the URL from the search parameter resource
+                        try
+                        {
+                            var rawResource = wrapper.RawResource;
+
+                            // Use the ResourceDeserializer to extract the URL from the raw resource
+                            var searchParamResource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
+                            var typedElement = searchParamResource;
+
+                            url = typedElement.Scalar<string>("url")?.ToString();
+
+                            if (!string.IsNullOrEmpty(url))
+                            {
+                                // Delete from definition manager
+                                _searchParameterDefinitionManager.DeleteSearchParameter(url);
+                                _searchParameterDefinitionManager2?.DeleteSearchParameter(url);
+
+                                // Delete status
+                                await _testHelper.DeleteSearchParameterStatusAsync(url, cancellationToken);
+                                await _searchParameterStatusManager2?.DeleteSearchParameterStatusAsync(url, cancellationToken);
+
+                                _output.WriteLine($"Deleted SearchParameter definition and status: {url}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _output.WriteLine($"Error processing SearchParameter {wrapper.ResourceId}: {ex.Message}");
+                        }
+
+                        // Delete the actual resource
+                        await _fixture.DataStore.HardDeleteAsync(wrapper.ToResourceKey(), false, false, cancellationToken);
+                        _output.WriteLine($"Deleted SearchParameter resource: {wrapper.ResourceId}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _output.WriteLine($"Exception during resource cleanup: {ex.Message}");
+                }
+
+                _output.WriteLine("Completed DeleteTestResources cleanup");
+            }
+            catch (Exception ex)
+            {
+                _output.WriteLine($"Error in DeleteTestResources: {ex.Message}");
             }
         }
     }
