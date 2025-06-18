@@ -288,6 +288,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             // find all derived resources from the list of base resources
             var allResourceTypes = GetDerivedResourceTypes(searchParameterInfo.BaseResourceTypes);
+            var updated = false;
             foreach (var resourceType in allResourceTypes)
             {
                 if (TypeLookup.TryGetValue(resourceType, out var lookup) &&
@@ -295,14 +296,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     q.Any(x => string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)))
                 {
                     var newq = new ConcurrentQueue<SearchParameterInfo>(q.Where(x => !string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)));
-                    if (!lookup.TryUpdate(searchParameterInfo.Code, newq, q))
+                    if (lookup.TryUpdate(searchParameterInfo.Code, newq, q))
+                    {
+                        updated = true;
+                    }
+                    else
                     {
                         _logger.LogError("Failed to remove a search parameter from TypeLookup: {Url}, {ResourceType}, {Code}", url, resourceType, searchParameterInfo.Code);
                     }
                 }
             }
 
-            if (calculateHash)
+            if (calculateHash && updated)
             {
                 CalculateSearchParameterHash();
             }
