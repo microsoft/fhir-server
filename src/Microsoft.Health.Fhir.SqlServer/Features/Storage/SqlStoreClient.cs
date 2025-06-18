@@ -57,6 +57,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _samplingLoopTask = SamplingLoop();
         }
 
+        /// <summary>
+        /// Periodically samples the recent success and rejection rates of SQL merge resource transactions
+        /// and adaptively adjusts the retry-after interval for throttling. This background loop runs every
+        /// <see cref="SamplePeriodMilliseconds"/> milliseconds, recalculates the success rate, and updates
+        /// the retry-after value to help maintain high throughput while preventing overload. If the success
+        /// rate drops below <see cref="TargetSuccessPercentage"/>, the retry-after interval increases to
+        /// slow down incoming requests; if the success rate is high, the interval decreases to allow more
+        /// throughput. This adaptive mechanism provides dynamic, self-tuning throttling for SQL operations.
+        /// </summary>
         private async Task SamplingLoop()
         {
             while (!_samplingCts.IsCancellationRequested)
