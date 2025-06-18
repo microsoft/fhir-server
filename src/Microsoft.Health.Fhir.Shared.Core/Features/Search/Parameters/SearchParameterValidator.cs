@@ -233,28 +233,40 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return false;
             }
 
-            var result = _searchParameterComparer.CompareExpression(incomingSearchParameter.Expression, existingSearchParameter.Expression);
-            switch (result)
+            try
             {
-                case 0:
-                    _logger.LogInformation("Expressions are identical.");
-                    break;
+                var result = _searchParameterComparer.CompareExpression(incomingSearchParameter.Expression, existingSearchParameter.Expression);
+                switch (result)
+                {
+                    case 0:
+                        _logger.LogInformation("Expressions are identical.");
+                        break;
 
-                case 1:
-                    _logger.LogInformation("The incoming expression is a superset of the existing expression.");
-                    break;
+                    case 1:
+                        _logger.LogInformation("The incoming expression is a superset of the existing expression.");
+                        break;
 
-                case -1:
-                    _logger.LogInformation("The existing expression is a superset of the incoming expression.");
-                    break;
+                    case -1:
+                        _logger.LogInformation("The existing expression is a superset of the incoming expression.");
+                        break;
 
-                default:
-                    _logger.LogInformation("Expressions are different.");
-                    validationFailures.Add(
-                        new ValidationFailure(
-                            nameof(code),
-                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, code, baseType)));
-                    return false;
+                    default:
+                        _logger.LogInformation("Expressions are different.");
+                        validationFailures.Add(
+                            new ValidationFailure(
+                                nameof(code),
+                                string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, code, baseType)));
+                        return false;
+                }
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogError(ex, "Failed to parse expression.");
+                validationFailures.Add(
+                    new ValidationFailure(
+                        nameof(code),
+                        Resources.SearchParameterDefinitionContainsInvalidEntry));
+                return false;
             }
 
             if (incomingSearchParameter.Type == SearchParamType.Composite)
