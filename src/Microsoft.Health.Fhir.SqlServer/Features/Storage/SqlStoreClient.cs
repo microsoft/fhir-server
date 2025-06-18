@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -28,18 +29,67 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// Lightweight SQL store client.
     /// </summary>
-    internal class SqlStoreClient
+    internal class SqlStoreClient : IDisposable
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
 
+        private const double TargetSuccessPercentage = 99;
+        private const int MinRetryAfterMilliseconds = 20;
+        private const int MaxRetryAfterMilliseconds = 60000;
+        private const double RetryAfterGrowthRate = 1.2;
+        private const double RetryAfterDecayRate = 1.1;
+        private const int SamplePeriodMilliseconds = 500;
+
+        private int _currentPeriodSuccessCount;
+        private int _currentPeriodRejectedCount;
+        private int _currentRetryAfterMilliseconds = MinRetryAfterMilliseconds;
+        private readonly CancellationTokenSource _samplingCts = new();
+        private readonly Task _samplingLoopTask;
+
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = schemaInformation;
+            _samplingLoopTask = SamplingLoop();
+        }
+
+        private async Task SamplingLoop()
+        {
+            while (!_samplingCts.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(SamplePeriodMilliseconds, _samplingCts.Token);
+
+                    var successCount = Interlocked.Exchange(ref _currentPeriodSuccessCount, 0);
+                    var rejectedCount = Interlocked.Exchange(ref _currentPeriodRejectedCount, 0);
+                    var totalCount = successCount + rejectedCount;
+                    double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
+
+                    int oldRetry = _currentRetryAfterMilliseconds;
+                    _currentRetryAfterMilliseconds =
+                        successRate >= TargetSuccessPercentage
+                            ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
+                            : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
+
+                    if (oldRetry != _currentRetryAfterMilliseconds)
+                    {
+                        _logger.LogInformation("Adaptive retry-after updated: {Old}ms -> {New}ms (successRate={SuccessRate}%)", oldRetry, _currentRetryAfterMilliseconds, successRate);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in SQL adaptive throttling sampling loop.");
+                }
+            }
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -245,13 +295,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
-            var delayOnOverloadMilliseconds = 100;
-            var totaldelayOnOverloadMilliseconds = 0;
+            ////var totaldelayOnOverloadMilliseconds = 0;
             while (true)
             {
                 try
                 {
                     await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                    Interlocked.Increment(ref _currentPeriodSuccessCount);
                     return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
                 }
                 catch (Exception e)
@@ -259,18 +309,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var sqlEx = e as SqlException;
                     if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: MergeResources concurrent calls is above optimal. Delay={delayOnOverloadMilliseconds} milliseconds.");
-
-                        // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
-                        await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
-                        totaldelayOnOverloadMilliseconds += delayOnOverloadMilliseconds;
-                        delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
-                        if (totaldelayOnOverloadMilliseconds > 60000)
-                        {
-                            cmd.Parameters.Remove(enableThrottling); // default for @EnableThrottling is false
-                        }
-
-                        continue;
+                        Interlocked.Increment(ref _currentPeriodRejectedCount);
+                        throw new RequestRateExceededException(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
                     }
 
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
@@ -361,6 +401,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IncludeHistory", true);
             cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);
             return await cmd.ExecuteReaderAsync(_sqlRetryService, ReadResourceDateKeyWrapper, _logger, cancellationToken);
+        }
+
+        public void Dispose()
+        {
+            _samplingCts.Cancel();
+            _samplingLoopTask.Wait();
+            _samplingCts.Dispose();
         }
     }
 }
