@@ -243,6 +243,10 @@ namespace Microsoft.Health.Fhir.Importer
 
         private static void ImportViaBulkWithMI(string[] ndjsonBlobUrls, int batchNumber)
         {
+            var importStartUtc = DateTime.UtcNow;
+            TimeZoneInfo istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var importStartIst = TimeZoneInfo.ConvertTimeFromUtc(importStartUtc, istZone);
+            Console.WriteLine($"[Batch {batchNumber}] Import started at (IST): {importStartIst:yyyy-MM-dd HH:mm:ss.fff} with {ndjsonBlobUrls.Length} files.");
             var parameters = new
             {
                 resourceType = "Parameters",
@@ -333,6 +337,10 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+            var importEndUtc = DateTime.UtcNow;
+            var importEndIst = TimeZoneInfo.ConvertTimeFromUtc(importEndUtc, istZone);
+            Console.WriteLine($"[Batch {batchNumber}] Import ended at (IST): {importEndIst:yyyy-MM-dd HH:mm:ss.fff}");
+            Console.WriteLine($"[Batch {batchNumber}] Total import duration: {(importEndUtc - importStartUtc).TotalSeconds} seconds");
         }
 
         private static void PostBundle(string bundle, IndexIncrementor incrementor)
