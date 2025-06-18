@@ -15,20 +15,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public static void RemoveReference(Base resource, string target)
         {
-            foreach (var child in resource.Children)
+            var namedChildren = resource.NamedChildren;
+            foreach (var child in namedChildren)
             {
-                if (child.TypeName == "reference") // this is not the correct string, use debugger to find the right value
+                var childValue = child.Value;
+                if (childValue.TypeName == "Reference")
                 {
-                    var reference = (ResourceReference)child;
+                    var reference = (ResourceReference)childValue;
                     if (reference.Reference.Contains(target, StringComparison.OrdinalIgnoreCase))
                     {
-                        reference.Reference = string.Empty;
-                        reference.Display = "Referenced resource was deleted.";
+                        reference.Reference = null;
+                        reference.Display = "Referenced resource deleted";
                     }
                 }
-                else if (child.Children.Any())
+                else if (childValue.Children.Any())
                 {
-                    RemoveReference(child, target);
+                    RemoveReference(childValue, target);
                 }
             }
         }

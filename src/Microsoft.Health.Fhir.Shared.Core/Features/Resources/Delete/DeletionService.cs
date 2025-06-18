@@ -510,14 +510,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private async Task RemoveReferences(SearchResultEntry resource, ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            /* 1. Get a list of all resources referencing the target (/<target type>?_id=<target id>&_revinclude=*:*)
-             * 2. Filter the target from the results
-             * 3. Edit each result to not reference the target
-             * 4. Send update as a large batch
-             * 5. Repeat 3&4 for each page of $include results if there is more than one page
-             * 5. End
-             */
-
             using (var searchService = _searchServiceFactory.Invoke())
             {
                 var parameters = new List<Tuple<string, string>>()
@@ -539,7 +531,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     var modifiedResources = new List<ResourceWrapperOperation>();
                     foreach (var reference in resourcesWithReferences)
                     {
-                        ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceId);
+                        ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceTypeName + "/" + resource.Resource.ResourceId);
                         var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: false);
                         modifiedResources.Add(new ResourceWrapperOperation(
                             wrapper,
@@ -557,7 +549,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     if (includesContinuationToken != null)
                     {
-                        await searchService.Value.SearchAsync() // still need to add support for multiple pages of includes results
+                        var clonedParameters = new List<Tuple<string, string>>(parameters);
+                        clonedParameters.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(includesContinuationToken)));
+                        results = await searchService.Value.SearchAsync(
+                            resourceType: resource.Resource.ResourceTypeName,
+                            queryParameters: clonedParameters,
+                            cancellationToken: cancellationToken,
+                            isIncludesOperation: true);
+                        includesContinuationToken = results.IncludesContinuationToken;
+                        revincludeResults = results.Results;
+                    }
+                    else
+                    {
+                        break;
                     }
                 }
             }

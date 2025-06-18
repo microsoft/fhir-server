@@ -128,6 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string NotReferenced = "_not-referenced";
 
+        public const string RemoveReferences = "_remove-references";
+
         /// <summary>
         /// The $includes continuation token parameter.
         /// </summary>
