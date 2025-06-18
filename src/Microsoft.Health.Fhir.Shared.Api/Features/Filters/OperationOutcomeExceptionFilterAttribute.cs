@@ -205,7 +205,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestRateExceededException ex:
                         healthExceptionResult = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Throttled, HttpStatusCode.TooManyRequests);
                         healthExceptionResult.Headers.AddRetryAfterHeaders(ex.RetryAfter);
-
                         break;
                     case UnsupportedMediaTypeException unsupportedMediaTypeException:
                         healthExceptionResult = CreateOperationOutcomeResult(unsupportedMediaTypeException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.NotSupported, HttpStatusCode.UnsupportedMediaType);

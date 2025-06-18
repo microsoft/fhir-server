@@ -140,6 +140,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string IncludesCount = "_includesCount";
 
+        /// <summary>
+        /// The excluded resource types parameter representing a comma separated list of resource types.
+        /// </summary>
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
+
         public const string ReverseInclude = "_revinclude";
     }
 }
