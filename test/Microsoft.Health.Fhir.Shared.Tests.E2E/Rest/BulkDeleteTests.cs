@@ -789,11 +789,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             {
                                 DebugOutput($"Checking url: {url}");
                                 await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
-                                DebugOutput($"Url deleted: {url}");
+                                DebugOutput($"Url not deleted: {url}");
                             }
                             catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
                             {
-                                DebugOutput($"Url not deleted: {url}");
+                                DebugOutput($"Url deleted: {url}");
                                 deleted++;
                             }
                         }
