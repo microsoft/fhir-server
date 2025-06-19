@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Web
                     var keyVaultEndpoint = builtConfig["KeyVault:Endpoint"];
                     if (!string.IsNullOrEmpty(keyVaultEndpoint))
                     {
-                        var credential = new DefaultAzureCredential();
+                        var credential = new ManagedIdentityCredential();
                         builder.AddAzureKeyVault(new System.Uri(keyVaultEndpoint), credential);
                     }
 
