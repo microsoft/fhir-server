@@ -209,25 +209,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             param.IsSearchable = true;
         }
 
-        // Commenting out this test for now to test for flakyness sourced from it.
-        // [Fact]
-        // public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
-        // {
-        //    var job = CreateReindexJobRecord();
-        //    JobInfo jobInfo = new JobInfo()
-        //    {
-        //        Id = 3,
-        //        Definition = JsonConvert.SerializeObject(job),
-        //        QueueType = (byte)QueueType.Reindex,
-        //        GroupId = 3,
-        //        CreateDate = DateTime.UtcNow,
-        //        Status = JobStatus.Running,
-        //    };
-        //    var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-        //    Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
-        //    var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
-        //    Assert.False(jobs.Any());
-        // }
+        [Fact]
+        public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
+        {
+            var job = CreateReindexJobRecord();
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 3,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 3,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+            Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
+            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
+            Assert.False(jobs.Any());
+        }
 
         private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
         {
