@@ -34,22 +34,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly IMediator _mediator;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
-        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
             Func<IScoped<ISearchService>> searchService,
-            IQueueClient queueClient,
-            ISearchParameterOperations searchParameterOperations)
+            IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -79,7 +76,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
-                List<ResourceWrapper> deletedSearchParameters = new List<ResourceWrapper>();
 
                 try
                 {
@@ -93,8 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             versionType: definition.VersionType,
                             allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                         cancellationToken,
-                        definition.ExcludedResourceTypes,
-                        deletedSearchParameters);
+                        definition.ExcludedResourceTypes);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
@@ -109,11 +104,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     {
                         result.ResourcesDeleted[key] += value;
                     }
-                }
-
-                foreach (var sp in deletedSearchParameters)
-                {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(sp.RawResource, cancellationToken);
                 }
 
                 await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);

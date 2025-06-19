@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Check for any changes to Search Parameters
                     try
                     {
-                        // await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {

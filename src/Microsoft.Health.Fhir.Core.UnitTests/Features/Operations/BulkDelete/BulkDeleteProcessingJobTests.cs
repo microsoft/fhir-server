@@ -37,7 +37,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         private BulkDeleteProcessingJob _processingJob;
         private ISearchService _searchService;
         private IQueueClient _queueClient;
-        private ISearchParameterOperations _searchParameterOperations;
 
         public BulkDeleteProcessingJobTests()
         {
@@ -46,8 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 .Returns(Task.FromResult(new SearchResult(5, new List<Tuple<string, string>>())));
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
-            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
-            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient, _searchParameterOperations);
+            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
         }
 
         [Fact]
@@ -65,14 +63,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<IList<ResourceWrapper>>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<IList<ResourceWrapper>>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
         }
 
         [Fact]
@@ -90,14 +88,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<IList<ResourceWrapper>>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<IList<ResourceWrapper>>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
 
             // Checks that one processing job was queued
             var calls = _queueClient.ReceivedCalls();
