@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -536,14 +537,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
+        [Fact]
+        public void GivenNotReferencedParameter_WhenCreated_ThenProperExpressionIsAdded()
+        {
+            SearchOptions options = CreateSearchOptions(
+                resourceType: ResourceType.Patient.ToString(),
+                queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "*:*") });
+            Assert.NotNull(options);
+            Assert.NotNull(options.Expression);
+            Assert.Contains((options.Expression as MultiaryExpression).Expressions, expression => expression is NotReferencedExpression);
+        }
+
+        [Fact]
+        public void GivenNotReferencedParameterWithInvalidValue_WhenCreated_ThenExceptionIsThrown()
+        {
+            CreateSearchOptions(
+                resourceType: ResourceType.Patient.ToString(),
+                queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "invalid") });
+
+            Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(Core.Resources.NotReferencedParameterInvalidValue));
+        }
+
+        [Fact]
+        public void GivenMultipleIncludesContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
+        {
+            const string encodedContinuationToken = "MTIz";
+
+            Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, encodedContinuationToken),
+                },
+                isIncludesOperation: true));
+        }
+
+        [Theory]
+        [InlineData(true, 0)]
+        [InlineData(false, 1)]
+        public void GivenIncludesContinuationToken_WhenCreated_ThenOperationOutcomeIssueShouldBeAddedForNonIncludesOperation(bool isIncludesOperation, int operationOutcomeIssueCount)
+        {
+            const string ct = "123";
+            var options = CreateSearchOptions(
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ct)),
+                },
+                isIncludesOperation: isIncludesOperation);
+
+            var expectedCt = isIncludesOperation ? ct : null;
+            Assert.Equal(expectedCt, options.IncludesContinuationToken);
+            Assert.Equal(
+                operationOutcomeIssueCount,
+                _defaultFhirRequestContext.BundleIssues.Count(x => x.Diagnostics == Core.Resources.IncludesContinuationTokenIgnored));
+        }
+
+        [Theory]
+        [InlineData(100, 100)]
+        [InlineData(null, 1000)]
+        [InlineData(int.MaxValue, 1000)]
+        public void GivenAnIncludesCount_WhenCreated_ThenCorrectIncludeCountShouldBeSet(int? valueToSet, int valueExpected)
+        {
+            var parameters = valueToSet.HasValue
+                ? new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.IncludesCount, valueToSet.Value.ToString()) }
+                : null;
+            SearchOptions options = CreateSearchOptions(queryParameters: parameters);
+
+            Assert.NotNull(options);
+            Assert.Equal(valueExpected, options.IncludeCount);
+        }
+
+        [Fact]
+        public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
+        {
+            Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
-            string compartmentId = null)
+            string compartmentId = null,
+            bool isIncludesOperation = false)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
         }
     }
 }

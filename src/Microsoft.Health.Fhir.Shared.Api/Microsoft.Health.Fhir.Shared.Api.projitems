@@ -13,6 +13,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />

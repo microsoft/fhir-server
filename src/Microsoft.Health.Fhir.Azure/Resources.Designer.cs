@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Azure {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to get access token for storage account for export..
+        ///   Looks up a localized string similar to Unable to get access token for storage account..
         /// </summary>
         internal static string CannotGetAccessToken {
             get {
@@ -165,6 +165,15 @@ namespace Microsoft.Health.Fhir.Azure {
         internal static string InvalidStorageUri {
             get {
                 return ResourceManager.GetString("InvalidStorageUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The storage account not found..
+        /// </summary>
+        internal static string StorageAccountNotFound {
+            get {
+                return ResourceManager.GetString("StorageAccountNotFound", resourceCulture);
             }
         }
     }

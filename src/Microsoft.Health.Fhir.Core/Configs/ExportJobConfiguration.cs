@@ -77,5 +77,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The maximum number of times a job can be restarted before it is considered failed.
         /// </summary>
         public uint MaxJobRestartCount { get; set; } = 64;
+
+        /// <summary>
+        /// Gets or sets the maximum number of retry attempts for transient errors.
+        /// </summary>
+        public int MaxRetryCount { get; set; } = 3;
+
+        /// <summary>
+        /// Gets or sets the delay in milliseconds between retry attempts.
+        /// </summary>
+        public int RetryDelayMilliseconds { get; set; } = 5000;
     }
 }

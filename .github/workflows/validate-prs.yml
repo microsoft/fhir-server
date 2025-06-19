@@ -28,13 +28,18 @@ jobs:
           repository: "microsoft/fhir-server"
       - uses: actions/labeler@v5
       - uses: actions/github-script@v7
+        env:
+          TITLE: ${{ env.TITLE }}
+          LABELS: ${{ env.LABELS }}
+          AUTHOR: ${{ env.AUTHOR }}
+          NO_MILESTONE: ${{ env.NO_MILESTONE }}
         with:
           script: |
             var errors = "";
-            const title = "${{env.TITLE}}";
+            const title = process.env.TITLE;
             const body = context.payload.pull_request.body;
-            const labels = "${{env.LABELS}}";
-            const author = "${{env.AUTHOR}}";
+            const labels = process.env.LABELS;
+            const author = process.env.AUTHOR;
 
             const excludeAuthors = ["dependabot[bot]"];
             
@@ -49,7 +54,7 @@ jobs:
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
-            if(${{env.NO_MILESTONE}}) {
+            if(process.env.NO_MILESTONE === 'true') {
               errors += '- Add a milestone to the PR for the sprint that it is merged (i.e. add S47). \n';
             }
 

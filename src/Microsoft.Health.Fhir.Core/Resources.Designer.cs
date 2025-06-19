@@ -656,6 +656,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;includesCt&apos; parameter is ignored for a non-$includes request..
+        /// </summary>
+        internal static string IncludesContinuationTokenIgnored {
+            get {
+                return ResourceManager.GetString("IncludesContinuationTokenIgnored", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to An internal error has occurred. If this problem persists, please contact Customer Support..
         /// </summary>
         internal static string InternalServerError {
@@ -751,6 +760,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidSearchCountSpecified {
             get {
                 return ResourceManager.GetString("InvalidSearchCountSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter value must be an integer greater than zero..
+        /// </summary>
+        internal static string InvalidSearchIncludesCountSpecified {
+            get {
+                return ResourceManager.GetString("InvalidSearchIncludesCountSpecified", resourceCulture);
             }
         }
         
@@ -854,6 +872,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;The &apos;includesCt&apos; parameter must be provided for the $includes operation.&quot;.
+        /// </summary>
+        internal static string MissingIncludesContinuationToken {
+            get {
+                return ResourceManager.GetString("MissingIncludesContinuationToken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Missing search indices for resource type &apos;{0}&apos;..
         /// </summary>
         internal static string MissingSearchIndices {
@@ -931,6 +958,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string NoSearchParametersNeededToBeIndexed {
             get {
                 return ResourceManager.GetString("NoSearchParametersNeededToBeIndexed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        /// </summary>
+        internal static string NotReferencedParameterInvalidValue {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
             }
         }
         
@@ -1322,6 +1358,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_includesCount&apos; parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}..
+        /// </summary>
+        internal static string SearchParamaterIncludesCountExceedLimit {
+            get {
+                return ResourceManager.GetString("SearchParamaterIncludesCountExceedLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported..
         /// </summary>
         internal static string SearchParameterByDefinitionUriNotSupported {
@@ -1601,11 +1646,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The number of included results exceeded the limit of {0}.
+        ///   Looks up a localized string similar to The search criteria provided returns partial included resources. Use &apos;_includesCount&apos; parameter to retrieve all included resources (Default: {0}, Max: {1})..
         /// </summary>
         internal static string TooManyIncludeResults {
             get {
                 return ResourceManager.GetString("TooManyIncludeResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The incoming request has too many parameters. Reduce the number of parameters and resend the request..
+        /// </summary>
+        internal static string TooManyParameters {
+            get {
+                return ResourceManager.GetString("TooManyParameters", resourceCulture);
             }
         }
         
@@ -1624,6 +1678,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string TruncatedIncludeMessage {
             get {
                 return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Included items are truncated. Use the related link in the response to retrieve all included items..
+        /// </summary>
+        internal static string TruncatedIncludeMessageForIncludes {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessageForIncludes", resourceCulture);
             }
         }
         
@@ -1705,6 +1768,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedConfigurationMessage {
             get {
                 return ResourceManager.GetString("UnsupportedConfigurationMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;$includes&apos; operation is not supported..
+        /// </summary>
+        internal static string UnsupportedIncludesOperation {
+            get {
+                return ResourceManager.GetString("UnsupportedIncludesOperation", resourceCulture);
             }
         }
         

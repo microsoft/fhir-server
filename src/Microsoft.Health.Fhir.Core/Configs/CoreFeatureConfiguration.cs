@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
 
         /// <summary>
-        /// Gets or sets the default value for maximum value for _count in search.
+        /// Gets or sets the maximum value for _count in search.
         /// </summary>
         public int MaxItemCountPerSearch { get; set; } = 1000;
 
@@ -43,9 +43,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultItemCountPerSearch { get; set; } = 10;
 
         /// <summary>
+        /// Gets or sets the max value for included search results.
+        /// </summary>
+        public int MaxIncludeCountPerSearch { get; set; } = 1000;
+
+        /// <summary>
         /// Gets or sets the default value for included search results.
         /// </summary>
-        public int DefaultIncludeCountPerSearch { get; set; } = 100;
+        public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -86,5 +91,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the includes.
+        /// </summary>
+        public bool SupportsIncludes { get; set; } = false;
     }
 }

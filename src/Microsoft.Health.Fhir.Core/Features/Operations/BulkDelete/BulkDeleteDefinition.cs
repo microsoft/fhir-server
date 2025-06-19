@@ -19,20 +19,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             DeleteOperation deleteOperation,
             string type,
             IList<Tuple<string, string>> searchParameters,
+            IList<string> excludedResourceTypes,
             string url,
             string baseUrl,
             string parentRequestId,
-            long startingResourceCount = 0,
             ResourceVersionType versionType = ResourceVersionType.Latest)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
             Type = type;
             SearchParameters = searchParameters;
+            ExcludedResourceTypes = excludedResourceTypes ?? new List<string>();
             Url = url;
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
-            ExpectedResourceCount = startingResourceCount;
             VersionType = versionType;
         }
 
@@ -53,6 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         [JsonProperty(JobRecordProperties.SearchParameters)]
         public IList<Tuple<string, string>> SearchParameters { get; private set; }
 
+        [JsonProperty(JobRecordProperties.ExcludedResourceTypes)]
+        public IList<string> ExcludedResourceTypes { get; private set; }
+
         [JsonProperty(JobRecordProperties.Url)]
         public string Url { get; private set; }
 
@@ -61,9 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.ParentRequestId)]
         public string ParentRequestId { get; private set; }
-
-        [JsonProperty(JobRecordProperties.ExpectedResourceCount)]
-        public long ExpectedResourceCount { get; private set; }
 
         [JsonProperty(JobRecordProperties.VersionType)]
         public ResourceVersionType VersionType { get; private set; }

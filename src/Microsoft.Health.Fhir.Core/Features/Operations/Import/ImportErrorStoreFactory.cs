@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportErrorStoreFactory : IImportErrorStoreFactory
     {
-        private const string LogContainerName = "fhirlogs";
+        private const string DefaultLogContainerName = "fhirlogs";
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private ILoggerFactory _loggerFactory;
@@ -27,11 +27,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _loggerFactory = loggerFactory;
         }
 
-        public async Task<IImportErrorStore> InitializeAsync(string fileName, CancellationToken cancellationToken)
+        public Task<IImportErrorStore> InitializeAsync(string fileName, CancellationToken cancellationToken)
         {
+            return InitializeAsync(DefaultLogContainerName, fileName, cancellationToken);
+        }
+
+        public async Task<IImportErrorStore> InitializeAsync(string containerName, string fileName, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrEmpty(containerName, nameof(containerName));
             EnsureArg.IsNotNullOrEmpty(fileName, nameof(fileName));
 
-            Uri fileUri = await _integrationDataStoreClient.PrepareResourceAsync(LogContainerName, fileName, cancellationToken);
+            Uri fileUri = await _integrationDataStoreClient.PrepareResourceAsync(containerName, fileName, cancellationToken);
             return new ImportErrorStore(_integrationDataStoreClient, fileUri, _loggerFactory.CreateLogger<ImportErrorStore>());
         }
     }
