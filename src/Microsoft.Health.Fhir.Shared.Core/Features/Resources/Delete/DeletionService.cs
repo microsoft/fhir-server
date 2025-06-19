@@ -390,7 +390,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 if (softDeleteIncludes.Any())
                 {
                     await DeleteSearchParametersAsync(
-                        resourcesToDelete.Select(x => x.Resource).ToList(),
+                        resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(x => x.Resource).ToList(),
                         cancellationToken);
 
                     await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
@@ -401,6 +401,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .Where(resource => resource.Resource.ResourceId == item.Wrapper.ResourceId && resource.Resource.ResourceTypeName == item.Wrapper.ResourceTypeName)
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
+
+                await DeleteSearchParametersAsync(
+                    resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
+                    cancellationToken);
 
                 await fhirDataStore.Value.MergeAsync(softDeleteMatches, cancellationToken);
             }

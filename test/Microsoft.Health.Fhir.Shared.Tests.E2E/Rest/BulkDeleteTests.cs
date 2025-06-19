@@ -577,8 +577,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                      .Where(
                                         x =>
                                         {
-                                            if ((x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
-                                                && (((SearchParameter)x).Url == url))
+                                            if (string.Equals(x.TypeName, ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase)
+                                                && string.Equals(((SearchParameter)x).Url, url, StringComparison.OrdinalIgnoreCase))
                                             {
                                                 return true;
                                             }
@@ -610,14 +610,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                          await Task.Delay(2000);
                          foreach (var resource in resourcesCreated)
                          {
+                             var url = ((SearchParameter)resource).Url;
                              var response = await _fhirClient.SearchAsync(
                                  ResourceType.SearchParameter,
-                                 $"url={((SearchParameter)resource).Url}");
+                                 $"url={url}");
                              Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
                              var resourcesRetrieved = response.Resource?.Entry
                                  .Select(x => x.Resource)
-                                 .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                 .Where(
+                                    x =>
+                                    {
+                                        if (string.Equals(x.TypeName, ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase)
+                                            && string.Equals(((SearchParameter)x).Url, url, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            return true;
+                                        }
+
+                                        return false;
+                                    })
                                  .ToList();
                              Assert.Single(resourcesRetrieved);
                          }
@@ -675,7 +686,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                             var resourceToDelete = response.Resource?.Entry?
                                 .Select(x => x.Resource)
-                                .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                .Where(
+                                   x =>
+                                   {
+                                       if (string.Equals(x.TypeName, ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase)
+                                           && string.Equals(((SearchParameter)x).Url, url, StringComparison.OrdinalIgnoreCase))
+                                       {
+                                           return true;
+                                       }
+
+                                       return false;
+                                   })
                                 .FirstOrDefault();
                             if (resourceToDelete != null)
                             {
@@ -700,14 +721,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         await Task.Delay(2000);
                         foreach (var resource in resources)
                         {
+                            var url = ((SearchParameter)resource).Url;
                             var response = await _fhirClient.SearchAsync(
                                 ResourceType.SearchParameter,
                                 $"url={((SearchParameter)resource).Url}");
                             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                            var resourceRetrieved = response.Resource?.Entry
+                            var resourceRetrieved = response.Resource?.Entry?
                                 .Select(x => x.Resource)
-                                .Where(x => x.TypeName?.Equals(ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase) ?? false)
+                                .Where(
+                                   x =>
+                                   {
+                                       if (string.Equals(x.TypeName, ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase)
+                                           && string.Equals(((SearchParameter)x).Url, url, StringComparison.OrdinalIgnoreCase))
+                                       {
+                                           return true;
+                                       }
+
+                                       return false;
+                                   })
                                 .FirstOrDefault();
                             Assert.Null(resourceRetrieved);
                         }
@@ -780,26 +812,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return retryPolicy.ExecuteAsync(
                     async () =>
                     {
-                        DebugOutput($"Checking {resources.Count} search parameters deleted...");
+                        DebugOutput($"Checking {resources.Count} search parameters deleted by bulk-delete...");
                         var deleted = 0;
                         foreach (var resource in resources)
                         {
                             var url = ((SearchParameter)resource).Url;
-                            try
+                            var response = await _fhirClient.SearchAsync(
+                                ResourceType.SearchParameter,
+                                $"url={url}");
+                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                            var resourceRetrieved = response.Resource?.Entry?
+                                .Select(x => x.Resource)
+                                .Where(
+                                   x =>
+                                   {
+                                       if (string.Equals(x.TypeName, ResourceType.SearchParameter.ToString(), StringComparison.OrdinalIgnoreCase)
+                                           && string.Equals(((SearchParameter)x).Url, url, StringComparison.OrdinalIgnoreCase))
+                                       {
+                                           return true;
+                                       }
+
+                                       return false;
+                                   })
+                                .FirstOrDefault();
+                            if (resourceRetrieved == null)
                             {
-                                DebugOutput($"Checking url: {url}");
-                                await _fhirClient.ReadAsync<SearchParameter>($"{resource.TypeName}/{resource.Id}");
-                                DebugOutput($"Url not deleted: {url}");
-                            }
-                            catch (FhirClientException ex) when (ex.Response?.StatusCode == HttpStatusCode.NotFound || ex.Response?.StatusCode == HttpStatusCode.Gone)
-                            {
-                                DebugOutput($"Url deleted: {url}");
                                 deleted++;
+                                DebugOutput($"Url not found: {url}");
+                            }
+                            else
+                            {
+                                DebugOutput($"Url not deleted: {url}");
                             }
                         }
 
                         Assert.Equal(resources.Count, deleted);
-                        DebugOutput($"Checking {resources.Count} search parameters deleted completed.");
+                        DebugOutput($"Checking {resources.Count} search parameters deleted by bulk-delete completed.");
                     });
             }
         }
