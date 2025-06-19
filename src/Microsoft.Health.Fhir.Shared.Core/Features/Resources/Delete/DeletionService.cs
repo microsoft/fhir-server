@@ -560,7 +560,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 foreach (var resource in resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
                 {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken);
+                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
                 }
             }
         }
@@ -569,7 +569,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             if (string.Equals(resource?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
             {
-                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken);
+                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
             }
         }
     }

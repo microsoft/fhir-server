@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -173,6 +173,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 catch (SearchParameterNotSupportedException ex)
                 {
                     _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
+                    if (!ignoreSearchParameterNotSupportedException)
+                    {
+                        throw;
+                    }
                 }
             }
 
