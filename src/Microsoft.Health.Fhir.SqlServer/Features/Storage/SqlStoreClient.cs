@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in SQL adaptive throttling sampling loop.");
+                    _logger.LogError(ex, "Unexpected error in SQL adaptive throttling sampling loop.");
                 }
             }
         }
@@ -304,7 +304,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
-            ////var totaldelayOnOverloadMilliseconds = 0;
             while (true)
             {
                 try
