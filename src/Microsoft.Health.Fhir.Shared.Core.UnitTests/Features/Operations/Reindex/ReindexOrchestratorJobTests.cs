@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true);
 
-            var reindexJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, 1, true, Arg.Any<CancellationToken>());
+            var reindexJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, 1, true, _cancellationToken);
             var processingJob = reindexJobs.FirstOrDefault();
 
             Assert.Single(reindexJobs);
