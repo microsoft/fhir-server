@@ -675,9 +675,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             DebugOutput(urls.ToString());
                         }
 
-                        foreach (var resource in resources)
+                        foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
                         {
-                            var url = ((SearchParameter)resource).Url;
                             var response = await _fhirClient.SearchAsync(
                                 ResourceType.SearchParameter,
                                 $"url={url}");
