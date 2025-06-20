@@ -608,9 +608,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                          }
 
                          await Task.Delay(2000);
-                         foreach (var resource in resourcesCreated)
+                         foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
                          {
-                             var url = ((SearchParameter)resource).Url;
                              var response = await _fhirClient.SearchAsync(
                                  ResourceType.SearchParameter,
                                  $"url={url}");
@@ -814,9 +813,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     {
                         DebugOutput($"Checking {resources.Count} search parameters deleted by bulk-delete...");
                         var deleted = 0;
-                        foreach (var resource in resources)
+                        foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
                         {
-                            var url = ((SearchParameter)resource).Url;
                             var response = await _fhirClient.SearchAsync(
                                 ResourceType.SearchParameter,
                                 $"url={url}");
