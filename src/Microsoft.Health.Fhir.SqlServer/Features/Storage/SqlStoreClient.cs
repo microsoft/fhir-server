@@ -29,76 +29,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// Lightweight SQL store client.
     /// </summary>
-    internal class SqlStoreClient : IDisposable
+    internal class SqlStoreClient
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
 
-        private const double TargetSuccessPercentage = 99;
-        private const int MinRetryAfterMilliseconds = 20;
-        private const int MaxRetryAfterMilliseconds = 60000;
-        private const double RetryAfterGrowthRate = 1.2;
-        private const double RetryAfterDecayRate = 1.1;
-        private const int SamplePeriodMilliseconds = 500;
-
-        private int _currentPeriodSuccessCount;
-        private int _currentPeriodRejectedCount;
-        private int _currentRetryAfterMilliseconds = MinRetryAfterMilliseconds;
-        private readonly CancellationTokenSource _samplingCts = new();
-        private readonly Task _samplingLoopTask;
-
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = schemaInformation;
-            _samplingLoopTask = SamplingLoop();
-        }
-
-        /// <summary>
-        /// Periodically samples the recent success and rejection rates of SQL merge resource transactions
-        /// and adaptively adjusts the retry-after interval for throttling. This background loop runs every
-        /// <see cref="SamplePeriodMilliseconds"/> milliseconds, recalculates the success rate, and updates
-        /// the retry-after value to help maintain high throughput while preventing overload. If the success
-        /// rate drops below <see cref="TargetSuccessPercentage"/>, the retry-after interval increases to
-        /// slow down incoming requests; if the success rate is high, the interval decreases to allow more
-        /// throughput. This adaptive mechanism provides dynamic, self-tuning throttling for SQL operations.
-        /// </summary>
-        private async Task SamplingLoop()
-        {
-            while (!_samplingCts.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(SamplePeriodMilliseconds, _samplingCts.Token);
-
-                    var successCount = Interlocked.Exchange(ref _currentPeriodSuccessCount, 0);
-                    var rejectedCount = Interlocked.Exchange(ref _currentPeriodRejectedCount, 0);
-                    var totalCount = successCount + rejectedCount;
-                    double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
-
-                    int oldRetry = _currentRetryAfterMilliseconds;
-                    _currentRetryAfterMilliseconds =
-                        successRate >= TargetSuccessPercentage
-                            ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
-                            : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
-
-                    if (oldRetry != _currentRetryAfterMilliseconds)
-                    {
-                        _logger.LogInformation("Adaptive retry-after updated: {Old}ms -> {New}ms (successRate={SuccessRate}%)", oldRetry, _currentRetryAfterMilliseconds, successRate);
-                    }
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unexpected error in SQL adaptive throttling sampling loop.");
-                }
-            }
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -309,7 +251,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-                    Interlocked.Increment(ref _currentPeriodSuccessCount);
                     return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
                 }
                 catch (Exception e)
@@ -317,8 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var sqlEx = e as SqlException;
                     if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
-                        Interlocked.Increment(ref _currentPeriodRejectedCount);
-                        throw new RequestRateExceededException(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
+                        throw new RequestRateExceededException(null); // Let the retryAfter header be set to default
                     }
 
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
@@ -409,13 +349,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IncludeHistory", true);
             cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);
             return await cmd.ExecuteReaderAsync(_sqlRetryService, ReadResourceDateKeyWrapper, _logger, cancellationToken);
-        }
-
-        public void Dispose()
-        {
-            _samplingCts.Cancel();
-            _samplingLoopTask.Wait();
-            _samplingCts.Dispose();
         }
     }
 }
