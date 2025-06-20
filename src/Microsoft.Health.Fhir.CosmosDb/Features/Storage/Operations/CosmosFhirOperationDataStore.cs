@@ -19,16 +19,19 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
-    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
+    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore, ILegacyReindexOperationDataStore
     {
         private readonly IScoped<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -116,6 +119,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to get an export job by id.");
+                throw;
+            }
+        }
+
+        public override async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
+        {
+            if (IsLegacyJob(jobId))
+            {
+                // try old job records
+                var oldJobs = (ILegacyReindexOperationDataStore)this;
+                return await oldJobs.GetLegacyReindexJobByIdAsync(jobId, cancellationToken);
+            }
+
+            return await base.GetReindexJobByIdAsync(jobId, cancellationToken);
+        }
+
+        async Task<ReindexJobWrapper> ILegacyReindexOperationDataStore.GetLegacyReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            try
+            {
+                var cosmosReindexJobRecord = await _containerScope.Value.ReadItemAsync<CosmosReindexJobRecordWrapper>(
+                    jobId,
+                    new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
+                    cancellationToken: cancellationToken);
+
+                var outcome = new ReindexJobWrapper(
+                    cosmosReindexJobRecord.Resource.JobRecord,
+                    WeakETag.FromVersionId(cosmosReindexJobRecord.Resource.ETag));
+
+                return outcome;
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.IsRequestRateExceeded())
+                {
+                    throw;
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, jobId));
+                }
+
+                _logger.LogError(dce, "Failed to get legacy reindex job by id: {JobId}.", jobId);
                 throw;
             }
         }
