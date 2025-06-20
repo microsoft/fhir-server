@@ -19,6 +19,7 @@ using DotLiquid.Util;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
@@ -94,42 +95,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count) + RandomNumberGenerator.GetInt32(0, 5)));
         }
 
-        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, string continuationToken, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
+        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceType, nameof(resourceType));
-
-            bool tooManyIncludeResults = false;
             IReadOnlyCollection<SearchResultEntry> searchResults;
+            bool tooManyIncludeResults = false;
+            SearchResult searchResult;
             string ct;
             string ict;
 
             using (var searchService = _searchServiceFactory.Invoke())
             {
-                (searchResults, ct, ict) = await searchService.Value.ConditionalSearchAsync(
+                searchResult = await searchService.Value.SearchAsync(
                     resourceType,
                     conditionalParameters,
                     cancellationToken,
-                    (int?)maximumNumberOfResourcesPerQuery,
-                    continuationToken,
-                    versionType: ResourceVersionType.Latest,
-                    onlyIds: false,
-                    logger: _logger);
+                    false,
+                    resourceVersionTypes: ResourceVersionType.Latest,
+                    onlyIds: false);
             }
 
             Dictionary<string, long> resourceTypesUpdated = new Dictionary<string, long>();
             Dictionary<string, long> totalResourcesByResourceType = new Dictionary<string, long>();
             Dictionary<string, long> resourcesIgnoredByResourceType = new Dictionary<string, long>();
             Dictionary<string, long> commonPatchFailuresByResourceType = new Dictionary<string, long>();
-            ConcurrentDictionary<string, long> patchFailuresByResourceType = new ConcurrentDictionary<string, long>();
             Dictionary<string, string> commonPatchFailureReasonsByResourceType = new Dictionary<string, string>();
+            ConcurrentDictionary<string, long> patchFailuresByResourceType = new ConcurrentDictionary<string, long>();
             Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequestsByResourceTypes = new Dictionary<string, ConditionalPatchResourceRequest>();
             ConcurrentDictionary<string, List<(string, Exception)>> patchExceptions = new ConcurrentDictionary<string, List<(string, Exception)>>();
-
             var updateTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // Get total resources by resource type for the first page of results and store it in totalResourcesByResourceType
-            totalResourcesByResourceType = searchResults
+            totalResourcesByResourceType = searchResult.Results?
                         .GroupBy(res => res.Resource.ResourceTypeName)
                         .ToDictionary(group => group.Key, group => (long)group.Count());
 
@@ -142,10 +140,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 // At system level if parallel flag is true then sub jobs would be created based on ResourceType-surrogateId range without any token which means we need not reiterate here in the service
                 // At Resource type level if parallel flag is true then sub jobs would be created based on continuation token so we need not reiterate here in the service
-                while (searchResults.Any() || !string.IsNullOrEmpty(ct))
+                ct = searchResult.ContinuationToken;
+                ict = searchResult.IncludesContinuationToken;
+                while ((searchResult.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(ct))
                 {
+                    ct = searchResult.ContinuationToken;
+                    searchResults = searchResult.Results.ToList();
+
                     // Filter and group the results based on the resource type and prepare the conditional patch requests
-                    FilterAndGroupResults(conditionalParameters, bundleResourceContext, searchResults, totalResourcesByResourceType, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, conditionalPatchResourceRequestsByResourceTypes, deserializedFhirPatchParameters);
+                    FilterAndGroupResults(
+                        conditionalParameters,
+                        bundleResourceContext,
+                        searchResults,
+                        totalResourcesByResourceType,
+                        resourcesIgnoredByResourceType,
+                        commonPatchFailuresByResourceType,
+                        conditionalPatchResourceRequestsByResourceTypes,
+                        deserializedFhirPatchParameters);
 
                     // Filter out the seachResults which are not in resourcesIgnoredByResourceType and commonPatchFailuresByResourceType
                     searchResults = searchResults
@@ -154,8 +165,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     // Apply the patch and get the final patchedResources that are patched successfully
                     var patchedResources = new ConcurrentDictionary<string, (bool, ResourceElement)>();
-                    ApplyPatchToResources(resourceType, patchExceptions, searchResults, commonPatchFailuresByResourceType, patchFailuresByResourceType, commonPatchFailureReasonsByResourceType, conditionalPatchResourceRequestsByResourceTypes, patchedResources, cancellationToken);
-                    BulkUpdateResult bulkUpdateResultsSoFar = CreateBulkUpdateResult(totalResourcesByResourceType, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType);
+                    ApplyPatchToResources(
+                        resourceType,
+                        patchExceptions,
+                        searchResults,
+                        commonPatchFailuresByResourceType,
+                        patchFailuresByResourceType,
+                        commonPatchFailureReasonsByResourceType,
+                        conditionalPatchResourceRequestsByResourceTypes,
+                        patchedResources,
+                        cancellationToken);
+                    BulkUpdateResult bulkUpdateResultsSoFar = CreateBulkUpdateResult(patchExceptions, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType);
 
                     // Let's create the update tasks for the patched resources.
                     if (patchedResources.Any())
@@ -176,27 +196,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                     }
 
+                    // For resources that are included
+                    if (!isIncludesRequest && AreIncludeResultsTruncated())
+                    {
+                        // run a search for included results
+                        var cloneList = new List<Tuple<string, string>>(conditionalParameters)
+                        {
+                            Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
+                            Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ict),
+                        };
+
+                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, maximumNumberOfResourcesPerQuery, true, cloneList, bundleResourceContext, cancellationToken);
+                        resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
+                    }
+
                     // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
                     if (!string.IsNullOrEmpty(ct) && readNextPage)
                     {
                         using (var searchService = _searchServiceFactory.Invoke())
                         {
-                            (searchResults, ct, ict) = await searchService.Value.ConditionalSearchAsync(
+                            var cloneList = new List<Tuple<string, string>>(conditionalParameters)
+                            {
+                                Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
+                            };
+                            searchResult = await searchService.Value.SearchAsync(
                                 resourceType,
-                                conditionalParameters,
+                                cloneList,
                                 cancellationToken,
-                                (int?)maximumNumberOfResourcesPerQuery,
-                                ct,
-                                ResourceVersionType.Latest,
-                                onlyIds: false,
-                                logger: _logger);
+                                false,
+                                resourceVersionTypes: ResourceVersionType.Latest,
+                                onlyIds: false);
                         }
 
-                        // TODO: For bulk-update should there be a logic for included results? would just reading until CT exists would give us all results??
-                        if (AreIncludeResultsTruncated())
+                        // For resources that are included
+                        if (!isIncludesRequest && AreIncludeResultsTruncated())
                         {
-                            tooManyIncludeResults = true;
-                            break;
+                            // run a search for included results
+                            var cloneList = new List<Tuple<string, string>>(conditionalParameters)
+                            {
+                                Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
+                                Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ict),
+                            };
+
+                            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, maximumNumberOfResourcesPerQuery, true, cloneList, bundleResourceContext, cancellationToken);
+                            resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
                         }
                     }
                     else
@@ -244,7 +287,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     if (result.Exception != null)
                     {
-                        // Count the number of resources deleted before the exception was thrown. Update the total.
+                        // Count the number of resources updated before the exception was thrown. Update the total.
                         if (result.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<BulkUpdateResult>))
                         {
                             AppendUpdateResults(
@@ -262,10 +305,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 });
 
                 var aggregateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<BulkUpdateResult>(aggregateException, CreateBulkUpdateResult(totalResourcesByResourceType, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType));
+                throw new IncompleteOperationException<BulkUpdateResult>(aggregateException, CreateBulkUpdateResult(patchExceptions, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType));
             }
 
-            BulkUpdateResult result = CreateBulkUpdateResult(totalResourcesByResourceType, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType);
+            BulkUpdateResult result = CreateBulkUpdateResult(patchExceptions, resourceTypesUpdated, resourcesIgnoredByResourceType, commonPatchFailuresByResourceType, commonPatchFailureReasonsByResourceType, patchFailuresByResourceType);
             if (result.ResourcesPatchFailed.Count > 0)
             {
                 // TODO: which exception should we raise here for partial success on patch calls
@@ -275,118 +318,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return result;
-        }
-
-        private static BulkUpdateResult CreateBulkUpdateResult(Dictionary<string, long> totalResources, Dictionary<string, long> resourceTypesUpdated, Dictionary<string, long> resourcesIgnoredByResourceType, Dictionary<string, long> commonPatchFailuresByResourceType, Dictionary<string, string> commonPatchFailureReasonsByResourceType, ConcurrentDictionary<string, long> patchFailuresByResourceType)
-        {
-            var result = new BulkUpdateResult();
-            AppendUpdateResults((Dictionary<string, long>)result.TotalResources, new[] { totalResources });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesUpdated, new[] { resourceTypesUpdated });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesIgnored, new[] { resourcesIgnoredByResourceType });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesPatchFailed, new[] { commonPatchFailuresByResourceType });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesPatchFailed, new[] { new Dictionary<string, long>(patchFailuresByResourceType) });
-
-            foreach (var (key, value) in commonPatchFailureReasonsByResourceType)
-            {
-                result.Issues.Add(key + "-" + value);
-            }
-
-            return result;
-        }
-
-        private static void ApplyPatchToResources(
-            string resourceType,
-            ConcurrentDictionary<string, List<(string id, Exception ex)>> patchExceptions,
-            IReadOnlyCollection<SearchResultEntry> searchResults,
-            Dictionary<string, long> commonPatchFailuresByResourceType,
-            ConcurrentDictionary<string, long> patchFailuresByResourceType,
-            Dictionary<string, string> commonPatchFailureReasonsByResourceType,
-            Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequestsByResourceTypes,
-            ConcurrentDictionary<string, (bool IsInclude, ResourceElement ResourceElement)> patchedResources,
-            CancellationToken cancellationToken)
-        {
-            foreach (var group in searchResults.GroupBy(sr => sr.Resource.ResourceTypeName))
-            {
-                var resourceTypeFromSearchResults = group.Key;
-                var resourceList = group.ToList();
-
-                if (!conditionalPatchResourceRequestsByResourceTypes.TryGetValue(resourceType, out var patchRequest))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    // Test a single resource from the group.
-                    // Catch the exceptions which would lead to all the resources of type X to fail the patch operation.
-                    patchRequest.Payload.Patch(resourceList[0].Resource);
-                }
-                catch (RequestNotValidException ex) when (ex.Message.Equals(Core.Resources.PatchImmutablePropertiesIsNotValid, StringComparison.OrdinalIgnoreCase)
-                || ex.Message.StartsWith("Invalid input for", StringComparison.OrdinalIgnoreCase)
-                || ex.Message.StartsWith("While building a POCO:", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Core.Resources.PatchImmutablePropertiesIsNotValid => PatchPayload.ImmutableProperties "Resource.id", "Resource.meta.lastUpdated", "Resource.meta.versionId", "Resource.text.div", "Resource.text.status"
-                    // Invalid input for path => patient.birthdate, value=not-a-date
-                    // While building a POCO: => path=patient.gender, value=not-a-gender
-                    // Remember the error for this resource type and skip processing the entire group.
-                    commonPatchFailureReasonsByResourceType[resourceTypeFromSearchResults] = ex.Message;
-                    commonPatchFailuresByResourceType[resourceTypeFromSearchResults] = resourceList.Count;
-
-                    // Efficiently record patchExceptions for all resources in this group.
-                    var listOfErrors = resourceList.Select(sr => (sr.Resource.ResourceId, (Exception)null)).ToList();
-
-                    patchExceptions.AddOrUpdate(
-                        resourceTypeFromSearchResults,
-                        listOfErrors,
-                        (_, existing) =>
-                        {
-                            existing.AddRange(listOfErrors);
-                            return existing;
-                        });
-
-                    continue;
-                }
-                catch (Exception)
-                {
-                    // Exception because something uncommon for this first resource
-                    // This is fine let's try to run the Patch on all the resources of this type in parallel
-                    // This exception will be catched later in the Parallel.ForEach loop
-                }
-
-                // If the test passed or uncommon error then, patch the entire group in parallel.
-                var listOfErrorsOnIndividualPatch = new ConcurrentBag<(string, Exception)>();
-                Parallel.ForEach(resourceList, new ParallelOptions { MaxDegreeOfParallelism = resourceList.Count, CancellationToken = cancellationToken }, (searchResult, cancel) =>
-                {
-                    try
-                    {
-                        var patchedResource = patchRequest.Payload.Patch(searchResult.Resource);
-                        patchedResources.TryAdd(searchResult.Resource.ResourceId, (searchResult.SearchEntryMode == ValueSets.SearchEntryMode.Include, patchedResource));
-                    }
-                    catch (Exception ex)
-                    {
-                        patchFailuresByResourceType.AddOrUpdate(
-                            searchResult.Resource.ResourceTypeName,
-                            1,
-                            (_, count) => count + 1);
-
-                        listOfErrorsOnIndividualPatch.Add((searchResult.Resource.ResourceId, ex));
-                    }
-                });
-
-                // If there are any errors in the listOfErrorsOnIndividualPatch, then we can add it to the patchExceptions
-                if (!listOfErrorsOnIndividualPatch.IsEmpty)
-                {
-                    var errorsList = listOfErrorsOnIndividualPatch.ToList();
-                    patchExceptions.AddOrUpdate(
-                        resourceTypeFromSearchResults,
-                        errorsList,
-                        (_, existing) =>
-                        {
-                            existing.AddRange(errorsList);
-                            return existing;
-                        });
-                }
-            }
         }
 
         private void FilterAndGroupResults(
@@ -472,6 +403,101 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             resourcesIgnoredByResourceType[distinctResourceTypeOnPage] = totalResourcesByResourceType[distinctResourceTypeOnPage];
                         }
                     }
+                }
+            }
+        }
+
+        private static void ApplyPatchToResources(
+            string resourceType,
+            ConcurrentDictionary<string, List<(string id, Exception ex)>> patchExceptions,
+            IReadOnlyCollection<SearchResultEntry> searchResults,
+            Dictionary<string, long> commonPatchFailuresByResourceType,
+            ConcurrentDictionary<string, long> patchFailuresByResourceType,
+            Dictionary<string, string> commonPatchFailureReasonsByResourceType,
+            Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequestsByResourceTypes,
+            ConcurrentDictionary<string, (bool IsInclude, ResourceElement ResourceElement)> patchedResources,
+            CancellationToken cancellationToken)
+        {
+            foreach (var group in searchResults.GroupBy(sr => sr.Resource.ResourceTypeName))
+            {
+                var resourceTypeFromSearchResults = group.Key;
+                var resourceList = group.ToList();
+
+                if (!conditionalPatchResourceRequestsByResourceTypes.TryGetValue(resourceType, out var patchRequest))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    // Test a single resource from the group.
+                    // Catch the exceptions which would lead to all the resources of type X to fail the patch operation.
+                    patchRequest.Payload.Patch(resourceList[0].Resource);
+                }
+                catch (RequestNotValidException ex) when (ex.Message.Equals(Core.Resources.PatchImmutablePropertiesIsNotValid, StringComparison.OrdinalIgnoreCase)
+                || ex.Message.StartsWith("Invalid input for", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.StartsWith("While building a POCO:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Core.Resources.PatchImmutablePropertiesIsNotValid => PatchPayload.ImmutableProperties "Resource.id", "Resource.meta.lastUpdated", "Resource.meta.versionId", "Resource.text.div", "Resource.text.status"
+                    // Invalid input for path => patient.birthdate, value=not-a-date
+                    // While building a POCO: => path=patient.gender, value=not-a-gender
+                    // Remember the error for this resource type and skip processing the entire group.
+                    commonPatchFailureReasonsByResourceType[resourceTypeFromSearchResults] = ex.Message;
+                    commonPatchFailuresByResourceType[resourceTypeFromSearchResults] = resourceList.Count;
+
+                    // Record patchExceptions for all resources in this group.
+                    var listOfErrors = resourceList.Select(sr => (sr.Resource.ResourceId, (Exception)null)).ToList();
+
+                    patchExceptions.AddOrUpdate(
+                        resourceTypeFromSearchResults,
+                        listOfErrors,
+                        (_, existing) =>
+                        {
+                            existing.AddRange(listOfErrors);
+                            return existing;
+                        });
+
+                    continue;
+                }
+                catch (Exception)
+                {
+                    // Exception because something uncommon for this first resource
+                    // This is fine let's try to run the Patch on all the resources of this type in parallel
+                    // This exception will be catched later in the Parallel.ForEach loop
+                }
+
+                // If the test passed or uncommon error then, patch the entire group in parallel.
+                var listOfErrorsOnIndividualPatch = new ConcurrentBag<(string, Exception)>();
+                Parallel.ForEach(resourceList, new ParallelOptions { MaxDegreeOfParallelism = resourceList.Count, CancellationToken = cancellationToken }, (searchResult, cancel) =>
+                {
+                    try
+                    {
+                        var patchedResource = patchRequest.Payload.Patch(searchResult.Resource);
+                        patchedResources.TryAdd(searchResult.Resource.ResourceId, (searchResult.SearchEntryMode == ValueSets.SearchEntryMode.Include, patchedResource));
+                    }
+                    catch (Exception ex)
+                    {
+                        patchFailuresByResourceType.AddOrUpdate(
+                            searchResult.Resource.ResourceTypeName,
+                            1,
+                            (_, count) => count + 1);
+
+                        listOfErrorsOnIndividualPatch.Add((searchResult.Resource.ResourceId, ex));
+                    }
+                });
+
+                // If there are any errors in the listOfErrorsOnIndividualPatch, then we can add it to the patchExceptions
+                if (!listOfErrorsOnIndividualPatch.IsEmpty)
+                {
+                    var errorsList = listOfErrorsOnIndividualPatch.ToList();
+                    patchExceptions.AddOrUpdate(
+                        resourceTypeFromSearchResults,
+                        errorsList,
+                        (_, existing) =>
+                        {
+                            existing.AddRange(errorsList);
+                            return existing;
+                        });
                 }
             }
         }
@@ -583,6 +609,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return _contextAccessor.RequestContext.BundleIssues.Any(
                 x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static BulkUpdateResult CreateBulkUpdateResult(ConcurrentDictionary<string, List<(string id, Exception exception)>> patchExceptions, Dictionary<string, long> resourceTypesUpdated, Dictionary<string, long> resourcesIgnoredByResourceType, Dictionary<string, long> commonPatchFailuresByResourceType, Dictionary<string, string> commonPatchFailureReasonsByResourceType, ConcurrentDictionary<string, long> patchFailuresByResourceType)
+        {
+            var result = new BulkUpdateResult();
+            AppendUpdateResults((Dictionary<string, long>)result.ResourcesUpdated, new[] { resourceTypesUpdated });
+            AppendUpdateResults((Dictionary<string, long>)result.ResourcesIgnored, new[] { resourcesIgnoredByResourceType });
+            AppendUpdateResults((Dictionary<string, long>)result.ResourcesPatchFailed, new[] { commonPatchFailuresByResourceType });
+            AppendUpdateResults((Dictionary<string, long>)result.ResourcesPatchFailed, new[] { new Dictionary<string, long>(patchFailuresByResourceType) });
+
+            // it will be too much to store the error msgs in JobQ per each subjob level
+            ////foreach (var (key, value) in commonPatchFailureReasonsByResourceType)
+            ////{
+            ////    result.Issues.Add(key + "-" + value);
+            ////}
+
+            ////foreach (var (type, value) in patchExceptions)
+            ////{
+            ////    // For every type there is a list of ids that failed with an exception
+            ////    // Log only the first exception message for that type
+            ////    result.Issues.Add(type + "-" + value.First().exception.Message);
+            ////}
+
+            return result;
         }
 
         private static Dictionary<string, long> AppendUpdateResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)

@@ -94,14 +94,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId));
                 }
 
-                if (definition.ContinuationToken is not null)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, definition.ContinuationToken));
-                }
-
                 try
                 {
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, definition.ContinuationToken, queryParametersList, null, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, false, queryParametersList, null, cancellationToken);
+                    resourcesUpdated = result.ResourcesUpdated;
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {

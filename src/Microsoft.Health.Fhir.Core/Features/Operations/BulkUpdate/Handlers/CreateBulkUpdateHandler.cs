@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         private readonly List<string> _excludedResourceTypes = new() { "SearchParameter", "StructureDefinition"};
         private readonly List<string> _bulkUpdateSupportedOperations = new() { "Upsert", "Replace" };
         private readonly ICustomFhirJsonSerializer<Resource> _customFhirJsonSerializer;
+        private readonly IResourceDeserializer _resourceDeserializer;
 
         public CreateBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService,
             ICustomFhirJsonSerializer<Resource> customFhirJsonSerializer,
+            IResourceDeserializer resourceDeserializer,
             ILogger<CreateBulkUpdateHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
@@ -53,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _customFhirJsonSerializer = EnsureArg.IsNotNull(customFhirJsonSerializer, nameof(customFhirJsonSerializer));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -109,16 +112,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             // converting parameters to string using fhir Serializer
             var parametersString = _customFhirJsonSerializer.Serialize(request.Parameters);
 
+            // var tesy = _resourceDeserializer.Deserialize<Hl7.Fhir.Model.Parameters>(parametersString);
+
             var processingDefinition = new BulkUpdateDefinition(
                 JobType.BulkUpdateOrchestrator,
-                null,
                 request.ResourceType,
                 searchParameters,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,
                 parametersString,
-                null,
                 request.IsParallel);
 
             IReadOnlyList<JobInfo> jobInfo =

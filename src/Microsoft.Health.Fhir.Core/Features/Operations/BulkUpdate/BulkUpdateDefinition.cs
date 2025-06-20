@@ -16,14 +16,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         public BulkUpdateDefinition(
             JobType jobType,
-            string id,
             string type,
             IList<Tuple<string, string>> searchParameters,
             string url,
             string baseUrl,
             string parentRequestId,
             string parameters,
-            string continuationToken,
             bool isParallel = true,
             bool readNextPage = true,
             string startSurrogateId = null,
@@ -33,14 +31,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             uint maximumNumberOfResourcesPerQuery = 15)
         {
             TypeId = (int)jobType;
-            Id = id;
             Type = type;
             SearchParameters = searchParameters;
             Url = url;
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
             Parameters = parameters;
-            ContinuationToken = continuationToken;
             IsParallel = isParallel;
             ReadNextPage = readNextPage;
             StartSurrogateId = startSurrogateId;
@@ -57,9 +53,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         [JsonProperty(JobRecordProperties.TypeId)]
         public int TypeId { get; set; }
-
-        [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; set; }
 
         [JsonProperty(JobRecordProperties.Type)]
         public string Type { get; private set; }
@@ -78,9 +71,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         [JsonProperty(JobRecordProperties.Parameters)]
         public string Parameters { get; set; }
-
-        [JsonProperty(JobRecordProperties.ContinuationToken)]
-        public string ContinuationToken { get; private set; }
 
         [JsonProperty(JobRecordProperties.IsParallel)]
         public bool IsParallel { get; private set; }

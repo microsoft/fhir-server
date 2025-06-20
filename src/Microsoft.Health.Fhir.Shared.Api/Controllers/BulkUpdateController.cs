@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Models;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -40,14 +42,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeaturesConfig;
 
         public BulkUpdateController(
             IMediator mediator,
             IUrlResolver urlResolver,
+            IOptions<CoreFeatureConfiguration> coreFeatures,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            _coreFeaturesConfig = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
         }
 
@@ -110,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfOperationIsSupported()
         {
-            if (!_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? true)
+            if (!_coreFeaturesConfig.SupportsBulkUpdate || !string.Equals(_fhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(Fhir.Core.Resources.UnsupportedBulkUpdateOperation);
             }

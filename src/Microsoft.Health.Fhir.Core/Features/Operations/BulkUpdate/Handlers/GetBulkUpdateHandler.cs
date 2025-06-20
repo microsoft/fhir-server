@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Support;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -26,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
-        private const string TotalResourcesCountName = "TotalResourcesCountName";
         private const string ResourceUpdatedCountName = "ResourceUpdatedCount";
         private const string ResourceIgnoredCountName = "ResourceIgnoredCountName";
         private const string ResourcePatchFailedCountName = "ResourcePatchFailedCountName";
@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var failed = false;
             var cancelled = false;
             var succeeded = true;
-            var totalResources = new Dictionary<string, long>();
             var resourcesUpdated = new Dictionary<string, long>();
             var resourcesIgnored = new Dictionary<string, long>();
             var resourcesPatchFailed = new Dictionary<string, long>();
@@ -113,6 +112,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 {
                     succeeded = false;
                 }
+                else if (job.Status == JobStatus.Completed)
+                {
+                    // Partially completed Bulk-update jobs can have issues due to Patch failures
+                    if (result != null)
+                    {
+                        foreach (var issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                        }
+                    }
+                }
 
                 if (job.GetJobTypeId() == (int)JobType.BulkUpdateProcessing && result != null)
                 {
@@ -130,7 +140,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                         }
                     }
 
-                    UpdateResources((Dictionary<string, long>)result.TotalResources, totalResources);
                     UpdateResources((Dictionary<string, long>)result.ResourcesUpdated, resourcesUpdated);
                     UpdateResources((Dictionary<string, long>)result.ResourcesIgnored, resourcesIgnored);
                     UpdateResources((Dictionary<string, long>)result.ResourcesPatchFailed, resourcesPatchFailed);
@@ -169,7 +178,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 }
             }
 
-            AddParameterComponent(totalResources, TotalResourcesCountName);
             AddParameterComponent(resourcesUpdated, ResourceUpdatedCountName);
             AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
