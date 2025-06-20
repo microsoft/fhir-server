@@ -389,10 +389,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
                 if (softDeleteIncludes.Any())
                 {
-                    await DeleteSearchParametersAsync(
-                        resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).Select(x => x.Resource).ToList(),
-                        cancellationToken);
-
                     await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
                     partialResults.AddRange(softDeleteIncludes.Select(item => (
                         item.Wrapper.ResourceTypeName,

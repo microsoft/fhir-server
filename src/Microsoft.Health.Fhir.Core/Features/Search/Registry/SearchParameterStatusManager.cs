@@ -173,6 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 catch (SearchParameterNotSupportedException ex)
                 {
                     _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
+
+                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
+                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
+                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
+                    // (e.g. $bulk-delete ensuring deletion of as many search parameters as possible.)
                     if (!ignoreSearchParameterNotSupportedException)
                     {
                         throw;
