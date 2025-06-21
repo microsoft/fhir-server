@@ -492,25 +492,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         continue;
                                     }
 
-                                    Lazy<string> rawResource = new Lazy<string>(() => string.Empty);
+                                    var rawResource = string.Empty;
 
                                     if (!clonedSearchOptions.OnlyIds)
                                     {
-                                        rawResource = new Lazy<string>(() =>
+                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+
+                                        if (string.IsNullOrEmpty(decompressedResource))
                                         {
-                                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                            var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        }
 
-                                            _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                            if (string.IsNullOrEmpty(decompressedResource))
-                                            {
-                                                decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                            }
-
-                                            return decompressedResource;
-                                        });
+                                        rawResource = decompressedResource;
                                     }
 
                                     // See if this resource is a continuation token candidate and increase the count
@@ -1418,21 +1415,16 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                                 if (resources.Count < clonedSearchOptions.IncludeCount)
                                 {
-                                    var rawResource = new Lazy<string>(() =>
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                                    _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+
+                                    if (string.IsNullOrEmpty(rawResource))
                                     {
-                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                        if (string.IsNullOrEmpty(decompressedResource))
-                                        {
-                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                        }
-
-                                        return decompressedResource;
-                                    });
+                                        rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                        _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                    }
 
                                     resources.Add(new SearchResultEntry(
                                         new ResourceWrapper(
