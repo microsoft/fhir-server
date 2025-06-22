@@ -96,7 +96,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 try
                 {
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, false, queryParametersList, null, cancellationToken);
+                    bool isIncludesOperation = definition.SearchParameters.Any(p => p.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesOperation, queryParametersList, null, cancellationToken);
                     resourcesUpdated = result.ResourcesUpdated;
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)

@@ -185,14 +185,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                             do
                             {
                                 // Since this page contains Include token, let's register the job for that page of included results
-                                processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, nextContinuationToken, currentIncludesContinuationToken, false);
+                                processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, currentIncludesContinuationToken, false);
                                 await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
                                 // Create a new clone list for ct and ict
                                 var cloneListForInclude = new List<Tuple<string, string>>(searchParams)
                                 {
-                                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, nextContinuationToken),
-                                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, currentIncludesContinuationToken),
+                                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(prevContinuationToken)),
+                                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(currentIncludesContinuationToken)),
                                 };
 
                                 // Run a search to see if there are more included results
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                 onlyIds: true,
                                 isIncludesOperation: true);
 
-                                currentIncludesContinuationToken = searchResultIncludes.ContinuationToken;
+                                currentIncludesContinuationToken = searchResultIncludes.IncludesContinuationToken;
                             }
                             while (!string.IsNullOrEmpty(currentIncludesContinuationToken));
                         }
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         prevContinuationToken = nextContinuationToken;
                         var cloneList = new List<Tuple<string, string>>(searchParams)
                             {
-                                Tuple.Create(KnownQueryParameterNames.ContinuationToken, nextContinuationToken),
+                                Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)),
                             };
 
                         searchResult = await searchService.Value.SearchAsync(
