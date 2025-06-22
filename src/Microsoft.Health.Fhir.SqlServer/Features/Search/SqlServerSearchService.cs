@@ -143,6 +143,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
+            var sw = Stopwatch.StartNew();
+
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             SearchResult searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
@@ -226,6 +228,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                 }
             }
+
+            await _sqlRetryService.TryLogEvent($"SearchAsync:Results={resultCount}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             return searchResult;
         }
