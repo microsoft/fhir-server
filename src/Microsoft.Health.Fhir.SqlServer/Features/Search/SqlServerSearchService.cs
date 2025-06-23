@@ -17,6 +17,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -430,6 +431,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                             {
+                                var sw = Stopwatch.StartNew();
                                 if (clonedSearchOptions.CountOnly)
                                 {
                                     await reader.ReadAsync(cancellationToken);
@@ -660,6 +662,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
 
                                 searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
+                                await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchedResources.Count}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
                             }
                         }
                         catch (SqlException e)
