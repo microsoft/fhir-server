@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public FhirControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _requestContextAccessor = GetFhirRequestContextAccessor();
+            _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _urlResolver = Substitute.For<IUrlResolver>();
             _configuration = Substitute.For<IOptions<FeatureConfiguration>>();
             _configuration.Value.Returns(new FeatureConfiguration());
@@ -188,14 +188,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .SingleOrDefault();
 
             Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
-        }
-
-        private FhirRequestContextAccessor GetFhirRequestContextAccessor()
-        {
-            return new FhirRequestContextAccessor()
-            {
-                RequestContext = new FhirRequestContext("foo", "http://bar/", "https://baz/", "foo"),
-            };
         }
     }
 }
