@@ -538,9 +538,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await CleanupAsync(resourcesToCreate);
             }
 
-            Task<List<Resource>> CreateAsync(List<Resource> resources)
+            async Task<List<Resource>> CreateAsync(List<Resource> resources)
             {
-                return retryPolicy.ExecuteAsync(
+                await Task.Delay(TimeSpan.FromSeconds(15));
+                return await retryPolicy.ExecuteAsync(
                      async () =>
                      {
                          DebugOutput($"Creating {resources.Count} search parameters...");
