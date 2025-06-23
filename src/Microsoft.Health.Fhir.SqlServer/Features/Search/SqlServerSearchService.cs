@@ -371,6 +371,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
 
+            var swExecSql = Stopwatch.StartNew();
+            var matchCount = 0;
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -461,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 short? newContinuationType = null;
                                 long? newContinuationId = null;
                                 bool moreResults = false;
-                                int matchCount = 0;
+                                matchCount = 0;
                                 long? matchedResourceSurrogateIdStart = null;
 
                                 string sortValue = null;
@@ -662,7 +664,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
 
                                 searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
-                                await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchedResources.Count}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+                                await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
                             }
                         }
                         catch (SqlException e)
@@ -677,6 +679,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
+            await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
             return searchResult;
