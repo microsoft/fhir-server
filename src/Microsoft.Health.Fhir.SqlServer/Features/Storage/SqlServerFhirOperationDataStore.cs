@@ -28,18 +28,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SqlServerFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyReindexOperationDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
+        private readonly IQueueClient _queueClient;
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             IQueueClient queueClient,
+            ILogger<SqlServerFhirOperationDataStore> logger,
             ILoggerFactory loggerFactory)
             : base(queueClient, loggerFactory)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _queueClient = queueClient;
+            _logger = logger;
 
             _jsonSerializerSettings = new JsonSerializerSettings
             {
