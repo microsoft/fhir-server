@@ -205,7 +205,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"[{nameof(GetSearchParameterStatusUpdates)}] _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")}");
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
