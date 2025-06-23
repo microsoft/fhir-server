@@ -540,7 +540,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task<List<Resource>> CreateAsync(List<Resource> resources)
             {
+                // Wait for 10 seconds at the minimum for the search parameter cache to be updated with a preceding delete or bulk-delete request result.
                 await Task.Delay(TimeSpan.FromSeconds(15));
+
                 return await retryPolicy.ExecuteAsync(
                      async () =>
                      {
