@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly Task _samplingLoopTask;
         private readonly LinkedList<TaskCompletionSource<object>> _queue = new LinkedList<TaskCompletionSource<object>>();
-        private readonly FhirRequestContext _fhirRequestContext;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         private int _requestsInFlight;
         private int _currentPeriodSuccessCount;
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
 
-            _fhirRequestContext = (FhirRequestContext)fhirRequestContextAccessor.RequestContext;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
 
             _throttlingEnabled = throttlingConfiguration.Value.Enabled;
 
@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            _fhirRequestContext.ResponseHeaders.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
 
             context.Response.ContentLength = _throttledBody.Length;
             context.Response.ContentType = ThrottledContentType;
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            _fhirRequestContext.ResponseHeaders.AddRetryAfterHeaders(exception.RetryAfter);
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.AddRetryAfterHeaders(exception.RetryAfter);
 
             Memory<byte> body = CreateThrottledBody(exception.Message);
 
