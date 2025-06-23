@@ -372,12 +372,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
 
             var swExecSql = Stopwatch.StartNew();
+            Stopwatch swReader = null;
             Stopwatch swSqlQueryGenWide = null;
             var matchCount = 0;
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
-                    using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                    using (var sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         swSqlQueryGenWide = Stopwatch.StartNew();
 
@@ -431,9 +432,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         swSqlQueryGenWide.Stop();
 
-                        LogSqlCommand(sqlCommand);
+                        ////LogSqlCommand(sqlCommand);
 
-                        var swReader = Stopwatch.StartNew();
+                        swReader = Stopwatch.StartNew();
                         var st = DateTime.UtcNow;
                         try
                         {
@@ -679,12 +680,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             throw;
                         }
 
-                        await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+                        swReader.Stop();
                     }
                 },
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
+            swExecSql.Stop();
+            await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
             await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
             await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
