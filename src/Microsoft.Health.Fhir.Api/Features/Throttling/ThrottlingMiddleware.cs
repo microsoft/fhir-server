@@ -14,13 +14,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
@@ -51,7 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly Task _samplingLoopTask;
         private readonly LinkedList<TaskCompletionSource<object>> _queue = new LinkedList<TaskCompletionSource<object>>();
-        private readonly FhirRequestContext _fhirRequestContext;
 
         private int _requestsInFlight;
         private int _currentPeriodSuccessCount;
@@ -64,18 +61,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public ThrottlingMiddleware(
             RequestDelegate next,
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<ThrottlingConfiguration> throttlingConfiguration,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<ThrottlingMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
-
-            _fhirRequestContext = (FhirRequestContext)fhirRequestContextAccessor.RequestContext;
 
             _throttlingEnabled = throttlingConfiguration.Value.Enabled;
 
@@ -295,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            _fhirRequestContext.ResponseHeaders.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
+            context.Response.Headers.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
 
             context.Response.ContentLength = _throttledBody.Length;
             context.Response.ContentType = ThrottledContentType;
@@ -309,7 +302,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            _fhirRequestContext.ResponseHeaders.AddRetryAfterHeaders(exception.RetryAfter);
+            context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter);
 
             Memory<byte> body = CreateThrottledBody(exception.Message);
 

@@ -75,7 +75,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     method: "Import",
                     uriString: definition.UriString,
                     baseUriString: definition.BaseUriString,
-                    correlationId: jobInfo.GroupId.ToString())
+                    correlationId: jobInfo.GroupId.ToString(),
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
             {
                 IsBackgroundTask = true,
             };
