@@ -372,7 +372,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
 
             var swExecSql = Stopwatch.StartNew();
-            Stopwatch swSqlQueryGen = null;
+            Stopwatch swSqlQueryGenWide = null;
             var matchCount = 0;
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -390,11 +390,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                         else
                         {
+                            swSqlQueryGenWide = Stopwatch.StartNew();
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
                             EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
-                            swSqlQueryGen = Stopwatch.StartNew();
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
@@ -402,7 +402,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _schemaInformation,
                                 reuseQueryPlans,
                                 sqlException);
-                            swSqlQueryGen.Stop();
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -427,6 +426,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
+                            swSqlQueryGenWide.Stop();
                         }
 
                         LogSqlCommand(sqlCommand);
@@ -682,7 +682,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
-            await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGen.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGen.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
             await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
