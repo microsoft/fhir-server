@@ -379,6 +379,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
+                        swSqlQueryGenWide = Stopwatch.StartNew();
+
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
                         var isSortValueNeeded = false;
 
@@ -390,7 +392,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                         else
                         {
-                            swSqlQueryGenWide = Stopwatch.StartNew();
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
                             EnableTimeAndIoMessageLogging(stringBuilder, connection);
@@ -426,17 +427,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
-                            swSqlQueryGenWide.Stop();
                         }
+
+                        swSqlQueryGenWide.Stop();
 
                         LogSqlCommand(sqlCommand);
 
+                        var swReader = Stopwatch.StartNew();
                         var st = DateTime.UtcNow;
                         try
                         {
                             using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                             {
-                                var sw = Stopwatch.StartNew();
                                 if (clonedSearchOptions.CountOnly)
                                 {
                                     await reader.ReadAsync(cancellationToken);
@@ -667,7 +669,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
 
                                 searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
-                                await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
                             }
                         }
                         catch (SqlException e)
@@ -677,6 +678,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             await _sqlRetryService.TryLogEvent($"Search-{id}", "Error", e.ToString(), st, cancellationToken);
                             throw;
                         }
+
+                        await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
                     }
                 },
                 _logger,
