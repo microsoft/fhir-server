@@ -250,10 +250,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // the test queue client may not be enough for these tests. will need to look back into this.
             queueClient = new TestQueueClient();
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(queueClient, NullLoggerFactory.Instance);
-
             var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
-            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(
+                SqlConnectionWrapperFactory,
+                sqlQueueClient,
+                NullLogger<SqlServerFhirOperationDataStore>.Instance,
+                NullLoggerFactory.Instance);
+            _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
