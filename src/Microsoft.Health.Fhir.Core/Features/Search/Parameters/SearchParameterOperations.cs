@@ -237,28 +237,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
 
-            var searchParametersUSCore = updatedSearchParameterStatus
-                .Where(x => x.Uri?.OriginalString?.StartsWith("http://hl7.org/fhir/us/core/SearchParameter/", StringComparison.OrdinalIgnoreCase) ?? false)
-                .ToList();
-            _logger.LogInformation($"{searchParametersUSCore.Count} USCore search parameters found.");
-            foreach (var searchParameter in searchParametersUSCore)
-            {
-                _logger.LogInformation($"{searchParameter.Uri.OriginalString}: {searchParameter.Status}");
-            }
-
-            _logger.LogInformation($"Checking {searchParametersUSCore.Count} USCore search parameter status before update.");
-            foreach (var searchParameter in searchParametersUSCore)
-            {
-                SearchParameterInfo urlLookup = null;
-                SearchParameterInfo typeLookup = null;
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParameter.Uri.OriginalString, out urlLookup))
-                {
-                    _searchParameterDefinitionManager.TryGetSearchParameter(urlLookup.BaseResourceTypes[0], urlLookup.Code, false, out typeLookup);
-                }
-
-                _logger.LogInformation($"{searchParameter.Uri.OriginalString}: (Store: {searchParameter.Status}, UrlLookup: {urlLookup?.SearchParameterStatus.ToString() ?? "null"}, TypeLookup: {typeLookup?.SearchParameterStatus.ToString() ?? "null"}");
-            }
-
             // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
@@ -304,19 +282,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             await _searchParameterStatusManager.ApplySearchParameterStatus(
                 updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList(),
                 cancellationToken);
-
-            _logger.LogInformation($"Checking {searchParametersUSCore.Count} USCore search parameter status after update.");
-            foreach (var searchParameter in searchParametersUSCore)
-            {
-                SearchParameterInfo urlLookup = null;
-                SearchParameterInfo typeLookup = null;
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParameter.Uri.OriginalString, out urlLookup))
-                {
-                    _searchParameterDefinitionManager.TryGetSearchParameter(urlLookup.BaseResourceTypes[0], urlLookup.Code, false, out typeLookup);
-                }
-
-                _logger.LogInformation($"{searchParameter.Uri.OriginalString}: (Store: {searchParameter.Status}, UrlLookup: {urlLookup?.SearchParameterStatus.ToString() ?? "null"}, TypeLookup: {typeLookup?.SearchParameterStatus.ToString() ?? "null"}");
-            }
         }
 
         private void DeleteSearchParameter(string url)

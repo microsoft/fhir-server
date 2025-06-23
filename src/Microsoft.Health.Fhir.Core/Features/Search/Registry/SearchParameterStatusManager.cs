@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
             _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
-            _logger.LogInformation($"[{nameof(EnsureInitializedAsync)}] Set _latestSearchParams to {_latestSearchParams.UtcDateTime.ToString("o")}");
 
             EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
             EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
@@ -208,26 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             _logger.LogInformation($"[{nameof(GetSearchParameterStatusUpdates)}] _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")}");
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-
-            var spWithOffset = searchParamStatus
-                .Where(p => p.Uri.OriginalString.StartsWith("http://hl7.org/fhir/us/core/SearchParameter/", StringComparison.OrdinalIgnoreCase) && p.LastUpdated > (_latestSearchParams - TimeSpan.FromSeconds(60)))
-                .ToList();
-            _logger.LogInformation($"{spWithOffset.Count} custom search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} offsetted by 60 seconds.");
-            foreach (var sp in spWithOffset)
-            {
-                _logger.LogInformation($"{sp.Uri.OriginalString}: (status: {sp.Status}, lastUpdated: {sp.LastUpdated.ToString("o")})");
-            }
-
-            var spWithoutOffset = searchParamStatus
-                .Where(p => p.Uri.OriginalString.StartsWith("http://hl7.org/fhir/us/core/SearchParameter/", StringComparison.OrdinalIgnoreCase) && p.LastUpdated > _latestSearchParams)
-                .ToList();
-            _logger.LogInformation($"{spWithoutOffset.Count} custom search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} without offset.");
-            foreach (var sp in spWithoutOffset)
-            {
-                _logger.LogInformation($"{sp.Uri.OriginalString}: (status: {sp.Status}, lastUpdated: {sp.LastUpdated.ToString("o")})");
-            }
-
-            return spWithoutOffset;
+            return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
 
         internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
@@ -277,7 +257,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             if (updatedSearchParameterStatus.Any())
             {
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
-                _logger.LogInformation($"[{nameof(ApplySearchParameterStatus)}] Set _latestSearchParams to {_latestSearchParams.UtcDateTime.ToString("o")}");
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
