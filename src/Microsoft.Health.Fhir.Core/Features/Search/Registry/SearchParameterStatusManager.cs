@@ -209,15 +209,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger.LogInformation($"[{nameof(GetSearchParameterStatusUpdates)}] _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")}");
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
 
-            var spWithOffset = searchParamStatus.Where(p => p.LastUpdated > (_latestSearchParams - TimeSpan.FromSeconds(60))).ToList();
-            _logger.LogInformation($"{spWithOffset.Count} search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} offsetted by 60 seconds.");
+            var spWithOffset = searchParamStatus
+                .Where(p => p.Uri.OriginalString.StartsWith("http://hl7.org/fhir/us/core/SearchParameter/", StringComparison.OrdinalIgnoreCase) && p.LastUpdated > (_latestSearchParams - TimeSpan.FromSeconds(60)))
+                .ToList();
+            _logger.LogInformation($"{spWithOffset.Count} custom search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} offsetted by 60 seconds.");
             foreach (var sp in spWithOffset)
             {
                 _logger.LogInformation($"{sp.Uri.OriginalString}: (status: {sp.Status}, lastUpdated: {sp.LastUpdated.ToString("o")})");
             }
 
-            var spWithoutOffset = searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
-            _logger.LogInformation($"{spWithoutOffset.Count} search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} without offset.");
+            var spWithoutOffset = searchParamStatus
+                .Where(p => p.Uri.OriginalString.StartsWith("http://hl7.org/fhir/us/core/SearchParameter/", StringComparison.OrdinalIgnoreCase) && p.LastUpdated > _latestSearchParams)
+                .ToList();
+            _logger.LogInformation($"{spWithoutOffset.Count} custom search parameters found with _latestSearchParams={_latestSearchParams.UtcDateTime.ToString("o")} without offset.");
             foreach (var sp in spWithoutOffset)
             {
                 _logger.LogInformation($"{sp.Uri.OriginalString}: (status: {sp.Status}, lastUpdated: {sp.LastUpdated.ToString("o")})");
