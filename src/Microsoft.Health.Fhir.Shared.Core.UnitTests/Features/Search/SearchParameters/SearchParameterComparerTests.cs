@@ -264,7 +264,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             // Note: this test ensures that the compare can parse and compare all expressiosn in search-parameters.json.
             // The comparison logic is tested by other tests in this class.
             var fhirCoreAssembly = Assembly.Load("Microsoft.Health.Fhir.Core");
-            var currentAssembly = Assembly.GetExecutingAssembly();
 
 #if R4B
             var specification = FhirSpecification.R4B;

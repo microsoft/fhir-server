@@ -365,54 +365,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return results;
         }
 
-        private static SearchParameterInfo ResolveConflictingSearchParameter(
-            SearchParameterInfo incomingSearchParameterInfo,
-            SearchParameterInfo existingsearchParameterInfo,
-            ISearchParameterComparer searchParameterComparer,
-            ILogger logger)
-        {
-            if (incomingSearchParameterInfo?.Expression == null || existingsearchParameterInfo?.Expression == null || searchParameterComparer == null)
-            {
-                logger.LogWarning("Skipping the resolve conflict: one or more of parameters is invalid.");
-                return null;
-            }
-
-            try
-            {
-                var result = searchParameterComparer.CompareExpression(
-                    incomingSearchParameterInfo.Expression,
-                    existingsearchParameterInfo.Expression);
-                SearchParameterInfo superSetSearchParameterInfo = null;
-                switch (result)
-                {
-                    case -1:
-                        logger.LogInformation("The expression of the incoming search parameter is a superset.");
-                        superSetSearchParameterInfo = incomingSearchParameterInfo;
-                        break;
-
-                    case 1:
-                        logger.LogInformation("The expression of the existing search parameter is a superset.");
-                        superSetSearchParameterInfo = existingsearchParameterInfo;
-                        break;
-
-                    case 0:
-                        logger.LogInformation("The expressions of the incoming and existing search parameter are identical.");
-                        break;
-
-                    default:
-                        logger.LogInformation("The expressions of the incoming and existing search parameter are different.");
-                        break;
-                }
-
-                return superSetSearchParameterInfo;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unexpected exception during comparing search parameter expressions.");
-                return null;
-            }
-        }
-
         private static string GetComponentDefinition(ITypedElement component)
         {
             // In Stu3 the Url is under 'definition.reference'

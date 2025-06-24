@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y;
+                return x == null && y == null;
             }
 
             var componetX = x.ToDictionary(x => x.definition, x => x.expression);
@@ -165,12 +165,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return false;
             }
 
-            foreach (var cx in componetX)
+            if (componetX.Any(x => !componetY.TryGetValue(x.Key, out var y) || CompareExpression(x.Value, y) != 0))
             {
-                if (!componetY.TryGetValue(cx.Key, out var cy) || CompareExpression(cx.Value, cy) != 0)
-                {
-                    return false;
-                }
+                return false;
             }
 
             return true;
@@ -215,17 +212,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 foreach (var expX in expsX)
                 {
-                    var found = false;
-                    foreach (var expY in expsY)
-                    {
-                        if (Equals(expX, expY))
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found)
+                    if (!expsY.Any(y => Equals(expX, y)))
                     {
                         return int.MinValue;
                     }
@@ -237,17 +224,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
             foreach (var expY in expsY)
             {
-                var found = false;
-                foreach (var expX in expsX)
-                {
-                    if (Equals(expY, expX))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
+                if (!expsX.Any(x => Equals(expY, x)))
                 {
                     return int.MinValue;
                 }
