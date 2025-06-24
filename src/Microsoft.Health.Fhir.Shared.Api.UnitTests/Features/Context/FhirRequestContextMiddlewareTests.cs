@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -51,9 +50,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
 
-            Assert.False(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
-            Assert.True(fhirRequestContextAccessor.RequestContext.ResponseHeaders.TryGetValue("X-Request-Id", out StringValues value1));
-            Assert.Equal(new StringValues(expectedRequestId), value1);
+            Assert.True(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
+            Assert.Equal(new StringValues(expectedRequestId), value);
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)

@@ -67,7 +67,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         method: nameof(ReindexJobWorker),
                         uriString: nameof(ReindexJobWorker),
                         baseUriString: nameof(ReindexJobWorker),
-                        correlationId: Guid.NewGuid().ToString())
+                        correlationId: Guid.NewGuid().ToString(),
+                        requestHeaders: new Dictionary<string, StringValues>(),
+                        responseHeaders: new Dictionary<string, StringValues>())
                         {
                             IsBackgroundTask = true,
                         };
