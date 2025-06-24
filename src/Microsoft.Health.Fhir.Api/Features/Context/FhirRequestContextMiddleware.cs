@@ -16,14 +16,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     public class FhirRequestContextMiddleware
     {
         private readonly RequestDelegate _next;
-        internal const string XContentTypeOptions = "X-Content-Type-Options";
-        private const string XContentTypeOptionsValue = "nosniff";
-
-        internal const string XFrameOptions = "X-Frame-Options";
-        private const string XFrameOptionsValue = "SAMEORIGIN";
-
-        internal const string ContentSecurityPolicy = "Content-Security-Policy";
-        private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
         public FhirRequestContextMiddleware(RequestDelegate next)
         {
@@ -50,6 +42,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             string correlationId = correlationIdProvider.Invoke();
 
+            // https://www.hl7.org/fhir/http.html#custom
+            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
+            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
+            {
+                context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
+            }
+
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
@@ -58,18 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            // https://www.hl7.org/fhir/http.html#custom
-            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
-            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
-            {
-                fhirRequestContext.ResponseHeaders[KnownHeaders.CorrelationId] = requestId;
-            }
-
-            fhirRequestContext.ResponseHeaders[KnownHeaders.RequestId] = correlationId;
-
-            fhirRequestContext.ResponseHeaders[XContentTypeOptions] = XContentTypeOptionsValue;
-            fhirRequestContext.ResponseHeaders[XFrameOptions] = XFrameOptionsValue;
-            fhirRequestContext.ResponseHeaders[ContentSecurityPolicy] = ContentSecurityPolicyValue;
+            context.Response.Headers[KnownHeaders.RequestId] = correlationId;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
