@@ -146,90 +146,89 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             var sw = Stopwatch.StartNew();
-
-            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-
-            SearchResult searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            var sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            var searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
             int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
+            sw.Stop();
 
-            if (!sqlSearchOptions.IsSortWithFilter &&
-                searchResult.ContinuationToken == null &&
-                resultCount <= sqlSearchOptions.MaxItemCount &&
-                sqlSearchOptions.Sort != null &&
-                sqlSearchOptions.Sort.Count > 0 &&
-                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
-            {
-                // We seem to have run a sort which has returned less results than what max we can return.
-                // Let's determine whether we need to execute another query or not.
-                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
-                {
-                    if (sqlSearchOptions.MaxItemCount - resultCount == 0)
-                    {
-                        // Check if more resources to be retrieved.
-                        sqlSearchOptions.SortQuerySecondPhase = true;
-                        sqlSearchOptions.MaxItemCount = 1;
-                        var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////if (!sqlSearchOptions.IsSortWithFilter &&
+            ////    searchResult.ContinuationToken == null &&
+            ////    resultCount <= sqlSearchOptions.MaxItemCount &&
+            ////    sqlSearchOptions.Sort != null &&
+            ////    sqlSearchOptions.Sort.Count > 0 &&
+            ////    sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+            ////{
+            ////    // We seem to have run a sort which has returned less results than what max we can return.
+            ////    // Let's determine whether we need to execute another query or not.
+            ////    if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
+            ////        (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
+            ////    {
+            ////        if (sqlSearchOptions.MaxItemCount - resultCount == 0)
+            ////        {
+            ////            // Check if more resources to be retrieved.
+            ////            sqlSearchOptions.SortQuerySecondPhase = true;
+            ////            sqlSearchOptions.MaxItemCount = 1;
+            ////            var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        // Since we are already returning MaxItemCount number of resources we don't want
-                        // to execute another search right now just to drop all the resources. We will return
-                        // a "special" ct so that we the subsequent request will be handled correctly.
-                        var ct = (secondSearchResult.Results?.Any() ?? false) ? new ContinuationToken(new object[]
-                            {
-                                SqlSearchConstants.SortSentinelValueForCt,
-                                0,
-                            })
-                            : null;
+            ////            // Since we are already returning MaxItemCount number of resources we don't want
+            ////            // to execute another search right now just to drop all the resources. We will return
+            ////            // a "special" ct so that we the subsequent request will be handled correctly.
+            ////            var ct = (secondSearchResult.Results?.Any() ?? false) ? new ContinuationToken(new object[]
+            ////                {
+            ////                    SqlSearchConstants.SortSentinelValueForCt,
+            ////                    0,
+            ////                })
+            ////                : null;
 
-                        searchResult = new SearchResult(searchResult.Results, ct?.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
-                    }
-                    else
-                    {
-                        var finalResultsInOrder = new List<SearchResultEntry>();
-                        finalResultsInOrder.AddRange(searchResult.Results);
-                        sqlSearchOptions.SortQuerySecondPhase = true;
-                        sqlSearchOptions.MaxItemCount -= resultCount;
+            ////            searchResult = new SearchResult(searchResult.Results, ct?.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+            ////        }
+            ////        else
+            ////        {
+            ////            var finalResultsInOrder = new List<SearchResultEntry>();
+            ////            finalResultsInOrder.AddRange(searchResult.Results);
+            ////            sqlSearchOptions.SortQuerySecondPhase = true;
+            ////            sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////            searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        finalResultsInOrder.AddRange(searchResult.Results);
-                        searchResult = new SearchResult(
-                            finalResultsInOrder,
-                            searchResult.ContinuationToken,
-                            searchResult.SortOrder,
-                            searchResult.UnsupportedSearchParameters);
-                    }
-                }
-            }
+            ////            finalResultsInOrder.AddRange(searchResult.Results);
+            ////            searchResult = new SearchResult(
+            ////                finalResultsInOrder,
+            ////                searchResult.ContinuationToken,
+            ////                searchResult.SortOrder,
+            ////                searchResult.UnsupportedSearchParameters);
+            ////        }
+            ////    }
+            ////}
 
-            // If we should include the total count of matching search results
-            if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
-            {
-                // If this is the first page and there aren't any more pages
-                if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
-                {
-                    // Count the match results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
-                }
-                else
-                {
-                    try
-                    {
-                        // Otherwise, indicate that we'd like to get the count
-                        sqlSearchOptions.CountOnly = true;
+            ////// If we should include the total count of matching search results
+            ////if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
+            ////{
+            ////    // If this is the first page and there aren't any more pages
+            ////    if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+            ////    {
+            ////        // Count the match results on the page.
+            ////        searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
+            ////    }
+            ////    else
+            ////    {
+            ////        try
+            ////        {
+            ////            // Otherwise, indicate that we'd like to get the count
+            ////            sqlSearchOptions.CountOnly = true;
 
-                        // And perform a second read.
-                        var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////            // And perform a second read.
+            ////            var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
-                    }
-                    finally
-                    {
-                        // Ensure search options is set to its original state.
-                        sqlSearchOptions.CountOnly = false;
-                    }
-                }
-            }
+            ////            searchResult.TotalCount = countOnlySearchResult.TotalCount;
+            ////        }
+            ////        finally
+            ////        {
+            ////            // Ensure search options is set to its original state.
+            ////            sqlSearchOptions.CountOnly = false;
+            ////        }
+            ////    }
+            ////}
 
             await _sqlRetryService.TryLogEvent($"SearchAsync:Results={resultCount}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
