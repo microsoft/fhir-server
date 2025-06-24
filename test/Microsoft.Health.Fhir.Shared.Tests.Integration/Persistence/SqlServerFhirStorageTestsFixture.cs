@@ -248,15 +248,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 importErrorSerializer,
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
-            // the test queue client may not be enough for these tests. will need to look back into this.
-            queueClient = new TestQueueClient();
-            var testQueueClient = new TestQueueClient();
-            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(
-                SqlConnectionWrapperFactory,
-                testQueueClient,
-                NullLogger<SqlServerFhirOperationDataStore>.Instance,
-                NullLoggerFactory.Instance);
-            _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+
+            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
