@@ -48,7 +48,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 "POST",
                 "https://localhost/Patient",
                 "https://localhost/",
-                Guid.NewGuid().ToString());
+                Guid.NewGuid().ToString(),
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>());
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
