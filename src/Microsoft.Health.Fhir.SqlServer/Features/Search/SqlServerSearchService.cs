@@ -688,9 +688,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 cancellationToken,
                 true); // this enables reads from replicas
             swExecSql.Stop();
-            await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
-            await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
-            await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
             return searchResult;
