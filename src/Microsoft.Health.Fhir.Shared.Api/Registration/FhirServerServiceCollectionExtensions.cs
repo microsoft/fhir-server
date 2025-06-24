@@ -190,7 +190,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
 
-
                     app.UseCors(Constants.DefaultCorsPolicy);
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
