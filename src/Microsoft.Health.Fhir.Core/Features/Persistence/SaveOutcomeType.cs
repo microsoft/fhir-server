@@ -9,5 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         Created,
         Updated,
+        MatchFound,
     }
 }
