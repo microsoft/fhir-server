@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
-                            ////_logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
+                            _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
                         swSqlQueryGenWide.Stop();
