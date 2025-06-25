@@ -58,6 +58,13 @@ namespace Microsoft.Health.JobManagement
         public Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Get active jobs by queue Type
+        /// </summary>
+        /// <param name="queueType">Queue Type</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Get job by ids
         /// </summary>
         /// <param name="queueType">Queue Type</param>
