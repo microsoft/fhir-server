@@ -73,14 +73,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                long numDeleted;
+                IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
                 try
                 {
-                    numDeleted = await deleter.Value.DeleteMultipleAsync(
+                    resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
                         new ConditionalDeleteResourceRequest(
                             types[0],
                             (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
@@ -89,22 +89,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             deleteAll: true,
                             versionType: definition.VersionType,
                             allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
-                        cancellationToken);
+                        cancellationToken,
+                        definition.ExcludedResourceTypes);
                 }
-                catch (IncompleteOperationException<long> ex)
+                catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
-                    numDeleted = ex.PartialResults;
+                    resourcesDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(types[0], numDeleted);
+                foreach (var (key, value) in resourcesDeleted)
+                {
+                    if (!result.ResourcesDeleted.TryAdd(key, value))
+                    {
+                        result.ResourcesDeleted[key] += value;
+                    }
+                }
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
                 }
 
                 if (types.Count > 1)

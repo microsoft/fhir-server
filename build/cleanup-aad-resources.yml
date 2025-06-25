@@ -1,0 +1,298 @@
+# Pipeline to periodically clean up old AAD resources from the test tenant
+
+trigger: none # This pipeline is intended to be run manually or on a schedule
+
+schedules:
+- cron: "0 3 * * 0" # Run every Sunday at 3 AM UTC
+  displayName: Weekly AAD Cleanup
+  branches:
+    include:
+    - main
+  always: true
+
+variables:
+- template: build-variables.yml
+
+parameters:
+- name: AgeThresholdDays
+  displayName: 'Age Threshold (Days) for Cleanup'
+  type: number
+  default: 30
+
+stages:
+- stage: CleanupAADStage
+  displayName: 'Clean up AAD Test Tenant Resources'
+  jobs:
+  # Single job for all cleanup operations
+  - job: cleanupAADResources
+    displayName: 'Cleanup AAD Resources'
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    timeoutInMinutes: 0
+    steps:
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        KeyVaultName: 'resolute-oss-tenant-info'
+
+    - task: AzurePowerShell@5
+      displayName: 'Clean Up AAD Resources'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          # Parameters for Azure AD connection
+          $TenantId = "$(tenant-id)"
+          $ClientId = "$(tenant-admin-service-principal-id)"
+          $ClientSecret = "$(tenant-admin-service-principal-password)"
+          $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
+
+          # Install and Import Microsoft Graph Modules
+          Write-Host "Installing Microsoft Graph modules..."
+          $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
+          
+          foreach ($module in $modules) {
+            Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
+            Import-Module $module
+          }
+
+          Write-Host "Microsoft Graph modules installed and imported."
+
+          # Connect to Microsoft Graph API
+          try {
+              Write-Host "Connecting to Microsoft Graph API using client credentials..."
+              $secureClientSecret = ConvertTo-SecureString -String $ClientSecret -AsPlainText -Force
+              $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $secureClientSecret
+
+              Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $ClientSecretCredential
+
+              # Verify connection
+              $graphConnection = Get-MgContext
+              if ($null -eq $graphConnection) {
+                  throw "Failed to establish Microsoft Graph connection"
+              }
+              
+              Write-Host "Successfully connected to Microsoft Graph API as: $($graphConnection.Account)"
+          } catch {
+              Write-Error "Failed to connect to Microsoft Graph API: $($_.Exception.Message)"
+              # Exit the script if connection fails
+              exit 1
+          }
+
+          # Calculate date threshold if it's defined
+          if ($null -ne $AgeThresholdDays) {
+            $cutoffDate = (Get-Date).AddDays(-$AgeThresholdDays)
+            Write-Host "Cutoff date for deletion: $cutoffDate (Resources created BEFORE this date will be targeted)"
+          }
+
+          # --- Setup and helper functions ---
+          Write-Host "Starting AAD resources cleanup process..."
+          $regexPattern = '^f\d+.*' # Starts with 'f', followed by one or more digits
+          
+          # --- 1. Cleanup Applications and Service Principals ---
+          Write-Host "1. Starting cleanup of AAD Applications and Service Principals older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+          try {
+              # Get all applications - Microsoft Graph doesn't support startswith in OData filter for apps
+              Write-Host "Retrieving applications from Microsoft Graph API..."
+              $allApps = Get-MgBetaApplication -All
+              
+              # Filter apps client-side using the pattern and date
+              Write-Host "Applying client-side filters: Regex '$regexPattern' and CreatedDateTime < $cutoffDate"
+              $appsToDelete = $allApps | Where-Object { 
+                  ($_.DisplayName -match $regexPattern) -and 
+                  ($_.CreatedDateTime -lt $cutoffDate) 
+              }
+
+              if ($appsToDelete.Count -gt 0) {
+                  Write-Host "Found $($appsToDelete.Count) applications matching the pattern and older than $cutoffDate."
+
+                  foreach ($app in $appsToDelete) {
+                      Write-Host "Processing Application: $($app.DisplayName) (AppID: $($app.AppId), ObjectID: $($app.Id), Created: $($app.CreatedDateTime))"
+                      $appObjectId = $app.Id
+                      $appAppId = $app.AppId
+                      $appDisplayName = $app.DisplayName
+
+                      try {
+                          # Find associated Service Principal using AppId
+                          $servicePrincipals = Get-MgBetaServicePrincipal -Filter "appId eq '$appAppId'" -ErrorAction SilentlyContinue
+                          
+                          foreach ($sp in $servicePrincipals) {
+                              $spId = $sp.Id
+                              Write-Host "  Found associated Service Principal: $($sp.DisplayName) (ObjectID: $spId). Attempting deletion..."
+                              Remove-MgBetaServicePrincipal -ServicePrincipalId $spId -ErrorAction Stop
+                              Write-Host "  Successfully deleted Service Principal (ObjectID: $spId)."
+                          }
+
+                          # Delete the Application
+                          Write-Host "  Attempting to delete Application: $appDisplayName (ObjectID: $appObjectId)..."
+                          Remove-MgBetaApplication -ApplicationId $appObjectId -ErrorAction Stop
+                          Write-Host "  Successfully deleted Application (ObjectID: $appObjectId)."
+                      } catch {
+                          # Log warning but continue with the next application
+                          Write-Warning "  Failed to delete Application $appDisplayName (ObjectID: $appObjectId) or its Service Principal: $($_.Exception.Message)"
+                      }
+                  }
+              } else {
+                  Write-Host "No applications matching the pattern '$regexPattern' were found older than the cutoff date ($cutoffDate)."
+              }
+          } catch {
+              # Catch errors during application processing
+              Write-Error "An error occurred while querying or processing applications: $($_.Exception.Message)"
+          }
+          Write-Host "Application and Service Principal cleanup finished."
+
+          # --- 2. Cleanup Users ---
+          Write-Host "2. Starting cleanup of AAD Users older than $AgeThresholdDays days matching pattern 'f[0-9]+.*'..."
+          try {
+              # Get users starting with 'f' and filter by UserType
+              $filterQuery = "startswith(displayName,'f') and userType eq 'Member'"
+              $usersStartingWithF = Get-MgBetaUser -Filter $filterQuery -All -ErrorAction SilentlyContinue
+              
+              if ($null -eq $usersStartingWithF -or $usersStartingWithF.Count -eq 0) {
+                  Write-Host "No users found starting with 'f' and UserType 'Member'."
+              } else {
+                  # Apply more specific regex filter and date filter client-side
+                  Write-Host "Applying client-side filters: Regex '$regexPattern' and CreatedDateTime < $cutoffDate"
+                  $usersToDelete = $usersStartingWithF | Where-Object { 
+                      ($_.DisplayName -match $regexPattern) -and 
+                      ($_.CreatedDateTime -lt $cutoffDate) 
+                  }
+
+                  if ($usersToDelete.Count -gt 0) {
+                      Write-Host "Found $($usersToDelete.Count) users matching the pattern and older than $cutoffDate."
+
+                      foreach ($user in $usersToDelete) {
+                          Write-Host "Processing User: $($user.DisplayName) (UPN: $($user.UserPrincipalName), ObjectID: $($user.Id), Created: $($user.CreatedDateTime))"
+                          $userId = $user.Id
+                          $userDisplayName = $user.DisplayName
+
+                          try {
+                              # Delete the User
+                              Write-Host "  Attempting to delete User: $userDisplayName (ObjectID: $userId)..."
+                              Remove-MgBetaUser -UserId $userId -ErrorAction Stop
+                              Write-Host "  Successfully deleted User (ObjectID: $userId)."
+                          } catch {
+                              # Log warning but continue with the next user
+                              Write-Warning "  Failed to delete User $userDisplayName (ObjectID: $userId): $($_.Exception.Message)"
+                          }
+                      }
+                  } else {
+                      Write-Host "No users matching the pattern '$regexPattern' and UserType 'Member' were found older than the cutoff date ($cutoffDate)."
+                  }
+              }
+          } catch {
+              # Catch errors during user processing
+              Write-Error "An error occurred while querying or processing users: $($_.Exception.Message)"
+          }
+          Write-Host "User cleanup finished."
+
+          # --- 3. Hard Delete Applications ---
+          Write-Host "3. Starting permanent deletion of AAD Applications from directory recycle bin..."
+          try {
+              # Get deleted applications using the correct cmdlet
+              Write-Host "Retrieving deleted applications from Microsoft Graph API..."
+              $deletedApps = Get-MgDirectoryDeletedItemAsApplication -All -ErrorAction SilentlyContinue
+              
+              if ($null -eq $deletedApps -or $deletedApps.Count -eq 0) {
+                  Write-Host "No deleted applications found in the directory recycle bin."
+              } else {
+                  Write-Host "Found $($deletedApps.Count) deleted applications in the directory recycle bin."
+
+                  foreach ($app in $deletedApps) {
+                      $appId = $app.Id
+                      $appDisplayName = $app.DisplayName
+                      
+                      try {
+                          # Permanently delete the application from the directory recycle bin
+                          Write-Host "  Attempting to permanently delete Application: $appDisplayName (ObjectID: $appId)..."
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $appId -ErrorAction Stop
+                          Write-Host "  Successfully permanently deleted Application (ObjectID: $appId)."
+                      } catch {
+                          # Log warning but continue with the next application
+                          Write-Warning "  Failed to permanently delete Application (ObjectID: $appId): $($_.Exception.Message)"
+                      }
+                  }
+                  Write-Host "Deleted applications cleanup finished."
+              }
+          } catch {
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted applications: $($_.Exception.Message)"
+          }
+
+          # --- 4. Hard Delete Service Principals ---
+          Write-Host "4. Starting permanent deletion of AAD Service Principals from directory recycle bin..."
+          try {
+              # Get deleted service principals
+              Write-Host "Retrieving deleted service principals from Microsoft Graph API..."
+              $deletedServicePrincipals = Get-MgDirectoryDeletedItemAsServicePrincipal -All -ErrorAction SilentlyContinue
+              
+              if ($null -eq $deletedServicePrincipals -or $deletedServicePrincipals.Count -eq 0) {
+                  Write-Host "No deleted service principals found in the directory recycle bin."
+              } else {
+                  Write-Host "Found $($deletedServicePrincipals.Count) deleted service principals in the directory recycle bin."
+
+                  foreach ($sp in $deletedServicePrincipals) {
+                      $spId = $sp.Id
+                      $spDisplayName = $sp.DisplayName
+                      
+                      try {
+                          # Permanently delete the service principal from the directory recycle bin
+                          Write-Host "  Attempting to permanently delete Service Principal: $spDisplayName (ObjectID: $spId)..."
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $spId -ErrorAction Stop
+                          Write-Host "  Successfully permanently deleted Service Principal (ObjectID: $spId)."
+                      } catch {
+                          # Log warning but continue with the next service principal
+                          Write-Warning "  Failed to permanently delete Service Principal (ObjectID: $spId): $($_.Exception.Message)"
+                      }
+                  }
+                  Write-Host "Deleted service principals cleanup finished."
+              }
+          } catch {
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted service principals: $($_.Exception.Message)"
+          }
+
+          # --- 5. Hard Delete Users ---
+          Write-Host "5. Starting permanent deletion of AAD Users from directory recycle bin..."
+          try {
+              # Get deleted users
+              Write-Host "Retrieving deleted users from Microsoft Graph API..."
+              $deletedUsers = Get-MgDirectoryDeletedItemAsUser -All -ErrorAction SilentlyContinue
+              
+              # Filter deleted users by the same pattern used for active users
+              $filteredDeletedUsers = $deletedUsers | Where-Object { $_.DisplayName -match $regexPattern }
+              
+              if ($null -eq $filteredDeletedUsers -or $filteredDeletedUsers.Count -eq 0) {
+                  Write-Host "No deleted users matching the pattern '$regexPattern' found in the directory recycle bin."
+              } else {
+                  Write-Host "Found $($filteredDeletedUsers.Count) deleted users matching the pattern in the directory recycle bin."
+
+                  foreach ($user in $filteredDeletedUsers) {
+                      $userId = $user.Id
+                      $userDisplayName = $user.DisplayName
+                      
+                      try {
+                          # Permanently delete the user from the directory recycle bin
+                          Write-Host "  Attempting to permanently delete User: $userDisplayName (ObjectID: $userId)..."
+                          Remove-MgDirectoryDeletedItem -DirectoryObjectId $userId -ErrorAction Stop
+                          Write-Host "  Successfully permanently deleted User (ObjectID: $userId)."
+                      } catch {
+                          # Log warning but continue with the next user
+                          Write-Warning "  Failed to permanently delete User (ObjectID: $userId): $($_.Exception.Message)"
+                      }
+                  }
+                  Write-Host "Deleted users cleanup finished."
+              }
+          } catch {
+              # Catch errors during deleted objects processing
+              Write-Error "An error occurred while querying or processing deleted users: $($_.Exception.Message)"
+          }
+          
+          # Disconnect from Microsoft Graph API
+          Disconnect-MgGraph -ErrorAction SilentlyContinue
+          Write-Host "Disconnected from Microsoft Graph API."
+          Write-Host "AAD resources cleanup process completed."
+        ErrorActionPreference: Stop
+        FailOnStderr: true

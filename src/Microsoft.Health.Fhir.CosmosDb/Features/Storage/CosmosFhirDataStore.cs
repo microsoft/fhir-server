@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -25,6 +26,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -198,6 +200,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (CosmosException cme) when (cme.StatusCode == HttpStatusCode.Forbidden && cme.SubStatusCode == 1014)
+                {
+                    // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-forbidden#partition-key-exceeding-storage
+
+                    _logger.LogWarning(cme, "PreconditionFailed: Partition reached maximum size.");
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(Resources.MaxPartitionSizeErrorMessage)));
                 }
                 catch (RequestRateExceededException rateExceededException)
                 {
@@ -432,7 +441,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             continue;
                         }
 
-                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                        throw new TransactionFailureException(transactionalBatchResponse.ErrorMessage);
                     }
                 }
                 else
@@ -671,7 +680,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     var prevPage = page;
-                    page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() => cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token));
 
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {

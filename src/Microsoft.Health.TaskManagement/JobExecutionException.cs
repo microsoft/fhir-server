@@ -10,34 +10,39 @@ namespace Microsoft.Health.JobManagement
 {
     public class JobExecutionException : Exception
     {
-        public JobExecutionException(string message)
+        public JobExecutionException(string message, bool isCustomerCaused)
             : base(message)
         {
             Error = null;
+            IsCustomerCaused = isCustomerCaused;
         }
 
-        public JobExecutionException(string message, object error)
+        public JobExecutionException(string message, object error, bool isCustomerCaused)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
             Error = error;
+            IsCustomerCaused = isCustomerCaused;
         }
 
-        public JobExecutionException(string message, Exception innerException)
-            : this(message, null, innerException)
+        public JobExecutionException(string message, Exception innerException, bool isCustomerCaused)
+            : this(message, null, innerException, isCustomerCaused)
         {
         }
 
-        public JobExecutionException(string message, object error, Exception innerException)
+        public JobExecutionException(string message, object error, Exception innerException, bool isCustomerCaused)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));
             EnsureArg.IsNotNull(innerException, nameof(innerException));
 
             Error = error;
+            IsCustomerCaused = isCustomerCaused;
         }
 
         public object Error { get; private set; }
+
+        public bool IsCustomerCaused { get; private set; }
     }
 }

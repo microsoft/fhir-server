@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             QueryHints = other.QueryHints;
 
             ResourceVersionTypes = other.ResourceVersionTypes;
+            IncludesContinuationToken = other.IncludesContinuationToken;
+            IncludesOperationSupported = other.IncludesOperationSupported;
         }
 
         /// <summary>
@@ -124,6 +126,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public ResourceVersionType ResourceVersionTypes { get; internal set; } = ResourceVersionType.Latest;
 
+        internal bool AddCurrentClause => ResourceVersionTypes.HasFlag(ResourceVersionType.Latest) && !ResourceVersionTypes.HasFlag(ResourceVersionType.History);
+
         /// <summary>
         /// Gets the search expression.
         /// </summary>
@@ -144,9 +148,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool OnlyIds { get; set; }
 
         /// <summary>
-        /// Flag for async operations that want to return a large number of results.
+        /// Flag for async operations.
         /// </summary>
-        public bool IsLargeAsyncOperation { get; internal set; }
+        public bool IsAsyncOperation { get; internal set; }
+
+        /// <summary>
+        /// Flag for $includes operation.
+        /// </summary>
+        public bool IsIncludesOperation => !string.IsNullOrEmpty(IncludesContinuationToken);
+
+        /// <summary>
+        /// Gets the optional continuation token for $includes operation.
+        /// </summary>
+        public string IncludesContinuationToken { get; internal set; }
+
+        /// <summary>
+        /// Gets the value indicating whether or not $includes operation is supported.
+        /// </summary>
+        public bool IncludesOperationSupported { get; internal set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

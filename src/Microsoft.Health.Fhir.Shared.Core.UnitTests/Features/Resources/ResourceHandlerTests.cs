@@ -14,11 +14,14 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -80,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Observation, null);
-            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Observation);
+            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == KnownResourceTypes.Observation);
             observationResource.ReadHistory = false;
             observationResource.UpdateCreate = true;
             observationResource.ConditionalCreate = true;
@@ -89,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Patient, null);
-            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient);
+            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == KnownResourceTypes.Patient);
             patientResource.ReadHistory = true;
             patientResource.UpdateCreate = true;
             patientResource.ConditionalCreate = true;
@@ -115,10 +119,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
             _resourceIdProvider = new ResourceIdProvider();
 
+            var coreFeatureConfiguration = new CoreFeatureConfiguration();
+
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
@@ -129,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalCreateLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalUpsertLogger)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor, conditionalDeleteLogger)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), conditionalDeleteLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, _authorizationService, contextAccessor, _searchService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, deleter)).Singleton().AsSelf().AsImplementedInterfaces();
 
@@ -415,6 +421,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
+        }
+
+        [Theory]
+        [InlineData("Patient", "1234", true)]
+        [InlineData("patient", "1234", false)]
+        public async Task GivenAFhirMediator_GettingAnResourceByWrongCasingResurceType_ThenAResponseShouldBeBadRequest(string resourceType, string id, bool validResourceType)
+        {
+            try
+            {
+                var patient = Samples.GetDefaultPatient();
+                var resource = CreateMockResourceWrapper(patient, false);
+
+                _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resource);
+                await _mediator.GetResourceAsync(new ResourceKey(resourceType, id));
+
+                Assert.True(validResourceType);
+                await _fhirDataStore.Received(1).GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+            }
+            catch (ResourceNotSupportedException)
+            {
+                Assert.False(validResourceType);
+                await _fhirDataStore.DidNotReceiveWithAnyArgs().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+            }
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

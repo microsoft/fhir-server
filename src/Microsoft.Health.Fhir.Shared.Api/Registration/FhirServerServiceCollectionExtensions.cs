@@ -22,13 +22,13 @@ using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -45,17 +45,19 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="services">The services collection.</param>
         /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
         /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
+        /// <param name="mvcBuilderAction">Mvc builder actions</param>
         /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
         public static IFhirServerBuilder AddFhirServer(
             this IServiceCollection services,
             IConfiguration configurationRoot = null,
-            Action<FhirServerConfiguration> configureAction = null)
+            Action<FhirServerConfiguration> configureAction = null,
+            Action<IMvcBuilder> mvcBuilderAction = null)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
 
-            services.AddControllers(options =>
+            var builder = services.AddControllers(options =>
                 {
                     options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;
@@ -64,6 +66,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
                 });
+
+            mvcBuilderAction?.Invoke(builder);
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -140,11 +144,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
-            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
-            {
-                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            }
-
             return fhirServerBuilder;
         }
 
@@ -193,9 +192,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-
-                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
-                    app.UseBaseHeaders();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
 

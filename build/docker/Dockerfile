@@ -1,10 +1,8 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.403-cbl-mariner2.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.300-azurelinux3.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
-
-RUN groupadd nonroot -g 1000 && useradd -r -M -s /sbin/nologin -g nonroot -c nonroot nonroot -u 998
 
 WORKDIR /repo
 
@@ -36,6 +34,9 @@ COPY ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.cspro
 
 COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj \
      ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj
+
+COPY ./src/Microsoft.Health.Fhir.Api.OpenIddict/Microsoft.Health.Fhir.Api.OpenIddict.csproj \
+     ./src/Microsoft.Health.Fhir.Api.OpenIddict/Microsoft.Health.Fhir.Api.OpenIddict.csproj
 
 COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
      ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
@@ -76,10 +77,10 @@ RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Hea
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net8.0 -a $TARGETARCH
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-cbl-mariner2.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.5-azurelinux3.0 AS runtime
 
 ARG FHIR_VERSION
 
@@ -89,9 +90,6 @@ RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean al
 # See https://github.com/dotnet/SqlClient/issues/220
 RUN tdnf install icu -y && \
   tdnf clean all
-
-COPY --from=build /etc/group /etc/group
-COPY --from=build /etc/passwd /etc/passwd
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080

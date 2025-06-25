@@ -17,7 +17,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// A special <see cref="ITypeInfo"/> for a test class that will use a fixture instantiated with with a single set of constructor arguments.
     /// The <see cref="Name"/> property is customized to be of the form Namespace.Class(Arg1, Arg2)
     /// </summary>
-    public class TestClassWithFixtureArgumentsTypeInfo : LongLivedMarshalByRefObject, IReflectionTypeInfo
+    internal sealed class TestClassWithFixtureArgumentsTypeInfo : LongLivedMarshalByRefObject, IReflectionTypeInfo
     {
         private readonly ITypeInfo _typeInfoImplementation;
 

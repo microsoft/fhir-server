@@ -18,7 +18,8 @@ using OpenTelemetry.Logs;
 
 namespace Microsoft.Health.Fhir.Shared.Web
 {
-    public class AzureMonitorOpenTelemetryLogEnricher : BaseProcessor<LogRecord>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "Referenced by other assembles via shared projects.")]
+    public sealed class AzureMonitorOpenTelemetryLogEnricher : BaseProcessor<LogRecord>
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IFailureMetricHandler _failureMetricHandler;

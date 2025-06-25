@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -66,6 +68,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             const int maxExecutionTimeInSeconds = 30;
             const int maxNumberAttempts = 3;
             int attempt = 0;
+
+            // CosmosOperationCanceledException are "safe to retry on and can be treated as timeouts from the retrying perspective.".
+            // Reference: https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk-request-timeout?tabs=cpu-new
+            // Cosmos 503 and 449 are transient errors that can be retried.
+            // Reference: https://learn.microsoft.com/azure/cosmos-db/nosql/conceptual-resilient-sdk-applications#should-my-application-retry-on-errors
+            static bool IsRetryableException(Exception ex) =>
+                ex is CosmosOperationCanceledException ||
+                (ex is CosmosException cex && (cex.StatusCode == HttpStatusCode.ServiceUnavailable || cex.StatusCode == (HttpStatusCode)449));
+
+            // Adds the CosmosDiagnostics to the log message if the exception is a CosmosException.
+            // This avoids truncation of the diagnostics details in the exception by moving it to the properties bag.
+            void LogWithDetails(LogLevel logLevel, Exception ex, string message, IEnumerable<object> logArgs = null)
+            {
+                logArgs ??= [];
+
+                if (ex is CosmosException cosmosException && cosmosException.Diagnostics is not null)
+                {
+                    message = message + " CosmosDiagnostics: {CosmosDiagnostics}";
+                    logArgs = logArgs.Append(cosmosException.Diagnostics.ToString());
+                }
+
+                _logger.Log(logLevel, ex, message, logArgs.ToArray());
+            }
+
             do
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -76,10 +102,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     await _testProvider.PerformTestAsync(_container.Value, operationTokenSource.Token);
                     return HealthCheckResult.Healthy("Successfully connected.");
                 }
-                catch (CosmosOperationCanceledException coce)
+                catch (Exception ex) when (IsRetryableException(ex))
                 {
-                    // CosmosOperationCanceledException are "safe to retry on and can be treated as timeouts from the retrying perspective.".
-                    // Reference: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk-request-timeout?tabs=cpu-new
                     attempt++;
 
                     if (cancellationToken.IsCancellationRequested)
@@ -87,7 +111,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         // Handling an extenal cancellation.
                         // No reasons to retry as the cancellation was external to the health check.
 
-                        _logger.LogWarning(coce, "Failed to connect to the data store. External cancellation requested.");
+                        LogWithDetails(LogLevel.Warning, ex, "Failed to connect to the data store. External cancellation requested.");
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -101,11 +125,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     {
                         // This is a very rare situation. This condition indicates that multiple attempts to connect to the data store happened, but they were not successful.
 
-                        _logger.LogWarning(
-                            coce,
+                        LogWithDetails(
+                            LogLevel.Warning,
+                            ex,
                             "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.",
-                            attempt,
-                            nameof(CosmosOperationCanceledException));
+                            [attempt, ex.GetType().Name]);
 
                         return HealthCheckResult.Unhealthy(
                             description: UnhealthyDescription,
@@ -118,19 +142,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     else
                     {
                         // Number of attempts not reached. Allow retry.
-
-                        _logger.LogWarning(
-                            coce,
+                        LogWithDetails(
+                            LogLevel.Warning,
+                            ex,
                             "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.",
-                            attempt,
-                            nameof(CosmosOperationCanceledException));
+                            [attempt, ex.GetType().Name]);
                     }
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
                     // Handling CMK errors.
 
-                    _logger.LogWarning(
+                    LogWithDetails(
+                        LogLevel.Warning,
                         ex,
                         "Connection to the data store was unsuccesful because the client's customer-managed key is not available.");
 
@@ -142,11 +166,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             { "Error", FhirHealthErrorCode.Error412.ToString() },
                         });
                 }
+                catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestTimeout)
+                {
+                    // Handling timeout exceptions
+
+                    LogWithDetails(
+                        LogLevel.Warning,
+                        ex,
+                        "Failed to connect to the data store. Request has timed out.");
+
+                    return HealthCheckResult.Degraded(
+                        description: DegradedDescription,
+                        data: new Dictionary<string, object>
+                        {
+                            { "Reason", HealthStatusReason.ServiceDegraded },
+                            { "Error", FhirHealthErrorCode.Error408.ToString() },
+                        });
+                }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
                 {
                     // Handling request rate exceptions.
 
-                    _logger.LogWarning(
+                    LogWithDetails(
+                        LogLevel.Warning,
                         ex,
                         "Failed to connect to the data store. Rate limit has been exceeded.");
 
@@ -163,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     // Handling other exceptions.
 
                     const string message = "Failed to connect to the data store.";
-                    _logger.LogWarning(ex, message);
+                    LogWithDetails(LogLevel.Warning, ex, message);
 
                     return HealthCheckResult.Unhealthy(
                         description: UnhealthyDescription,

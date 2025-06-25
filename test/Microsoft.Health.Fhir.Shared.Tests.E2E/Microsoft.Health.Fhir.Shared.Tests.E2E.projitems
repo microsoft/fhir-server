@@ -104,7 +104,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludesOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludesOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotReferencedSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotReferencedSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />
@@ -132,7 +136,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)Rest\Directory.Build.props" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

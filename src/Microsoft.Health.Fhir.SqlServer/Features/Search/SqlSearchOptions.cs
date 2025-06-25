@@ -3,12 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Linq;
-using System.Security.Cryptography;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -44,30 +39,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Performs a shallow clone of this instance
         /// </summary>
         public SqlSearchOptions CloneSqlSearchOptions() => (SqlSearchOptions)MemberwiseClone();
-
-        /// <summary>
-        /// Hashes the search option to indicate if two search options will return the same results.
-        /// UnsupportedSearchParams isn't inlcuded in the has because it isn't used in the actual search
-        /// </summary>
-        /// <returns>A hash of the search options</returns>
-        public string GetHash()
-        {
-            var expressionHash = default(HashCode);
-            Expression?.AddValueInsensitiveHashCode(ref expressionHash);
-
-            var sort = Sort?.Aggregate(string.Empty, (string result, (SearchParameterInfo param, SortOrder order) input) =>
-            {
-                return result + $"{input.param.Url}_{input.order}_";
-            });
-
-            var queryHints = QueryHints?.Aggregate(string.Empty, (string result, (string param, string value) input) =>
-            {
-                return result + $"{input.param}_{input.value}_";
-            });
-
-            var hashString = $"{ContinuationToken}_{FeedRange}_{CountOnly}_{IgnoreSearchParamHash}_{IncludeTotal}_{MaxItemCount}_{MaxItemCountSpecifiedByClient}_{IncludeCount}_{ResourceVersionTypes}_{OnlyIds}_{IsLargeAsyncOperation}_{SortQuerySecondPhase}_{IsSortWithFilter}_{DidWeSearchForSortValue}_{SortHasMissingModifier}_{expressionHash.ToHashCode()}_{sort}_{queryHints}";
-
-            return hashString.ComputeHash();
-        }
     }
 }

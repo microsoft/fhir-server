@@ -27,6 +27,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\resource-reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\includes.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
@@ -50,11 +51,9 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Core" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
+    <PackageReference Include="Hl7.Fhir.Base" />
     <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" />
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
-    <PackageReference Include="Hl7.Fhir.Support.Poco" />
-    <PackageReference Include="Hl7.Fhir.Serialization" />
-    <PackageReference Include="Hl7.FhirPath" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Newtonsoft.Json.Schema" />
     <PackageReference Include="Polly" />

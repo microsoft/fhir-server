@@ -10,10 +10,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Health.Fhir.Api.Features.Binders;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public static class Program
+    internal static class Program
     {
         public static void Main(string[] args)
         {
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Web
                     var keyVaultEndpoint = builtConfig["KeyVault:Endpoint"];
                     if (!string.IsNullOrEmpty(keyVaultEndpoint))
                     {
-                        var credential = new DefaultAzureCredential();
+                        var credential = new ManagedIdentityCredential();
                         builder.AddAzureKeyVault(new System.Uri(keyVaultEndpoint), credential);
                     }
 

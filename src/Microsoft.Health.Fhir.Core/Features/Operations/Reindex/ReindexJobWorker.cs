@@ -12,8 +12,11 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -29,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly IScopeProvider<IReindexJobTask> _reindexJobTaskFactory;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
         private bool _searchParametersInitialized = false;
 
@@ -37,19 +41,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             IScopeProvider<IReindexJobTask> reindexJobTaskFactory,
             ISearchParameterOperations searchParameterOperations,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ReindexJobWorker> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
-            EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
-            EnsureArg.IsNotNull(reindexJobTaskFactory, nameof(reindexJobTaskFactory));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
-            _reindexJobConfiguration = reindexJobConfiguration.Value;
-            _reindexJobTaskFactory = reindexJobTaskFactory;
-            _searchParameterOperations = searchParameterOperations;
-            _logger = logger;
+            _fhirOperationDataStoreFactory = EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
+            _reindexJobConfiguration = EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
+            _reindexJobTaskFactory = EnsureArg.IsNotNull(reindexJobTaskFactory, nameof(reindexJobTaskFactory));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -60,6 +60,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 if (_searchParametersInitialized)
                 {
+                    var originalRequestContext = _contextAccessor.RequestContext;
+
+                    // Create a background task context to trigger the correct retry policy.
+                    var fhirRequestContext = new FhirRequestContext(
+                        method: nameof(ReindexJobWorker),
+                        uriString: nameof(ReindexJobWorker),
+                        baseUriString: nameof(ReindexJobWorker),
+                        correlationId: Guid.NewGuid().ToString(),
+                        requestHeaders: new Dictionary<string, StringValues>(),
+                        responseHeaders: new Dictionary<string, StringValues>())
+                        {
+                            IsBackgroundTask = true,
+                        };
+
+                    _contextAccessor.RequestContext = fhirRequestContext;
+
                     // Check for any changes to Search Parameters
                     try
                     {
@@ -124,6 +140,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // The job failed.
                         _logger.LogError(ex, "Error polling Reindex jobs.");
                     }
+
+                    _contextAccessor.RequestContext = originalRequestContext;
                 }
 
                 try

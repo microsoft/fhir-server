@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -116,6 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateAsyncRequestFilterAttribute>();
             services.AddSingleton<ValidateParametersResourceAttribute>();
             services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
+            services.AddSingleton<QueryCacheFilterAttribute>();
 
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
@@ -178,12 +180,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
 
             // Registers a health check to ensure storage gets initialized
-            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<StorageInitializedNotification>>()
+            services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<StorageInitializedHealthCheck>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IHealthCheck>()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 

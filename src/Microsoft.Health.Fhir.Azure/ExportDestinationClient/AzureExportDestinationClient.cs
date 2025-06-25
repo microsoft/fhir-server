@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger _logger;
 
+        private const int RetryDelaySeconds = 3;
+
         public AzureExportDestinationClient(
             IExportClientInitializer<BlobServiceClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
@@ -85,12 +87,28 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 // The blob container has added a 6 attempt retry that creates an aggregate exception if it can't find the blob.
                 var innerException = (RequestFailedException)ex.InnerExceptions[0];
-                _logger.LogWarning(innerException, "{Error}", innerException.Message);
-                throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+
+                // If storage account is not found
+                if (ex.InnerExceptions[0].Message.Contains("No such host is known", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(ex, "The Storage account not found");
+                    throw new DestinationConnectionException(Resources.StorageAccountNotFound, HttpStatusCode.NotFound);
+                }
+                else
+                {
+                    _logger.LogWarning(innerException, "{Error}", innerException.Message);
+                    throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+                }
             }
             catch (AccessTokenProviderException ex)
             {
                 // Can't get an access token, likely an error with setup
+                _logger.LogWarning(ex, "Failed to get access token for export");
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
+            }
+            catch (ArgumentNullException ex) when (ex.Message.Contains("credentialBundleName", StringComparison.OrdinalIgnoreCase))
+            {
+                // This indicates that Managed Identity isn't setup
                 _logger.LogWarning(ex, "Failed to get access token for export");
                 throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
             }
@@ -137,6 +155,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 catch (RequestFailedException ex)
                 {
                     _logger.LogError(ex, "Failed to write export file");
+
+                    // Add a small delay before retrying in case of race condition
+                    Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
+
                     try
                     {
                         uri = CommitFileRetry(fileName);

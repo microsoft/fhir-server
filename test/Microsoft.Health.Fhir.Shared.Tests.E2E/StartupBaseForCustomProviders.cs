@@ -6,6 +6,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
 using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
@@ -25,7 +26,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             // FHIR controllers from the API assemblies are not automatically registered.
             services.AddMvc()
                 .AddApplicationPart(typeof(FhirController).Assembly)
-                .AddApplicationPart(typeof(AadSmartOnFhirProxyController).Assembly);
+                .AddApplicationPart(typeof(AadSmartOnFhirProxyController).Assembly)
+                .AddApplicationPart(typeof(OpenIddictAuthorizationController).Assembly);
         }
     }
 }

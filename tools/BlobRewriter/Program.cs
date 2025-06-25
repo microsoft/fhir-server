@@ -24,7 +24,7 @@ using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 {
-    public static class Program
+    internal static class Program
     {
         private static readonly string SourceConnectionString = ConfigurationManager.AppSettings["SourceConnectionString"];
         private static readonly string TargetConnectionString = ConfigurationManager.AppSettings["TargetConnectionString"];

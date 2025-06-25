@@ -39,17 +39,10 @@
     ]
   },
   "preferredReportName": "Serum albumin/​Protein total",
-  "quantitativeDetails": {
-    "unit": {
-      "coding": [
-        {
-          "system": "http://unitsofmeasure.org",
-          "code": "%",
-          "display": "%"
-        }
-      ]
-    },
-    "decimalPrecision": 0
+  "permittedUnit": {
+    "system": "http://unitsofmeasure.org",
+    "code": "%",
+    "display": "%"
   },
   "qualifiedValue": [
     {

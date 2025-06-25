@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -123,19 +124,31 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             ExecuteSql(@"
 TRUNCATE TABLE dbo.EventLog
 DECLARE @i int = 0
-WHILE @i < 10000
+WHILE @i < 10500
 BEGIN
   EXECUTE dbo.LogEvent @Process='Test',@Status='Warn',@Mode='Test'
   SET @i += 1
 END
-                ");
+            ");
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
-
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
+
+            // TODO: Temp code to test database stats
+            var factory = CreateResourceWrapperFactory();
+            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
+            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
+            wrapper.ResourceSurrogateId = tran.TransactionId;
+            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
+            var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
+            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
+
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
@@ -148,13 +161,39 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            while ((GetCount("EventLog") > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
+            startTime = DateTime.UtcNow;
+            while ((GetCount("EventLog") > 2000) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
-            Assert.True(GetCount("EventLog") <= 1000, "Count is low");
+            Assert.True(GetCount("EventLog") <= 2000, "Count is high");
+
+            // TODO: Temp code to test database stats
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("tmp_GetRawResources") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "tmp_GetRawResources message is not found");
+
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("DatabaseStats.ResourceTypeTotals") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.ResourceTypeTotals message is not found");
+
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.SearchParamCount message is not found");
 
             await cts.CancelAsync();
             await wdTask;
@@ -179,21 +218,28 @@ END
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
 
-            ExecuteSql("INSERT INTO Parameters (Id,Number) SELECT 'MergeResources.NoTransaction.IsEnabled', 1");
-
             ExecuteSql(@"
-CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
-FOR INSERT
+CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam FOR INSERT
 AS
-BEGIN
-  RAISERROR('Test',18,127)
-  RETURN
-END
+RAISERROR('Test',18,127)
             ");
 
             try
             {
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, new[] { mergeWrapper }, false, 0, cts.Token);
+                // no eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, cts.Token);
+            }
+            catch (SqlException e)
+            {
+                Assert.Equal("Test", e.Message);
+            }
+
+            Assert.Equal(0, GetCount("Resource")); // resource not inserted
+
+            try
+            {
+                // eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
             }
             catch (SqlException e)
             {
@@ -340,13 +386,13 @@ END
                 Deserializers.ResourceDeserializer);
         }
 
-        private void ExecuteSql(string sql)
+        private object ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
-            cmd.ExecuteNonQuery();
+            return cmd.ExecuteScalar();
         }
 
         private long GetCount(string table)
@@ -356,6 +402,15 @@ END
             using var cmd = new SqlCommand($"SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('{table}') AND index_id IN (0,1)", conn);
             var res = cmd.ExecuteScalar();
             return (long)res;
+        }
+
+        private long GetEventLogCount(string process)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand($"SELECT count(*) FROM dbo.EventLog WHERE Process = '{process}'", conn);
+            var res = cmd.ExecuteScalar();
+            return (int)res;
         }
 
         private double GetSize()

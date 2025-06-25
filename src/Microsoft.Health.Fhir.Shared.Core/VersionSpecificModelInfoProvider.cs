@@ -35,9 +35,15 @@ namespace Microsoft.Health.Fhir.Core
             return ModelInfo.GetFhirTypeNameForType(type);
         }
 
-        public bool IsKnownResource(string name)
+        public bool IsKnownResource(string name, bool ignoreCase = true)
         {
-            return ModelInfo.IsKnownResource(name);
+            if (ignoreCase)
+            {
+                return ModelInfo.IsKnownResource(name);
+            }
+
+            var classMapping = ModelInfo.ModelInspector.FindClassMapping(name);
+            return classMapping?.Name == name;
         }
 
         public bool IsKnownCompartmentType(string compartmentType)
@@ -59,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core
 
         public IReadOnlyCollection<string> GetCompartmentTypeNames()
         {
-            return Enum.GetNames(typeof(CompartmentType));
+            return Enum.GetNames<CompartmentType>();
         }
 
         public Type GetTypeForFhirType(string resourceType)

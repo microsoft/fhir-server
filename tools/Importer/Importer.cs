@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly string Endpoints = ConfigurationManager.AppSettings["FhirEndpoints"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
+        private static readonly string StorageAccountName = ConfigurationManager.AppSettings["StorageAccountName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
         private static readonly int BatchSize = int.Parse(ConfigurationManager.AppSettings["BatchSize"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
         private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
         private static readonly string FhirAuthCredentialOptions = ConfigurationManager.AppSettings["FhirAuthCredentialOptions"];
+        private static readonly bool UseExponentialRetry = bool.Parse(ConfigurationManager.AppSettings["UseExponentialRetry"]);
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static TokenCredential credential;
         private static HttpClient httpClient = new();
         private static DelegatingHandler handler;
+        private static int maxRetryDelayMs = 600_000;
 
         internal static void Run()
         {
@@ -75,7 +78,7 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             Console.WriteLine($"{DateTime.UtcNow:s}: {globalPrefix}: Starting...");
-            var blobContainerClient = GetContainer(ConnectionString, ContainerName);
+            var blobContainerClient = GetContainer(ConnectionString, ContainerName, StorageAccountName);
             var blobs = blobContainerClient.GetBlobs().Where(_ => _.Name.EndsWith(UseBundleBlobs ? ".json" : ".ndjson", StringComparison.OrdinalIgnoreCase));
             ////Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
             ////var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
@@ -267,7 +270,9 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                 }
             }
             while (bad && retries < maxRetries);
@@ -358,7 +363,9 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                 }
             }
             while (bad && retries < maxRetries);
@@ -372,7 +379,7 @@ namespace Microsoft.Health.Fhir.Importer
 
         private static string GetTextFromBlob(BlobItem blob)
         {
-            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName, StorageAccountName).GetBlobClient(blob.Name).Download().Value.Content);
             var text = reader.ReadToEnd();
             return text;
         }
@@ -386,7 +393,7 @@ namespace Microsoft.Health.Fhir.Importer
             var sw = Stopwatch.StartNew();
             foreach (var blob in blobs.OrderBy(_ => RandomNumberGenerator.GetInt32(1000))) // shuffle blobs
             {
-                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName, StorageAccountName).GetBlobClient(blob.Name).Download().Value.Content);
                 while (!reader.EndOfStream)
                 {
                     Interlocked.Increment(ref totalReads);
@@ -402,11 +409,21 @@ namespace Microsoft.Health.Fhir.Importer
             Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static BlobContainerClient GetContainer(string connectionString, string containerName)
+        private static BlobContainerClient GetContainer(string connectionString, string containerName, string storageAccountName)
         {
             try
             {
-                var blobServiceClient = new BlobServiceClient(connectionString);
+                BlobServiceClient blobServiceClient;
+                if (!string.IsNullOrEmpty(connectionString))
+                {
+                    blobServiceClient = new BlobServiceClient(connectionString);
+                }
+                else
+                {
+                    var defaultAzureCredential = new DefaultAzureCredential();
+                    blobServiceClient = new BlobServiceClient(new Uri($"https://{storageAccountName}.blob.core.windows.net"), defaultAzureCredential);
+                }
+
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
 
                 if (!blobContainerClient.Exists())
@@ -485,8 +502,10 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
+                    int baseDelay = UseExponentialRetry ? (int)Math.Pow(2, retries) * 1000 : 1000 * retries;
+                    int jitter = RandomNumberGenerator.GetInt32(baseDelay / 2);
                     Interlocked.Increment(ref waits);
-                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                    Thread.Sleep(networkError ? 1000 : Math.Min(baseDelay + jitter, maxRetryDelayMs));
                     Interlocked.Decrement(ref waits);
                 }
             }
@@ -579,11 +598,11 @@ namespace Microsoft.Health.Fhir.Importer
             if (!string.IsNullOrEmpty(FhirAuthCredentialOptions))
             {
                 var options = JsonConvert.DeserializeObject<DefaultAzureCredentialOptions>(FhirAuthCredentialOptions);
-                credential = new DefaultAzureCredential(options);
+                credential = new DefaultAzureCredential(options); // CodeQL [SM05137] This is non-production testing code which is not deployed to production environments.
             }
             else
             {
-                credential = new DefaultAzureCredential();
+                credential = new DefaultAzureCredential(); // CodeQL [SM05137] This is non-production testing code which is not deployed to production environments.
             }
 
             handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);

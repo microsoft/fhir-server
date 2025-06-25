@@ -31,6 +31,7 @@ public class ApplyCommand : Command
         AddOption(CommandOptions.ConnectionStringOption());
         AddOption(CommandOptions.ManagedIdentityClientIdOption());
         AddOption(CommandOptions.AuthenticationTypeOption());
+        AddOption(CommandOptions.EnableWorkloadIdentityOptions());
         AddOption(CommandOptions.VersionOption());
         AddOption(CommandOptions.NextOption());
         AddOption(CommandOptions.LatestOption());

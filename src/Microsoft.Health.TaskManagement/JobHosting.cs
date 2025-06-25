@@ -116,8 +116,8 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                 // If any worker crashes or complete after cancellation due to shutdown,
-                 // cancel all workers and wait for completion so they don't crash unnecessarily.
+                // If any worker crashes or complete after cancellation due to shutdown,
+                // cancel all workers and wait for completion so they don't crash unnecessarily.
                 await Task.WhenAny(workers.ToArray());
 #if NET6_0
                 cancellationTokenSource.Cancel();
@@ -141,13 +141,13 @@ namespace Microsoft.Health.JobManagement
 
             if (job?.Value == null)
             {
-                _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
+                _logger.LogJobWarning(jobInfo, "Not supported job type.", jobInfo.Id);
                 return;
             }
 
             try
             {
-                _logger.LogJobInformation(jobInfo, "Job {JobId} of type {JobType} starting.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogJobInformation(jobInfo, "Job starting.", jobInfo.Id, jobInfo.QueueType);
 
                 if (jobInfo.CancelRequested)
                 {
@@ -172,7 +172,15 @@ namespace Microsoft.Health.JobManagement
             }
             catch (JobExecutionException ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                if (ex.IsCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Job failed due to customer caused issue.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Job failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                 jobInfo.Status = JobStatus.Failed;
 
@@ -182,14 +190,14 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobWarning(ex, jobInfo, "Job canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;
 
                 try
@@ -198,14 +206,14 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobError(ex, jobInfo, "Job failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
 
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
@@ -217,7 +225,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
@@ -227,11 +235,11 @@ namespace Microsoft.Health.JobManagement
             {
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                _logger.LogJobInformation(jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobInformation(jobInfo, "Job completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
             catch (Exception completeEx)
             {
-                _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
         }
 

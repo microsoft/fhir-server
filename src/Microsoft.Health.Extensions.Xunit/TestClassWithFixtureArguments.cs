@@ -18,7 +18,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// A <see cref="ITestClass"/> where the class' <see cref="ITypeInfo"/> is a <see cref="TestClassWithFixtureArgumentsTypeInfo"/>.
     /// This test class uses a fixture with a single set of constructor arguments.
     /// </summary>
-    public class TestClassWithFixtureArguments : LongLivedMarshalByRefObject, ITestClass
+    internal class TestClassWithFixtureArguments : LongLivedMarshalByRefObject, ITestClass
     {
         private ITypeInfo _underlyingClass;
 
