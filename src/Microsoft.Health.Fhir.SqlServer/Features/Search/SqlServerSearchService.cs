@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryText = stringBuilder.ToString();
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
-                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            ////_logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
                             if (!string.IsNullOrEmpty(customQuery))
