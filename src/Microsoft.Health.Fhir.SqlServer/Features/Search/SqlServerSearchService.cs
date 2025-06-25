@@ -237,54 +237,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
-            var fhirContext = _requestContextAccessor.RequestContext;
-            if (fhirContext != null
-                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
-                && useQueryCacheObj != null)
-            {
-                var useQueryCache = Convert.ToString(useQueryCacheObj);
-                if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, true, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, false, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogInformation("Running search with and without query cache.");
-                    var stopwatch = Stopwatch.StartNew();
+            return await SearchImpl(sqlSearchOptions, false, cancellationToken);
 
-                    using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    var token = tokenSource.Token;
+            ////var fhirContext = _requestContextAccessor.RequestContext;
+            ////if (fhirContext != null
+            ////    && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
+            ////    && useQueryCacheObj != null)
+            ////{
+            ////    var useQueryCache = Convert.ToString(useQueryCacheObj);
+            ////    if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, true, cancellationToken);
+            ////    }
+            ////    else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, false, cancellationToken);
+            ////    }
+            ////    else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        _logger.LogInformation("Running search with and without query cache.");
+            ////        var stopwatch = Stopwatch.StartNew();
 
-                    var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
-                    var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
+            ////        using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ////        var token = tokenSource.Token;
 
-                    var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
-                    await tokenSource.CancelAsync();
+            ////        var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
+            ////        var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
 
-                    _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
-                    return await result;
-                }
-                else // equals default or an invalid value
-                {
-                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
-                }
-            }
-            else
-            {
-                return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
-            }
+            ////        var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
+            ////        await tokenSource.CancelAsync();
+
+            ////        _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
+            ////        return await result;
+            ////    }
+            ////    else // equals default or an invalid value
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            ////}
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
         {
-            if (sqlSearchOptions.IsIncludesOperation)
-            {
-                return await SearchIncludeImpl(sqlSearchOptions, cancellationToken);
-            }
+            ////if (sqlSearchOptions.IsIncludesOperation)
+            ////{
+            ////    return await SearchIncludeImpl(sqlSearchOptions, cancellationToken);
+            ////}
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             Expression searchExpression = sqlSearchOptions.Expression;
@@ -408,26 +410,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
-                            SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+                            ////SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
-                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            ////_logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
-                            if (!string.IsNullOrEmpty(customQuery))
-                            {
-                                _logger.LogInformation("SQL Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
-                                queryText = customQuery;
-                                sqlCommand.CommandType = CommandType.StoredProcedure;
-                            }
+                            ////if (!string.IsNullOrEmpty(customQuery))
+                            ////{
+                            ////    _logger.LogInformation("SQL Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
+                            ////    queryText = customQuery;
+                            ////    sqlCommand.CommandType = CommandType.StoredProcedure;
+                            ////}
 
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                             sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
 
-                            _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
+                            ////_logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
                         swSqlQueryGenWide.Stop();
@@ -590,13 +592,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     isResultPartial = isResultPartial || isPartialEntry;
                                 }
 
-                                if (!clonedSearchOptions.IncludesOperationSupported && includedResources.Count > clonedSearchOptions.IncludeCount)
-                                {
-                                    includedResources.RemoveRange(
-                                        clonedSearchOptions.IncludeCount,
-                                        includedResources.Count - clonedSearchOptions.IncludeCount);
-                                    isResultPartial = true;
-                                }
+                                ////if (!clonedSearchOptions.IncludesOperationSupported && includedResources.Count > clonedSearchOptions.IncludeCount)
+                                ////{
+                                ////    includedResources.RemoveRange(
+                                ////        clonedSearchOptions.IncludeCount,
+                                ////        includedResources.Count - clonedSearchOptions.IncludeCount);
+                                ////    isResultPartial = true;
+                                ////}
 
                                 // call NextResultAsync to get the info messages
                                 await reader.NextResultAsync(cancellationToken);
@@ -635,15 +637,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     isResultPartial = !string.IsNullOrEmpty(includesSearchResult.IncludesContinuationToken);
                                 }
 
-                                if (isResultPartial)
-                                {
-                                    _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
-                                    _requestContextAccessor.RequestContext.BundleIssues.Add(
-                                        new OperationOutcomeIssue(
-                                            OperationOutcomeConstants.IssueSeverity.Warning,
-                                            OperationOutcomeConstants.IssueType.Incomplete,
-                                            clonedSearchOptions.IncludesOperationSupported ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage));
-                                }
+                                ////if (isResultPartial)
+                                ////{
+                                ////    _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
+                                ////    _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                ////        new OperationOutcomeIssue(
+                                ////            OperationOutcomeConstants.IssueSeverity.Warning,
+                                ////            OperationOutcomeConstants.IssueType.Incomplete,
+                                ////            clonedSearchOptions.IncludesOperationSupported ? Core.Resources.TruncatedIncludeMessageForIncludes : Core.Resources.TruncatedIncludeMessage));
+                                ////}
 
                                 // If this is a sort query, lets keep track of whether we actually searched for sort values.
                                 if (clonedSearchOptions.Sort != null &&
@@ -666,8 +668,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     sqlSearchOptions.SortHasMissingModifier = true;
                                 }
 
-                                _logger.LogInformation("Continuation token is {ContinuationTokenPresent}returned. {MaxSurrogateId}", continuationToken != null ? string.Empty : "not ", newContinuationId);
-                                _logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
+                                ////_logger.LogInformation("Continuation token is {ContinuationTokenPresent}returned. {MaxSurrogateId}", continuationToken != null ? string.Empty : "not ", newContinuationId);
+                                ////_logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
 
                                 searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
                             }
@@ -691,7 +693,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ////await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
             ////await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
-            _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
+            ////_logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
             return searchResult;
         }
 
