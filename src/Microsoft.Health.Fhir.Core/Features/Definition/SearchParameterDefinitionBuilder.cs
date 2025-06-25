@@ -344,10 +344,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     _ => new ConcurrentQueue<SearchParameterInfo>(new[] { searchParam }),
                     (_, existing) =>
                     {
-                        if (existing.TryPeek(out var sp) && searchParameterComparer.CompareExpression(searchParam.Expression, sp?.Expression) == int.MinValue)
+                        if (existing.TryPeek(out var sp) && sp != null)
                         {
-                            logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
-                            return existing;
+                            if (searchParam.Type != sp.Type)
+                            {
+                                logger.LogWarning("The types of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            if (searchParam.Type == SearchParamType.Composite)
+                            {
+                                var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                if (!searchParameterComparer.CompareComponent(incomingComponent, existingComponent))
+                                {
+                                    logger.LogWarning("The components of the incoming and existing search parameter are different.");
+                                    return existing;
+                                }
+                            }
                         }
 
                         var list = new List<SearchParameterInfo>(existing);

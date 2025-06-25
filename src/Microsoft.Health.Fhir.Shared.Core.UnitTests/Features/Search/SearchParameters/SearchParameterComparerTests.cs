@@ -181,6 +181,32 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                     {
                         new Dictionary<string, string>
                         {
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                                "code"
+                            },
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                                "value.as(Quantity) | value.as(Range)"
+                            },
+                        },
+                        new Dictionary<string, string>
+                        {
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                                "value.as(Quantity) | value.as(Range)"
+                            },
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                                "code"
+                            },
+                        },
+                        true,
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, string>
+                        {
                         },
                         new Dictionary<string, string>
                         {

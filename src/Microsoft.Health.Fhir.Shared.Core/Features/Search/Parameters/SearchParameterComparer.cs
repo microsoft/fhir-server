@@ -158,14 +158,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return x == null && y == null;
             }
 
-            var componetX = x.ToDictionary(x => x.definition, x => x.expression);
-            var componetY = y.ToDictionary(x => x.definition, x => x.expression);
-            if (componetX.Count != componetY.Count)
+            var listX = x.ToList();
+            var listY = y.ToList();
+            if (listX.Count != listY.Count)
             {
                 return false;
             }
 
-            if (componetX.Any(x => !componetY.TryGetValue(x.Key, out var y) || CompareExpression(x.Value, y) != 0))
+            if (listX.Any(x => CompareExpression(x.expression, listY.Where(y => string.Equals(x.definition, y.definition, StringComparison.OrdinalIgnoreCase)).Select(y => y.expression).FirstOrDefault()) != 0))
             {
                 return false;
             }
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y ? 0 : (x == null ? -1 : 1);
+                return int.MinValue;
             }
 
             try
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y ? 0 : (x == null ? -1 : 1);
+                return int.MinValue;
             }
 
             var expsX = new List<Expression>();
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y;
+                return x == null && y == null;
             }
 
             if (x is BracketExpression || y is BracketExpression)

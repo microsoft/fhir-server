@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _logger.LogInformation($"Comparing types...: '{incomingSearchParameter.Type}', '{existingSearchParameter.Type}'");
             if (!string.Equals(incomingSearchParameter.Type?.ToString(), existingSearchParameter.Type.ToString(), StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogInformation("Types are different.");
+                _logger.LogInformation("The types of the incoming and existing search parameter are different.");
                 validationFailures.Add(
                     new ValidationFailure(
                         nameof(code),
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 switch (result)
                 {
                     case 0:
-                        _logger.LogInformation("Expressions are identical.");
+                        _logger.LogInformation("The expressions of the incoming and existing search parameter are identical.");
                         break;
 
                     case 1:
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                         break;
 
                     default:
-                        _logger.LogInformation("Expressions are different.");
+                        _logger.LogInformation("The expressions of the incoming and existing search parameter are different.");
                         validationFailures.Add(
                             new ValidationFailure(
                                 nameof(code),
