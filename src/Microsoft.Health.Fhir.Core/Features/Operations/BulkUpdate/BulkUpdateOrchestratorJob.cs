@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                         // check if includes continuation token is present, if so, we need to read next page for includes and
                         // then enqueue the job with includes continuation token
-                        if (searchResult.IncludesContinuationToken is not null)
+                        if (searchResult.IncludesContinuationToken is not null && AreIncludeResultsTruncated())
                         {
                             SearchResult searchResultIncludes;
                             string currentIncludesContinuationToken = searchResult.IncludesContinuationToken;
@@ -246,6 +246,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
             }
+        }
+
+        private bool AreIncludeResultsTruncated()
+        {
+            return _contextAccessor.RequestContext.BundleIssues.Any(
+                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
         }
 
         // Creates a bulk update processing job.

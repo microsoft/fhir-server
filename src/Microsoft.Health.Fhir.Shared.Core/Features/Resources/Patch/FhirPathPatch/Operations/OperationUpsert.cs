@@ -23,12 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         }
 
         /// <summary>
-        /// Gets the value of the patch operation as an ElementNode.
-        /// </summary>
-        internal override ElementNode ValueElementNode =>
-            Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
-
-        /// <summary>
         /// Executes a FHIRPath Patch Add operation if the element doesn't exists. Upsert operations will add a new
         /// element of the specified opearation.Name at the specified operation.Path.
         ///
@@ -66,7 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
                                     .RequireMultipleElementsInSameCollection()
                                     .GetFirstElementNode();
 
-                        Target.Add(Provider, ValueElementNode);
+                        ElementNode valueElementNodeToAdd = Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
+                        Target.Add(Provider, valueElementNodeToAdd);
                     }
                     catch (InvalidOperationException ex)
                     {
@@ -75,55 +70,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
                 }
                 else // If the element exists
                 {
-                    if (targetAtName.Any(x => !x.Definition.IsCollection))
+                    try
                     {
-                        // If it is not a collection, we need to just replace the element with a new value
-                        try
-                        {
-                            Target = ResourceElement
-                                        .Select(Operation.Path)
-                                        .RequireOneOrMoreElements()
-                                        .RequireSingleElement()
-                                        .GetFirstElementNode();
-
-                            Target.ReplaceWith(Provider, ValueElementNode);
-                        }
-                        catch (InvalidOperationException ex)
-                        {
-                            throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch upsert operation.", ex);
-                        }
-                    }
-                    else if (targetAtName.Any(x => x.Definition.IsCollection))
-                    {
-                        // If it is a collection
-                        // If something already exists then do not do anything
-                        try
-                        {
-                            var exists = targetAtName.Any(node => node.IsEqualTo(ValueElementNode).Success);
-                            if (!exists) // If something new then append it to the collection
-                            {
-                                Target = ResourceElement
-                                    .Select(Operation.Path)
+                        // For upsert since we are using ADD operation structure
+                        var newPathAndName = Operation.Path + "." + Operation.Name;
+                        Target = ResourceElement
+                                    .Select(newPathAndName)
                                     .RequireOneOrMoreElements()
-                                    .RequireMultipleElementsInSameCollection()
+                                    .RequireSingleElement()
                                     .GetFirstElementNode();
 
-                                Target.Add(Provider, ValueElementNode);
-                            }
-
-                            // TODO: Or should we just replace?
-                            //////Target = ResourceElement
-                            //////            .Select(Operation.Path)
-                            //////            .RequireOneOrMoreElements()
-                            //////            .RequireSingleElement()
-                            //////            .GetFirstElementNode();
-
-                            //////Target.ReplaceWith(Provider, ValueElementNode);
-                        }
-                        catch (InvalidOperationException ex)
-                        {
-                            throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch upsert operation.", ex);
-                        }
+                        Target.ReplaceWith(Provider, ValueElementNode);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch upsert operation.", ex);
                     }
                 }
             }

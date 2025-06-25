@@ -112,17 +112,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 {
                     succeeded = false;
                 }
-                else if (job.Status == JobStatus.Completed)
-                {
-                    // Partially completed Bulk-update jobs can have issues due to Patch failures
-                    if (result != null)
-                    {
-                        foreach (var issue in result.Issues)
-                        {
-                            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
-                        }
-                    }
-                }
 
                 if (job.GetJobTypeId() == (int)JobType.BulkUpdateProcessing && result != null)
                 {
@@ -181,6 +170,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             AddParameterComponent(resourcesUpdated, ResourceUpdatedCountName);
             AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
+
+            if (resourcesPatchFailed.Count > 0)
+            {
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources"));
+            }
 
             if (failed && issues.Count > 0)
             {

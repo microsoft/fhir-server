@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(resourceType, nameof(resourceType));
             IReadOnlyCollection<SearchResultEntry> searchResults;
             bool tooManyIncludeResults = false;
             SearchResult searchResult;
@@ -128,11 +127,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ConcurrentDictionary<string, List<(string, Exception)>> patchExceptions = new ConcurrentDictionary<string, List<(string, Exception)>>();
             var updateTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-            ////// Get total resources by resource type for the first page of results and store it in totalResourcesByResourceType
-            ////totalResourcesByResourceType = searchResult.Results?
-            ////            .GroupBy(res => res.Resource.ResourceTypeName)
-            ////            .ToDictionary(group => group.Key, group => (long)group.Count());
 
             // Deserialize the FHIR patch parameters from the payload
             var customFhirJsonSerializer = new CustomFhirJsonSerializer<Hl7.Fhir.Model.Parameters>();
@@ -170,7 +164,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     // Apply the patch and get the final patchedResources that are patched successfully
                     var patchedResources = new ConcurrentDictionary<string, (bool, ResourceElement)>();
                     ApplyPatchToResources(
-                        resourceType,
                         patchExceptions,
                         searchResults,
                         commonPatchFailuresByResourceType,
@@ -390,6 +383,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new IncompleteOperationException<BulkUpdateResult>(aggregateException, finalBulkUpdateResult);
             }
 
+            // Do not stop processing if there are any patch exceptions
             return finalBulkUpdateResult;
         }
 
@@ -491,7 +485,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         private static void ApplyPatchToResources(
-            string resourceType,
             ConcurrentDictionary<string, List<(string id, Exception ex)>> patchExceptions,
             IReadOnlyCollection<SearchResultEntry> searchResults,
             Dictionary<string, long> commonPatchFailuresByResourceType,
@@ -506,7 +499,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var resourceTypeFromSearchResults = group.Key;
                 var resourceList = group.ToList();
 
-                if (!conditionalPatchResourceRequestsByResourceTypes.TryGetValue(resourceType, out var patchRequest))
+                if (!conditionalPatchResourceRequestsByResourceTypes.TryGetValue(resourceTypeFromSearchResults, out var patchRequest))
                 {
                     continue;
                 }
@@ -593,7 +586,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             BulkUpdateResult bulkUpdateResultsSoFar,
             CancellationToken cancellationToken)
         {
-            // TODO: What do we want to log in audit logs. All errors? all failed to update resource ids?
             await CreateAuditLog(
                 resourceType,
                 false,

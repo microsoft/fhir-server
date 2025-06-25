@@ -12,7 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Support;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -35,17 +37,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     [JobTypeId((int)JobType.BulkUpdateProcessing)]
     public class BulkUpdateProcessingJob : IJob
     {
+        private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<IBulkUpdateService>> _updateFactory;
         private readonly IMediator _mediator;
+        private readonly ILogger<BulkUpdateProcessingJob> _logger;
 
         public BulkUpdateProcessingJob(
+            IQueueClient queueClient,
             Func<IScoped<IBulkUpdateService>> updateFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ILogger<BulkUpdateProcessingJob> logger,
             IMediator mediator)
         {
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _updateFactory = EnsureArg.IsNotNull(updateFactory, nameof(updateFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
         }
 
@@ -113,6 +121,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 if (exception != null)
                 {
                     throw new JobExecutionException($"Exception encounted while updating resources: {result.Issues.First()}", result, exception, false);
+                }
+                else
+                {
+                    if (result.ResourcesPatchFailed.Any())
+                    {
+                        _logger.LogWarning("Bulk update job {GroupId} and {JobId} completed with {Count} resources updated, but {FailedToPatchCount} resources failed to patch.", jobInfo.GroupId, jobInfo.Id, resourcesUpdated.Sum(resource => resource.Value), result.ResourcesPatchFailed.Sum(resource => resource.Value));
+                        throw new JobExecutionSoftFailureException($"Exception encounted while updating resources", result, true);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Bulk update job {GroupId} and {JobId} completed successfully with {Count} resources updated.", jobInfo.GroupId, jobInfo.Id, resourcesUpdated.Sum(resource => resource.Value));
+                    }
                 }
 
                 return JsonConvert.SerializeObject(result);

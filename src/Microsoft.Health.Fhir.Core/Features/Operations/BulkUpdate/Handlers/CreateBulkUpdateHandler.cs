@@ -85,11 +85,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters); // remove read only restriction
-            var dateCurrent = new PartialDateTime(Clock.UtcNow);
-            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Remove _isParallel from searchParameters
             searchParameters = searchParameters.Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.IsParallel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            var dateCurrent = new PartialDateTime(Clock.UtcNow);
+            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
@@ -98,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
 
+            searchParameters.RemoveAll(x => string.Equals(x.Item1, "_lastUpdated", StringComparison.OrdinalIgnoreCase));
             foreach (var parameter in request.Parameters.Parameter)
             {
                 // Remove all parts except the type part
