@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -72,10 +74,19 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
                 }
 
-                foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
+                // Use reflection to find all enabled HostingBackgroundServiceQueueItem properties
+                var queueProperties = _operationsConfiguration.GetType()
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(p => typeof(HostingBackgroundServiceQueueItem).IsAssignableFrom(p.PropertyType));
+
+                foreach (var prop in queueProperties)
                 {
-                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
-                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
+                    var queueConfig = prop.GetValue(_operationsConfiguration) as HostingBackgroundServiceQueueItem;
+                    if (queueConfig != null && queueConfig.Enabled)
+                    {
+                        short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                        jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
+                    }
                 }
 
                 await Task.WhenAll(jobQueues);
