@@ -74,19 +74,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
                 }
 
-                // Use reflection to find all enabled HostingBackgroundServiceQueueItem properties
-                var queueProperties = _operationsConfiguration.GetType()
-                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                    .Where(p => typeof(HostingBackgroundServiceQueueItem).IsAssignableFrom(p.PropertyType));
+                var enabledQueueConfigs = GetEnabledQueueConfigs();
 
-                foreach (var prop in queueProperties)
+                foreach (var queueConfig in enabledQueueConfigs)
                 {
-                    var queueConfig = prop.GetValue(_operationsConfiguration) as HostingBackgroundServiceQueueItem;
-                    if (queueConfig != null && queueConfig.Enabled)
-                    {
-                        short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
-                        jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
-                    }
+                    short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
                 }
 
                 await Task.WhenAll(jobQueues);
@@ -105,6 +98,15 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         {
             _storageReady = true;
             return Task.CompletedTask;
+        }
+
+        internal virtual IEnumerable<HostingBackgroundServiceQueueItem> GetEnabledQueueConfigs()
+        {
+            return _operationsConfiguration.GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => typeof(HostingBackgroundServiceQueueItem).IsAssignableFrom(p.PropertyType))
+                .Select(p => p.GetValue(_operationsConfiguration) as HostingBackgroundServiceQueueItem)
+                .Where(q => q != null && q.Enabled);
         }
     }
 }
