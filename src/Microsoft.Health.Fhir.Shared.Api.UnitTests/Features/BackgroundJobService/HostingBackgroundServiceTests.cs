@@ -11,12 +11,16 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.BackgroundJobService;
 
+[Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+[Trait(Traits.Category, Categories.Operations)]
 public sealed class HostingBackgroundServiceTests
 {
     [Fact]
