@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private readonly string _validEntriesFile = "SearchParameters.json";
         private readonly ConcurrentDictionary<string, SearchParameterInfo> _uriDictionary;
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> _resourceTypeDictionary;
-        private readonly ISearchParameterComparer _searchParameterComparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
 
         public SearchParameterDefinitionBuilderTests()
         {
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
-            _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer>>());
+            _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
         }
 
         [Theory]

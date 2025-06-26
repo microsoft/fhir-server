@@ -9,13 +9,12 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public interface ISearchParameterComparer
+    public interface ISearchParameterComparer<T> : IComparer<T>
+        where T : class
     {
-        bool Compare(SearchParameterInfo x, SearchParameterInfo y);
-
         int CompareBase(IEnumerable<string> x, IEnumerable<string> y);
 
-        bool CompareComponent(IEnumerable<(string definition, string expression)> x, IEnumerable<(string definition, string expression)> y);
+        int CompareComponent(IEnumerable<(string definition, string expression)> x, IEnumerable<(string definition, string expression)> y);
 
         int CompareExpression(string x, string y);
     }

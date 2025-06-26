@@ -28,12 +28,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterComparerTests
     {
-        private readonly ISearchParameterComparer _comparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _comparer;
         private readonly ITestOutputHelper _output;
 
         public SearchParameterComparerTests(ITestOutputHelper output)
         {
-            _comparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer>>());
+            _comparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
             _output = output;
         }
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "value.as(Quantity) | value.as(Range)"
                             },
                         },
-                        true,
+                        0,
                     },
                     new object[]
                     {
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "code"
                             },
                         },
-                        true,
+                        0,
                     },
                     new object[]
                     {
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "value.as(Quantity) | value.as(Range)"
                             },
                         },
-                        false,
+                        int.MinValue,
                     },
                     new object[]
                     {
@@ -145,7 +145,37 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "value.as(Quantity)"
                             },
                         },
-                        false,
+                        int.MinValue,
+                    },
+                    new object[]
+                    {
+                        new Dictionary<string, string>
+                        {
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                                "code"
+                            },
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                                "value.as(Quantity) | value.as(Range)"
+                            },
+                            {
+                                "http://hl7.org/fhir/SearchParameter/conformance-context-type",
+                                "code"
+                            },
+                        },
+                        new Dictionary<string, string>
+                        {
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                                "code"
+                            },
+                            {
+                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                                "value.as(Quantity) | value.as(Range)"
+                            },
+                        },
+                        1,
                     },
                     new object[]
                     {
@@ -175,7 +205,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "code"
                             },
                         },
-                        false,
+                        -1,
                     },
                     new object[]
                     {
@@ -201,7 +231,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                                 "code"
                             },
                         },
-                        true,
+                        0,
                     },
                     new object[]
                     {
@@ -211,7 +241,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                         new Dictionary<string, string>
                         {
                         },
-                        true,
+                        0,
                     },
                 };
             }
@@ -275,7 +305,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
         public void GivenComponents_WhenComparing_ThenCorrectResultShouldBeReturn(
             IDictionary<string, string> component1,
             IDictionary<string, string> component2,
-            bool result)
+            int result)
         {
             Assert.Equal(
                 result,

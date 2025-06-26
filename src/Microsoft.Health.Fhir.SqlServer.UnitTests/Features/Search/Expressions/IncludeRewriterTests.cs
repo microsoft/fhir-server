@@ -1645,7 +1645,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     .Build();
                 var mediator = Substitute.For<IMediator>();
                 var searchService = Substitute.For<ISearchService>();
-                var searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+                var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
             }
 

@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             string resourceType,
             ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             HashSet<SearchParameterInfo> results;
@@ -352,21 +352,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 return existing;
                             }
 
-                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression) == int.MinValue)
-                            {
-                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
-                                return existing;
-                            }
-
                             if (searchParam.Type == SearchParamType.Composite)
                             {
                                 var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
                                 var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
-                                if (!searchParameterComparer.CompareComponent(incomingComponent, existingComponent))
+                                if (searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
                                 {
                                     logger.LogWarning("The components of the incoming and existing search parameter are different.");
                                     return existing;
                                 }
+                            }
+
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
+                                return existing;
                             }
                         }
 

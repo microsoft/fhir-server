@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IMediator _mediator;
         private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
-        private readonly ISearchParameterComparer _searchParameterComparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly ILogger _logger;
 
         private bool _initialized = false;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IModelInfoProvider modelInfoProvider,
             IMediator mediator,
             IScopeProvider<ISearchService> searchServiceFactory,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));

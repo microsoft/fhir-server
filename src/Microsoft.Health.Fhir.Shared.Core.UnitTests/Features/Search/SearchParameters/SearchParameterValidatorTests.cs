@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly IModelInfoProvider _modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes("Patient").Build();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
-        private readonly ISearchParameterComparer _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
         public SearchParameterValidatorTests()
         {
@@ -146,12 +146,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData(0, true)]
-        [InlineData(1, true)]
-        [InlineData(-1, true)]
-        [InlineData(int.MinValue, true)]
-        [InlineData(0, false)]
-        public async Task GivenSearchParameter_WhenValidatingProperties_ThenConflictingPropertiesShouldBeReported(int compareExpressionResult, bool compareComponentResult)
+        [InlineData(0, 0)]
+        [InlineData(1, 0)]
+        [InlineData(-1, 0)]
+        [InlineData(int.MinValue, 0)]
+        [InlineData(0, int.MinValue)]
+        public async Task GivenSearchParameter_WhenValidatingProperties_ThenConflictingPropertiesShouldBeReported(int compareExpressionResult, int compareComponentResult)
         {
             var searchParameter = new SearchParameter
             {
@@ -194,11 +194,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             try
             {
                 await validator.ValidateSearchParameterInput(searchParameter, "POST", CancellationToken.None);
-                Assert.True(compareExpressionResult > int.MinValue && compareComponentResult);
+                Assert.True(compareExpressionResult > int.MinValue && compareComponentResult > int.MinValue);
             }
             catch (ResourceNotValidException)
             {
-                Assert.False(compareExpressionResult > int.MinValue && compareComponentResult);
+                Assert.False(compareExpressionResult > int.MinValue && compareComponentResult > int.MinValue);
             }
         }
 

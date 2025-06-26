@@ -56,14 +56,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly ISearchParameterComparer _searchParameterComparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
 
         public SearchParameterDefinitionManagerTests()
         {
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+            _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), _searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);

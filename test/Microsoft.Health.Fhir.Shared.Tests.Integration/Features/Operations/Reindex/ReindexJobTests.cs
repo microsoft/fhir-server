@@ -1049,7 +1049,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             ServiceProvider services = collection.BuildServiceProvider();
 
             var mediator = new Mediator(services);
-            var searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockScopeProviderFromScoped(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);

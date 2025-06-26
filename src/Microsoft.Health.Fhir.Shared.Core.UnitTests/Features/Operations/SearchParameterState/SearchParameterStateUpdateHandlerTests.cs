@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly ISearchParameterComparer _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
