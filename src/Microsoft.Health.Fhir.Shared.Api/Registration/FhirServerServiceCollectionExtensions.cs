@@ -190,9 +190,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
 
-                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
-                    app.UseBaseHeaders();
-
                     app.UseCors(Constants.DefaultCorsPolicy);
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
