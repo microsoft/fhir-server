@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Configs;
 public class HostingBackgroundServiceQueueItem
 {
     /// <summary>
-    /// Determines whether bulk import is enabled or not.
+    /// Determines whether job and related queue is enabled or not.
     /// </summary>
     public bool Enabled { get; set; }
 
