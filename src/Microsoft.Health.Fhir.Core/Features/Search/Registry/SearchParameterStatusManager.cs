@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -140,32 +140,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
-                updated.Add(paramInfo);
-                paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
-                paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
-
-                if (parameters.TryGetValue(uri, out var existingStatus))
+                try
                 {
-                    existingStatus.LastUpdated = Clock.UtcNow;
-                    existingStatus.Status = status;
+                    SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    updated.Add(paramInfo);
+                    paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
+                    paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                    if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                    if (parameters.TryGetValue(uri, out var existingStatus))
                     {
-                        existingStatus.SortStatus = SortParameterStatus.Enabled;
-                        paramInfo.SortStatus = SortParameterStatus.Enabled;
+                        existingStatus.LastUpdated = Clock.UtcNow;
+                        existingStatus.Status = status;
+
+                        if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                        {
+                            existingStatus.SortStatus = SortParameterStatus.Enabled;
+                            paramInfo.SortStatus = SortParameterStatus.Enabled;
+                        }
+
+                        searchParameterStatusList.Add(existingStatus);
                     }
-
-                    searchParameterStatusList.Add(existingStatus);
-                }
-                else
-                {
-                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                    else
                     {
-                        LastUpdated = Clock.UtcNow,
-                        Status = status,
-                        Uri = new Uri(uri),
-                    });
+                        searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                        {
+                            LastUpdated = Clock.UtcNow,
+                            Status = status,
+                            Uri = new Uri(uri),
+                        });
+                    }
+                }
+                catch (SearchParameterNotSupportedException ex)
+                {
+                    _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
+
+                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
+                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
+                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
+                    // (e.g. $bulk-delete ensuring deletion of as many search parameters as possible.)
+                    if (!ignoreSearchParameterNotSupportedException)
+                    {
+                        throw;
+                    }
                 }
             }
 

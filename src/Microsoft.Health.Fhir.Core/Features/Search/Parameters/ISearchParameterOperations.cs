@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken);
+        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
         Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
 
