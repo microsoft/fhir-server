@@ -3,19 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Core.Features.Operations;
+
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class ImportTaskConfiguration // This class name is inconistent with others which use Job instrad of Task.
+    public class ImportJobConfiguration : HostingBackgroundServiceQueueItem
     {
         private const int DefaultTransactionSize = 1000;
         private const int DefaultSqlIndexRebuildThreads = 3;
         private const int DefaultInfinitySqlTimeoutSec = 0;
         private const int DefaultPollingPeriodSec = 60;
 
-        /// <summary>
-        /// Determines whether bulk import is enabled or not.
-        /// </summary>
-        public bool Enabled { get; set; }
+        public ImportJobConfiguration()
+        {
+            Queue = QueueType.Import;
+        }
 
         /// <summary>
         /// Initial import mode

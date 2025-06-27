@@ -19,3 +19,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Client")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Shared.Api.UnitTests")]

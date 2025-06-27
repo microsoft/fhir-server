@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
     public sealed class InitialImportLockMiddleware
     {
         private RequestDelegate _next;
-        private ImportTaskConfiguration _importTaskConfiguration;
+        private ImportJobConfiguration _importTaskConfiguration;
         private readonly HashSet<(string method, string pathRegex)> _excludedEndpoints;
         private readonly HashSet<(string method, string pathRegex)> _filteredEndpoints;
 
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public InitialImportLockMiddleware(
             RequestDelegate next,
-            IOptions<ImportTaskConfiguration> importTaskConfiguration)
+            IOptions<ImportJobConfiguration> importTaskConfiguration)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _importTaskConfiguration = EnsureArg.IsNotNull(importTaskConfiguration?.Value, nameof(importTaskConfiguration));

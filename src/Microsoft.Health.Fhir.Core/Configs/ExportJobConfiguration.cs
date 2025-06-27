@@ -5,15 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class ExportJobConfiguration
+    public class ExportJobConfiguration : HostingBackgroundServiceQueueItem
     {
-        /// <summary>
-        /// Determines whether export is enabled or not.
-        /// </summary>
-        public bool Enabled { get; set; }
+        public ExportJobConfiguration()
+        {
+            Queue = QueueType.Export;
+        }
 
         /// <summary>
         /// Determines the storage account connection that will be used to export data to.
