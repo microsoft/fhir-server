@@ -68,24 +68,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return result;
             }
 
-            if (x.Type == ValueSets.SearchParamType.Composite)
-            {
-                var componentX = x.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
-                var componentY = y.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
-                var componentResult = CompareComponent(componentY, componentX);
-                if (componentResult == int.MinValue)
-                {
-                    _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
-                    return componentResult;
-                }
-
-                if (result != componentResult)
-                {
-                    _logger.LogInformation($"Superset/subset relation mismatch: base={result}, component={componentResult}");
-                    return int.MinValue;
-                }
-            }
-
             var expressionResult = CompareExpression(x.Expression, y.Expression);
             if (expressionResult == int.MinValue)
             {
@@ -93,10 +75,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return expressionResult;
             }
 
-            if (result != expressionResult)
+            if (result != 0 && expressionResult != 0 && result != expressionResult)
             {
                 _logger.LogInformation($"Superset/subset relation mismatch: base={result}, expression={expressionResult}");
                 return int.MinValue;
+            }
+
+            result = result == 0 ? expressionResult : result;
+            if (x.Type == ValueSets.SearchParamType.Composite)
+            {
+                var componentX = x.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
+                var componentY = y.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
+                var componentResult = CompareComponent(componentX, componentY);
+                if (componentResult == int.MinValue)
+                {
+                    _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
+                    return componentResult;
+                }
+
+                if ((result != 0 && componentResult != 0 && result != componentResult) || (expressionResult != 0 && componentResult != 0 && expressionResult != componentResult))
+                {
+                    _logger.LogInformation($"Superset/subset relation mismatch: base={result}, component={componentResult}");
+                    return int.MinValue;
+                }
+
+                result = result == 0 ? componentResult : result;
             }
 
             return result;
