@@ -213,6 +213,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
+        public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand();
+            PopulateGetActiveJobsCommand(sqlCommand, queueType, returnParentOnly);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetActiveJobByQueueType failed.");
+        }
+
         public bool IsInitialized()
         {
             if (_schemaInformation == null)
@@ -276,6 +283,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
+        }
+
+        private static void PopulateGetActiveJobsCommand(SqlCommand cmd, byte queueType, bool returnParentOnly)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetActiveJobs";
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            cmd.Parameters.AddWithValue("@ReturnParentOnly", returnParentOnly);
         }
     }
 }
