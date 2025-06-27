@@ -13,22 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class RawResource
     {
-        private Lazy<string> _data;
-
         public RawResource(string data, FhirResourceFormat format, bool isMetaSet)
         {
             EnsureArg.IsNotNullOrEmpty(data, nameof(data));
 
             Data = data;
-            Format = format;
-            IsMetaSet = isMetaSet;
-        }
-
-        public RawResource(Lazy<string> data, FhirResourceFormat format, bool isMetaSet)
-        {
-            EnsureArg.IsNotNull(data, nameof(data));
-
-            _data = data;
             Format = format;
             IsMetaSet = isMetaSet;
         }
@@ -39,18 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         [JsonProperty("data")]
-        public string Data
-        {
-            get
-            {
-                return _data.Value;
-            }
-
-            protected set
-            {
-                _data = new Lazy<string>(() => value);
-            }
-        }
+        public string Data { get; protected set; }
 
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]

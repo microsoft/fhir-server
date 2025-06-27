@@ -18,7 +18,9 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
@@ -359,6 +361,23 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
+        ////private void AddTelemetryProvider(IServiceCollection services)
+        ////{
+        ////    var configuration = new TelemetryConfiguration();
+        ////    Configuration.GetSection("Telemetry").Bind(configuration);
+        ////    services.AddTransient<IMeterFactory, DummyMeterFactory>();
+
+        ////    switch (configuration.Provider)
+        ////    {
+        ////        case TelemetryProvider.ApplicationInsights:
+        ////            Startup.AddApplicationInsightsTelemetry(services, configuration);
+        ////            break;
+        ////        case TelemetryProvider.OpenTelemetry:
+        ////            Startup.AddAzureMonitorOpenTelemetry(services, configuration);
+        ////            break;
+        ////    }
+        ////}
+
         /// <summary>
         /// Adds the telemetry provider.
         /// </summary>
@@ -368,14 +387,26 @@ namespace Microsoft.Health.Fhir.Web
             Configuration.GetSection("Telemetry").Bind(configuration);
             services.AddTransient<IMeterFactory, DummyMeterFactory>();
 
-            switch (configuration.Provider)
+            Startup.AddFakeLogger(services);
+        }
+
+        private static void AddFakeLogger(IServiceCollection services)
+        {
+            services.AddHttpContextAccessor();
+            services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
+            services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, NullLoggerProvider>());
+        }
+
+        internal sealed class NullLoggerProvider : ILoggerProvider
+        {
+            public ILogger CreateLogger(string categoryName)
             {
-                case TelemetryProvider.ApplicationInsights:
-                    Startup.AddApplicationInsightsTelemetry(services, configuration);
-                    break;
-                case TelemetryProvider.OpenTelemetry:
-                    Startup.AddAzureMonitorOpenTelemetry(services, configuration);
-                    break;
+                return NullLogger.Instance;
+            }
+
+            public void Dispose()
+            {
             }
         }
     }

@@ -17,6 +17,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -44,6 +45,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.IO;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -143,135 +145,140 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-
-            SearchResult searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            var sw = Stopwatch.StartNew();
+            var sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            var searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
             int resultCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
+            sw.Stop();
 
-            if (!sqlSearchOptions.IsSortWithFilter &&
-                searchResult.ContinuationToken == null &&
-                resultCount <= sqlSearchOptions.MaxItemCount &&
-                sqlSearchOptions.Sort != null &&
-                sqlSearchOptions.Sort.Count > 0 &&
-                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
-            {
-                // We seem to have run a sort which has returned less results than what max we can return.
-                // Let's determine whether we need to execute another query or not.
-                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
-                {
-                    if (sqlSearchOptions.MaxItemCount - resultCount == 0)
-                    {
-                        // Check if more resources to be retrieved.
-                        sqlSearchOptions.SortQuerySecondPhase = true;
-                        sqlSearchOptions.MaxItemCount = 1;
-                        var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////if (!sqlSearchOptions.IsSortWithFilter &&
+            ////    searchResult.ContinuationToken == null &&
+            ////    resultCount <= sqlSearchOptions.MaxItemCount &&
+            ////    sqlSearchOptions.Sort != null &&
+            ////    sqlSearchOptions.Sort.Count > 0 &&
+            ////    sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+            ////{
+            ////    // We seem to have run a sort which has returned less results than what max we can return.
+            ////    // Let's determine whether we need to execute another query or not.
+            ////    if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
+            ////        (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
+            ////    {
+            ////        if (sqlSearchOptions.MaxItemCount - resultCount == 0)
+            ////        {
+            ////            // Check if more resources to be retrieved.
+            ////            sqlSearchOptions.SortQuerySecondPhase = true;
+            ////            sqlSearchOptions.MaxItemCount = 1;
+            ////            var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        // Since we are already returning MaxItemCount number of resources we don't want
-                        // to execute another search right now just to drop all the resources. We will return
-                        // a "special" ct so that we the subsequent request will be handled correctly.
-                        var ct = (secondSearchResult.Results?.Any() ?? false) ? new ContinuationToken(new object[]
-                            {
-                                SqlSearchConstants.SortSentinelValueForCt,
-                                0,
-                            })
-                            : null;
+            ////            // Since we are already returning MaxItemCount number of resources we don't want
+            ////            // to execute another search right now just to drop all the resources. We will return
+            ////            // a "special" ct so that we the subsequent request will be handled correctly.
+            ////            var ct = (secondSearchResult.Results?.Any() ?? false) ? new ContinuationToken(new object[]
+            ////                {
+            ////                    SqlSearchConstants.SortSentinelValueForCt,
+            ////                    0,
+            ////                })
+            ////                : null;
 
-                        searchResult = new SearchResult(searchResult.Results, ct?.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
-                    }
-                    else
-                    {
-                        var finalResultsInOrder = new List<SearchResultEntry>();
-                        finalResultsInOrder.AddRange(searchResult.Results);
-                        sqlSearchOptions.SortQuerySecondPhase = true;
-                        sqlSearchOptions.MaxItemCount -= resultCount;
+            ////            searchResult = new SearchResult(searchResult.Results, ct?.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+            ////        }
+            ////        else
+            ////        {
+            ////            var finalResultsInOrder = new List<SearchResultEntry>();
+            ////            finalResultsInOrder.AddRange(searchResult.Results);
+            ////            sqlSearchOptions.SortQuerySecondPhase = true;
+            ////            sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////            searchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        finalResultsInOrder.AddRange(searchResult.Results);
-                        searchResult = new SearchResult(
-                            finalResultsInOrder,
-                            searchResult.ContinuationToken,
-                            searchResult.SortOrder,
-                            searchResult.UnsupportedSearchParameters);
-                    }
-                }
-            }
+            ////            finalResultsInOrder.AddRange(searchResult.Results);
+            ////            searchResult = new SearchResult(
+            ////                finalResultsInOrder,
+            ////                searchResult.ContinuationToken,
+            ////                searchResult.SortOrder,
+            ////                searchResult.UnsupportedSearchParameters);
+            ////        }
+            ////    }
+            ////}
 
-            // If we should include the total count of matching search results
-            if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
-            {
-                // If this is the first page and there aren't any more pages
-                if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
-                {
-                    // Count the match results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
-                }
-                else
-                {
-                    try
-                    {
-                        // Otherwise, indicate that we'd like to get the count
-                        sqlSearchOptions.CountOnly = true;
+            ////// If we should include the total count of matching search results
+            ////if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
+            ////{
+            ////    // If this is the first page and there aren't any more pages
+            ////    if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+            ////    {
+            ////        // Count the match results on the page.
+            ////        searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
+            ////    }
+            ////    else
+            ////    {
+            ////        try
+            ////        {
+            ////            // Otherwise, indicate that we'd like to get the count
+            ////            sqlSearchOptions.CountOnly = true;
 
-                        // And perform a second read.
-                        var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
+            ////            // And perform a second read.
+            ////            var countOnlySearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
-                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
-                    }
-                    finally
-                    {
-                        // Ensure search options is set to its original state.
-                        sqlSearchOptions.CountOnly = false;
-                    }
-                }
-            }
+            ////            searchResult.TotalCount = countOnlySearchResult.TotalCount;
+            ////        }
+            ////        finally
+            ////        {
+            ////            // Ensure search options is set to its original state.
+            ////            sqlSearchOptions.CountOnly = false;
+            ////        }
+            ////    }
+            ////}
+
+            await _sqlRetryService.TryLogEvent($"SearchAsync:Results={resultCount}", "Warn", $"mcsec={(int)(sw.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             return searchResult;
         }
 
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
-            var fhirContext = _requestContextAccessor.RequestContext;
-            if (fhirContext != null
-                && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
-                && useQueryCacheObj != null)
-            {
-                var useQueryCache = Convert.ToString(useQueryCacheObj);
-                if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, true, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
-                {
-                    return await SearchImpl(sqlSearchOptions, false, cancellationToken);
-                }
-                else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogInformation("Running search with and without query cache.");
-                    var stopwatch = Stopwatch.StartNew();
+            return await SearchImpl(sqlSearchOptions, false, cancellationToken);
 
-                    using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    var token = tokenSource.Token;
+            ////var fhirContext = _requestContextAccessor.RequestContext;
+            ////if (fhirContext != null
+            ////    && fhirContext.Properties.TryGetValue(KnownQueryParameterNames.QueryCaching, out object useQueryCacheObj)
+            ////    && useQueryCacheObj != null)
+            ////{
+            ////    var useQueryCache = Convert.ToString(useQueryCacheObj);
+            ////    if (string.Equals(useQueryCache, QueryCacheSetting.Enabled, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, true, cancellationToken);
+            ////    }
+            ////    else if (string.Equals(useQueryCache, QueryCacheSetting.Disabled, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, false, cancellationToken);
+            ////    }
+            ////    else if (string.Equals(useQueryCache, QueryCacheSetting.Both, StringComparison.OrdinalIgnoreCase))
+            ////    {
+            ////        _logger.LogInformation("Running search with and without query cache.");
+            ////        var stopwatch = Stopwatch.StartNew();
 
-                    var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
-                    var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
+            ////        using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ////        var token = tokenSource.Token;
 
-                    var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
-                    await tokenSource.CancelAsync();
+            ////        var tryWithQueryCache = SearchImpl(sqlSearchOptions, true, token);
+            ////        var tryWithoutQueryCache = SearchImpl(sqlSearchOptions, false, token);
 
-                    _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
-                    return await result;
-                }
-                else // equals default or an invalid value
-                {
-                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
-                }
-            }
-            else
-            {
-                return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
-            }
+            ////        var result = await Task.WhenAny(tryWithQueryCache, tryWithoutQueryCache);
+            ////        await tokenSource.CancelAsync();
+
+            ////        _logger.LogInformation("First search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, result == tryWithQueryCache);
+            ////        return await result;
+            ////    }
+            ////    else // equals default or an invalid value
+            ////    {
+            ////        return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+            ////}
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
@@ -366,11 +373,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
 
+            var swExecSql = Stopwatch.StartNew();
+            Stopwatch swReader = null;
+            Stopwatch swSqlQueryGenWide = null;
+            var matchCount = 0;
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
-                    using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                    using (var sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
+                        swSqlQueryGenWide = Stopwatch.StartNew();
+
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
                         var isSortValueNeeded = false;
 
@@ -397,11 +410,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
 
-                            SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+                            ////SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
-                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            ////_logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
                             if (!string.IsNullOrEmpty(customQuery))
@@ -419,8 +432,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
-                        LogSqlCommand(sqlCommand);
+                        swSqlQueryGenWide.Stop();
 
+                        ////LogSqlCommand(sqlCommand);
+
+                        swReader = Stopwatch.StartNew();
                         var st = DateTime.UtcNow;
                         try
                         {
@@ -455,7 +471,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 short? newContinuationType = null;
                                 long? newContinuationId = null;
                                 bool moreResults = false;
-                                int matchCount = 0;
+                                matchCount = 0;
                                 long? matchedResourceSurrogateIdStart = null;
 
                                 string sortValue = null;
@@ -488,29 +504,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
                                     {
                                         moreResults = true;
-
                                         continue;
                                     }
 
-                                    Lazy<string> rawResource = new Lazy<string>(() => string.Empty);
+                                    var rawResource = string.Empty;
 
                                     if (!clonedSearchOptions.OnlyIds)
                                     {
-                                        rawResource = new Lazy<string>(() =>
-                                        {
-                                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                            var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                        var decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                        ////using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                        ////var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                            _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+                                        ////_logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
-                                            if (string.IsNullOrEmpty(decompressedResource))
-                                            {
-                                                decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                            }
+                                        ////if (string.IsNullOrEmpty(decompressedResource))
+                                        ////{
+                                        ////    decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                        ////    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        ////}
 
-                                            return decompressedResource;
-                                        });
+                                        rawResource = decompressedResource;
                                     }
 
                                     // See if this resource is a continuation token candidate and increase the count
@@ -655,8 +668,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     sqlSearchOptions.SortHasMissingModifier = true;
                                 }
 
-                                _logger.LogInformation("Continuation token is {ContinuationTokenPresent}returned. {MaxSurrogateId}", continuationToken != null ? string.Empty : "not ", newContinuationId);
-                                _logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
+                                ////_logger.LogInformation("Continuation token is {ContinuationTokenPresent}returned. {MaxSurrogateId}", continuationToken != null ? string.Empty : "not ", newContinuationId);
+                                ////_logger.LogInformation("Includes continuation token is {ContinuationTokenPresent}returned", includesContinuationTokenString != null ? string.Empty : "not ");
 
                                 searchResult = new SearchResult(matchedResources.Concat(includedResources).ToList(), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams, null, includesContinuationTokenString);
                             }
@@ -668,11 +681,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             await _sqlRetryService.TryLogEvent($"Search-{id}", "Error", e.ToString(), st, cancellationToken);
                             throw;
                         }
+
+                        swReader.Stop();
                     }
                 },
                 _logger,
                 cancellationToken,
                 true); // this enables reads from replicas
+            swExecSql.Stop();
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteReader.Resources:{matchCount}", "Warn", $"mcsec={(int)(swReader.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.SqlQueryGenWide.Resources:{matchCount}", "Warn", $"mcsec={(int)(swSqlQueryGenWide.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
+            ////await _sqlRetryService.TryLogEvent($"SearchImpl.ExecuteSql.Resources:{matchCount}", "Warn", $"mcsec={(int)(swExecSql.Elapsed.TotalMilliseconds * 1000)}", null, cancellationToken);
 
             _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
             return searchResult;
@@ -1418,21 +1437,16 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                                 if (resources.Count < clonedSearchOptions.IncludeCount)
                                 {
-                                    var rawResource = new Lazy<string>(() =>
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                                    _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+
+                                    if (string.IsNullOrEmpty(rawResource))
                                     {
-                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                        if (string.IsNullOrEmpty(decompressedResource))
-                                        {
-                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                        }
-
-                                        return decompressedResource;
-                                    });
+                                        rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                        _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                    }
 
                                     resources.Add(new SearchResultEntry(
                                         new ResourceWrapper(
