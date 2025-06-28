@@ -57,7 +57,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             // The json file is a bundle compiled from the compartment definitions currently defined by HL7.
             // The definitions are available at https://www.hl7.org/fhir/compartmentdefinition.html.
-            using Stream stream = _modelInfoProvider.OpenVersionedFileStream("compartment.json");
+
+            string fileName = "compartment.json";
+#if USE_HL7_LEGACY_PACKAGES
+            // R5 compile time directive not working for tests.
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "compartment-legacy.json";
+            }
+#endif
+            using Stream stream = _modelInfoProvider.OpenVersionedFileStream(fileName);
             using TextReader reader = new StreamReader(stream);
             using JsonReader jsonReader = new JsonTextReader(reader);
             var content = await FhirJsonNode.ReadAsync(jsonReader);

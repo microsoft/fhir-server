@@ -25,7 +25,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
+#if USE_HL7_LEGACY_PACKAGES
+            await TestCapabilityStatementFhirVersion("5.0.0-snapshot1");
+#else
             await TestCapabilityStatementFhirVersion("5.0.0");
+#endif
         }
 
         [Fact]
