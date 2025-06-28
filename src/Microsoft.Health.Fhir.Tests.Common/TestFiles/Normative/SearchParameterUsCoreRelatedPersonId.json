@@ -1,0 +1,49 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "us-core-relatedperson-id",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">  <!-- <h2>SearchParameter: USCoreRelatedpersonId</h2>\n\t\t\t\t<b> description</b> : <p><strong>Logical id of this artifact</strong><br />\n<strong>NOTE</strong>: This US Core SearchParameter definition extends the usage context of the\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">Conformance expectation extension</a></p>\n<ul>\n<li>multipleAnd</li>\n<li>multipleOr</li>\n<li>comparator</li>\n<li>modifier</li>\n<li>chain</li>\n</ul>\n\n\t\t\t<br/> --><p><b> id</b> us-core-relatedperson-id</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-relatedperson-id</b>\n\t\t\t</p><p><b> version</b> : 4.0.1</p><p><b> name</b> : USCoreRelatedpersonId</p><p><b> derivedFrom</b> : http://hl7.org/fhir/SearchParameter/Resource-id</p><p><b> status</b> : active</p><p><b> date</b> : 04/13/2023</p><p><b> publisher</b> : HL7 International - Cross-Group Projects</p><p><b> contact</b> : http://www.hl7.org/Special/committees/cgp</p>  <!-- <p>\n\t\t\t\t<b> useContext</b> : </p> --><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>_id</code>\n\t\t\t</p><p><b> base</b> :RelatedPerson</p><p><b> type</b> : token</p><p><b> expression</b> : <code>RelatedPerson.id</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:RelatedPerson/f:id</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> mulitpleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> mulitpleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+    },
+    "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-relatedperson-id",
+    "version": "6.1.0",
+    "name": "USCoreRelatedpersonId",
+    "derivedFrom": "http://hl7.org/fhir/SearchParameter/Resource-id",
+    "status": "active",
+    "experimental": false,
+    "date": "2023-04-13",
+    "publisher": "HL7 International - Cross-Group Projects",
+    "contact": [
+        {
+            "name": "HL7 International - Cross-Group Projects",
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/cgp"
+                },
+                {
+                    "system": "email",
+                    "value": "cgp@lists.HL7.org"
+                }
+            ]
+        }
+    ],
+    "description": "**Logical id of this artifact**  \n**NOTE**: This US Core SearchParameter definition extends the usage context of the\n[Conformance expectation extension](http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html)\n - multipleAnd\n - multipleOr\n - comparator\n - modifier\n - chain",
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US"
+                }
+            ]
+        }
+    ],
+    "code": "_id",
+    "base": [
+        "RelatedPerson"
+    ],
+    "type": "token",
+    "expression": "RelatedPerson.id",
+    "xpathUsage": "normal"
+}

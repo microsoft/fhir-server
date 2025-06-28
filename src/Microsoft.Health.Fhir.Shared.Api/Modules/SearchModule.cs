@@ -156,6 +156,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddTransient<IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>>();
             services.AddTransient<IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>>();
             services.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>, DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>>();
+
+            services.Add<SearchParameterConflictingCodeValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ISearchParameterConflictingCodeValidator>();
         }
     }
 }
