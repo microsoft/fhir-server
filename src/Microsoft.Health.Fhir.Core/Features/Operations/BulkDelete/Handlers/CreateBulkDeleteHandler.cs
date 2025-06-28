@@ -84,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,
-                versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest);
+                versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest,
+                removeReferences: request.RemoveReferences);
 
             IReadOnlyList<JobInfo> jobInfo =
                 await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
