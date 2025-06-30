@@ -10,11 +10,14 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using DotLiquid.Util;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Extensions;
@@ -529,9 +532,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 // Make sure the search parameters are deleted.
                 await EnsureBulkDeleteAsync(resourcesToCreate);
 
+#if false
                 // Ensure the search parameters were deleted by creating the same search parameters again.
                 DebugOutput("Creating search parameters again after bulk-delete...");
                 await CreateAsync(resourcesToCreate);
+#else
+                await CheckSearchParameterStatusAsync(resourcesToCreate);
+#endif
             }
             finally
             {
@@ -849,6 +856,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         Assert.Equal(resources.Count, deleted);
                         DebugOutput($"Checking {resources.Count} search parameters deleted by bulk-delete completed.");
+                    });
+            }
+
+            Task CheckSearchParameterStatusAsync(List<Resource> resources)
+            {
+                return retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        DebugOutput($"Checking the status of {resources.Count} search parameters...");
+
+                        foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
+                        {
+                            var response = await _fhirClient.ReadAsync<Parameters>(
+                                $"SearchParameter/$status?url={url}");
+                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+                            var part = response.Resource.Parameter
+                                .Where(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)))
+                                .FirstOrDefault();
+                            Assert.NotNull(part);
+
+                            var status = part.Part
+                                .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
+                                .Select(x => x.Value?.ToString())
+                                .FirstOrDefault();
+                            Assert.Equal(status, SearchParameterStatus.PendingDelete.ToString(), true);
+                        }
+
+                        DebugOutput("Cleaning up the status of search parameters completed.");
                     });
             }
         }
