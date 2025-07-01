@@ -5,6 +5,7 @@
 
 using System;
 using System.Data.SqlTypes;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -12,6 +13,7 @@ using MediatR.Pipeline;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -56,6 +58,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 else if (sqlException.Number == SqlErrorCodes.TooManyParameters)
                 {
                     throw new RequestNotValidException(Core.Resources.TooManyParameters);
+                }
+                else if (sqlException.Number == SqlStoreErrorCodes.TokenSearchParamCodeOverflow && !sqlException.IsRetriable()
+                            && sqlException.Message.Contains("CodeOverflow", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new BadRequestException(Core.Resources.TokenSearchParamCodeOverflow);
                 }
                 else
                 {

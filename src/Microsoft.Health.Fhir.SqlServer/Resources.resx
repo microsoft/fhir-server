@@ -170,10 +170,6 @@
   <data name="FailedToImportConflictingVersion" xml:space="preserve">
     <value>Failed to import resource with version conflict, resource id: {0}, line: {1}</value>
   </data>
-  <data name="TokenSearchParamCodeOverflow" xml:space="preserve">
-   <value>Failure inserting data due to a code value overflow. Please contact support for assistance.</value>
- </data>
-</root>
   <data name="InvalidIncludesContinuationToken" xml:space="preserve">
     <value>The provided continuation token for $includes operation is not valid.</value>
   </data>

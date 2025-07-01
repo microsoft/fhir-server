@@ -221,16 +221,5 @@ namespace Microsoft.Health.Fhir.SqlServer {
                 return ResourceManager.GetString("TypeAndLastUpdatedMustHaveSameSortDirection", resourceCulture);
             }
         }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Failure inserting data due to a code value overflow. Please contact support for assistance..
-        /// </summary>
-        internal static string TokenSearchParamCodeOverflow
-        {
-            get
-            {
-                return ResourceManager.GetString("TokenSearchParamCodeOverflow", resourceCulture);
-            }
-        }
     }
 }

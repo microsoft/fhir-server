@@ -378,10 +378,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
-                        catch (SqlException sqlEx) when (sqlEx.Number == 547 && sqlEx.Errors.Cast<SqlError>().Any(e => e.Message.Contains("CodeOverflow", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            throw new BadRequestException(Resources.TokenSearchParamCodeOverflow);
-                        }
                         catch (Exception e)
                         {
                             retries++;

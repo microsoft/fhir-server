@@ -14,5 +14,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Number of concurrent calls to MergeResources is above optimal.
         /// </summary>
         public const int MergeResourcesConcurrentCallsIsAboveOptimal = 50410;
+
+        /// <summary>
+        /// Constraint Violation.
+        /// </summary>
+        public const int TokenSearchParamCodeOverflow = 547;
     }
 }
