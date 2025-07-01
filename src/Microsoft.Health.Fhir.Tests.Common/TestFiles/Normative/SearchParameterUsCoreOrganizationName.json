@@ -1,0 +1,49 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "us-core-organization-name",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">  <!-- <h2>SearchParameter: USCoreOrganizationName</h2>\n\t\t\t\t<b> description</b> : <p><strong>A portion of the organization's name or alias</strong><br />\n<strong>NOTE</strong>: This US Core SearchParameter definition extends the usage context of the\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">Conformance expectation extension</a></p>\n<ul>\n<li>multipleAnd</li>\n<li>multipleOr</li>\n<li>comparator</li>\n<li>modifier</li>\n<li>chain</li>\n</ul>\n\n\t\t\t<br/> --><p><b> id</b> us-core-organization-name</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-organization-name</b>\n\t\t\t</p><p><b> version</b> : 4.0.1</p><p><b> name</b> : USCoreOrganizationName</p><p><b> derivedFrom</b> : http://hl7.org/fhir/SearchParameter/Organization-name</p><p><b> status</b> : active</p><p><b> date</b> : 04/14/2022</p><p><b> publisher</b> : HL7 International - Cross-Group Projects</p><p><b> contact</b> : http://www.hl7.org/Special/committees/cgp</p>  <!-- <p>\n\t\t\t\t<b> useContext</b> : </p> --><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>name</code>\n\t\t\t</p><p><b> base</b> :Organization</p><p><b> type</b> : string</p><p><b> expression</b> : <code>Organization.name|Organization.alias</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Organization/f:name|f:Organization/f:alias</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> mulitpleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> mulitpleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+    },
+    "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-organization-name",
+    "version": "6.1.0",
+    "name": "USCoreOrganizationName",
+    "derivedFrom": "http://hl7.org/fhir/SearchParameter/Organization-name",
+    "status": "active",
+    "experimental": false,
+    "date": "2022-04-14",
+    "publisher": "HL7 International - Cross-Group Projects",
+    "contact": [
+        {
+            "name": "HL7 International - Cross-Group Projects",
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/cgp"
+                },
+                {
+                    "system": "email",
+                    "value": "cgp@lists.HL7.org"
+                }
+            ]
+        }
+    ],
+    "description": "**A portion of the organization's name or alias**  \n**NOTE**: This US Core SearchParameter definition extends the usage context of the\n[Conformance expectation extension](http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html)\n - multipleAnd\n - multipleOr\n - comparator\n - modifier\n - chain",
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US"
+                }
+            ]
+        }
+    ],
+    "code": "name",
+    "base": [
+        "Organization"
+    ],
+    "type": "string",
+    "expression": "Organization.name|Organization.alias",
+    "xpathUsage": "normal"
+}

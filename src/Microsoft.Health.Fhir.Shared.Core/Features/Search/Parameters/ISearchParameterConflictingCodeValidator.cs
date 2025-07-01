@@ -3,17 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
+using System;
+using System.Collections.ObjectModel;
+using FluentValidation.Results;
+using Hl7.Fhir.Model;
+
+namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 {
-    public enum SearchParameterStatus
+    public interface ISearchParameterConflictingCodeValidator
     {
-        Disabled = 1,
-        Supported = 2,
-        Enabled = 3,
-        Deleted = 4,
-        PendingDelete = 5,
-        PendingDisable = 6,
-        Unsupported = 7,
-        Duplicate = 8,
+        Uri CheckForConflictingCodeValue(SearchParameter searchParam, Collection<ValidationFailure> validationFailures);
     }
 }
