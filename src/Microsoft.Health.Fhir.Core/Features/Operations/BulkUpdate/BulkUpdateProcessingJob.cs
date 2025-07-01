@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,20 +42,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<IBulkUpdateService>> _updateFactory;
         private readonly IMediator _mediator;
+        private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
 
         public BulkUpdateProcessingJob(
             IQueueClient queueClient,
             Func<IScoped<IBulkUpdateService>> updateFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILogger<BulkUpdateProcessingJob> logger,
-            IMediator mediator)
+            ISupportedProfilesStore supportedProfiles,
+            IMediator mediator,
+            ILogger<BulkUpdateProcessingJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _updateFactory = EnsureArg.IsNotNull(updateFactory, nameof(updateFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _supportedProfiles = EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -62,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
+            var result = new BulkUpdateResult();
 
             try
             {
@@ -81,14 +86,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 };
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-                var result = new BulkUpdateResult();
-                IDictionary<string, long> resourcesUpdated = new Dictionary<string, long>();
                 using IScoped<IBulkUpdateService> upsertService = _updateFactory.Invoke();
                 Exception exception = null;
 
                 var tillTime = new PartialDateTime(jobInfo.CreateDate);
                 var queryParametersList = new List<Tuple<string, string>>();
-                queryParametersList.AddRange(definition.SearchParameters);
+                if (definition.SearchParameters is not null)
+                {
+                    queryParametersList.AddRange(definition.SearchParameters);
+                }
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"));
@@ -104,19 +110,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 try
                 {
-                    bool isIncludesOperation = definition.SearchParameters.Any(p => p.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
+                    bool isIncludesOperation = definition.SearchParameters is not null && definition.SearchParameters.Any(p => p.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
                     result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesOperation, queryParametersList, null, cancellationToken);
-                    resourcesUpdated = result.ResourcesUpdated;
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
-                    resourcesUpdated = ex.PartialResults.ResourcesUpdated;
                     result = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                await _mediator.Publish(new BulkUpdateMetricsNotification(jobInfo.Id, resourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                if (result.ResourcesUpdated.Any())
+                {
+                    await _mediator.Publish(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                }
 
                 if (exception != null)
                 {
@@ -126,12 +133,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 {
                     if (result.ResourcesPatchFailed.Any())
                     {
-                        _logger.LogWarning("Bulk update job {GroupId} and {JobId} completed with {Count} resources updated, but {FailedToPatchCount} resources failed to patch.", jobInfo.GroupId, jobInfo.Id, resourcesUpdated.Sum(resource => resource.Value), result.ResourcesPatchFailed.Sum(resource => resource.Value));
+                        _logger.LogWarning("Bulk update job {GroupId} and {JobId} completed with {Count} resources updated, but {FailedToPatchCount} resources failed to patch.", jobInfo.GroupId, jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value), result.ResourcesPatchFailed.Sum(resource => resource.Value));
                         throw new JobExecutionSoftFailureException($"Exception encounted while updating resources", result, true);
                     }
                     else
                     {
-                        _logger.LogInformation("Bulk update job {GroupId} and {JobId} completed successfully with {Count} resources updated.", jobInfo.GroupId, jobInfo.Id, resourcesUpdated.Sum(resource => resource.Value));
+                        _logger.LogInformation("Bulk update job {GroupId} and {JobId} completed successfully with {Count} resources updated.", jobInfo.GroupId, jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value));
                     }
                 }
 
@@ -140,6 +147,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             finally
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
+
+                // Get all jobs for the group
+                var jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
+
+                // Filter out the current and group job, and keep only active subjobs
+                var activeJobs = jobs.Where(j => j.Id != jobInfo.Id && j.Id != jobInfo.GroupId && (j.Status == JobStatus.Created || j.Status == JobStatus.Running));
+
+                // Only proceed if this is the last active subjob in the group
+                if (!activeJobs.Any())
+                {
+                    var profileTypes = _supportedProfiles.GetProfilesTypes();
+
+                    // Check if current result or any completed job in the group updated a profile resource type
+                    bool needRefresh =
+                        result.ResourcesUpdated.Keys.Any(profileTypes.Contains) ||
+                        jobs.Where(j => j.Id != jobInfo.GroupId && j.Status == JobStatus.Completed)
+                            .Select(j => j.DeserializeResult<BulkUpdateResult>())
+                            .Where(r => r != null)
+                            .SelectMany(r => r.ResourcesUpdated.Keys)
+                            .Any(profileTypes.Contains);
+
+                    if (needRefresh)
+                    {
+                        _supportedProfiles.Refresh();
+                    }
+                }
             }
         }
     }

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
-        private const string ResourceUpdatedCountName = "ResourceUpdatedCount";
+        private const string ResourceUpdatedCountName = "ResourceUpdatedCountName";
         private const string ResourceIgnoredCountName = "ResourceIgnoredCountName";
         private const string ResourcePatchFailedCountName = "ResourcePatchFailedCountName";
 
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             if (resourcesPatchFailed.Count > 0)
             {
-                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources"));
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."));
             }
 
             if (failed && issues.Count > 0)

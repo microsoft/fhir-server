@@ -100,6 +100,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             searchParameters.RemoveAll(x => string.Equals(x.Item1, "_lastUpdated", StringComparison.OrdinalIgnoreCase));
+
+            // Validate that the operations are supported
             foreach (var parameter in request.Parameters.Parameter)
             {
                 // Remove all parts except the type part
@@ -114,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             // converting parameters to string using fhir Serializer
             var parametersString = _customFhirJsonSerializer.Serialize(request.Parameters);
 
-            // var tesy = _resourceDeserializer.Deserialize<Hl7.Fhir.Model.Parameters>(parametersString);
+            // var test = _resourceDeserializer.Deserialize<Hl7.Fhir.Model.Parameters>(parametersString);
 
             var processingDefinition = new BulkUpdateDefinition(
                 JobType.BulkUpdateOrchestrator,

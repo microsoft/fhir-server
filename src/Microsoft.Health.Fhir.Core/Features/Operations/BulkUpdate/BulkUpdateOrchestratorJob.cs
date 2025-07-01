@@ -66,16 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             {
                 Activity.Current?.SetParentId(definition.ParentRequestId);
 
-                var fhirRequestContext = new FhirRequestContext(
-                    method: "BulkUpdate",
-                    uriString: definition.Url,
-                    baseUriString: definition.BaseUrl,
-                    correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId.ToString(),
-                    requestHeaders: new Dictionary<string, StringValues>(),
-                    responseHeaders: new Dictionary<string, StringValues>())
-                {
-                    IsBackgroundTask = true,
-                };
+                var fhirRequestContext = CreateFhirRequestContext(definition, jobInfo);
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var surrogateIdRangeSize = (int)definition.MaximumNumberOfResourcesPerQuery;
@@ -85,10 +76,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 // If system level Parallel bulk update then create sub jobs by resourceType-surrogateId ranges
                 using var searchService = _searchService.Invoke();
-                if (definition.IsParallel && !definition.SearchParameters.Any())
+                if (definition.IsParallel && (definition.SearchParameters is null || !definition.SearchParameters.Any()))
                 {
-                    var atLeastOneWorkerJobRegistered = false;
-
                     // For system level bulk update, get all the resource types that are used in the system and enqueue jobs for each resource type-surrogateId range combination.
                     // For ResourceType based bulk updates query with includes and revinclude could return multiple resourceTypes so we will do the generic search without surrogateId ranges
                     var resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
@@ -137,34 +126,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                             {
                                 _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (1).");
                                 await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
-                                atLeastOneWorkerJobRegistered = true;
                             }
                         }
                     });
-
-                    if (!atLeastOneWorkerJobRegistered)
-                    {
-                        _logger.LogJobInformation(jobInfo, "Creating bulk update definition (2).");
-                        var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, null, null, true);
-
-                        _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (2).");
-
-                        await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
-                    }
                 }
                 else if (definition.IsParallel)
                 {
                     // read all the data from search using Continuation token and create processing definitions and enqueue them by storing continuation token as well
                     string nextContinuationToken;
                     string prevContinuationToken = null;
-                    var searchParams = definition.SearchParameters.ToList();
-                    SearchResult searchResult = await searchService.Value.SearchAsync(
-                        definition.Type,
-                        searchParams,
-                        cancellationToken,
-                        false,
-                        resourceVersionTypes: ResourceVersionType.Latest,
-                        onlyIds: true);
+                    var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
+                    SearchResult searchResult = await Search(definition, searchService, searchParams, false, cancellationToken);
 
                     while ((searchResult?.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(prevContinuationToken))
                     {
@@ -189,22 +161,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                 await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
                                 // Create a new clone list for ct and ict
-                                var cloneListForInclude = new List<Tuple<string, string>>(searchParams)
-                                {
-                                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(prevContinuationToken)),
-                                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(currentIncludesContinuationToken)),
-                                };
+                                var cloneListForInclude = new List<Tuple<string, string>>(searchParams);
+                                cloneListForInclude.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(prevContinuationToken)));
+                                cloneListForInclude.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(currentIncludesContinuationToken)));
 
                                 // Run a search to see if there are more included results
-                                searchResultIncludes = await searchService.Value.SearchAsync(
-                                definition.Type,
-                                cloneListForInclude,
-                                cancellationToken,
-                                false,
-                                resourceVersionTypes: ResourceVersionType.Latest,
-                                onlyIds: true,
-                                isIncludesOperation: true);
-
+                                searchResultIncludes = await Search(definition, searchService, cloneListForInclude, true, cancellationToken);
                                 currentIncludesContinuationToken = searchResultIncludes.IncludesContinuationToken;
                             }
                             while (!string.IsNullOrEmpty(currentIncludesContinuationToken));
@@ -217,18 +179,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         }
 
                         prevContinuationToken = nextContinuationToken;
-                        var cloneList = new List<Tuple<string, string>>(searchParams)
-                            {
-                                Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)),
-                            };
-
-                        searchResult = await searchService.Value.SearchAsync(
-                            definition.Type,
-                            cloneList,
-                            cancellationToken,
-                            false,
-                            resourceVersionTypes: ResourceVersionType.Latest,
-                            onlyIds: true);
+                        var cloneList = new List<Tuple<string, string>>(searchParams);
+                        cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)));
+                        searchResult = await Search(definition, searchService, cloneList, false, cancellationToken);
                     }
                 }
                 else if (groupJobs.Count == 1)
@@ -246,6 +199,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
             }
+        }
+
+        internal virtual IFhirRequestContext CreateFhirRequestContext(BulkUpdateDefinition definition, JobInfo jobInfo)
+        {
+            return new FhirRequestContext(
+                method: "BulkUpdate",
+                uriString: definition.Url,
+                baseUriString: definition.BaseUrl,
+                correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId.ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+        }
+
+        private static async Task<SearchResult> Search(BulkUpdateDefinition definition, IScoped<ISearchService> searchService, List<Tuple<string, string>> searchParams, bool isIncludesOperation, CancellationToken cancellationToken)
+        {
+            return await searchService.Value.SearchAsync(
+                definition.Type,
+                searchParams,
+                cancellationToken,
+                false,
+                resourceVersionTypes: ResourceVersionType.Latest,
+                onlyIds: true,
+                isIncludesOperation: isIncludesOperation);
         }
 
         private bool AreIncludeResultsTruncated()
@@ -270,7 +249,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             }
 
             // run a search for included results
-            var cloneList = new List<Tuple<string, string>>(baseDefinition.SearchParameters);
+            // TODO: can this be null?
+            var cloneList = new List<Tuple<string, string>>();
+            if (baseDefinition.SearchParameters != null)
+            {
+                cloneList = baseDefinition.SearchParameters.ToList();
+            }
 
             if (!string.IsNullOrEmpty(continuationToken))
             {
