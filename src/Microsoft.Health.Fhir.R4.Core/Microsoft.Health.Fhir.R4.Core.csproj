@@ -3,7 +3,7 @@
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
-    <DefineConstants>R4</DefineConstants>
+    <DefineConstants>R4;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Operations\Export\ExportAnonymizer.cs" Link="Features\Operations\Export\ExportAnonymizer.cs" />
@@ -19,7 +19,8 @@
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Hl7.Fhir.R4" />
-    <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Specification.R4" Condition="'$(UseHl7LegacyPackages)' == 'true'" PrivateAssets="build;analyzers" />
+    <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4" Condition="'$(UseHl7LegacyPackages)' != 'true'" PrivateAssets="build;analyzers" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />

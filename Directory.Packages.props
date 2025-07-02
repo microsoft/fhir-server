@@ -2,11 +2,28 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>9.0.10</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
-    <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.4</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
+
+  <!-- Conditionally set Hl7 package versions based on UseHl7LegacyPackages flag -->
+  <Choose>
+    <When Condition="'$(UseHl7LegacyPackages)' == 'true'">
+      <!-- When using legacy type comparison, use older Hl7 package version -->
+      <PropertyGroup>
+        <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
+        <Hl7FhirLegacyVersion>4.3.0</Hl7FhirLegacyVersion>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <!-- Default to current Hl7 package versions -->
+      <PropertyGroup>
+        <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
+        <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
   <!-- SDK Packages -->
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net8.0'">
@@ -43,19 +60,10 @@
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.25" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.STU3" Version="$(Hl7FhirLegacyVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4" Version="$(Hl7FhirLegacyVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4B" Version="$(Hl7FhirLegacyVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R5" Version="$(Hl7FhirLegacyVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.Data.STU3" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4B" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.Data.R5" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
@@ -95,8 +103,6 @@
     <PackageVersion Include="Microsoft.Health.Encryption" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.1.1.3" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.1.1.3" />
     <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.1" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
@@ -139,5 +145,27 @@
     <PackageVersion Include="System.Drawing.Common" Version="8.0.8" />
     <PackageVersion Include="Moq" Version="4.20.69" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseHl7LegacyPackages)' == 'true'">
+    <PackageVersion Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.1.0.62" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.1.0.62" /> 
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseHl7LegacyPackages)' != 'true'">
+    <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.STU3" Version="$(Hl7FhirLegacyVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4" Version="$(Hl7FhirLegacyVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4B" Version="$(Hl7FhirLegacyVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R5" Version="$(Hl7FhirLegacyVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.STU3" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4B" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.1.1.3" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.1.1.3" />
   </ItemGroup>
 </Project>

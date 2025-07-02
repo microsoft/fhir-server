@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("123", "1", "POST", "201 Created")]
         [InlineData("123", "1", "PUT", "201 Created")]
         [InlineData("123", "2", "PUT", "200 OK")]
-#if !Stu3
+#if !STU3
         [InlineData("123", "2", "PATCH", "200 OK")]
 #endif
         [InlineData("123", "2", "DELETE", "204 NoContent")]
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
 
             var verbs = Enum.GetValues<Bundle.HTTPVerb>();
-#if Stu3
+#if STU3 && !USE_HL7_LEGACY_PACKAGES
             verbs = verbs.Where(x => x != Bundle.HTTPVerb.HEAD && x != Bundle.HTTPVerb.PATCH).ToArray();
 #endif
             foreach (var verb in verbs)

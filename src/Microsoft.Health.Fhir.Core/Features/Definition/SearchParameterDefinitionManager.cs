@@ -63,7 +63,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
 
-            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
+            string fileName = "search-parameters.json";
+
+#if USE_HL7_LEGACY_PACKAGES
+            // R5 compile time directive not working for tests.
+            if (_modelInfoProvider.Version == FhirSpecification.R5)
+            {
+                fileName = "search-parameters-legacy.json";
+            }
+#endif
+
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(fileName, _modelInfoProvider);
 
             SearchParameterDefinitionBuilder.Build(
                 bundle.Entries.Select(e => e.Resource).ToList(),
