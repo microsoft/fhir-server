@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
-            var searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);

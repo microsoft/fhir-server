@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly ISearchParameterComparer _searchParameterComparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly ILogger _logger;
 
         private const string HttpPostName = "POST";
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger<SearchParameterValidator> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _logger.LogInformation($"Comparing types...: '{incomingSearchParameter.Type}', '{existingSearchParameter.Type}'");
             if (!string.Equals(incomingSearchParameter.Type?.ToString(), existingSearchParameter.Type.ToString(), StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogInformation("Types are different.");
+                _logger.LogInformation("The types of the incoming and existing search parameter are different.");
                 validationFailures.Add(
                     new ValidationFailure(
                         nameof(code),
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 switch (result)
                 {
                     case 0:
-                        _logger.LogInformation("Expressions are identical.");
+                        _logger.LogInformation("The expressions of the incoming and existing search parameter are identical.");
                         break;
 
                     case 1:
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                         break;
 
                     default:
-                        _logger.LogInformation("Expressions are different.");
+                        _logger.LogInformation("The expressions of the incoming and existing search parameter are different.");
                         validationFailures.Add(
                             new ValidationFailure(
                                 nameof(code),
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 _logger.LogInformation($"Comparing components...: '{incomingSearchParameter.Component?.Count ?? 0} components', '{existingSearchParameter.Component?.Count ?? 0} components'");
                 var incomingComponent = incomingSearchParameter.Component?.Select<SearchParameter.ComponentComponent, (string, string)>(x => new(x.GetComponentDefinitionUri().OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
                 var existingComponent = existingSearchParameter.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
-                if (!_searchParameterComparer.CompareComponent(incomingComponent, existingComponent))
+                if (_searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
                 {
                     _logger.LogInformation("Components are different.");
                     validationFailures.Add(

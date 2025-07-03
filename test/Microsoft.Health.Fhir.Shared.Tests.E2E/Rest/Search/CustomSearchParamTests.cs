@@ -224,11 +224,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-#if Stu3 || R4 || R4B
         [InlineData("SearchParameterBadSyntax", "The search parameter definition contains one or more invalid entries.")]
+#if Stu3 || R4 || R4B
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
 #else
-        [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis-reference' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'VersionIndependentResourceTypesAll'")]
 #endif
         [InlineData("SearchParameterExpressionWrongProperty", "Can't find 'Encounter.diagnosis.foo' in type 'Encounter'")]

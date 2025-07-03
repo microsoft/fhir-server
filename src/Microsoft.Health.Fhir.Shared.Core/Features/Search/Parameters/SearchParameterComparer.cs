@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -21,12 +23,12 @@ using Expression = Hl7.FhirPath.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 {
-    public class SearchParameterComparer : ISearchParameterComparer
+    public class SearchParameterComparer : ISearchParameterComparer<SearchParameterInfo>
     {
         private readonly FhirPathCompiler _compiler;
-        private readonly ILogger<ISearchParameterComparer> _logger;
+        private readonly ILogger<ISearchParameterComparer<SearchParameterInfo>> _logger;
 
-        public SearchParameterComparer(ILogger<ISearchParameterComparer> logger)
+        public SearchParameterComparer(ILogger<ISearchParameterComparer<SearchParameterInfo>> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -34,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _logger = logger;
         }
 
-        public bool Compare(SearchParameterInfo x, SearchParameterInfo y)
+        public int Compare(SearchParameterInfo x, SearchParameterInfo y)
         {
             EnsureArg.IsNotNull(x, nameof(x));
             EnsureArg.IsNotNull(y, nameof(y));
@@ -42,98 +44,65 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (!string.Equals(x.Url.OriginalString, y.Url.OriginalString, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
-                return false;
+                return int.MinValue;
             }
 
             if (!string.Equals(x.Code, y.Code, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogInformation($"Code mismatch: '{x.Code}', '{x.Code}'");
-                return false;
+                return int.MinValue;
             }
 
             if (x.Type != y.Type)
             {
                 _logger.LogInformation($"Type mismatch: '{x.Type}', '{x.Type}'");
-                return false;
-            }
-
-            if (x.Type == ValueSets.SearchParamType.Composite)
-            {
-                var componentX = x.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
-                var componentY = y.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
-                if (!CompareComponent(componentY, componentX))
-                {
-                    _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
-                    return false;
-                }
+                return int.MinValue;
             }
 
             var baseX = x.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
             var baseY = y.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            if (CompareBase(baseX, baseY) != 0)
+            var result = CompareBase(baseX, baseY);
+            if (result == int.MinValue)
             {
                 _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
-                return false;
+                return result;
             }
 
-            if (CompareExpression(x.Expression, y.Expression) != 0)
+            var expressionResult = CompareExpression(x.Expression, y.Expression);
+            if (expressionResult == int.MinValue)
             {
                 _logger.LogInformation($"Expression mismatch: '{x.Expression}', '{y.Expression}'");
-                return false;
+                return expressionResult;
             }
 
-            return true;
-        }
-
-        public bool Compare(SearchParameter x, SearchParameter y)
-        {
-            EnsureArg.IsNotNull(x, nameof(x));
-            EnsureArg.IsNotNull(y, nameof(y));
-
-            if (!string.Equals(x.Url, y.Url, StringComparison.OrdinalIgnoreCase))
+            if (result != 0 && expressionResult != 0 && result != expressionResult)
             {
-                _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
-                return false;
+                _logger.LogInformation($"Superset/subset relation mismatch: base={result}, expression={expressionResult}");
+                return int.MinValue;
             }
 
-            if (!string.Equals(x.Code, y.Code, StringComparison.OrdinalIgnoreCase))
+            result = result == 0 ? expressionResult : result;
+            if (x.Type == ValueSets.SearchParamType.Composite)
             {
-                _logger.LogInformation($"Code mismatch: '{x.Code}', '{x.Code}'");
-                return false;
-            }
-
-            if (x.Type != y.Type)
-            {
-                _logger.LogInformation($"Type mismatch: '{x.Type}', '{x.Type}'");
-                return false;
-            }
-
-            if (x.Type == SearchParamType.Composite)
-            {
-                var componentX = x.Component.Select<SearchParameter.ComponentComponent, (string, string)>(x => new(x.GetComponentDefinitionUri().OriginalString, x.Expression)).ToList();
-                var componentY = y.Component.Select<SearchParameter.ComponentComponent, (string, string)>(x => new(x.GetComponentDefinitionUri().OriginalString, x.Expression)).ToList();
-                if (!CompareComponent(componentY, componentX))
+                var componentX = x.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
+                var componentY = y.Component.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList();
+                var componentResult = CompareComponent(componentX, componentY);
+                if (componentResult == int.MinValue)
                 {
                     _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
-                    return false;
+                    return componentResult;
                 }
+
+                if ((result != 0 && componentResult != 0 && result != componentResult) || (expressionResult != 0 && componentResult != 0 && expressionResult != componentResult))
+                {
+                    _logger.LogInformation($"Superset/subset relation mismatch: base={result}, component={componentResult}");
+                    return int.MinValue;
+                }
+
+                result = result == 0 ? componentResult : result;
             }
 
-            var baseX = x.Base?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            var baseY = y.Base?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            if (CompareBase(baseX, baseY) != 0)
-            {
-                _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
-                return false;
-            }
-
-            if (CompareExpression(x.Expression, y.Expression) != 0)
-            {
-                _logger.LogInformation($"Expression mismatch: '{x.Expression}', '{y.Expression}'");
-                return false;
-            }
-
-            return true;
+            return result;
         }
 
         public int CompareBase(IEnumerable<string> x, IEnumerable<string> y)
@@ -141,46 +110,56 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(x, nameof(x));
             EnsureArg.IsNotNull(y, nameof(y));
 
-            var hashX = new HashSet<string>(x, StringComparer.OrdinalIgnoreCase);
-            var hashY = new HashSet<string>(y, StringComparer.OrdinalIgnoreCase);
-            if (hashX.Count <= hashY.Count)
+            var basesX = x.ToList();
+            var basesY = y.ToList();
+            if (basesX.Count <= basesY.Count)
             {
-                return hashX.IsSubsetOf(hashY) ? (hashX.Count == hashY.Count ? 0 : -1) : int.MinValue;
+                if (!basesX.All(x => basesY.Any(y => string.Equals(x, y, StringComparison.OrdinalIgnoreCase))))
+                {
+                    return int.MinValue;
+                }
+
+                return basesX.Count == basesY.Count ? 0 : -1;
             }
 
-            return hashY.IsSubsetOf(hashX) ? 1 : int.MinValue;
+            if (!basesY.All(y => basesX.Any(x => string.Equals(x, y, StringComparison.OrdinalIgnoreCase))))
+            {
+                return int.MinValue;
+            }
+
+            return basesX.Count == basesY.Count ? 0 : 1;
         }
 
-        public bool CompareComponent(IEnumerable<(string definition, string expression)> x, IEnumerable<(string definition, string expression)> y)
+        public int CompareComponent(IEnumerable<(string definition, string expression)> x, IEnumerable<(string definition, string expression)> y)
         {
-            if (x == null || y == null)
-            {
-                return x == y;
-            }
+            EnsureArg.IsNotNull(x, nameof(x));
+            EnsureArg.IsNotNull(y, nameof(y));
 
-            var componetX = x.ToDictionary(x => x.definition, x => x.expression);
-            var componetY = y.ToDictionary(x => x.definition, x => x.expression);
-            if (componetX.Count != componetY.Count)
+            var compsX = x.ToList();
+            var compsY = y.ToList();
+            if (compsX.Count <= compsY.Count)
             {
-                return false;
-            }
-
-            foreach (var cx in componetX)
-            {
-                if (!componetY.TryGetValue(cx.Key, out var cy) || CompareExpression(cx.Value, cy) != 0)
+                if (!compsX.All(x => compsY.Any(y => string.Equals(x.definition, y.definition, StringComparison.OrdinalIgnoreCase) && CompareExpression(x.expression, y.expression) == 0)))
                 {
-                    return false;
+                    return int.MinValue;
                 }
+
+                return compsX.Count == compsY.Count ? 0 : -1;
             }
 
-            return true;
+            if (!compsY.All(y => compsX.Any(x => string.Equals(x.definition, y.definition, StringComparison.OrdinalIgnoreCase) && CompareExpression(x.expression, y.expression) == 0)))
+            {
+                return int.MinValue;
+            }
+
+            return compsX.Count == compsY.Count ? 0 : 1;
         }
 
         public int CompareExpression(string x, string y)
         {
             if (x == null || y == null)
             {
-                return x == y ? 0 : (x == null ? -1 : 1);
+                return int.MinValue;
             }
 
             try
@@ -200,7 +179,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y ? 0 : (x == null ? -1 : 1);
+                return int.MinValue;
             }
 
             var expsX = new List<Expression>();
@@ -215,17 +194,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 foreach (var expX in expsX)
                 {
-                    var found = false;
-                    foreach (var expY in expsY)
-                    {
-                        if (Equals(expX, expY))
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found)
+                    if (!expsY.Any(y => Equals(expX, y)))
                     {
                         return int.MinValue;
                     }
@@ -237,17 +206,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
             foreach (var expY in expsY)
             {
-                var found = false;
-                foreach (var expX in expsX)
-                {
-                    if (Equals(expY, expX))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
+                if (!expsX.Any(x => Equals(expY, x)))
                 {
                     return int.MinValue;
                 }
@@ -260,7 +219,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             if (x == null || y == null)
             {
-                return x == y;
+                return x == null && y == null;
             }
 
             if (x is BracketExpression || y is BracketExpression)

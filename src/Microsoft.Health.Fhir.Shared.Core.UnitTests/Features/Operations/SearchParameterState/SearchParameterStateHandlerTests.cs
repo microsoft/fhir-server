@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly ISearchParameterComparer _searchParameterComparer = Substitute.For<ISearchParameterComparer>();
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
         private const string HttpGetName = "GET";
         private const string HttpPostName = "POST";

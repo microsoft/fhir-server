@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             string resourceType,
             ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterComparer searchParameterComparer,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             HashSet<SearchParameterInfo> results;
@@ -344,10 +344,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     _ => new ConcurrentQueue<SearchParameterInfo>(new[] { searchParam }),
                     (_, existing) =>
                     {
-                        if (existing.TryPeek(out var sp) && searchParameterComparer.CompareExpression(searchParam.Expression, sp?.Expression) == int.MinValue)
+                        if (existing.TryPeek(out var sp) && sp != null)
                         {
-                            logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
-                            return existing;
+                            if (searchParam.Type != sp.Type)
+                            {
+                                logger.LogWarning("The types of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            if (searchParam.Type == SearchParamType.Composite)
+                            {
+                                var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                if (searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
+                                {
+                                    logger.LogWarning("The components of the incoming and existing search parameter are different.");
+                                    return existing;
+                                }
+                            }
+
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
                         }
 
                         var list = new List<SearchParameterInfo>(existing);
@@ -363,54 +383,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             return results;
-        }
-
-        private static SearchParameterInfo ResolveConflictingSearchParameter(
-            SearchParameterInfo incomingSearchParameterInfo,
-            SearchParameterInfo existingsearchParameterInfo,
-            ISearchParameterComparer searchParameterComparer,
-            ILogger logger)
-        {
-            if (incomingSearchParameterInfo?.Expression == null || existingsearchParameterInfo?.Expression == null || searchParameterComparer == null)
-            {
-                logger.LogWarning("Skipping the resolve conflict: one or more of parameters is invalid.");
-                return null;
-            }
-
-            try
-            {
-                var result = searchParameterComparer.CompareExpression(
-                    incomingSearchParameterInfo.Expression,
-                    existingsearchParameterInfo.Expression);
-                SearchParameterInfo superSetSearchParameterInfo = null;
-                switch (result)
-                {
-                    case -1:
-                        logger.LogInformation("The expression of the incoming search parameter is a superset.");
-                        superSetSearchParameterInfo = incomingSearchParameterInfo;
-                        break;
-
-                    case 1:
-                        logger.LogInformation("The expression of the existing search parameter is a superset.");
-                        superSetSearchParameterInfo = existingsearchParameterInfo;
-                        break;
-
-                    case 0:
-                        logger.LogInformation("The expressions of the incoming and existing search parameter are identical.");
-                        break;
-
-                    default:
-                        logger.LogInformation("The expressions of the incoming and existing search parameter are different.");
-                        break;
-                }
-
-                return superSetSearchParameterInfo;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unexpected exception during comparing search parameter expressions.");
-                return null;
-            }
         }
 
         private static string GetComponentDefinition(ITypedElement component)

@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private readonly string _validEntriesFile = "SearchParameters.json";
         private readonly ConcurrentDictionary<string, SearchParameterInfo> _uriDictionary;
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> _resourceTypeDictionary;
-        private readonly ISearchParameterComparer _searchParameterComparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
 
         public SearchParameterDefinitionBuilderTests()
         {
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
-            _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer>>());
+            _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
         }
 
         [Theory]
@@ -196,6 +196,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                     Assert.Fail("TryDequeue failed.");
                 }
             }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetSearchParameterConflictsDataForReject))]
+        public void GivenSearchParametersWithConflicts_WhenBuilt_ThenConflictingSearchParametersShouldBeRejected(
+            string resourceType,
+            string code,
+            SearchParameter[] searchParameters,
+            SearchParameter[] conflictingSearchParameters)
+        {
+            SearchParameterDefinitionBuilder.Build(
+                searchParameters.Select(x => x.ToTypedElement()).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            SearchParameterDefinitionBuilder.Build(
+                conflictingSearchParameters.Select(x => x.ToTypedElement()).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+            Assert.Single(_resourceTypeDictionary[resourceType][code]);
+            Assert.Collection(
+                _resourceTypeDictionary[resourceType][code],
+                x => string.Equals(searchParameters.First().Url, x.Url.OriginalString, StringComparison.OrdinalIgnoreCase));
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)
@@ -692,5 +721,260 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 yield return d;
             }
         }
+
+        public static IEnumerable<object[]> GetSearchParameterConflictsDataForReject()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    // Conficts on type.
+                    "DocumentReference",
+                    "relationship",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship",
+                            Type = SearchParamType.Composite,
+                            Component = new List<SearchParameter.ComponentComponent>
+                            {
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"),
+                                    Expression = "code",
+                                },
+                            },
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relatesto",
+                            Expression = "DocumentReference.relatesTo.target",
+                            Name = "relatesto",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto",
+                            Type = SearchParamType.Reference,
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relation",
+                            Expression = "DocumentReference.relatesTo.code",
+                            Name = "relation",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relation",
+                            Type = SearchParamType.Token,
+                        },
+                    },
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship0",
+                            Type = SearchParamType.Token,
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship1",
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Conficts on components.
+                    "DocumentReference",
+                    "relationship",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship",
+                            Type = SearchParamType.Composite,
+                            Component = new List<SearchParameter.ComponentComponent>
+                            {
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"),
+                                    Expression = "code",
+                                },
+                            },
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relatesto",
+                            Expression = "DocumentReference.relatesTo.target",
+                            Name = "relatesto",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto",
+                            Type = SearchParamType.Reference,
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relation",
+                            Expression = "DocumentReference.relatesTo.code",
+                            Name = "relation",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relation",
+                            Type = SearchParamType.Token,
+                        },
+                    },
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship0",
+                            Type = SearchParamType.Composite,
+                            Component = new List<SearchParameter.ComponentComponent>
+                            {
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"),
+                                    Expression = "relation",
+                                },
+                            },
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship2",
+                            Type = SearchParamType.Composite,
+                            Component = new List<SearchParameter.ComponentComponent>
+                            {
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"),
+                                    Expression = "code",
+                                },
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                            },
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.DocumentReference },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.DocumentReference },
+#endif
+                            Code = "relationship",
+                            Expression = "DocumentReference.relatesTo",
+                            Name = "relationship",
+                            Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship3",
+                            Type = SearchParamType.Composite,
+                            Component = new List<SearchParameter.ComponentComponent>
+                            {
+                                new SearchParameter.ComponentComponent()
+                                {
+                                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"),
+                                    Expression = "target",
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+#if Stu3
+        private static ResourceReference CreateDefinition(string reference)
+        {
+            return new ResourceReference(reference);
+        }
+#else
+        private static string CreateDefinition(string reference)
+        {
+            return reference;
+        }
+#endif
     }
 }

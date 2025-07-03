@@ -28,214 +28,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterComparerTests
     {
-        private readonly ISearchParameterComparer _comparer;
+        private readonly ISearchParameterComparer<SearchParameterInfo> _comparer;
         private readonly ITestOutputHelper _output;
 
         public SearchParameterComparerTests(ITestOutputHelper output)
         {
-            _comparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer>>());
+            _comparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
             _output = output;
         }
 
-        public static IEnumerable<object[]> CompareComponentData
-        {
-            get
-            {
-                return new[]
-                {
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        true,
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                        },
-                        true,
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        false,
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity)"
-                            },
-                        },
-                        false,
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                        },
-                        new Dictionary<string, string>
-                        {
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
-                                "code"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
-                                "value.as(Quantity) | value.as(Range)"
-                            },
-                            {
-                                "http://hl7.org/fhir/SearchParameter/conformance-context-type",
-                                "code"
-                            },
-                        },
-                        false,
-                    },
-                    new object[]
-                    {
-                        new Dictionary<string, string>
-                        {
-                        },
-                        new Dictionary<string, string>
-                        {
-                        },
-                        true,
-                    },
-                };
-            }
-        }
-
         [Theory]
-        [InlineData(new object[] { new string[] { "Resource" }, new string[] { "Resource" }, 0 })]
-        [InlineData(new object[] { new string[] { "Resource" }, new string[] { "DomainResource" }, int.MinValue })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
-                new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
-                0,
-            })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
-                new string[] { "CapabilityStatement", "ChargeItemDefinition", "ActivityDefinition" },
-                1,
-            })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { "ActivityDefinition", "Citation" },
-                new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
-                -1,
-            })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "TerminologyCapabilities", "Citation" },
-                new string[] { "CapabilityStatement", "ImplementationGuide", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
-                int.MinValue,
-            })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
-                new string[] { },
-                1,
-            })]
-        [InlineData(
-            new object[]
-            {
-                new string[] { },
-                new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
-                -1,
-            })]
+        [MemberData(nameof(GetCompareBaseData))]
         public void GivenBases_WhenComparing_ThenCorrectResultShouldBeReturn(
             string[] base1,
             string[] base2,
@@ -245,11 +48,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
         }
 
         [Theory]
-        [MemberData(nameof(CompareComponentData))]
+        [MemberData(nameof(GetCompareComponentData))]
         public void GivenComponents_WhenComparing_ThenCorrectResultShouldBeReturn(
             IDictionary<string, string> component1,
             IDictionary<string, string> component2,
-            bool result)
+            int result)
         {
             Assert.Equal(
                 result,
@@ -264,7 +67,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             // Note: this test ensures that the compare can parse and compare all expressiosn in search-parameters.json.
             // The comparison logic is tested by other tests in this class.
             var fhirCoreAssembly = Assembly.Load("Microsoft.Health.Fhir.Core");
-            var currentAssembly = Assembly.GetExecutingAssembly();
 
 #if R4B
             var specification = FhirSpecification.R4B;
@@ -312,44 +114,940 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
         }
 
         [Theory]
-        [InlineData(
-            "AllergyIntolerance.code",
-            "AllergyIntolerance.code",
-            0)]
-        [InlineData(
-            "AdverseEvent.event",
-            "AdverseEvent.location",
-            int.MinValue)]
-        [InlineData(
-            "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
-            "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
-            0)]
-        [InlineData(
-            "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
-            "ActivityDefinition.relatedArtifact.where(type='depends-on').resource",
-            int.MinValue)]
-        [InlineData(
-            "AllergyIntolerance.code | (MedicationStatement.medication as CodeableConcept)",
-            "(MedicationStatement.medication as CodeableConcept) | AllergyIntolerance.code",
-            0)]
-        [InlineData(
-            "(ActivityDefinition.useContext.value as Quantity) | (ActivityDefinition.useContext.value as Range)",
-            "ActivityDefinition.useContext.value as Range",
-            1)]
-        [InlineData(
-            "PlanDefinition.library | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library",
-            "ActivityDefinition.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | EventDefinition.relatedArtifact.where(type='depends-on').resource | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library | PlanDefinition.relatedArtifact.where(type='depends-on').resource | PlanDefinition.library",
-            -1)]
-        [InlineData(
-            "CareTeam.name | CareTeam.participant.member | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
-            "CareTeam.name | CareTeam.participant.category | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
-            int.MinValue)]
+        [MemberData(nameof(GetCompareExpressionData))]
         public void GivenExpressions_WhenComparing_ThenCorrectResultShouldBeReturn(
             string expression1,
             string expression2,
             int result)
         {
             Assert.Equal(result, _comparer.CompareExpression(expression1, expression2));
+        }
+
+        [Theory]
+        [MemberData(nameof(GetCompareSearchParameterData))]
+        public void GivenSearchParameters_WhenComparing_ThenCorrectResultShouldBeReturn(
+            SearchParameterInfo searchParameter1,
+            SearchParameterInfo searchParameter2,
+            int result)
+        {
+            Assert.Equal(result, _comparer.Compare(searchParameter1, searchParameter2));
+        }
+
+        public static IEnumerable<object[]> GetCompareBaseData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    new string[] { "Resource" },
+                    new string[] { "Resource" },
+                    0,
+                },
+                new object[]
+                {
+                    new string[] { "Resource" },
+                    new string[] { "DomainResource" },
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
+                    new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
+                    0,
+                },
+                new object[]
+                {
+                    new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
+                    new string[] { "CapabilityStatement", "ChargeItemDefinition", "ActivityDefinition" },
+                    1,
+                },
+                new object[]
+                {
+                    new string[] { "ActivityDefinition", "Citation" },
+                    new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
+                    -1,
+                },
+                new object[]
+                {
+                    new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "TerminologyCapabilities", "Citation" },
+                    new string[] { "CapabilityStatement", "ImplementationGuide", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    new string[] { "ActivityDefinition", "ActorDefinition", "CapabilityStatement", "ChargeItemDefinition", "Citation" },
+                    new string[] { },
+                    1,
+                },
+                new object[]
+                {
+                    new string[] { },
+                    new string[] { "CapabilityStatement", "ActorDefinition", "Citation", "ChargeItemDefinition", "ActivityDefinition" },
+                    -1,
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetCompareComponentData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    0,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                    },
+                    0,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity)"
+                        },
+                    },
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/conformance-context-type",
+                            "code"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    1,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/conformance-context-type",
+                            "code"
+                        },
+                    },
+                    -1,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                    },
+                    new Dictionary<string, string>
+                    {
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-quantity",
+                            "value.as(Quantity) | value.as(Range)"
+                        },
+                        {
+                            "http://hl7.org/fhir/SearchParameter/ActivityDefinition-context-type",
+                            "code"
+                        },
+                    },
+                    0,
+                },
+                new object[]
+                {
+                    new Dictionary<string, string>
+                    {
+                    },
+                    new Dictionary<string, string>
+                    {
+                    },
+                    0,
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetCompareExpressionData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    "AllergyIntolerance.code",
+                    "AllergyIntolerance.code",
+                    0,
+                },
+                new object[]
+                {
+                    "AdverseEvent.event",
+                    "AdverseEvent.location",
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
+                    "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
+                    0,
+                },
+                new object[]
+                {
+                    "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
+                    "ActivityDefinition.relatedArtifact.where(type='depends-on').resource",
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    "AllergyIntolerance.code | (MedicationStatement.medication as CodeableConcept)",
+                    "(MedicationStatement.medication as CodeableConcept) | AllergyIntolerance.code",
+                    0,
+                },
+                new object[]
+                {
+                    "(ActivityDefinition.useContext.value as Quantity) | (ActivityDefinition.useContext.value as Range)",
+                    "ActivityDefinition.useContext.value as Range",
+                    1,
+                },
+                new object[]
+                {
+                    "PlanDefinition.library | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library",
+                    "ActivityDefinition.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | EventDefinition.relatedArtifact.where(type='depends-on').resource | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library | PlanDefinition.relatedArtifact.where(type='depends-on').resource | PlanDefinition.library",
+                    -1,
+                },
+                new object[]
+                {
+                    "CareTeam.name | CareTeam.participant.member | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
+                    "CareTeam.name | CareTeam.participant.category | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
+                    int.MinValue,
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetCompareSearchParameterData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    0,
+                },
+                new object[]
+                {
+                    // Url mismatch
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author2"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // Code mismatch
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "authority",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // Type mismatch
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Token,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // Base mismatch
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "Patient" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset base
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    0,
+                },
+                new object[]
+                {
+                    // Component mismatch
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset component
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset component
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    // Expression mismatch
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author2"),
+                        expression: "DocumentReference.authority",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset expression
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.authority | (DocumentReference.author)",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset expression
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.authority | (DocumentReference.author)",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset base and component
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base and component
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset component and 2nd SP with superset base
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset base and expression
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.authority | (DocumentReference.author)",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base and expression
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.authority | (DocumentReference.author)",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base and 2nd SP with superset expression
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author"),
+                        expression: "DocumentReference.author",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "author",
+                        code: "author",
+                        searchParamType: ValueSets.SearchParamType.Reference,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-author2"),
+                        expression: "DocumentReference.authority | (DocumentReference.author)",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset base, component, and expression
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo | DocumentReference.id",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base, component, and expression
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo | DocumentReference.id",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    1,
+                },
+                new object[]
+                {
+                    // 2nd SP with superset component and expression, and 1st SP with superset base
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo | DocumentReference.id",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 1st SP with superset base and component, and 2nd SP with superset expression
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-event"), "event"),
+                        },
+                        expression: "DocumentReference.relatesTo",
+                        baseResourceTypes: new[] { "DocumentReference", "Patient" }),
+                    new SearchParameterInfo(
+                        name: "relationship",
+                        code: "relationship",
+                        searchParamType: ValueSets.SearchParamType.Composite,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relationship"),
+                        components: new List<SearchParameterComponentInfo>
+                        {
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto"), "target"),
+                            new SearchParameterComponentInfo(new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-relation"), "code"),
+                        },
+                        expression: "DocumentReference.relatesTo | DocumentReference.id",
+                        baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
         }
 
         private void DebugOutput(string message)
