@@ -76,7 +76,7 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
             await using var cmd = new SqlCommand("SELECT Number FROM dbo.Parameters WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", "RawResourceStatsProcessing.IsEnabled");
             var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
-            return value == null || (double)value == 0;
+            return value != null && (double)value == 1;
         }
 
         // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
