@@ -1,0 +1,234 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "us-core-race",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">  <!-- <h2>SearchParameter: USCoreRace</h2>\n\t\t\t\t<b> description</b> : <p>Returns patients with a race extension matching the specified code.</p>\n\n\t\t\t<br/> --><p><b> id</b> us-core-race</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-race</b>\n\t\t\t</p><p><b> version</b> : 4.1.0</p><p><b> name</b> : USCoreRace</p><p><b> status</b> : active</p><p><b> date</b> : 04/14/2022</p><p><b> publisher</b> : HL7 International - Cross-Group Projects</p><p><b> contact</b> : http://www.hl7.org/Special/committees/cgp</p>  <!-- <p>\n\t\t\t\t<b> useContext</b> : </p> --><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>race</code>\n\t\t\t</p><p><b> base</b> :Patient</p><p><b> type</b> : token</p><p><b> expression</b> : <code>Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']/f:extension/f:valueCoding/f:code/@value</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> multipleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> multipleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+                },
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-wg",
+                        "valueCode": "cgp"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+                "version": "7.0.0",
+                "name": "USCoreRace",
+                "status": "active",
+                "date": "2022-04-14",
+                "publisher": "HL7 International / Cross-Group Projects",
+                "contact": [
+                    {
+                        "name": "HL7 International / Cross-Group Projects",
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/cgp"
+                            },
+                            {
+                                "system": "email",
+                                "value": "cgp@lists.HL7.org"
+                            }
+                        ]
+                    }
+                ],
+                "description": "Returns patients with a race extension matching the specified code.",
+                "jurisdiction": [
+                    {
+                        "coding": [
+                            {
+                                "system": "urn:iso:std:iso:3166",
+                                "code": "US"
+                            }
+                        ]
+                    }
+                ],
+                "code": "race",
+                "base": [
+                    "Patient"
+                ],
+                "type": "token",
+                "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code",
+                "multipleOr": true,
+                "_multipleOr": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                },
+                "multipleAnd": true,
+                "_multipleAnd": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "SearchParameter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "us-core-ethnicity",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">  <!-- <h2>SearchParameter: USCoreEthnicity</h2>\n\t\t\t\t<b> description</b> : <p>Returns patients with an ethnicity extension matching the specified code.</p>\n\n\t\t\t<br/> --><p><b> id</b> us-core-ethnicity</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-ethnicity</b>\n\t\t\t</p><p><b> version</b> : 4.1.0</p><p><b> name</b> : USCoreEthnicity</p><p><b> status</b> : active</p><p><b> date</b> : 04/14/2022</p><p><b> publisher</b> : HL7 International - Cross-Group Projects</p><p><b> contact</b> : http://www.hl7.org/Special/committees/cgp</p>  <!-- <p>\n\t\t\t\t<b> useContext</b> : </p> --><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>ethnicity</code>\n\t\t\t</p><p><b> base</b> :Patient</p><p><b> type</b> : token</p><p><b> expression</b> : <code>Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity').extension.value.code</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity']/f:extension/f:valueCoding/f:code/@value</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> multipleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> multipleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+                },
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-wg",
+                        "valueCode": "cgp"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-ethnicity",
+                "version": "7.0.0",
+                "name": "USCoreEthnicity",
+                "status": "active",
+                "date": "2022-04-14",
+                "publisher": "HL7 International / Cross-Group Projects",
+                "contact": [
+                    {
+                        "name": "HL7 International / Cross-Group Projects",
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/cgp"
+                            },
+                            {
+                                "system": "email",
+                                "value": "cgp@lists.HL7.org"
+                            }
+                        ]
+                    }
+                ],
+                "description": "Returns patients with an ethnicity extension matching the specified code.",
+                "jurisdiction": [
+                    {
+                        "coding": [
+                            {
+                                "system": "urn:iso:std:iso:3166",
+                                "code": "US"
+                            }
+                        ]
+                    }
+                ],
+                "code": "ethnicity",
+                "base": [
+                    "Patient"
+                ],
+                "type": "token",
+                "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity').extension.value.code",
+                "multipleOr": true,
+                "_multipleOr": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                },
+                "multipleAnd": true,
+                "_multipleAnd": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "SearchParameter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "us-core-patient-gender-identity",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">  <!-- <h2>SearchParameter: USCorePatientGenderIdentity</h2>\n\t\t\t\t<b> description</b> : <p>Returns patients with an gender-identity extension matching the specified code.</p>\n\n\t\t\t<br/> --><p><b> id</b> us-core-patient-gender-identity</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-gender-identity</b>\n\t\t\t</p><p><b> version</b> : 4.1.0</p><p><b> name</b> : USCorePatientGenderIdentity</p><p><b> status</b> : active</p><p><b> date</b> : 04/06/2023</p><p><b> publisher</b> : HL7 International - Cross-Group Projects</p><p><b> contact</b> : http://www.hl7.org/Special/committees/cgp</p>  <!-- <p>\n\t\t\t\t<b> useContext</b> : </p> --><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>gender-identity</code>\n\t\t\t</p><p><b> base</b> :Patient</p><p><b> type</b> : token</p><p><b> expression</b> : <code>Patient.extension.where(url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity').value.coding.code</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity']/f:value/f:coding/f:code/@value</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> multipleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> multipleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+                },
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-wg",
+                        "valueCode": "cgp"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-gender-identity",
+                "version": "7.0.0",
+                "name": "USCorePatientGenderIdentity",
+                "status": "active",
+                "date": "2023-04-06",
+                "publisher": "HL7 International / Cross-Group Projects",
+                "contact": [
+                    {
+                        "name": "HL7 International / Cross-Group Projects",
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/cgp"
+                            },
+                            {
+                                "system": "email",
+                                "value": "cgp@lists.HL7.org"
+                            }
+                        ]
+                    }
+                ],
+                "description": "Returns patients with an gender-identity extension matching the specified code.",
+                "jurisdiction": [
+                    {
+                        "coding": [
+                            {
+                                "system": "urn:iso:std:iso:3166",
+                                "code": "US"
+                            }
+                        ]
+                    }
+                ],
+                "code": "gender-identity",
+                "base": [
+                    "Patient"
+                ],
+                "type": "token",
+                "expression": "Patient.extension.where(url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity').value.coding.code",
+                "multipleOr": true,
+                "_multipleOr": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                },
+                "multipleAnd": true,
+                "_multipleAnd": {
+                    "extension": [
+                        {
+                            "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+                            "valueCode": "MAY"
+                        }
+                    ]
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "SearchParameter"
+            }
+        }
+    ]
+}

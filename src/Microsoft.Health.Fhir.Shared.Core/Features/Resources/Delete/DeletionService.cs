@@ -32,7 +32,9 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Newtonsoft.Json.Linq;
 using Polly;
@@ -53,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IAuditLogger _auditLogger;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -68,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IAuditLogger auditLogger,
             IOptions<CoreFeatureConfiguration> configuration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
+            ISearchParameterOperations searchParameterOperations,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -80,6 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -146,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
                     continuationToken,
                     versionType: request.VersionType,
-                    onlyIds: true,
+                    onlyIds: !string.Equals(request.ResourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase),
                     isIncludesOperation: request.IsIncludesRequest,
                     logger: _logger);
             }
@@ -239,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
                                 ct,
                                 request.VersionType,
-                                onlyIds: true,
+                                onlyIds: !string.Equals(request.ResourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase),
                                 isIncludesOperation: request.IsIncludesRequest,
                                 logger: _logger);
                         }
@@ -393,6 +398,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
 
+                await DeleteSearchParametersAsync(
+                    resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
+                    cancellationToken);
+
                 await fhirDataStore.Value.MergeAsync(softDeleteMatches, cancellationToken);
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
@@ -444,12 +453,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
                 {
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
                 await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
                 {
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
@@ -541,6 +552,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private bool IsIncludeEnabled()
         {
             return _configuration.SupportsIncludes && (_fhirRuntimeConfiguration.DataStore?.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        private async Task DeleteSearchParametersAsync(IEnumerable<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            if (resources?.Any() ?? false)
+            {
+                foreach (var resource in resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
+                {
+                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
+                }
+            }
+        }
+
+        private async Task DeleteSearchParameterAsync(ResourceWrapper resource, CancellationToken cancellationToken)
+        {
+            if (string.Equals(resource?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+            {
+                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
+            }
         }
     }
 }
