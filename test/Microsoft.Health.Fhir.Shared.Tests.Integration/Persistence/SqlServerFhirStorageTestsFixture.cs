@@ -160,7 +160,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
             _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
