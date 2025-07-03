@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var mcsec = (long)Math.Round(sw.Elapsed.TotalMilliseconds * 1000, 0);
-            await _sqlRetryService.TryLogEvent($"SearchAsync:{searchResult.TotalCount}", "Warn", $"mcsec={mcsec}", st, cancellationToken);
+            await _sqlRetryService.TryLogEvent($"SearchAsync:{resultCount}", "Warn", $"mcsec={mcsec}", st, cancellationToken);
 
             return searchResult;
         }
