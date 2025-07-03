@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -19,7 +18,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.AnonymousOperation;
@@ -34,7 +32,6 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -45,7 +42,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -186,6 +182,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
+            var preferHeader = _fhirRequestContextAccessor.GetReturnPreferenceValue();
 
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
@@ -196,17 +193,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            if (createResponse == null)
+            if (createResponse?.Outcome == null)
             {
                 return Ok();
             }
 
-            RawResourceElement response = createResponse.Outcome.RawResourceElement;
+            var statusCode = HttpStatusCode.Created;
+            var message = Resources.ConditionalCreateResourceCreated;
+            if (createResponse.Outcome.Outcome != SaveOutcomeType.Created)
+            {
+                statusCode = HttpStatusCode.OK;
+                message = Resources.ConditionalCreateResourceAlreadyExists;
+            }
 
-            return FhirResult.Create(response, HttpStatusCode.Created)
-                .SetETagHeader()
-                .SetLastModifiedHeader()
-                .SetLocationHeader(_urlResolver);
+            return FhirResult.Create(
+                createResponse.Outcome.RawResourceElement,
+                statusCode,
+                true,
+                true,
+                true,
+                _urlResolver,
+                preferHeader,
+                message);
         }
 
         /// <summary>

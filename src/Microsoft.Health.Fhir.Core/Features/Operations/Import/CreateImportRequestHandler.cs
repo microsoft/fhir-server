@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 StorageDetail = request.StorageDetail,
                 ImportMode = request.ImportMode,
                 AllowNegativeVersions = request.AllowNegativeVersions,
+                EventualConsistency = request.EventualConsistency,
                 ErrorContainerName = request.ErrorContainerName,
             };
 

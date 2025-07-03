@@ -10,11 +10,12 @@ using MediatR;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
-    public class StorageInitializedHealthCheck : IHealthCheck, INotificationHandler<StorageInitializedNotification>
+    public class StorageInitializedHealthCheck : IHealthCheck, INotificationHandler<SearchParametersInitializedNotification>
     {
         private const string SuccessfullyInitializedMessage = "Successfully initialized.";
         private bool _storageReady;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, $"Storage has not been initialized. Waited: {(int)waited.TotalSeconds}s."));
         }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

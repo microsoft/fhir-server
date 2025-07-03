@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IQueueClient _queueClient;
-        private ImportTaskConfiguration _importConfiguration;
+        private ImportJobConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IAuditLogger _auditLogger;
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
-            IOptions<ImportTaskConfiguration> importConfiguration,
+            IOptions<ImportJobConfiguration> importConfiguration,
             ILoggerFactory loggerFactory,
             IAuditLogger auditLogger)
         {
@@ -281,6 +281,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     GroupId = groupId,
                     ImportMode = coordDefinition.ImportMode,
                     AllowNegativeVersions = coordDefinition.AllowNegativeVersions,
+                    EventualConsistency = coordDefinition.EventualConsistency,
                     ErrorContainerName = coordDefinition.ErrorContainerName,
                 };
 
