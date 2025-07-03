@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 contextAccessor,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new ImportTaskConfiguration()),
+                Options.Create(new ImportJobConfiguration()),
                 loggerFactory,
                 auditLogger);
 
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 contextAccessor,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new ImportTaskConfiguration()),
+                Options.Create(new ImportJobConfiguration()),
                 loggerFactory,
                 auditLogger);
 

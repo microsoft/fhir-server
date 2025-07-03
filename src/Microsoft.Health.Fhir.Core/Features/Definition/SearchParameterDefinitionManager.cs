@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             foreach (var resourceType in allResourceTypes)
             {
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
-                if (removedParam.Url != searchParameterInfo.Url)
+                if (removedParam != null && removedParam.Url != searchParameterInfo.Url)
                 {
                     _logger.LogError("Error, Search Param {RemovedParam} removed from Search Param Definition manager.  It does not match deleted Search Param {Url}", removedParam.Url, url);
                 }

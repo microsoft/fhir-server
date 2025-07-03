@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+using Microsoft.Health.Fhir.Core.Features.Operations;
+
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public enum SaveOutcomeType
+    public class BulkDeleteJobConfiguration : HostingBackgroundServiceQueueItem
     {
-        Created,
-        Updated,
-        MatchFound,
+        public BulkDeleteJobConfiguration()
+        {
+            Queue = QueueType.BulkDelete;
+        }
     }
 }
