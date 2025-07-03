@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             await LogRawResourceStats(cancellationToken);
-            await LogSearchParamStats(cancellationToken);
+            ////await LogSearchParamStats(cancellationToken);
         }
 
         protected override async Task InitAdditionalParamsAsync()
@@ -69,6 +69,14 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None, "InitParamsAsync failed.");
 
             _logger.LogInformation("InitParamsAsync completed.");
+        }
+
+        private async Task<bool> IsRawResourceStatsProcessingEnabled(CancellationToken cancellationToken)
+        {
+            await using var cmd = new SqlCommand("SELECT Number FROM dbo.Parameters WHERE Id = @Id");
+            cmd.Parameters.AddWithValue("@Id", "RawResourceStatsProcessing.IsEnabled");
+            var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
+            return value == null || (double)value == 0;
         }
 
         // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
@@ -134,17 +142,24 @@ SELECT object_name = object_name(object_id)
                     do
                     {
                         rawResources = await GetRawResourcesAsync(type, surrogateId, maxSurrogateId, cancellationToken);
-                        foreach (var rawResource in rawResources)
+                        if (!await IsRawResourceStatsProcessingEnabled(cancellationToken))
                         {
-                            surrogateId = rawResource.SurrogateId;
-                            var rawResourceBytes = rawResource.RawResourceBytes;
-                            var isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
-                            if (!isInvisible)
+                            await Task.Delay(10000, cancellationToken);
+                        }
+                        else
+                        {
+                            foreach (var rawResource in rawResources)
                             {
-                                totalCompressedBytes += rawResourceBytes.Length;
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                totalDecompressedBytes += UTF8Encoding.UTF8.GetBytes(_compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream)).Length;
-                                totalResources++;
+                                surrogateId = rawResource.SurrogateId;
+                                var rawResourceBytes = rawResource.RawResourceBytes;
+                                var isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+                                if (!isInvisible)
+                                {
+                                    totalCompressedBytes += rawResourceBytes.Length;
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    totalDecompressedBytes += UTF8Encoding.UTF8.GetBytes(_compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream)).Length;
+                                    totalResources++;
+                                }
                             }
                         }
                     }
