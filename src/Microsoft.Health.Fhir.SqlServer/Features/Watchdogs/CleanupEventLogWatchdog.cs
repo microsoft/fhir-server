@@ -142,7 +142,7 @@ SELECT object_name = object_name(object_id)
                     do
                     {
                         rawResources = await GetRawResourcesAsync(type, surrogateId, maxSurrogateId, cancellationToken);
-                        if (!await IsRawResourceStatsProcessingEnabled(cancellationToken))
+                        if (!await IsRawResourceStatsProcessingEnabled(cancellationToken) && false)
                         {
                             await Task.Delay(10000, cancellationToken);
                         }
