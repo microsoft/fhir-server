@@ -790,4 +790,7 @@
   <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
     <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
   </data>
+  <data name="InvalidReturnPreferenceValue" xml:space="preserve">
+    <value>The 'returnPreference' value '{0}' is invalid. The supported values are: {1}.</value>
+  </data>
 </root>
