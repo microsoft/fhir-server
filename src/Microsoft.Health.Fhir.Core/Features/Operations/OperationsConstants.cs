@@ -48,5 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string BulkDeleteSoftDeleted = "bulk-delete-soft-deleted";
 
         public const string Includes = "includes";
+
+        public const string BulkUpdate = "bulk-update";
+
+        public const string ResourceTypeBulkUpdate = "resource-type-bulk-update";
     }
 }

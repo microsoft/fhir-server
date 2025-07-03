@@ -82,6 +82,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddBulkDeleteDetails);
             }
 
+            if (_coreFeatureConfiguration.SupportsBulkUpdate)
+            {
+                builder.Apply(AddBulkUpdateDetails);
+            }
+
             if (_coreFeatureConfiguration.SupportsSelectableSearchParameters)
             {
                 builder.Apply(AddSelectableSearchParameterDetails);
@@ -154,6 +159,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddBulkDeleteDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.BulkDelete);
+        }
+
+        public void AddBulkUpdateDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.BulkUpdate);
         }
 
         public void AddSelectableSearchParameterDetails(ListedCapabilityStatement capabilityStatement)
