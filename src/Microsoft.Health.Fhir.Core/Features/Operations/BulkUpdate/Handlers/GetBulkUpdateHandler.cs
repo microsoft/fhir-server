@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
-        private const string ResourceUpdatedCountName = "ResourceUpdatedCountName";
-        private const string ResourceIgnoredCountName = "ResourceIgnoredCountName";
-        private const string ResourcePatchFailedCountName = "ResourcePatchFailedCountName";
+        private const string ResourceUpdatedCountName = "ResourceUpdatedCount";
+        private const string ResourceIgnoredCountName = "ResourceIgnoredCount";
+        private const string ResourcePatchFailedCountName = "ResourcePatchFailedCount";
 
         public GetBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,

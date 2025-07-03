@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
     [Trait(Traits.Category, Categories.BulkUpdate)]
     public class GetBulkUpdateHandlerTests
     {
-        private readonly string _resourceUpdatedCountLabel = "ResourceUpdatedCountName";
-        private readonly string _resourceIgnoredCountLabel = "ResourceIgnoredCountName";
-        private readonly string _resourcePatchFailedCountLabel = "ResourcePatchFailedCountName";
+        private readonly string _resourceUpdatedCountLabel = "ResourceUpdatedCount";
+        private readonly string _resourceIgnoredCountLabel = "ResourceIgnoredCount";
+        private readonly string _resourcePatchFailedCountLabel = "ResourcePatchFailedCount";
 
         private IAuthorizationService<DataActions> _authorizationService;
         private IQueueClient _queueClient;

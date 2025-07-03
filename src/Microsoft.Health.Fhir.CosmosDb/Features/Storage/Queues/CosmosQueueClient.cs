@@ -335,13 +335,6 @@ public class CosmosQueueClient : IQueueClient
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
-    {
-        IReadOnlyList<JobGroupWrapper> jobs = await GetActiveJobsByQueueTypeInternalAsync(queueType, cancellationToken);
-        return jobs.SelectMany(job => job.ToJobInfo(job.Definitions)).ToList();
-    }
-
-    /// <inheritdoc />
     public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
     {
         return await _retryPolicy.ExecuteAsync(async () =>

@@ -229,20 +229,5 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             return Task.FromResult(cancel);
         }
-
-        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
-        {
-            if (GetJobByQueueTypeFunc != null)
-            {
-                return Task.FromResult(GetJobByQueueTypeFunc(this, cancellationToken));
-            }
-
-            IReadOnlyList<JobInfo> result = jobInfos
-             .Where(t => t.QueueType == queueType &&
-             (t.Status == JobStatus.Running || t.Status == JobStatus.Created))
-             .ToList();
-
-            return Task.FromResult(result);
-        }
     }
 }

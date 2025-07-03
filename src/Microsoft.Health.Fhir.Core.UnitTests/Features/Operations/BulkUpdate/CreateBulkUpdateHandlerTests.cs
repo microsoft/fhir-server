@@ -27,7 +27,9 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 {
@@ -75,8 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
-            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
             {
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
@@ -111,8 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
-            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
             {
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
@@ -143,14 +143,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 new Tuple<string, string>("param", "value"),
             };
-
+            Parameters parameters = GenerateParameters("replace");
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo> { new JobInfo() });
-            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Throws(new JobManagement.JobConflictException("There are other active job groups"));
 
-            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, null, false);
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
+
             var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
             Assert.Equal("A bulk update job is already running.", ex.Message);
         }
 
@@ -163,7 +164,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
             _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Conflict));
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, null, false);
@@ -182,7 +182,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
             _contextAccessor.RequestContext.BundleIssues.Clear();
             var request = new CreateBulkUpdateRequest(resourceType, searchParams, null, false);
 
@@ -200,7 +199,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             // Parameters with two operation types: one supported, one unsupported
             var parameters = new Parameters
@@ -258,7 +256,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
             var parameters = GenerateParameters("upsert");
 
             var request = new CreateBulkUpdateRequest(null, new List<Tuple<string, string>>(), parameters, false);

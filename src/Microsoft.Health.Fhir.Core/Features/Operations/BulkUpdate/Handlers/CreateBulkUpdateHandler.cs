@@ -69,15 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
-            // Should not run bulk Update if there is already a job running
-            IReadOnlyList<JobInfo> existingJobs =
-                await _queueClient.GetActiveJobsByQueueTypeAsync(QueueType.BulkUpdate, cancellationToken);
-
-            if (existingJobs.Count > 0)
-            {
-                throw new BadRequestException("A bulk update job is already running.");
-            }
-
             // Should not run bulk Update if it is trying to update a resource types like SearchParam and ValueSet
             if (_excludedResourceTypes.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
             {
@@ -127,9 +118,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 _contextAccessor.RequestContext.CorrelationId,
                 parametersString,
                 request.IsParallel);
-
-            IReadOnlyList<JobInfo> jobInfo =
-                await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, definitions: processingDefinition);
+            IReadOnlyList<JobInfo> jobInfo;
+            try
+            {
+                jobInfo = await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, forceOneActiveJobGroup: true, definitions: processingDefinition);
+            }
+            catch (JobManagement.JobConflictException ex) when (ex.Message.Equals("There are other active job groups", StringComparison.Ordinal))
+            {
+                throw new BadRequestException("A bulk update job is already running.");
+            }
 
             if (jobInfo == null || jobInfo.Count == 0)
             {
