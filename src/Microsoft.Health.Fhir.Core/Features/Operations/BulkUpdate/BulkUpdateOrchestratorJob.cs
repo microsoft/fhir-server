@@ -80,11 +80,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 {
                     // For system level bulk update, get all the resource types that are used in the system and enqueue jobs for each resource type-surrogateId range combination.
                     // For ResourceType based bulk updates query with includes and revinclude could return multiple resourceTypes so we will do the generic search without surrogateId ranges
-                    var resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
-                    resourceTypes = resourceTypes
-                        .Where(x => !_excludedResourceTypes.Contains(x))
-                        .ToList();
-
+                    var resourceTypes = string.IsNullOrEmpty(definition.Type)
+                          ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
+                          : definition.Type.Split(',');
+                    resourceTypes = resourceTypes.Where(x => !_excludedResourceTypes.Contains(x)).ToList();
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
                     var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
 

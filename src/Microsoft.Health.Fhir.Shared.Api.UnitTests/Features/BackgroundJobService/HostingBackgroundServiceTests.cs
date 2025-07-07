@@ -30,12 +30,14 @@ public sealed class HostingBackgroundServiceTests
         var exportConfig = new ExportJobConfiguration { Enabled = true };
         var importConfig = new ImportJobConfiguration { Enabled = false };
         var bulkDeleteConfig = new BulkDeleteJobConfiguration { Enabled = true };
+        var bulkUpdateConfig = new BulkUpdateJobConfiguration { Enabled = true };
 
         var operationsConfig = new OperationsConfiguration
         {
             Export = exportConfig,
             Import = importConfig,
             BulkDelete = bulkDeleteConfig,
+            BulkUpdate = bulkUpdateConfig,
         };
 
         var jobHostingFactory = Substitute.For<IScopeProvider<JobHosting>>();
@@ -51,6 +53,7 @@ public sealed class HostingBackgroundServiceTests
         // Assert
         Assert.Contains(enabledQueues, q => q == exportConfig);
         Assert.Contains(enabledQueues, q => q == bulkDeleteConfig);
+        Assert.Contains(enabledQueues, q => q == bulkUpdateConfig);
         Assert.DoesNotContain(enabledQueues, q => q == importConfig);
         Assert.Equal(2, enabledQueues.Count);
     }

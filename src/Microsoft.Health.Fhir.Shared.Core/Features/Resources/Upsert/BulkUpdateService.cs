@@ -371,18 +371,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             // Add resources ignored by resource type by filtering out the excluded resource types
             foreach (var kvp in resourcesPerPage.Where(kvp => _excludedResourceTypes.Contains(kvp.Key)))
             {
-                resourcesIgnored = resourcesIgnored
-                    .Concat(resourcesPerPage.Where(kvp => _excludedResourceTypes.Contains(kvp.Key))).GroupBy(kvp => kvp.Key)
-                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Value));
-            }
-
-            // Add resources ignored by resource type by filtering out the excluded resource types
-            foreach (var kvp in resourcesPerPage)
-            {
-                // check if type is in resourcesIgnored
-                if (resourcesIgnored.TryGetValue(kvp.Key, out long count))
+                if (resourcesIgnored.ContainsKey(kvp.Key))
                 {
                     resourcesIgnored[kvp.Key] += kvp.Value;
+                }
+                else
+                {
+                    resourcesIgnored[kvp.Key] = kvp.Value;
                 }
             }
 
