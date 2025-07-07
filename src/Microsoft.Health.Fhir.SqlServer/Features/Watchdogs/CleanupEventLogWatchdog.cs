@@ -142,26 +142,26 @@ SELECT object_name = object_name(object_id)
                     do
                     {
                         rawResources = await GetRawResourcesAsync(type, surrogateId, maxSurrogateId, cancellationToken);
-                        ////if (!await IsRawResourceStatsProcessingEnabled(cancellationToken) && false)
-                        ////{
-                        ////    await Task.Delay(10000, cancellationToken);
-                        ////}
-                        ////else
-                        ////{
-                        foreach (var rawResource in rawResources)
+                        if (!await IsRawResourceStatsProcessingEnabled(cancellationToken) && false)
                         {
-                            surrogateId = rawResource.SurrogateId;
-                            var rawResourceBytes = rawResource.RawResourceBytes;
-                            var isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
-                            if (!isInvisible)
+                            await Task.Delay(10000, cancellationToken);
+                        }
+                        else
+                        {
+                            foreach (var rawResource in rawResources)
                             {
-                                totalCompressedBytes += rawResourceBytes.Length;
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                totalDecompressedBytes += UTF8Encoding.UTF8.GetBytes(_compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream)).Length;
-                                totalResources++;
+                                surrogateId = rawResource.SurrogateId;
+                                var rawResourceBytes = rawResource.RawResourceBytes;
+                                var isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+                                if (!isInvisible)
+                                {
+                                    totalCompressedBytes += rawResourceBytes.Length;
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    totalDecompressedBytes += UTF8Encoding.UTF8.GetBytes(_compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream)).Length;
+                                    totalResources++;
+                                }
                             }
                         }
-                        ////}
                     }
                     while (rawResources.Count > 0);
 
