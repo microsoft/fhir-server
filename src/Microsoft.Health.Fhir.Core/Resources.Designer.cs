@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failure inserting data due to a code value overflow. Please contact support for assistance..
+        /// </summary>
+        internal static string ConstraintViolation {
+            get {
+                return ResourceManager.GetString("ConstraintViolation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Fail to access the container registry &apos;{0}&apos;, please check the registry configuration..
         /// </summary>
         internal static string ContainerRegistryNotAuthorized {
@@ -1867,17 +1876,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Failure inserting data due to a code value overflow. Please contact support for assistance..
-        /// </summary>
-        internal static string TokenSearchParamCodeOverflow
-        {
-            get
-            {
-                return ResourceManager.GetString("TokenSearchParamCodeOverflow", resourceCulture);
             }
         }
     }

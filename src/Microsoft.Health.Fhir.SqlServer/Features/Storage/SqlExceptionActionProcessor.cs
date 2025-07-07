@@ -59,10 +59,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new RequestNotValidException(Core.Resources.TooManyParameters);
                 }
-                else if (sqlException.Number == SqlStoreErrorCodes.TokenSearchParamCodeOverflow && !sqlException.IsRetriable()
-                            && sqlException.Message.Contains("CodeOverflow", StringComparison.OrdinalIgnoreCase))
+                else if (sqlException.Number == SqlStoreErrorCodes.ConstraintViolation && !sqlException.IsRetriable())
                 {
-                    throw new BadRequestException(Core.Resources.TokenSearchParamCodeOverflow);
+                    throw new BadRequestException(Core.Resources.ConstraintViolation);
                 }
                 else
                 {

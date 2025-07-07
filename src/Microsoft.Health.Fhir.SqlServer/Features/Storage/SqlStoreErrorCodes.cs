@@ -18,6 +18,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <summary>
         /// Constraint Violation.
         /// </summary>
-        public const int TokenSearchParamCodeOverflow = 547;
+        public const int ConstraintViolation = 547;
     }
 }
