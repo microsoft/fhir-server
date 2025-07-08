@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Web
     {
         public static void Main(string[] args)
         {
-            //just comment for testing pipeline
+            // just comment for testing pipeline
             var host = WebHost.CreateDefaultBuilder(args)
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
