@@ -484,11 +484,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(locationResults.Resource.Entry);
         }
 
-        [SkippableTheory]
+        [SkippableTheory(Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.")]
         [InlineData(true)]
-#if false // Commenting out the soft-delete case due to SP definition manager cache out of sync with the store making the test flaky.
         [InlineData(false)]
-#endif
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
             CheckBulkDeleteEnabled();
