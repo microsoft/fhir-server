@@ -127,6 +127,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                     await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
             }
+            else if (record.ExportType == ExportJobType.Patient && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
+            {
+                var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
+                var globalStartId = since.ToId();
+                var till = record.Till.ToDateTimeOffset();
+                var globalEndId = till.ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
+                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                                        .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                                        .Where(x => x.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
+                                        .GroupBy(x => x.ResourceType)
+                                        .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
+                var surrogateIdRanges = new List<(long StartId, long EndId)>();
+                var startId = globalStartId;
+                IReadOnlyList<(long StartId, long EndId)> response = null;
+                do
+                {
+                    response = await _searchService.GetSurrogateIdRanges(
+                        KnownResourceTypes.Patient,
+                        startId,
+                        globalEndId,
+                        _exportJobConfiguration.NumberOfParallelRecordRanges,
+                        _exportJobConfiguration.NumberOfParallelRecordRanges,
+                        true,
+                        cancellationToken);
+                    if (response?.Count > 0)
+                    {
+                        startId = response[^1].EndId + 1;
+                        surrogateIdRanges.AddRange(response);
+                    }
+                }
+                while (response?.Count > 0);
+
+                await Parallel.ForEachAsync(surrogateIdRanges, new ParallelOptions { MaxDegreeOfParallelism = _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (range, cancel) =>
+                {
+                    _logger.LogJobInformation(jobInfo, $"Creating export record for range: [{range.StartId}, {range.EndId}].");
+                    var processingRecord = CreateExportRecord(
+                        record,
+                        jobInfo.GroupId,
+                        resourceType: null,
+                        startSurrogateId: range.StartId.ToString(),
+                        endSurrogateId: range.EndId.ToString(),
+                        globalStartSurrogateId: globalStartId.ToString(),
+                        globalEndSurrogateId: globalEndId.ToString());
+
+                    _logger.LogJobInformation(jobInfo, $"Enqueuing export job for range: [{range.StartId}, {range.EndId}].");
+                    await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: new[] { processingRecord });
+                });
+            }
             else if (groupJobs.Count == 1)
             {
                 _logger.LogJobInformation(jobInfo, "Creating export record (3).");

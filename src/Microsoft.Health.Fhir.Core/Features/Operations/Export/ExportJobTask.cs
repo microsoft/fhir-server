@@ -571,6 +571,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
+                    var searchResultEntries = searchResult.Results.ToList();
+                    var startSurrogateId = sharedQueryParametersList
+                        .Where(x => string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase))
+                        .Select(x => x.Item2)
+                        .FirstOrDefault();
+                    var endSurrogateId = sharedQueryParametersList
+                        .Where(x => string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase))
+                        .Select(x => x.Item2)
+                        .FirstOrDefault();
+                    if (!string.IsNullOrEmpty(startSurrogateId) && !string.IsNullOrEmpty(endSurrogateId))
+                    {
+                        _logger.LogInformation($"Processing export job for {searchResultEntries.Count} {_exportJobRecord.ExportType} resources: [{startSurrogateId}, {endSurrogateId}]");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Processing export job for {searchResultEntries.Count} {_exportJobRecord.ExportType} resources.");
+                    }
+
+                    sharedQueryParametersList = sharedQueryParametersList
+                            .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.GlobalStartSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(x.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(x.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
                     uint resultIndex = 0;
                     foreach (SearchResultEntry result in searchResult.Results)
                     {
