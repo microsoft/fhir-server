@@ -764,6 +764,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;returnPreference&apos; value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        internal static string InvalidReturnPreferenceValue {
+            get {
+                return ResourceManager.GetString("InvalidReturnPreferenceValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {

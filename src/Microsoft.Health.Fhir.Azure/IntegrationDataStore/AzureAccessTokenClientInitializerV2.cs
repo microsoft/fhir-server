@@ -37,25 +37,25 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri)
         {
             EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
+            return Task.FromResult(new BlobClient(blobUri, CreateManagedIdentityCredential()));
         }
 
         public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
         {
             EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
+            return Task.FromResult(new BlobClient(blobUri, CreateManagedIdentityCredential()));
         }
 
         public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri)
         {
             EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateManagedIdentityCredential()));
         }
 
         public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
         {
             EnsureArg.IsNotNull(blobUri, nameof(blobUri));
-            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateManagedIdentityCredential()));
         }
 
         public async Task<BlobServiceClient> GetAuthorizedClientAsync()
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                return Task.FromResult(new BlobServiceClient(storageAccountUri, CreateDefaultTokenCredential()));
+                return Task.FromResult(new BlobServiceClient(storageAccountUri, CreateManagedIdentityCredential()));
             }
             catch (AccessTokenProviderException atp)
             {
@@ -87,9 +87,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        private static DefaultAzureCredential CreateDefaultTokenCredential()
+        private static ManagedIdentityCredential CreateManagedIdentityCredential()
         {
-            return new DefaultAzureCredential();
+            return new ManagedIdentityCredential();
         }
     }
 }

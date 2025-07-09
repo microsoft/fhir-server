@@ -789,5 +789,7 @@
   </data>
   <data name="ConstraintViolation" xml:space="preserve">
     <value>Failure inserting data due to a code value overflow. Please contact support for assistance.</value>
+  <data name="InvalidReturnPreferenceValue" xml:space="preserve">
+    <value>The 'returnPreference' value '{0}' is invalid. The supported values are: {1}.</value>
   </data>
 </root>

@@ -16,14 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
-        private readonly DefaultAzureCredential _azureServiceTokenProvider;
+        private readonly ManagedIdentityCredential _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
         public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = new DefaultAzureCredential();
+            _azureServiceTokenProvider = new ManagedIdentityCredential();
             _logger = logger;
         }
 
