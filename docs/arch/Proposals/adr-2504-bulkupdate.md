@@ -137,7 +137,7 @@ apurvabhaleMS marked this conversation as resolved.
 ---
 
 ## Status
-Proposed
+Accepted
 
 ---
 
@@ -154,6 +154,9 @@ Proposed
 For soft $bulk-delete, we achieved around 1600 reosurces per seconds. We are projecting around 1000 resources per seconds as a throughput.
 
 ---
+### For future
+- At present, we are only permitting `Upsert` and `Replace` patch operations to ensure idempotency. Allowing operations like `Add` would compromise idempotency, potentially leading to data being added multiple times, which is not desirable. Users can utilize the query clause in Patch operations to ensure that only resources that have not been updated are modified.
+
 ### Some notes
 - New operation is called as bulk-update and not bulk-patch(even though it follows FHIR Patch semantics) because there are some differences between how FHIR Patch works vs how the bulk-update would run. You would find the differences in Decision section above
 
