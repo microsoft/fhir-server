@@ -599,7 +599,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 .ToList();
 
                         uint resultIndex = 0;
-                        foreach (SearchResultEntry result in searchResult.Results)
+                        foreach (SearchResultEntry result in searchResultEntries)
                         {
                             // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
                             // This assumes the order of the search results is the same every time the same search is performed.
