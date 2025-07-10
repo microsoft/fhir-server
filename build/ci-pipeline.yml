@@ -68,6 +68,8 @@ stages:
   - job: Windows_dotnet9
     pool:
       name: '$(DefaultWindowsPool)'
+      demands:
+        - ImageOverride -equals $(DefaultWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -116,6 +118,8 @@ stages:
   - job: Guardian
     pool:
       name: '$(DefaultWindowsPool)'
+      demands:
+        - ImageOverride -equals $(DefaultWindowsImage)
       
     steps:
     - template: ./jobs/analyze.yml

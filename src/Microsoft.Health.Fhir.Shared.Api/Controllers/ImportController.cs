@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
-        private readonly ImportTaskConfiguration _importConfig;
+        private readonly ImportJobConfiguration _importConfig;
 
         public ImportController(
             IMediator mediator,
@@ -115,7 +115,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
                  HttpContext.RequestAborted,
                  importRequest.AllowNegativeVersions,
-                 importRequest.ErrorContainerName);
+                 importRequest.ErrorContainerName,
+                 importRequest.EventualConsistency);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);

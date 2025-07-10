@@ -64,6 +64,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public bool AllowNegativeVersions { get; set; }
 
         /// <summary>
+        /// Flag indicating whether FHIR index updates are handled in the same SQL transaction with Resource inserts.
+        /// Flag is relevant only for resource creates. Default value is false.
+        /// </summary>
+        public bool EventualConsistency { get; set; }
+
+        /// <summary>
         /// Custom container name for error logs. If not specified, the default container will be used.
         /// </summary>
         public string ErrorContainerName { get; set; }

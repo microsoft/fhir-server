@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly IResourceWrapperFactory _factory;
         private readonly ILogger<TransactionWatchdog> _logger;
         private const string AdvancedVisibilityTemplate = "TransactionWatchdog advanced visibility on {Transactions} transactions.";
+        private const string FoundTemplate = "TransactionWatchdog found {Transactions} timed out transactions.";
 
         public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, ISqlRetryService sqlRetryService, ILogger<TransactionWatchdog> logger)
             : base(sqlRetryService, logger)
@@ -46,10 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             var affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(cancellationToken);
 
-            _logger.Log(
-                affectedRows > 0 ? LogLevel.Information : LogLevel.Debug,
-                AdvancedVisibilityTemplate,
-                affectedRows);
+            _logger.Log(affectedRows > 0 ? LogLevel.Information : LogLevel.Debug, AdvancedVisibilityTemplate, affectedRows);
 
             if (affectedRows > 0)
             {
@@ -59,18 +57,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             IReadOnlyList<long> timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, cancellationToken);
             if (timeoutTransactions.Count > 0)
             {
-                _logger.LogWarning("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
+                _logger.LogWarning(FoundTemplate, timeoutTransactions.Count);
                 await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"found timed out transactions={timeoutTransactions.Count}", null, cancellationToken);
             }
             else
             {
-                _logger.Log(
-                    timeoutTransactions.Count > 0 ? LogLevel.Information : LogLevel.Debug,
-                    "TransactionWatchdog found {Transactions} timed out transactions",
-                    timeoutTransactions.Count);
+                _logger.LogDebug(FoundTemplate, timeoutTransactions.Count);
             }
 
-            foreach (var tranId in timeoutTransactions)
+            await Parallel.ForEachAsync(timeoutTransactions, new ParallelOptions { MaxDegreeOfParallelism = 2 }, async (tranId, cancel) =>
             {
                 var st = DateTime.UtcNow;
                 _logger.LogInformation("TransactionWatchdog found timed out transaction={Transaction}, attempting to roll forward...", tranId);
@@ -80,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", cancellationToken);
                     _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources=0", tranId);
                     await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, cancellationToken);
-                    continue;
+                    return;
                 }
 
                 foreach (var resource in resources)
@@ -95,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                 affectedRows = await _store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(cancellationToken);
                 _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
-            }
+            });
         }
     }
 }
