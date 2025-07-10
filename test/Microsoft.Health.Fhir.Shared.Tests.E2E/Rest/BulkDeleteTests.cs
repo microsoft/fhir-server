@@ -778,7 +778,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                      async () =>
                      {
                          DebugOutput($"Checking the bulk-delete status: {location?.AbsolutePath}...");
-                         var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
+                         var result = (await _fhirClient.WaitForBulkJobStatus("Bulk Delete", location)).Resource;
 
                          var actualResults = new Dictionary<string, long>();
                          var resultsChecked = 0;
