@@ -22,16 +22,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
     [Trait(Traits.Category, Categories.Web)]
     public sealed class HttpContextExtensionsTests
     {
-        [Fact]
-        public void WhenHttpContextDoesNotHaveCustomHeaders_ReturnDefaultValues()
+        [Trait(Traits.Category, Categories.Bundle)]
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public void WhenHttpContextDoesNotHaveCustomHeaders_ReturnDefaultValues(BundleProcessingLogic defaultAndExpectBundleProcessingLogic)
         {
             HttpContext httpContext = GetFakeHttpContext();
 
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
             Assert.False(isLatencyOverEfficiencyEnabled);
 
-            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic();
-            Assert.Equal(BundleProcessingLogic.Sequential, bundleProcessingLogic);
+            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
+                defaultBundleProcessingLogic: defaultAndExpectBundleProcessingLogic);
+            Assert.Equal(defaultAndExpectBundleProcessingLogic, bundleProcessingLogic);
 
             // #conditionalQueryParallelism
             ConditionalQueryProcessingLogic conditionalQueryProcessingLogic = httpContext.GetConditionalQueryProcessingLogic();
@@ -103,7 +107,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var httpHeaders = new Dictionary<string, string>() { { BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, value } };
             HttpContext httpContext = GetFakeHttpContext(httpHeaders);
 
-            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic();
+            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
+                defaultBundleProcessingLogic: BundleProcessingLogic.Sequential);
 
             Assert.Equal(processingLogic, bundleProcessingLogic);
         }

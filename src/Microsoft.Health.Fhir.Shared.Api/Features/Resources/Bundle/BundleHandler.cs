@@ -63,13 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        // The default bundle processing logic for Transactions is set to Parallel, as by the FHIR specification, a transactional bundle
-        // cannot contain any resources that refer to each other, and therefore can be processed in parallel.
-        // The default bundle processing logic for Batches is set to Sequential, as by the FHIR specification, a batch can contain resources
-        // that refer to each other, and therefore must be processed sequentially.
-        private const BundleProcessingLogic BatchDefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
-        private const BundleProcessingLogic TransactionDefaultBundleProcessingLogic = BundleProcessingLogic.Parallel;
-
         private readonly HttpContext _outerHttpContext;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -95,10 +88,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly bool _optimizedQuerySet;
+        private readonly bool _isBundleProcessingLogicValid;
 
         private int _requestCount;
         private BundleType? _bundleType;
-        private bool _bundleProcessingTypeIsInvalid = false;
         private bool _forceProfilesRefresh = false;
 
         /// <summary>
@@ -173,6 +166,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
+
+            _isBundleProcessingLogicValid = BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -203,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = GetBundleProcessingLogic(_outerHttpContext, _bundleType, _logger);
+                BundleProcessingLogic bundleProcessingLogic = BundleHandlerRuntime.GetBundleProcessingLogic(_outerHttpContext, _bundleType);
 
                 if (_bundleType == BundleType.Batch)
                 {
@@ -282,37 +277,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return false;
-        }
-
-        private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, BundleType? bundleType, ILogger logger)
-        {
-            try
-            {
-                if (bundleType.HasValue)
-                {
-                    if (bundleType.Value == BundleType.Transaction)
-                    {
-                        // For transactions, the default processing logic is parallel.
-                        return outerHttpContext.GetBundleProcessingLogic(TransactionDefaultBundleProcessingLogic);
-                    }
-                    else if (bundleType.Value == BundleType.Batch)
-                    {
-                        // For batch, the default processing logic is parallel.
-                        return outerHttpContext.GetBundleProcessingLogic(BatchDefaultBundleProcessingLogic);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                _bundleProcessingTypeIsInvalid = true;
-                logger.LogWarning(
-                    e,
-                    "Error while extracting the Bundle Processing Logic out of the HTTP Header. The bundle execution will not be blocked by that.");
-            }
-
-            // Reaching this part of the code means that either the bundle type is not set or there was an error retrieving the processing logic in the HTTP header.
-            // Returning sequential as the default processing logic for both cases.
-            return BundleProcessingLogic.Sequential;
         }
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
@@ -426,14 +390,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RefreshProfilesIfApplicable();
             }
 
-            AddFinalOperationOutcomesIfApplicable(responseBundle);
+            AddFinalOperationOutcomesIfApplicable(responseBundle, _bundleType);
         }
 
-        private void AddFinalOperationOutcomesIfApplicable(Hl7.Fhir.Model.Bundle responseBundle)
+        private void AddFinalOperationOutcomesIfApplicable(Hl7.Fhir.Model.Bundle responseBundle, BundleType? bundleType)
         {
             try
             {
-                if (_bundleProcessingTypeIsInvalid)
+                if (!_isBundleProcessingLogicValid)
                 {
                     var entryComponent = new EntryComponent
                     {
@@ -443,7 +407,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Warning,
                                 OperationOutcome.IssueType.Invalid,
-                                $"The bundle processing logic provided was invalid. The bundle was processed using {DefaultBundleProcessingLogic} processing."),
+                                $"The bundle processing logic provided was invalid. The bundle was processed using the default processing logic."),
                         },
                     };
 

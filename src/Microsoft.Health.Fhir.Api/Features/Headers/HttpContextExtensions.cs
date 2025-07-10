@@ -88,6 +88,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                 defaultValue: defaultBundleProcessingLogic);
         }
 
+        public static bool IsBundleProcessingLogicValid(this HttpContext outerHttpContext)
+        {
+            if (outerHttpContext == null)
+            {
+                return false;
+            }
+
+            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            {
+                string processingLogicAsString = headerValues.FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(processingLogicAsString))
+                {
+                    return false;
+                }
+
+                return Enum.TryParse<BundleProcessingLogic>(processingLogicAsString.Trim(), ignoreCase: true, out _);
+            }
+
+            return true;
+        }
+
         public static TEnum ExtractEnumerationFlagFromHttpHeader<TEnum>(HttpContext outerHttpContext, string httpHeaderName, TEnum defaultValue)
             where TEnum : struct, Enum
         {
