@@ -217,8 +217,8 @@
     <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
   </data>
   <data name="TransactionFailed" xml:space="preserve">
-    <value>Transaction failed on '{0}' for the requested url '{1}'.</value>
-    <comment>{0} is the http method , {1} is the requested url.</comment>
+    <value>Transaction failed on '{0}', for the record on position {1}, of type '{2}', with error code HTTP{3}.</value>
+    <comment>{0} is the http method , {1} is the position of the element in the bundle, {2} is the resource type, and {3} error code.</comment>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>

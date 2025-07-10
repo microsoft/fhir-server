@@ -394,6 +394,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     throw new InvalidOperationException(string.Format(Api.Resources.BundleInvalidCombination, _bundleType, processingLogic));
                 }
             }
+            catch (FhirTransactionFailedException tfe) when (tfe.IsErrorCausedDueClientFailure())
+            {
+                _logger.LogWarning(tfe, "Client failure while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
@@ -713,12 +718,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
-
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
+
+                    var errorMessage = string.Format(
+                        Api.Resources.TransactionFailed,
+                        resourceContext.Context.HttpContext.Request.Method,
+                        resourceContext.Index,
+                        resourceContext.ResourceType,
+                        (int)httpStatusCode);
 
                     TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
                 }
