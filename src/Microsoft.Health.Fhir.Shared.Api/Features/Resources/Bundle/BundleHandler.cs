@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
 
-            _isBundleProcessingLogicValid = BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext);
+            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = BundleHandlerRuntime.GetBundleProcessingLogic(_outerHttpContext, _bundleType);
+                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
 
                 if (_bundleType == BundleType.Batch)
                 {

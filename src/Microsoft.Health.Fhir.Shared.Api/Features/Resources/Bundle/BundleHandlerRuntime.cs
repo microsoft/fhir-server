@@ -11,6 +11,9 @@ using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
+    /// <summary>
+    /// Set of static methods used as part of the bundle handling logic.
+    /// </summary>
     public static class BundleHandlerRuntime
     {
         // The default bundle processing logic for Transactions is set to Parallel, as by the FHIR specification, a transactional bundle
