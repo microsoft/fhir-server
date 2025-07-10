@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -64,6 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
+            // check if any job still in created or running state
+            bool isJobComplete = !jobs.Any(job => job.Status == JobStatus.Created || job.Status == JobStatus.Running);
+
             foreach (var job in jobs)
             {
                 BulkUpdateResult result = null;
@@ -78,9 +82,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
                 if (job.Status == JobStatus.Failed)
                 {
-                    failed = true;
                     succeeded = false;
-
+                    failed = true;
                     if (result != null)
                     {
                         foreach (var issue in result.Issues)
@@ -171,14 +174,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
 
-            if (resourcesPatchFailed.Count > 0)
-            {
-                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."));
-            }
-
+            HttpStatusCode statusCode;
             if (failed && issues.Count > 0)
             {
-                return new GetBulkUpdateResponse(fhirResults, issues, failureResultCode);
+                statusCode = failureResultCode;
             }
             else if (cancelled)
             {
@@ -186,25 +185,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     OperationOutcomeConstants.IssueSeverity.Warning,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job Canceled"));
-                return new GetBulkUpdateResponse(fhirResults, issues, HttpStatusCode.OK);
+                statusCode = HttpStatusCode.OK;
             }
             else if (failed)
             {
-                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
-                return new GetBulkUpdateResponse(fhirResults, issues, failureResultCode);
+                issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
+                statusCode = failureResultCode;
             }
             else if (succeeded)
             {
-                return new GetBulkUpdateResponse(fhirResults, issues, HttpStatusCode.OK);
+                statusCode = HttpStatusCode.OK;
             }
             else
+            {
+                statusCode = HttpStatusCode.Accepted;
+            }
+
+            if (!cancelled && !isJobComplete)
             {
                 issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job In Progress"));
-                return new GetBulkUpdateResponse(fhirResults, issues, HttpStatusCode.Accepted);
             }
+
+            if (resourcesPatchFailed.Count > 0)
+            {
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."));
+            }
+
+            return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
         }
     }
 }

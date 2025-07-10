@@ -605,7 +605,7 @@ namespace Microsoft.Health.Fhir.Client
             return reindexJobResult;
         }
 
-        public async Task<FhirResponse<Parameters>> WaitForBulkJobStatus(string jobType, Uri bulkDeleteJobUri)
+        public async Task<FhirResponse<Parameters>> WaitForBulkJobStatus(string jobType, Uri bulkJobUri)
         {
             int checkCount = 0;
             int maxCount = 30;
@@ -621,7 +621,7 @@ namespace Microsoft.Health.Fhir.Client
                     await Task.Delay(delay);
                 }
 
-                jobResult = await CheckJobAsync(bulkDeleteJobUri);
+                jobResult = await CheckJobAsync(bulkJobUri);
                 checkCount++;
             }
             while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && checkCount < maxCount);
@@ -631,7 +631,7 @@ namespace Microsoft.Health.Fhir.Client
             if (checkCount >= maxCount)
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"${jobType} at ${bulkDeleteJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
+                throw new Exception($"${jobType} at ${bulkJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 

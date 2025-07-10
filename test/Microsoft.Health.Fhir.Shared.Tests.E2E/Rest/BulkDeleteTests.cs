@@ -534,7 +534,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task MonitorBulkDeleteJob(Uri location, Dictionary<string, long> expectedResults)
         {
-            var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
+            var result = (await _fhirClient.WaitForBulkJobStatus("Bulk delete", location)).Resource;
 
             var resultsChecked = 0;
             var issuesChecked = 0;

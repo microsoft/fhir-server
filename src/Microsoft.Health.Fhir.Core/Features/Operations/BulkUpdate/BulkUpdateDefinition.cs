@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             string endSurrogateId = null,
             string globalStartSurrogateId = null,
             string globalEndSurrogateId = null,
-            uint maximumNumberOfResourcesPerQuery = 30)
+            uint maximumNumberOfResourcesPerQuery = 10000)
         {
             TypeId = (int)jobType;
             Type = type;

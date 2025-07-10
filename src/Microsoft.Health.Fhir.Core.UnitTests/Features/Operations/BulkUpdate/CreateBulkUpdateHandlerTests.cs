@@ -56,8 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 uriString: _testUrl,
                 baseUriString: _testUrl,
                 correlationId: "BulkUpdateTest",
-                null,
-                null);
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>());
 
             _handler = new CreateBulkUpdateHandler(
                 _authorizationService,

@@ -159,6 +159,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                 processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, currentIncludesContinuationToken, false);
                                 await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
+                                if (string.IsNullOrEmpty(currentIncludesContinuationToken))
+                                {
+                                    break;
+                                }
+
                                 // Create a new clone list for ct and ict
                                 var cloneListForInclude = new List<Tuple<string, string>>(searchParams);
                                 cloneListForInclude.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(prevContinuationToken)));
