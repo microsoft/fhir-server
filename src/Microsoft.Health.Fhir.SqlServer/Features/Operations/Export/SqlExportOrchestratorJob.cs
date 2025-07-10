@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         KnownResourceTypes.Patient,
                         startId,
                         globalEndId,
-                        _exportJobConfiguration.NumberOfParallelRecordRanges,
+                        surrogateIdRangeSize,
                         _exportJobConfiguration.NumberOfParallelRecordRanges,
                         true,
                         cancellationToken);
