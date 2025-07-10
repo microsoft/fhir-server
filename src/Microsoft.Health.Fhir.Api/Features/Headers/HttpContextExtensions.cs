@@ -79,12 +79,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// Retrieves from the HTTP header information about the bundle processing logic to be adopted.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>
-        public static BundleProcessingLogic GetBundleProcessingLogic(this HttpContext outerHttpContext)
+        /// <param name="defaultBundleProcessingLogic">Default bundle processing logic to use if not specified in the header</param>
+        public static BundleProcessingLogic GetBundleProcessingLogic(this HttpContext outerHttpContext, BundleProcessingLogic defaultBundleProcessingLogic)
         {
             return ExtractEnumerationFlagFromHttpHeader(
                 outerHttpContext,
                 httpHeaderName: BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic,
-                defaultValue: BundleProcessingLogic.Sequential);
+                defaultValue: defaultBundleProcessingLogic);
         }
 
         public static TEnum ExtractEnumerationFlagFromHttpHeader<TEnum>(HttpContext outerHttpContext, string httpHeaderName, TEnum defaultValue)
