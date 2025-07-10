@@ -23,6 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            ManagedIdentityCredentialOptions managedIdentityCredentialOptions = new ManagedIdentityCredentialOptions
+            {
+                AuthorityHost = GetAuthorityHost(),
+            };
             _azureServiceTokenProvider = new ManagedIdentityCredential();
             _logger = logger;
         }
@@ -60,6 +64,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             }
 
             return accessToken.Token;
+        }
+
+        private static Uri GetAuthorityHost()
+        {
+            string cloudEnvironment = Environment.GetEnvironmentVariable("cloudEnvironment");
+
+            return cloudEnvironment switch
+            {
+                "AzureUsGovernment" => AzureAuthorityHosts.AzureGovernment,
+                "AzureCloud" or _ => AzureAuthorityHosts.AzurePublicCloud,
+            };
         }
     }
 }
