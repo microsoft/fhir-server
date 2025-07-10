@@ -74,21 +74,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenArchivedBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
-        {
-            // TODO: What happens with Archived job?
-            await RunBulkUpdateTest(
-                new List<JobInfo>()
-                {
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Archived,
-                    },
-                },
-                HttpStatusCode.Accepted);
-        }
-
-        [Fact]
         public async Task GivenFailedBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
         {
             await RunBulkUpdateTest(

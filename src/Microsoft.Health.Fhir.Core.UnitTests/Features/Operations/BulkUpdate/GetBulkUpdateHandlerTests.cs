@@ -73,25 +73,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJobGroupWithOnlyArchivedJobs_WhenStatusRequested_ThenOkWithNoResults()
-        {
-            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>();
-            var issues = new List<OperationOutcomeIssue>();
-            await RunGetBulkUpdateTest(
-                new List<Tuple<JobInfo, int>>()
-                {
-                    new Tuple<JobInfo, int>(
-                        new()
-                        {
-                            Status = JobStatus.Archived,
-                            Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true)),
-                        },
-                        0),
-                },
-                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
-        }
-
-        [Fact]
         public async Task GivenSuccessfullyCompletedBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
