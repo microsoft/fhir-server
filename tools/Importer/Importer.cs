@@ -598,11 +598,11 @@ namespace Microsoft.Health.Fhir.Importer
             if (!string.IsNullOrEmpty(FhirAuthCredentialOptions))
             {
                 var options = JsonConvert.DeserializeObject<DefaultAzureCredentialOptions>(FhirAuthCredentialOptions);
-                credential = new DefaultAzureCredential(options);
+                credential = new DefaultAzureCredential(options); // CodeQL [SM05137] This is non-production testing code which is not deployed to production environments.
             }
             else
             {
-                credential = new DefaultAzureCredential();
+                credential = new DefaultAzureCredential(); // CodeQL [SM05137] This is non-production testing code which is not deployed to production environments.
             }
 
             handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);

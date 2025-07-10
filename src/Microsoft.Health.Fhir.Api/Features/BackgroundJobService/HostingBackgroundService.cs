@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -72,10 +74,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
                 }
 
-                foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
+                var enabledQueueConfigs = GetEnabledQueueConfigs();
+
+                foreach (var queueConfig in enabledQueueConfigs)
                 {
-                    short runningJobCount = operation.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
-                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
+                    short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
                 }
 
                 await Task.WhenAll(jobQueues);
@@ -94,6 +98,15 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         {
             _storageReady = true;
             return Task.CompletedTask;
+        }
+
+        internal virtual IEnumerable<HostingBackgroundServiceQueueItem> GetEnabledQueueConfigs()
+        {
+            return _operationsConfiguration.GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => typeof(HostingBackgroundServiceQueueItem).IsAssignableFrom(p.PropertyType))
+                .Select(p => p.GetValue(_operationsConfiguration) as HostingBackgroundServiceQueueItem)
+                .Where(q => q != null && q.Enabled);
         }
     }
 }

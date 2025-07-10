@@ -61,7 +61,7 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Dequeuing next job.");
+                                _logger.LogInformation("Dequeuing next job for {QueueType}.", queueType);
 
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
@@ -73,7 +73,7 @@ namespace Microsoft.Health.JobManagement
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "Failed to dequeue new job.");
+                                _logger.LogError(ex, "Failed to dequeue new job for {QueueType}.", queueType);
                             }
                         }
 
@@ -102,12 +102,12 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                _logger.LogInformation("Empty queue {QueueType}. Delaying until next iteration.", queueType);
                                 await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                             }
                             catch (TaskCanceledException)
                             {
-                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                                _logger.LogInformation("Queue {QueueType} is stopping, worker is shutting down.", queueType);
                             }
                         }
                     }

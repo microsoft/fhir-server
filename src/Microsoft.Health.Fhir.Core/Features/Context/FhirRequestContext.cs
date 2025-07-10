@@ -4,11 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using Azure.Core;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Models;
@@ -28,21 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string method,
             string uriString,
             string baseUriString,
-            string correlationId)
-            : this(
-                  method,
-                  uriString,
-                  baseUriString,
-                  correlationId,
-                  requestHeaders: null,
-                  responseHeaders: null)
-        {
-        }
-
-        public FhirRequestContext(
-            string method,
-            string uriString,
-            string baseUriString,
             string correlationId,
             IDictionary<string, StringValues> requestHeaders,
             IDictionary<string, StringValues> responseHeaders)
@@ -51,20 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
+            EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
 
             Method = method;
             _uriString = uriString;
             _baseUriString = baseUriString;
             CorrelationId = correlationId;
-
-            RequestHeaders = requestHeaders ?? new ConcurrentDictionary<string, StringValues>();
-
-            // To avoid concurrent issues while updating the Response Header, we are replacing regular
-            // (non-thread safe) Dictionary with ConcurrentDictionary.
-            ResponseHeaders = responseHeaders != null && responseHeaders.Any()
-                ? new ConcurrentDictionary<string, StringValues>(responseHeaders)
-                : new ConcurrentDictionary<string, StringValues>();
-
+            RequestHeaders = requestHeaders;
+            ResponseHeaders = responseHeaders;
             IncludePartiallyIndexedSearchParams = false;
         }
 
@@ -112,7 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
                 Method,
                 _uriString,
                 _baseUriString,
-                CorrelationId);
+                CorrelationId,
+                requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
+                responseHeaders: new Dictionary<string, StringValues>(responseHeaders));
 
             clone.RouteName = RouteName;
             clone.AuditEventType = AuditEventType;

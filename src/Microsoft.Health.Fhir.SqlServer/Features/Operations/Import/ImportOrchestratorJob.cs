@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IQueueClient _queueClient;
-        private ImportTaskConfiguration _importConfiguration;
+        private ImportJobConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IAuditLogger _auditLogger;
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
-            IOptions<ImportTaskConfiguration> importConfiguration,
+            IOptions<ImportJobConfiguration> importConfiguration,
             ILoggerFactory loggerFactory,
             IAuditLogger auditLogger)
         {
@@ -91,7 +91,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     method: "Import",
                     uriString: inputData.RequestUri.ToString(),
                     baseUriString: inputData.BaseUri.ToString(),
-                    correlationId: jobInfo.Id.ToString())
+                    correlationId: jobInfo.Id.ToString(),
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
             {
                 IsBackgroundTask = true,
             };

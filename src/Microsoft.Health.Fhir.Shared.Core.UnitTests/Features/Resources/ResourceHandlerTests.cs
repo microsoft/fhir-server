@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id");
+            contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
             _resourceIdProvider = new ResourceIdProvider();
 
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), _deserializer, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), _deserializer, logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();

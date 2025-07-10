@@ -50,6 +50,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             string correlationId = correlationIdProvider.Invoke();
 
+            // https://www.hl7.org/fhir/http.html#custom
+            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
+            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
+            {
+                context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
+            }
+
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
@@ -58,18 +65,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            // https://www.hl7.org/fhir/http.html#custom
-            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
-            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
-            {
-                fhirRequestContext.ResponseHeaders[KnownHeaders.CorrelationId] = requestId;
-            }
-
-            fhirRequestContext.ResponseHeaders[KnownHeaders.RequestId] = correlationId;
-
-            fhirRequestContext.ResponseHeaders[XContentTypeOptions] = XContentTypeOptionsValue;
-            fhirRequestContext.ResponseHeaders[XFrameOptions] = XFrameOptionsValue;
-            fhirRequestContext.ResponseHeaders[ContentSecurityPolicy] = ContentSecurityPolicyValue;
+            context.Response.Headers[KnownHeaders.RequestId] = correlationId;
+            context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;
+            context.Response.Headers[XFrameOptions] = XFrameOptionsValue;
+            context.Response.Headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
