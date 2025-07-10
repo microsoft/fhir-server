@@ -100,12 +100,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                 string processingLogicAsString = headerValues.FirstOrDefault();
                 if (string.IsNullOrWhiteSpace(processingLogicAsString))
                 {
+                    // If the bundle processing header is present but empty, we consider it invalid.
                     return false;
                 }
 
-                return Enum.TryParse<BundleProcessingLogic>(processingLogicAsString.Trim(), ignoreCase: true, out _);
+                // Check if the value can be parsed as a valid BundleProcessingLogic enum value.
+                return Enum.TryParse<BundleProcessingLogic>(processingLogicAsString.Trim(), ignoreCase: true, out BundleProcessingLogic result) && Enum.IsDefined(result);
             }
 
+            // If the bundle processing header is not present, we consider it valid by default.
             return true;
         }
 
