@@ -34,7 +34,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Export)]
+    [Trait(Traits.Category, Categories.BulkDelete)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BulkDeleteTests : IClassFixture<HttpIntegrationTestFixture>
     {
