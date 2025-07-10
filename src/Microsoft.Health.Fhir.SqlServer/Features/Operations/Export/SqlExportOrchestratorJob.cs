@@ -135,11 +135,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 var globalStartId = since.ToId();
                 var till = record.Till.ToDateTimeOffset();
                 var globalEndId = till.ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
-                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                var enqueuedJobs = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
                     .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
-                    .Where(x => x.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
-                    .Max(x => long.Parse(x.EndSurrogateId));
-                var startId = Math.Max(globalStartId, enqueued + 1);
+                    .Where(x => x.EndSurrogateId != null); // This is to handle current mock tests. It is not needed but does not hurt.
+                var enqueuedSurrogateId = (enqueuedJobs?.Any() ?? false) ? enqueuedJobs.Max(x => long.Parse(x.EndSurrogateId)) : 0;
+                var startId = Math.Max(globalStartId, enqueuedSurrogateId + 1);
 
                 IReadOnlyList<(long StartId, long EndId)> response = null;
                 do
