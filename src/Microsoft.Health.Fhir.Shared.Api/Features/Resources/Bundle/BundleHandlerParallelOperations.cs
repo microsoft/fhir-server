@@ -20,7 +20,6 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -105,16 +104,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             bundleHttpContextAccessor,
                             resourceIdProvider,
                             fhirJsonParser,
+                            statistics,
                             _logger,
                             ct);
-
-                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
 
                         DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
 
                         await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
-                        watch.Stop();
                         _logger.LogInformation("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
                     }
                     catch (OperationCanceledException ex)
@@ -127,6 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (ex.IsErrorCausedDueClientFailure())
                         {
                             _logger.LogWarning(ex, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
+                            statistics.MarkBundleAsFailedDueClientError();
                         }
                         else
                         {
@@ -254,10 +252,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ResourceIdProvider resourceIdProvider,
             FhirJsonParser fhirJsonParser,
+            BundleHandlerStatistics statistics,
             ILogger<BundleHandler> logger,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
+
+            Stopwatch watch = Stopwatch.StartNew();
 
             if (resourceExecutionContext.Context.Handler != null)
             {
@@ -363,6 +364,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 };
             }
+
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
             if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
             {

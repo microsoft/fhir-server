@@ -102,16 +102,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
 
         /// <summary>
-        /// Status codes that do not require additional logging for troubleshooting.
-        /// </summary>
-        private static readonly string[] SuccessfullStatusCodeToAvoidAdditionalLogging = new[]
-        {
-            ((int)HttpStatusCode.OK).ToString(),
-            ((int)HttpStatusCode.Created).ToString(),
-            ((int)HttpStatusCode.Accepted).ToString(),
-        };
-
-        /// <summary>
         /// Properties to propagate from the outer HTTP requests to the inner actions.
         /// </summary>
         private static readonly string[] PropertiesToAccumulate = new[] { KnownQueryParameterNames.OptimizeConcurrency };
@@ -397,6 +387,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (FhirTransactionFailedException tfe) when (tfe.IsErrorCausedDueClientFailure())
             {
                 _logger.LogWarning(tfe, "Client failure while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
+                statistics.MarkBundleAsFailedDueClientError();
                 throw;
             }
             catch (Exception ex)
@@ -712,9 +703,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
                 }
 
-                statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
-
-                LogFinalOperationOutcomeForFailedRecords(resourceContext.Index, entryComponent);
+                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
@@ -893,46 +882,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         newFhirRequestContext.ResponseHeaders.Add(headerName, values);
                     }
                 }
-            }
-        }
-
-        private void LogFinalOperationOutcomeForFailedRecords(int index, EntryComponent entryComponent)
-        {
-            if (entryComponent?.Response?.Outcome == null)
-            {
-                return;
-            }
-
-            // If the result is a successful, no need to log the outcome for potential troubleshooting.
-            if (SuccessfullStatusCodeToAvoidAdditionalLogging.Contains(entryComponent.Response.Status))
-            {
-                return;
-            }
-
-            try
-            {
-                StringBuilder reason = new StringBuilder();
-                if (entryComponent.Response.Outcome is OperationOutcome operationOutcome && operationOutcome.Issue.Any())
-                {
-                    foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
-                    {
-                        reason.AppendLine($"{issue.Severity} / {issue.Code} / {SanitizeString(issue.Diagnostics)}");
-                    }
-                }
-                else
-                {
-                    reason.Append("Reason is not defined.");
-                }
-
-                _logger.LogInformation(
-                    "Throubleshoot Outcome {Index}: {HttpStatus}. Reason: {Reason}",
-                    index,
-                    entryComponent.Response.Status,
-                    reason.ToString());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Throubleshoot Outcome {index}: Error while logging the final operation outcome for failed records. This error will not block the bundle processing.");
             }
         }
 
