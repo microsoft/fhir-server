@@ -11,11 +11,15 @@ using System.Threading.Tasks;
 using Antlr4.Runtime.Misc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlExceptionExtensionsTests
     {
         [Theory]
