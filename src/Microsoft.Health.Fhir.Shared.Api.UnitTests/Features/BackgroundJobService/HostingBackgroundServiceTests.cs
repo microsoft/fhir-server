@@ -55,6 +55,6 @@ public sealed class HostingBackgroundServiceTests
         Assert.Contains(enabledQueues, q => q == bulkDeleteConfig);
         Assert.Contains(enabledQueues, q => q == bulkUpdateConfig);
         Assert.DoesNotContain(enabledQueues, q => q == importConfig);
-        Assert.Equal(2, enabledQueues.Count);
+        Assert.Equal(3, enabledQueues.Count);
     }
 }
