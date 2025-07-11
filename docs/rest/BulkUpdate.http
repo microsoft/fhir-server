@@ -44,6 +44,16 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### This operation will not update the security tag for Observation type resources even though the request includes them.
 ### _isparallel=true and without any other search parameters, processing jobs will be created by Patient-SurrogateId range
 ### If _isparallel=false , the job will run sequentially
+
+### Get Patient with security tag
+GET https://{{hostname}}/Patient?_security!=http://example.org/security-system|SECURITY_TAG_CODE
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Patient with language
+GET https://{{hostname}}/Patient?_language=fr
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
 # @name bulkUpdate
 PATCH https://{{hostname}}/Patient/$bulk-update?_isparallel=true
 Prefer: respond-async
@@ -129,6 +139,12 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### This REPLACE operation for $bulk-update will update the reference for all Observation resources if they exist.
 ### Use PatWithObservations1 and PatWithObservations2 validate
+
+### Get all the referred Observations for Patient PatWithObservations1
+GET https://{{hostname}}/Observation?subject=Patient/PatWithObservations2 
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
 # @name bulkUpdate
 PATCH https://{{hostname}}/Patient/$bulk-update?_isparallel=true&_id=PatWithObservations1&_revinclude=Observation:subject
 Prefer: respond-async
@@ -194,6 +210,12 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ### This operation will replace the category for all ServiceRequest resources if it exists. 
+
+### Get ServiceRequest with category
+GET https://{{hostname}}/ServiceRequest?category=http://terminology.hl7.org/CodeSystem/service-category|new-category-code
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
 # @name bulkUpdate
 PATCH https://{{hostname}}/ServiceRequest/$bulk-update
 content-type: application/fhir+json
