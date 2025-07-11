@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
-                isParallel: false,
+                isParallel: true,
                 maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
