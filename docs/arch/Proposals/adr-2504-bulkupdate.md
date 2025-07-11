@@ -15,10 +15,10 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - lets them choose resources with familiar expressive search, including `_include` / `_revinclude`
 - operates at **system** scope (`/$bulk-update`) or **type** scope (`/[ResourceType]/$bulk-update`).
 - enables updating specific field values per resource type based on the provided `resource type field mapping.`
-- updates `metadata` properties, such as `version` and `last updated date`, whenever a resource is modified.
+- updates `metadata` properties, such as `version` and `lastUpdatedDate`, whenever a resource is modified.
 - provides a query to retrieve the list of resources that will be updated.
-- returns a response detailing the `resource count succeeded, resource count failed to patch and resource count ignored per resource type.`
-- logs an audit entry for the bulk update operation, including the `list of resource IDs successfully updated` and `any errors with the list of resource IDs that failed to update.`
+- returns a response detailing the **resource count succeeded, resource count failed to patch and resource count ignored per resource type.**
+- logs an audit entry for the bulk update operation, including the **list of resource IDs successfully updated and any errors with the list of resource IDs that failed to update.**
 
 ### Use‑cases 
 | # | Scenario |
@@ -33,24 +33,24 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 
 ### Decision
 - Server processes only one bulk-update job at a time. If a new job is submitted while an existing one is in progress, the request will be rejected with a valid reason provided to the customer. This prevents conflicts during resource updates that could corrupt the data.
-- The bulk-update endpoint accepts an `isParallel` flag, which defaults to `true`. When isParallel is set to true and there are no search parameters in the request, the BulkUpdate orchestrator creates processing jobs on partitions based on `resource type and surrogate ID ranges`, similar to the export job. These jobs run in `parallel` to maximize throughput.
-- If isParallel is set to true and search parameters are included in the request, the BulkUpdate orchestrator reads all pages of data, including the included results, and creates processing jobs at each `continuation token level`. These jobs also run in `parallel` to maximize throughput.
+- The bulk-update endpoint accepts an `isParallel` flag, which defaults to `true`. When isParallel is set to true and there are no search parameters in the request, the BulkUpdate orchestrator creates processing jobs on partitions based on *resource type and surrogate ID ranges*, similar to the export job. These jobs run in `parallel` to maximize throughput.
+- If isParallel is set to true and search parameters are included in the request, the BulkUpdate orchestrator reads all pages of data, including the included results, and creates processing jobs at each `continuationToken` level. These jobs also run in `parallel` to maximize throughput.
 - When isParallel is set to false, the BulkUpdate orchestrator enqueues a single processing job that reads each page of data and performs updates sequentially. This approach results in relatively lower throughput.
-- A single transaction will update `1,000` resources using the Merge stored procedure, similar to other background jobs.
-- Updates on certain resource types could render the user's database invalid. To prevent this, specific resource types like `SearchParameter and ValueSet` will be excluded from bulk-update operations at both the system and resource type levels. (Previously, issues with ValueSet updates were encountered during bundle operations.)
+- A single transaction will update *1,000* resources using the Merge stored procedure, similar to other background jobs.
+- Updates on certain resource types could render the user's database invalid. To prevent this, specific resource types like `SearchParameter` and `ValueSet` will be excluded from bulk-update operations at both the system and resource type levels. (Previously, issues with ValueSet updates were encountered during bundle operations.)
 - Every patch `path` **must start with the `ResourceType` root** (e.g., `Patient.meta.tag`) to disambiguate meta‑level vs element updates. 
-- To patch the `Common properties` users should use `Resource`. (e.g., `"name": "path", "valueString": "Resource"`)
+- To patch the *Common properties* users should use `Resource`. (e.g., `"name": "path", "valueString": "Resource"`)
 - The bulk-update job must run to completion, with retry logic in place to handle transient, connectivity, or availability failures.
 - Transient, connectivity, or availability failures during job processing should not result in duplicate entries being added to a resource. To prevent this, updates should be processed in chunks wrapped within a `transaction`. 
-- If the user cancels the job, any updates that have already been committed `cannot be rolled back`.
+- If the user cancels the job, any updates that have already been committed *cannot be rolled back*.
 - A resource will only be updated, along with its metadata (e.g., version and last update time), when an actual change occurs.
 - If the update request results in an invalid resource, the update will fail for all resources of the same type. The count of resources that failed to patch will be reported to the user. User can run the regular FHIR Patch on an individual resource to get the detailed error message.
-- Attempting to `replace` an element that does not exist will fail in the FHIR Patch call. The same behavior applies to the bulk-update operation.
+- If you attempt to `replace` an element that does not exist on a resource during a FHIR Patch call, the operation will fail for that specific resource. However, resources that already contain the element will be updated successfully. In such cases, the job will result in a soft failure with partial success. This behavior is consistent with the bulk-update operation as well.
 - If no resources are returned by the search query, the FHIR Patch call will fail with a "Resource Not Found" response and a 404 Bad Request status. However, for the bulk-update operation, the job should return success with a resource updated count of 0.
 - Customers should use a `GET` query to retrieve the list of resources that will be updated. It is challenging to provide the search query or resource list for asynchronous background jobs.
 - To prevent log overloading, audit entries for bulk-update operations should be recorded in chunks, following the same approach used for bulk-delete operations.
 - Bulk-update operations will not allow profile validation on resources for now.
-- Based on previous performance runs, the maximum throughput achievable is approximately `7,000 RPS for a hyperscale` database and `3,500 RPS for a GP` database.
+- Based on previous performance runs, we are projecting around 1000 resources per seconds as a throughput.
 - Bulk-update is a powerful operation. To prevent malicious usage or improper handling, an additional RBAC role, such as "Fhir Bulk Data operator," should be introduced.
 - Bulk-updates should allow `_include=* and _revinclude=*`
 

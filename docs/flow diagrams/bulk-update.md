@@ -1,8 +1,8 @@
 ```mermaid
 sequenceDiagram
-    Client->>FhirServer: GET Create Bulk Update Request
-    FhirServer->>Middleware: GET Create Bulk Update Request
-    Middleware->>BulkUpdateController: GET Create Bulk Update Request
+    Client->>FhirServer: PATCH Create Bulk Update Request
+    FhirServer->>Middleware: PATCH Create Bulk Update Request
+    Middleware->>BulkUpdateController: PATCH Create Bulk Update Request
     BulkUpdateController->>Mediatr: Create Bulk Update Job
     Mediatr->>CreateBulkUpdateHandler: CreateBulkUpdateRequest
     CreateBulkUpdateHandler->>AuthorizationService: Check Access
@@ -17,7 +17,7 @@ sequenceDiagram
     Middleware-->>FhirServer: JobResult
     FhirServer-->>Client: JobResult
     JobHosting->>QueueClient: Dequeue Bulk Update Job
-    QueueClient->>Database: Dequeue Bulk Update Job
+    QueueClient-->>Database: Dequeue Bulk Update Job
     Database-->>QueueClient: Bulk Update Job
     QueueClient-->>JobHosting: Bulk Update Job
     JobHosting->>BulkUpdateOrchestratorJob: Run Bulk Update Job
@@ -25,7 +25,7 @@ sequenceDiagram
     QueueClient->>Database: Enqueue Bulk Update Processing Jobs
     Database-->>QueueClient: Enqueued Jobs
     QueueClient-->>BulkUpdateOrchestratorJob: Enqueued Jobs
-    BulkUpdateOrchestratorJob-->>JobHosting: Finished Job
+    BulkUpdateOrchestratorJob->>JobHosting: Finished Job
     JobHosting->>QueueClient: Finish Job
     QueueClient->>Database: Finish Job
     Database-->>QueueClient: Finished Job
