@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             bool deleteAll = false,
             ResourceVersionType versionType = ResourceVersionType.Latest,
             bool allowPartialSuccess = false,
-            bool isIncludesRequest = false)
+            bool isIncludesRequest = false,
+            bool removeReferences = false)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             VersionType = versionType;
             AllowPartialSuccess = allowPartialSuccess;
             IsIncludesRequest = isIncludesRequest;
+            RemoveReferences = removeReferences;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -49,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public bool AllowPartialSuccess { get; }
 
         public bool IsIncludesRequest { get; set; }
+
+        public bool RemoveReferences { get; set; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
 
