@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Bundle = nameof(Bundle);
 
+        public const string BundleTransaction = nameof(BundleTransaction);
+
         public const string BundleOrchestrator = nameof(BundleOrchestrator);
 
         public const string CompartmentSearch = nameof(CompartmentSearch);
@@ -89,8 +91,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string SmartOnFhir = nameof(SmartOnFhir);
 
         public const string Sort = nameof(Sort);
-
-        public const string Transaction = nameof(Transaction);
 
         public const string Throttling = nameof(Throttling);
 

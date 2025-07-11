@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public static class BundleHandlerRuntime
     {
         // The default bundle processing logic for Transactions is set to Parallel, as by the FHIR specification, a transactional bundle
-        // cannot contain any resources that refer to each other, and therefore can be processed in parallel.
-        // The default bundle processing logic for Batches is set to Sequential, as by the FHIR specification, a batch can contain resources
-        // that refer to each other, and therefore must be processed sequentially.
+        // cannot contain duplicated operations under the same bundle.
+        // The default bundle processing logic for Batches is set to Sequential, as current customer can haver esource identities overlaps
+        // (including resolved identities from conditional update/delete, which are not allowed in a transaction bundle).
         private const BundleProcessingLogic BatchDefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
         private const BundleProcessingLogic TransactionDefaultBundleProcessingLogic = BundleProcessingLogic.Parallel;
 
