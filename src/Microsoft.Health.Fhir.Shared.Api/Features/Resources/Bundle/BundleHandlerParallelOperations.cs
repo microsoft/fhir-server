@@ -374,9 +374,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var errorMessage = string.Format(
                     Api.Resources.TransactionFailed,
                     resourceExecutionContext.Context.HttpContext.Request.Method,
-                    resourceExecutionContext.Index,
-                    resourceExecutionContext.ResourceType,
-                    (int)httpStatusCode);
+                    resourceExecutionContext.Context.HttpContext.Request.Path);
 
                 TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
             }

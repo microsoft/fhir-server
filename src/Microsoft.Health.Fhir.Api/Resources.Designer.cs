@@ -781,7 +781,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos;, for the record on position {1}, of type &apos;{2}&apos;, with error code HTTP{3}..
+        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
         /// </summary>
         public static string TransactionFailed {
             get {

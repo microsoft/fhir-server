@@ -723,12 +723,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
 
-                    var errorMessage = string.Format(
-                        Api.Resources.TransactionFailed,
-                        resourceContext.Context.HttpContext.Request.Method,
-                        resourceContext.Index,
-                        resourceContext.ResourceType,
-                        (int)httpStatusCode);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
                     TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
                 }
