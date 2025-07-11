@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (ArgumentException)
             {
-                throw new InvalidOperationException($"Invalid patch operation type: '{operationTypeString}'. Only 'add', 'insert', 'delete', 'replace', and 'move' are allowed.");
+                throw new InvalidOperationException($"Invalid patch operation type: '{operationTypeString}'. Only 'add', 'insert', 'delete', 'replace', 'upsert', and 'move' are allowed.");
             }
 
             var path = component.Part.FirstOrDefault(x => x.Name == "path")?.Value.ToString();
@@ -108,8 +108,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
                 throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'name' part.");
             }
 
+            if (string.IsNullOrEmpty(Name) && Type == PatchOperationType.UPSERT)
+            {
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'name' part.");
+            }
+
             if (Value is null &&
-                new[] { PatchOperationType.ADD, PatchOperationType.INSERT, PatchOperationType.REPLACE }.Contains(Type))
+                new[] { PatchOperationType.ADD, PatchOperationType.INSERT, PatchOperationType.REPLACE, PatchOperationType.UPSERT }.Contains(Type))
             {
                 throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'value' part.");
             }

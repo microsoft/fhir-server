@@ -277,5 +277,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
         }
+
+        private static void PopulateGetActiveJobsCommand(SqlCommand cmd, byte queueType)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetActiveJobs";
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+        }
     }
 }

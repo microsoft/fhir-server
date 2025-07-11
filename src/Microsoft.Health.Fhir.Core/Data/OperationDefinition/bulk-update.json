@@ -1,0 +1,32 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "bulk-update",
+    "url": "[base]/OperationDefinition/bulk-update",
+    "version": "1.0.0",
+    "name": "Bulk Update",
+    "status": "active",
+    "kind": "operation",
+    "description": "Updates all data from a FHIR server that matches the search parameters. Any supported search parameter can be inluded as query string parameters. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "code": "bulk-update",
+    "system": true,
+    "type": true,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "_isParallel",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Whether to divide the job into multiple parallel operations. Defaults to true.",
+            "type": "bool"
+        },
+        {
+            "name": "RequestBody",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Fhir patch parameters resource",
+            "type": "Parameters"
+        }
+    ]
+}

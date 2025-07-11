@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public static IEnumerable<object[]> GetIncorrectRequestTestData()
         {
             yield return new object[] { new Parameters().AddPatchParameter("replace", value: new Code("female")), "Patch replace operations must have the 'path' part." };
-            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")), "Invalid patch operation type: 'coo'. Only 'add', 'insert', 'delete', 'replace', and 'move' are allowed." };
+            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")), "Invalid patch operation type: 'coo'. Only 'add', 'insert', 'delete', 'replace', 'upsert', and 'move' are allowed." };
             yield return new object[] { new Parameters().AddPatchParameter("replace"), "Patch replace operations must have the 'path' part." };
             yield return new object[] { new Parameters().AddPatchParameter("replace", path: "Patient.gender"), "Patch replace operations must have the 'value' part." };
         }

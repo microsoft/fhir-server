@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -490,6 +491,22 @@ public class CosmosQueueClient : IQueueClient
             var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
 
             return response.ToList();
+    }
+
+    private async Task<IReadOnlyList<JobGroupWrapper>> GetActiveJobsByQueueTypeInternalAsync(
+        byte queueType,
+        CancellationToken cancellationToken)
+    {
+        QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+           JOIN d in c.definitions
+           WHERE c.queueType = @queueType 
+           AND (d.status = 0 OR
+               (d.status = 1)")
+            .WithParameter("@queueType", queueType);
+
+        var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
+
+        return response.ToList();
     }
 
     private async Task<IReadOnlyList<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>> GetJobsByIdsInternalAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)

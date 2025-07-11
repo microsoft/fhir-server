@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string BulkDelete = nameof(BulkDelete);
 
+        public const string BulkUpdate = nameof(BulkUpdate);
+
         public const string Bundle = nameof(Bundle);
 
         public const string BundleOrchestrator = nameof(BundleOrchestrator);

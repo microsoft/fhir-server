@@ -88,6 +88,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsBulkDelete { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the server supports the $bulk-update.
+        /// </summary>
+        public bool SupportsBulkUpdate { get; set; }
+
+        /// <summary>
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
