@@ -79,12 +79,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// Retrieves from the HTTP header information about the bundle processing logic to be adopted.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>
-        public static BundleProcessingLogic GetBundleProcessingLogic(this HttpContext outerHttpContext)
+        /// <param name="defaultBundleProcessingLogic">Default bundle processing logic to use if not specified in the header</param>
+        public static BundleProcessingLogic GetBundleProcessingLogic(this HttpContext outerHttpContext, BundleProcessingLogic defaultBundleProcessingLogic)
         {
             return ExtractEnumerationFlagFromHttpHeader(
                 outerHttpContext,
                 httpHeaderName: BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic,
-                defaultValue: BundleProcessingLogic.Sequential);
+                defaultValue: defaultBundleProcessingLogic);
+        }
+
+        public static bool IsBundleProcessingLogicValid(this HttpContext outerHttpContext)
+        {
+            if (outerHttpContext == null)
+            {
+                return false;
+            }
+
+            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            {
+                string processingLogicAsString = headerValues.FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(processingLogicAsString))
+                {
+                    // If the bundle processing header is present but empty, we consider it invalid.
+                    return false;
+                }
+
+                // Check if the value can be parsed as a valid BundleProcessingLogic enum value.
+                return Enum.TryParse<BundleProcessingLogic>(processingLogicAsString.Trim(), ignoreCase: true, out BundleProcessingLogic result) && Enum.IsDefined(result);
+            }
+
+            // If the bundle processing header is not present, we consider it valid by default.
+            return true;
         }
 
         public static TEnum ExtractEnumerationFlagFromHttpHeader<TEnum>(HttpContext outerHttpContext, string httpHeaderName, TEnum defaultValue)

@@ -15,7 +15,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Transaction)]
+    [Trait(Traits.Category, Categories.BundleTransaction)]
     public class FhirTransactionFailedExceptionTests
     {
         [Fact]

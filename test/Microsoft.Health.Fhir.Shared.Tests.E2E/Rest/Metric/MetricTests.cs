@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         }
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Category, Categories.BundleTransaction)]
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
         public async Task GivenATransaction_WhenInvoked_MetricNotificationsShouldBeEmitted()
