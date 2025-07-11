@@ -6,9 +6,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
-    internal static class ExceptionExtension
+    public static class ExceptionExtension
     {
-        internal static bool IsRetriable(this Exception e)
+        public static bool IsRetriable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                    || HasIncorrectAsyncCallPattern(str);
         }
 
-        internal static bool IsExecutionTimeout(this Exception e)
+        public static bool IsExecutionTimeout(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
