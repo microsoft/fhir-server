@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             try
             {
-                _logger.LogWarning("Bundle Operation {Id}. Bundle Orchestrator Operation was requested to cancel. Reason: {Reason}", Id, reason);
+                _logger.LogWarning($"Bundle Operation '{Id}'. Bundle Orchestrator Operation was requested to cancel. Reason: {reason}");
 
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 

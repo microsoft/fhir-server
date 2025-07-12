@@ -28,20 +28,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Parallel.For(0, numberOfResources - 2, i =>
             {
                 // Success.
-                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, i, "200", TimeSpan.Zero);
+                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, "200", TimeSpan.Zero);
             });
 
             // Customer error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, numberOfResources - 2, "400", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, "400", TimeSpan.Zero);
 
             // Server error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, numberOfResources - 1, "500", TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, "500", TimeSpan.Zero);
 
             Assert.Equal(numberOfResources, bundleStatistics.NumberOfResources);
             Assert.Equal(numberOfResources, bundleStatistics.RegisteredEntries);
             Assert.Equal(BundleProcessingLogic.Parallel, bundleStatistics.BundleProcessingLogic);
 
-            JObject statisticsAsJson = JObject.Parse(bundleStatistics.GetStatisticsAsJson());
+            string statisticsAsString = bundleStatistics.GetStatisticsAsJson();
+            JObject statisticsAsJson = JObject.Parse(statisticsAsString);
             long success = statisticsAsJson["success"].Value<long>();
             long errors = statisticsAsJson["errors"].Value<long>();
             long customerErrors = statisticsAsJson["customerErrors"].Value<long>();
