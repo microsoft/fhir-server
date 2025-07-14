@@ -179,8 +179,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ResourcesPatchFailed = "resourcesPatchFailed";
 
-        public const string ResourcesUpdateFailed = "resourcesUpdateFailed";
-
         public const string ResourcesIgnored = "resourcesIgnored";
 
         public const string ExpectedResourceCount = "expectedResourceCount";
@@ -190,6 +188,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string ExcludedResourceTypes = "excludedResourceTypes";
 
         public const string Parameters = "parameters";
+
+        public const string RemoveReferences = "removeReferences";
 
         public const string ReadNextPage = "readNextPage";
     }

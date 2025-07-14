@@ -16,11 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
     public static class BulkDeleteMediatorExtensions
     {
-        public static async Task<CreateBulkDeleteResponse> BulkDeleteAsync(this IMediator mediator, DeleteOperation deleteOperation, string resourceType, IList<Tuple<string, string>> searchParameters, bool includeSoftDeleted, IList<string> excludedResourceTypes, CancellationToken cancellationToken)
+        public static async Task<CreateBulkDeleteResponse> BulkDeleteAsync(this IMediator mediator, DeleteOperation deleteOperation, string resourceType, IList<Tuple<string, string>> searchParameters, bool includeSoftDeleted, IList<string> excludedResourceTypes, bool removeReferences, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, includeSoftDeleted, excludedResourceTypes);
+            var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, includeSoftDeleted, excludedResourceTypes, removeReferences);
 
             CreateBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
             return response;

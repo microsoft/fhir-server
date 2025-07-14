@@ -513,7 +513,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Category, Categories.BundleTransaction)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
         {
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Category, Categories.BundleTransaction)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundle_WhenAnUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
         {
