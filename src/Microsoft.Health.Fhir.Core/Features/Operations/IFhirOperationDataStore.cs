@@ -90,27 +90,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>True if any found, along with id of the job</returns>
         Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Signals an active reindex job that new search parameters are available
-        /// </summary>
-        /// <param name="jobId">The ID of the reindex job to signal</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task SignalReindexJobUpdateAsync(string jobId, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Checks if there are pending update signals for a reindex job
-        /// </summary>
-        /// <param name="jobId">The ID of the reindex job</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>True if there are pending updates</returns>
-        Task<bool> HasPendingReindexUpdatesAsync(string jobId, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Clears pending update signals for a reindex job
-        /// </summary>
-        /// <param name="jobId">The ID of the reindex job</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task ClearReindexUpdateSignalsAsync(string jobId, CancellationToken cancellationToken);
     }
 }
