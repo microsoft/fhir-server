@@ -59,17 +59,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new UnauthorizedFhirActionException();
             }
 
+            // Check for active reindex jobs - but don't block, instead signal for updates
             (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
+
             if (activeReindexJobs)
             {
-                throw new JobConflictException(string.Format(Core.Resources.OnlyOneResourceJobAllowed, reindexJobId));
+                // Return the existing job information instead of creating a new one
+                var existingJob = await _fhirOperationDataStore.GetReindexJobByIdAsync(reindexJobId, cancellationToken);
+                return new CreateReindexResponse(existingJob);
             }
 
             // We need to pull in latest search parameter updates from the data store before creating a reindex job.
             // There could be a potential delay of <see cref="ReindexJobConfiguration.JobPollingFrequency"/> before
-            // search parameter updates on one instance propagates to other instances. If we store the reindex
-            // job with the old hash value in _searchParameterDefinitionManager.SearchParameterHashMap, then we will
-            // not detect the resources that need to be reindexed.
+            // search parameter updates on one instance propagates to other instances.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
             // What this handles is the scenario where a user is effectively forcing a reindex to run by passing
@@ -90,7 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             var jobRecord = new ReindexJobRecord(
-            _searchParameterDefinitionManager.SearchParameterHashMap,
             request.TargetResourceTypes,
             request.TargetSearchParameterTypes,
             searchParameterResourceTypes,

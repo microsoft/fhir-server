@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
         private bool? _isSurrogateIdRangingSupported = null;
+        private IReadOnlyCollection<ResourceSearchParameterStatus> _initialSearchParamStatusCollection;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -145,8 +146,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
-            var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(searchParamStatusCollection.First(p => p.Uri == sp.Url).Status));
+            _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(_initialSearchParamStatusCollection.First(p => p.Uri == sp.Url).Status));
             var notYetIndexedParams = new List<SearchParameterInfo>();
 
             var resourceList = new HashSet<string>();
@@ -325,7 +326,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         TypeId = (int)JobType.ReindexProcessing,
                         GroupId = _jobInfo.GroupId,
-                        ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                         ResourceCount = new SearchResultReindex
                         {
                             StartResourceSurrogateId = range.StartId,
@@ -442,10 +442,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            if (!_reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash))
-            {
-                searchParameterHash = string.Empty;
-            }
 
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
@@ -547,12 +543,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return searchResultReindex;
         }
 
-        private string GetHashMapByResourceType(string resourceType)
-        {
-            _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string searchResultHashMap);
-            return searchResultHashMap;
-        }
-
         private bool CheckJobRecordForAnyWork()
         {
             return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count <= 0 && e.Value.StartResourceSurrogateId > 0);
@@ -594,11 +584,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             int unchangedCount = 0;
             int changeDetectedCount = 0;
             DateTime lastPollTime = DateTime.UtcNow;
+            DateTime lastSearchParameterCheck = DateTime.MinValue;
 
             const int MAX_UNCHANGED_CYCLES = 3;
             const int MIN_POLL_INTERVAL_MS = 100;
             const int MAX_POLL_INTERVAL_MS = 5000;
             const int DEFAULT_POLL_INTERVAL_MS = 1000;
+            const int SEARCH_PARAMETER_CHECK_INTERVAL_MS = 60000; // Check every 1 minute
 
             int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
 
@@ -606,6 +598,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
+                    // Check for search parameter changes every 5 minutes
+                    if (DateTime.UtcNow - lastSearchParameterCheck > TimeSpan.FromMilliseconds(SEARCH_PARAMETER_CHECK_INTERVAL_MS))
+                    {
+                        await CheckForSearchParameterUpdates(cancellationToken);
+                        lastSearchParameterCheck = DateTime.UtcNow;
+                    }
+
                     // Adjust polling interval based on activity
                     if (activeJobs.Count != lastActiveJobCount)
                     {
@@ -878,6 +877,126 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return (totalCount, resourcesTypes);
+        }
+
+        private async Task CheckForSearchParameterUpdates(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogDebug("Checking for search parameter updates for reindex job {JobId}", _jobInfo.Id);
+
+                // Sync the latest search parameters
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+
+                // Get the current search parameter status collection
+                var currentSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+
+                // Compare current state with initial state to determine if there are actual changes
+                if (HasSearchParameterStatusChanged(_initialSearchParamStatusCollection, currentSearchParamStatusCollection))
+                {
+                    _logger.LogInformation("Search parameter status changes detected for reindex job {JobId}. Processing updates...", _jobInfo.Id);
+
+                    // Cancel any queued/created jobs that haven't started processing yet
+                    await CancelPendingJobsAsync(cancellationToken);
+
+                    // Update the global collection with the current state
+                    _initialSearchParamStatusCollection = currentSearchParamStatusCollection;
+
+                    // Re-evaluate and create new jobs with updated search parameters
+                    var newJobIds = await CreateReindexProcessingJobsAsync(cancellationToken);
+
+                    if (newJobIds?.Any() == true)
+                    {
+                        _logger.LogInformation("Created {Count} new processing jobs for updated search parameters in reindex job {JobId}", newJobIds.Count, _jobInfo.Id);
+                        _currentResult.CreatedJobs += newJobIds.Count;
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("No significant search parameter status changes detected for reindex job {JobId}", _jobInfo.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking for search parameter updates for reindex job {JobId}", _jobInfo.Id);
+            }
+        }
+
+        private bool HasSearchParameterStatusChanged(
+            IReadOnlyCollection<ResourceSearchParameterStatus> initialCollection,
+            IReadOnlyCollection<ResourceSearchParameterStatus> currentCollection)
+        {
+            if (initialCollection == null || currentCollection == null)
+            {
+                return true; // Consider this a change if either collection is null
+            }
+
+            // Create dictionaries for efficient lookup
+            var initialLookup = initialCollection.ToDictionary(sp => sp.Uri, sp => sp.Status);
+            var currentLookup = currentCollection.ToDictionary(sp => sp.Uri, sp => sp.Status);
+
+            // Check 1: Count change indicates newly added or completely removed parameters
+            if (initialLookup.Count != currentLookup.Count)
+            {
+                _logger.LogInformation("Search parameter count changed from {InitialCount} to {CurrentCount}", initialLookup.Count, currentLookup.Count);
+                return true;
+            }
+
+            // Check 2: Status changes for initially enabled parameters
+            var initialEnabledParams = initialLookup.Where(kvp => kvp.Value == SearchParameterStatus.Enabled);
+            foreach (var kvp in initialEnabledParams)
+            {
+                if (!currentLookup.TryGetValue(kvp.Key, out var currentStatus) || currentStatus != kvp.Value)
+                {
+                    _logger.LogInformation("Initially enabled search parameter status changed for {Uri}: {InitialStatus} -> {CurrentStatus}", kvp.Key, kvp.Value, currentStatus.ToString());
+                    return true;
+                }
+            }
+
+            // Check 3: Parameters that transitioned to Deleted status
+            var deletedParams = currentLookup.Where(kvp =>
+                kvp.Value == SearchParameterStatus.Deleted &&
+                initialLookup.ContainsKey(kvp.Key) &&
+                initialLookup[kvp.Key] != SearchParameterStatus.Deleted);
+
+            if (deletedParams.Any())
+            {
+                _logger.LogInformation("Search parameters transitioned to Deleted status: {DeletedParams}", string.Join(", ", deletedParams.Select(kvp => kvp.Key)));
+                return true;
+            }
+
+            return false; // No relevant changes detected
+        }
+
+        private async Task CancelPendingJobsAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                // Get all jobs in the group
+                var allJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, cancellationToken);
+
+                // Find jobs that are Created but not yet Running (haven't been picked up by workers)
+                var pendingJobs = allJobs.Where(j =>
+                    j.Id != _jobInfo.Id &&
+                    j.Status == JobStatus.Created).ToList();
+
+                foreach (var pendingJob in pendingJobs)
+                {
+                    try
+                    {
+                        await _queueClient.CancelJobByIdAsync((byte)QueueType.Reindex, pendingJob.Id, cancellationToken);
+                        _logger.LogInformation("Cancelled pending job {JobId} due to search parameter updates", pendingJob.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to cancel pending job {JobId}", pendingJob.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling pending jobs for reindex job {JobId}", _jobInfo.Id);
+            }
         }
     }
 }

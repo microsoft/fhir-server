@@ -284,7 +284,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(expected.Id, actual.Id);
             Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
-            Assert.Equal(expected.ResourceTypeSearchParameterHashMap, actual.ResourceTypeSearchParameterHashMap);
             Assert.Equal(expected.StartTime, actual.StartTime);
             Assert.Equal(expected.Status, actual.Status);
             Assert.Equal(

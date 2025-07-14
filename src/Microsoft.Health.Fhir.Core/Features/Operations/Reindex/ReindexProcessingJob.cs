@@ -102,10 +102,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            if (string.IsNullOrEmpty(_reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap))
-            {
-                searchParameterHash = string.Empty;
-            }
 
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
@@ -158,12 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                var dictionary = new Dictionary<string, string>
-                {
-                    { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
-                };
-
-                await _timeoutRetries.ExecuteAsync(async () => await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                await _timeoutRetries.ExecuteAsync(async () => await _reindexUtilities.ProcessSearchResultsAsync(result, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 if (!cancellationToken.IsCancellationRequested)
                 {

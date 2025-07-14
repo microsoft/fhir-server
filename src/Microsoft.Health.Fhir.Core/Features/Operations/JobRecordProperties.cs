@@ -115,8 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string FilteredSearchesComplete = "FilteredSearchesComplete";
 
-        public const string ResourceTypeSearchParameterHashMap = "resourceTypeSearchParameterHashMap";
-
         public const string ExportFormat = "exportFormat";
 
         public const string RollingFileSizeInMB = "rollingFileSizeInMB";
