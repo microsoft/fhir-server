@@ -37,12 +37,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
     [Trait(Traits.Category, Categories.BulkUpdate)]
     public class CreateBulkUpdateHandlerTests
     {
-        private IAuthorizationService<DataActions> _authorizationService;
-        private IQueueClient _queueClient;
-        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ISearchService _searchService;
-        private CreateBulkUpdateHandler _handler;
-        private string _testUrl = "https://test.com/";
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IQueueClient _queueClient;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ISearchService _searchService;
+        private readonly CreateBulkUpdateHandler _handler;
+        private readonly string _testUrl = "https://test.com/";
 
         public CreateBulkUpdateHandlerTests()
         {

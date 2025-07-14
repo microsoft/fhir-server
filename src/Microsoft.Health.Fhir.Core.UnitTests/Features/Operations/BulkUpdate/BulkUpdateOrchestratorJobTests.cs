@@ -34,9 +34,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
     [Trait(Traits.Category, Categories.BulkUpdate)]
     public class BulkUpdateOrchestratorJobTests
     {
-        private IQueueClient _queueClient;
-        private ISearchService _searchService;
-        private BulkUpdateOrchestratorJob _orchestratorJob;
+        private readonly IQueueClient _queueClient;
+        private readonly ISearchService _searchService;
+        private readonly BulkUpdateOrchestratorJob _orchestratorJob;
 
         public BulkUpdateOrchestratorJobTests()
         {
@@ -91,6 +91,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Assert.NotNull(actualDefinition.StartSurrogateId);
                 Assert.NotNull(actualDefinition.EndSurrogateId);
             }
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithSinglePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(_ =>
+                {
+                    return Task.FromResult(GenerateSearchResult(2, null));
+                });
+
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+
+            // Checks that 6 processing jobs were queued
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = calls
+                .Skip(1) // Skip the first call (index 0)
+                .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
+                .SelectMany(defs => defs) // Flatten all arrays into one sequence
+                .ToArray(); // Convert to a single string[]
+
+            Assert.Single(definitions);
+            var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[0]);
+
+            // check actualDefinition.Type contains one of the type from resourceTypes
+            Assert.NotNull(actualDefinition.Type);
+            Assert.Equal("Patient", actualDefinition.Type);
+            Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
         }
 
         [Fact]
@@ -156,6 +202,94 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludesPage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchAndIncludedResources()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            // For match results
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), false)
+                .Returns(_ =>
+                {
+                    // First page with no more matched results but has includes continuation token
+                    return Task.FromResult(GenerateSearchResult(2, null, "includesContinuationToken"));
+                });
+
+            // For included results
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), true)
+                .Returns(_ =>
+                {
+                    // When call for includes, it returns a single page with no continuation token
+                    return Task.FromResult(GenerateSearchResult(2, null, null));
+                });
+
+            // Arrange the context to trigger AreIncludeResultsTruncated() == true
+            var bundleIssues = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue("warning", "informational", Core.Resources.TruncatedIncludeMessage),
+            };
+            var testContext = Substitute.For<IFhirRequestContext>();
+            testContext.BundleIssues.Returns(bundleIssues);
+
+            // Use the contextAccessor in the orchestrator
+            var orchestratorJobWithTruncatedIssue = new TestBulkUpdateOrchestratorJob(
+                _queueClient,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                _searchService.CreateMockScopeFactory(),
+                Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
+                testContext);
+
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _queueClient.ReceivedWithAnyArgs(2).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+
+            // Checks that 6 processing jobs were queued
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = calls
+                .Skip(1) // Skip the first call (index 0)
+                .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
+                .SelectMany(defs => defs) // Flatten all arrays into one sequence
+                .ToArray(); // Convert to a single string[]
+            Assert.Equal(2, definitions.Length);
+
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[i]);
+
+                // check actualDefinition.Type contains one of the type from resourceTypes
+                Assert.NotNull(actualDefinition.Type);
+                Assert.Equal("Patient", actualDefinition.Type);
+
+                // First call will be normal search with CT and ICT both null
+                // The first search call will return ICT with CT = null, there would be 1 such call for search as a second call for includes
+                if (i == 0)
+                {
+                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
+                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
+                }
+                else
+                {
+                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
+                    Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
+                }
+            }
+        }
+
+        [Fact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludes_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchAndIncludedResources()
         {
             _queueClient.ClearReceivedCalls();
@@ -164,16 +298,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             int callCountForMatchResults = 0;
             int callCountForIncludesResults = 0;
 
-            // For match results
             _searchService
                 .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), false)
                 .Returns(_ =>
                 {
                     callCountForMatchResults++;
 
-                    // First 5 calls: return "ContinuationToken", 6th call: return null
-                    var continuationToken = callCountForMatchResults <= 5 ? "continuationToken" + callCountForMatchResults.ToString() : null;
-                    var includesContinuationToken = callCountForMatchResults <= 2 ? "includesContinuationToken" + callCountForMatchResults.ToString() : null;
+                    // First 3 calls: return "ContinuationToken", 4th call: return null
+                    // Total 4 matched pages, with the first 2 pages having "includesContinuationToken"
+                    var continuationToken = callCountForMatchResults <= 3 ? "continuationToken" : null;
+                    var includesContinuationToken = callCountForMatchResults <= 2 ? "includesContinuationToken" : null;
                     return Task.FromResult(GenerateSearchResult(2, continuationToken, includesContinuationToken));
                 });
 
@@ -184,9 +318,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 {
                     callCountForIncludesResults++;
 
-                    // First 2 calls: return "ContinuationToken", 3rd call: return null
+                    // First 2 calls: return "includesContinuationToken", 3rd call: return null
                     var continuationToken = "continuationToken";
-                    var includesContinuationToken = callCountForIncludesResults <= 2 ? "includesContinuationToken" + callCountForIncludesResults.ToString() : null;
+                    var includesContinuationToken = callCountForIncludesResults <= 2 ? "includesContinuationToken" : null;
                     return Task.FromResult(GenerateSearchResult(2, continuationToken, includesContinuationToken));
                 });
 
@@ -219,17 +353,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(10).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(8).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that 6 processing jobs were queued
+            // Checks that 8 processing jobs were queued
             var calls = _queueClient.ReceivedCalls();
             var definitions = calls
                 .Skip(1) // Skip the first call (index 0)
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
-            Assert.Equal(10, definitions.Length);
+            Assert.Equal(8, definitions.Length);
 
             for (int i = 0; i < definitions.Length; i++)
             {
@@ -239,10 +373,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Assert.NotNull(actualDefinition.Type);
                 Assert.Equal("Patient", actualDefinition.Type);
 
-                // First call will be normal search with CT and ICT both null
-                // The first search call will return ICT, with CT = null, there would be 3 such calls until callCountForIncludesResults reaches 3(no more include results on page 1)
-                // We go to next page of match results (callCountForMatchResults = 2) which will have ICT (only 1 included page for 2nd page of matched result page)
-                // Remaining pages for match results
+                // MatchPage1 hence 1st call equeued as (ct=null,ict=null)
+                // Has 2 pages of includes so 2nd and 3rd(search for include is called) and 4th(search for include is called) call => (ct = null, ict = "includesContinuationToken")
+                // MatchPage2 hence 5th call (ct=continuationToken, ict=null)
+                // Has includes continuation token so 6th call (ct=continuationToken, ict=includesContinuationToken)
+                // MatchPage3 hence 7th call (ct=continuationToken, ict=null)
+                // MatchPage4 hence 8th call (ct=continuationToken, ict=null)
 
                 if (i == 0)
                 {

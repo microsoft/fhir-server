@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
-            // Should not run bulk Update if it is trying to update a resource types like SearchParam and ValueSet
+            // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
             if (_excludedResourceTypes.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
@@ -106,9 +106,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // converting parameters to string using fhir Serializer
             var parametersString = _customFhirJsonSerializer.Serialize(request.Parameters);
-
-            // var test = _resourceDeserializer.Deserialize<Hl7.Fhir.Model.Parameters>(parametersString);
-
             var processingDefinition = new BulkUpdateDefinition(
                 JobType.BulkUpdateOrchestrator,
                 request.ResourceType,
@@ -118,6 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 _contextAccessor.RequestContext.CorrelationId,
                 parametersString,
                 request.IsParallel);
+
             IReadOnlyList<JobInfo> jobInfo;
             try
             {

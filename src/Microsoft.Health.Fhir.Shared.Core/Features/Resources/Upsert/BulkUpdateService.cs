@@ -61,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
-        private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly CoreFeatureConfiguration _configuration;
@@ -91,10 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
-
-            _retryPolicy = Policy
-                .Handle<RequestRateExceededException>()
-                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count) + RandomNumberGenerator.GetInt32(0, 5)));
         }
 
         public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
@@ -155,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
 
                         resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-                        AppendUpdateResults((Dictionary<string, long>)finalBulkUpdateResult.ResourcesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+                        AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
                         updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
 
@@ -181,7 +176,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         if (isIncludesRequest)
                         {
                             // for includerequests, keep ct as is and remove the includesContinuationToken and add new includesContinuationToken to the cloneList
-                            // Always remove any existing IncludesContinuationToken, then add the new one
                             cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
                             cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
                         }
@@ -231,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-            AppendUpdateResults((Dictionary<string, long>)finalBulkUpdateResult.ResourcesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
             if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults)
             {
@@ -250,9 +244,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         if (result.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<BulkUpdateResult>))
                         {
                             var resourcesUpdated = result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<BulkUpdateResult>)
-                                    .Select(ex => (Dictionary<string, long>)((IncompleteOperationException<BulkUpdateResult>)ex).PartialResults.ResourcesUpdated);
+                                    .Select(ex => ((IncompleteOperationException<BulkUpdateResult>)ex).PartialResults.ResourcesUpdated as Dictionary<string, long>);
                             AppendUpdateResults(resourceTypesUpdated, resourcesUpdated);
-                            AppendUpdateResults((Dictionary<string, long>)finalBulkUpdateResult.ResourcesUpdated, resourcesUpdated);
+                            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, resourcesUpdated);
                         }
 
                         if (result.IsFaulted)
@@ -274,8 +268,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private async Task FinalizePatchResultsAndAuditAsync(string resourceType, BulkUpdateResult finalBulkUpdateResult, Dictionary<string, long> resourcesIgnored, Dictionary<string, long> commonPatchFailures, ConcurrentDictionary<string, long> patchFailures, ConcurrentDictionary<string, List<(string id, Exception exception)>> patchExceptions)
         {
             // Let's update finalBulkUpdateResult with current page patch results commonPatchFailures, patchFailures, resourcesIgnored
-            AppendUpdateResults((Dictionary<string, long>)finalBulkUpdateResult.ResourcesIgnored, [resourcesIgnored]);
-            AppendUpdateResults((Dictionary<string, long>)finalBulkUpdateResult.ResourcesPatchFailed, [commonPatchFailures]);
+            AppendUpdateResults(finalBulkUpdateResult.ResourcesIgnored as Dictionary<string, long>, [resourcesIgnored]);
+            AppendUpdateResults(finalBulkUpdateResult.ResourcesPatchFailed as Dictionary<string, long>, [commonPatchFailures]);
             foreach (var newResult in patchFailures)
             {
                 if (!finalBulkUpdateResult.ResourcesPatchFailed.TryAdd(newResult.Key, newResult.Value))
@@ -371,9 +365,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             // Add resources ignored by resource type by filtering out the excluded resource types
             foreach (var kvp in resourcesPerPage.Where(kvp => _excludedResourceTypes.Contains(kvp.Key)))
             {
-                if (resourcesIgnored.ContainsKey(kvp.Key))
+                if (resourcesIgnored.TryGetValue(kvp.Key, out long existingValue))
                 {
-                    resourcesIgnored[kvp.Key] += kvp.Value;
+                    resourcesIgnored[kvp.Key] = existingValue + kvp.Value;
                 }
                 else
                 {
@@ -394,41 +388,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Build conditionalPatchResourceRequests
-            foreach (var distinctResourceTypeOnPage in resourcesPerPage.Keys.ToList())
+            var filteredResourceTypes = resourcesPerPage.Keys
+                .Where(distinctResourceTypeOnPage => !conditionalPatchResourceRequests.ContainsKey(distinctResourceTypeOnPage))
+                .ToList();
+
+            foreach (var distinctResourceTypeOnPage in filteredResourceTypes)
             {
-                if (!conditionalPatchResourceRequests.TryGetValue(distinctResourceTypeOnPage, out ConditionalPatchResourceRequest conditionalPatchResourceRequestOut))
+                var newListOfFhirPatchParameters = fhirPatchParameters.Parameter
+                    .Where(param =>
+                    {
+                        var pathValue = param.Part
+                            .FirstOrDefault(p => p.Name.Equals("path", StringComparison.Ordinal))?.Value?.ToString();
+
+                        return pathValue != null &&
+                               (pathValue.StartsWith(distinctResourceTypeOnPage, StringComparison.InvariantCultureIgnoreCase) ||
+                                pathValue.StartsWith("Resource", StringComparison.InvariantCultureIgnoreCase));
+                    })
+                    .ToList();
+
+                // Prepare the new conditional patch request for the distinct resource type only when there are applicable parameters
+                if (newListOfFhirPatchParameters.Any())
                 {
-                    var newListOfFhirPatchParameters = fhirPatchParameters.Parameter
-                        .Where(param =>
-                        {
-                            var pathValue = param.Part
-                                .FirstOrDefault(p => p.Name.Equals("path", StringComparison.Ordinal))?.Value?.ToString();
-
-                            return pathValue != null &&
-                                   (pathValue.StartsWith(distinctResourceTypeOnPage, StringComparison.InvariantCultureIgnoreCase) ||
-                                    pathValue.StartsWith("Resource", StringComparison.InvariantCultureIgnoreCase));
-                        })
-                        .ToList();
-
-                    // Prepare the new conditional patch request for the distinct resource type only when there are applicable parameters
-                    if (newListOfFhirPatchParameters.Any())
+                    var newParameters = new Hl7.Fhir.Model.Parameters
                     {
-                        var newParameters = new Hl7.Fhir.Model.Parameters
-                        {
-                            Parameter = newListOfFhirPatchParameters,
-                        };
+                        Parameter = newListOfFhirPatchParameters,
+                    };
 
-                        conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters), conditionalParameters, bundleResourceContext);
-                        conditionalPatchResourceRequests[distinctResourceTypeOnPage] = conditionalPatchResourceRequestOut;
-                    }
-                    else
+                    var conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters), conditionalParameters, bundleResourceContext);
+                    conditionalPatchResourceRequests[distinctResourceTypeOnPage] = conditionalPatchResourceRequestOut;
+                }
+                else
+                {
+                    // since there is no applicable parameters for this resource type, we can ignore it and add to resourcesIgnored with its count
+                    // distinctResourceType could be a resource type from excludedResourceTypes, so we need to check if it exists in resourcesIgnored before adding it
+                    if (!resourcesIgnored.TryGetValue(distinctResourceTypeOnPage, out long count))
                     {
-                        // since there is no applicable parameters for this resource type, we can ignore it and add to resourcesIgnored with its count
-                        // distinctResourceType could be a resource type from excludedResourceTypes, so we need to check if it exists in resourcesIgnored before adding it
-                        if (!resourcesIgnored.TryGetValue(distinctResourceTypeOnPage, out long count))
-                        {
-                            resourcesIgnored[distinctResourceTypeOnPage] = totalResources[distinctResourceTypeOnPage];
-                        }
+                        resourcesIgnored[distinctResourceTypeOnPage] = totalResources[distinctResourceTypeOnPage];
                     }
                 }
             }
@@ -543,7 +538,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             ResourceWrapperOperation[] wrapperOperations = await Task.WhenAll(patchedResources.Select(async item =>
             {
-                // TODO: this keep failing sometimes, need to check why
                 // If there isn't a cached capability statement (IE this is the first request made after a service starts up) then performance on this request will be terrible as the capability statement needs to be rebuilt for every resource.
                 // This is because the capability statement can't be made correctly in a background job, so it doesn't cache the result.
                 // The result is good enough for background work, but can't be used for metadata as the urls aren't formated properly.
@@ -574,7 +568,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var resourceTypesUpdated = ids.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count());
 
                 // check the dictionary bulkUpdateResultsSoFar.ResourcesUpdated and add new values for resourceTypesUpdated
-                AppendUpdateResults((Dictionary<string, long>)bulkUpdateResultsSoFar.ResourcesUpdated, (IEnumerable<Dictionary<string, long>>)resourceTypesUpdated);
+                AppendUpdateResults(bulkUpdateResultsSoFar.ResourcesUpdated as Dictionary<string, long>, (IEnumerable<Dictionary<string, long>>)resourceTypesUpdated);
 
                 await CreateAuditLog(resourceType, true, ids);
                 throw new IncompleteOperationException<BulkUpdateResult>(
@@ -654,9 +648,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private static BulkUpdateResult AppendBulkUpdateResultsFromSubResults(BulkUpdateResult result, BulkUpdateResult newResult)
         {
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesUpdated, new[] { new Dictionary<string, long>(newResult.ResourcesUpdated) });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesIgnored, new[] { new Dictionary<string, long>(newResult.ResourcesIgnored) });
-            AppendUpdateResults((Dictionary<string, long>)result.ResourcesPatchFailed, new[] { new Dictionary<string, long>(newResult.ResourcesPatchFailed) });
+            AppendUpdateResults(result.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesUpdated) });
+            AppendUpdateResults(result.ResourcesIgnored as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesIgnored) });
+            AppendUpdateResults(result.ResourcesPatchFailed as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesPatchFailed) });
 
             return result;
         }

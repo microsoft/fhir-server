@@ -11,12 +11,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -26,15 +29,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
     [Trait(Traits.Category, Categories.BulkUpdate)]
     public class CancelBulkUpdateHandlerTests
     {
-        private IAuthorizationService<DataActions> _authorizationService;
-        private IQueueClient _queueClient;
-        private CancelBulkUpdateHandler _handler;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IQueueClient _queueClient;
+        private readonly ISupportedProfilesStore _supportedProfiles;
+        private readonly CancelBulkUpdateHandler _handler;
 
         public CancelBulkUpdateHandlerTests()
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _queueClient = Substitute.For<IQueueClient>();
-            _handler = new CancelBulkUpdateHandler(_authorizationService, _queueClient, new NullLogger<CancelBulkUpdateHandler>());
+            _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+            _handler = new CancelBulkUpdateHandler(_authorizationService, _queueClient, _supportedProfiles, new NullLogger<CancelBulkUpdateHandler>());
         }
 
         [Fact]
@@ -107,6 +112,77 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     },
                 },
                 HttpStatusCode.Conflict);
+        }
+
+        [Fact]
+        public async Task GivenCompletedJobWithProfileResourceUpdate_WhenHandle_ThenProfilesAreRefreshed()
+        {
+            var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+            _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
+
+            var updatedResources = new Dictionary<string, int> { { "ValueSet", 1 } };
+            var bulkUpdateResult = new BulkUpdateResult();
+            bulkUpdateResult.ResourcesUpdated.Add("ValueSet", 1);
+            bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
+            var jobInfo = new List<JobInfo>()
+            {
+                new JobInfo()
+                {
+                    Status = JobStatus.Running,
+                },
+                new JobInfo()
+                {
+                    Status = JobStatus.Completed,
+                    Result = JsonConvert.SerializeObject(bulkUpdateResult),
+                },
+            };
+
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>())
+                .Returns(jobInfo);
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.BulkOperator);
+
+            var request = new CancelBulkUpdateRequest(1);
+            await _handler.Handle(request, CancellationToken.None);
+
+            _supportedProfiles.Received(1).Refresh();
+        }
+
+        [Fact]
+        public async Task GivenSoftFailedJobWithProfileResourceUpdate_WhenHandle_ThenProfilesAreRefreshed()
+        {
+            var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+            _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
+
+            var updatedResources = new Dictionary<string, int> { { "ValueSet", 1 } };
+            var bulkUpdateResult = new BulkUpdateResult();
+            bulkUpdateResult.ResourcesUpdated.Add("ValueSet", 1);
+            bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
+            bulkUpdateResult.ResourcesPatchFailed.Add("Patient", 1);
+            var jobInfo = new List<JobInfo>()
+            {
+                new JobInfo()
+                {
+                    Status = JobStatus.Running,
+                },
+                new JobInfo()
+                {
+                    Status = JobStatus.Failed,
+                    Result = JsonConvert.SerializeObject(bulkUpdateResult),
+                },
+            };
+
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>())
+                .Returns(jobInfo);
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.BulkOperator);
+
+            var request = new CancelBulkUpdateRequest(1);
+            await _handler.Handle(request, CancellationToken.None);
+
+            _supportedProfiles.Received(1).Refresh();
         }
 
         [Fact]

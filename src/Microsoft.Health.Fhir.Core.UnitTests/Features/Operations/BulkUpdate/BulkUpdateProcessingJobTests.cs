@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
     [Trait(Traits.Category, Categories.BulkUpdate)]
     public class BulkUpdateProcessingJobTests
     {
-        private IBulkUpdateService _updater;
-        private BulkUpdateProcessingJob _processingJob;
-        private ISupportedProfilesStore _supportedProfilesStore;
-        private IQueueClient _queueClient;
-        private IMediator _mediator;
+        private readonly IBulkUpdateService _updater;
+        private readonly BulkUpdateProcessingJob _processingJob;
+        private readonly ISupportedProfilesStore _supportedProfilesStore;
+        private readonly IQueueClient _queueClient;
+        private readonly IMediator _mediator;
 
         public BulkUpdateProcessingJobTests()
         {
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdated_WhenJobIsRun_ThenProfilesAreRefreshed()
+        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyCompleteJob_WhenJobIsRun_ThenProfilesAreRefreshed()
         {
             _updater.ClearReceivedCalls();
 
@@ -182,6 +182,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
+
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            _supportedProfilesStore.Received(1).Refresh();
+        }
+
+        [Fact]
+        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyFailedJob_WhenJobIsRun_ThenProfilesAreRefreshed()
+        {
+            _updater.ClearReceivedCalls();
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: false, startSurrogateId: "startSurrogateId", endSurrogateId: "endSurrogateId", globalStartSurrogateId: "globalStartSurrogateId", globalEndSurrogateId: "globalEndSurrogateId");
+            var completedResult = new BulkUpdateResult();
+            completedResult.ResourcesUpdated["StructureDefinition"] = 5;
+            completedResult.ResourcesPatchFailed["StructureDefinition"] = 6;
+            var jobs = new List<JobInfo>
+            {
+                new JobInfo
+                {
+                    Id = 2,
+                    Status = JobStatus.Failed,
+                    GroupId = 123,
+                    Definition = "{...}", // Optionally, a serialized BulkUpdateDefinition
+                    Result = JsonConvert.SerializeObject(completedResult),
+                },
+                new JobInfo
+                {
+                    Id = 1,
+                    GroupId = 123,
+                    Definition = JsonConvert.SerializeObject(definition),
+                },
+            };
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), 123, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(jobs);
+            _supportedProfilesStore.GetProfilesTypes().Returns(new HashSet<string> { "ValueSet", "StructureDefinition", "CodeSystem" });
+
+            var substituteResults = new BulkUpdateResult();
+            substituteResults.ResourcesUpdated["Patient"] = 3;
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+                .Returns(args => substituteResults);
+
+            var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
+            Assert.Single(result.ResourcesUpdated);
+            Assert.Equal(3, result.ResourcesUpdated["Patient"]);
+
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+            _supportedProfilesStore.Received(1).Refresh();
+        }
+
+        [Fact]
+        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInCurrentlyRunningJob_WhenJobIsRun_ThenProfilesAreRefreshed()
+        {
+            _updater.ClearReceivedCalls();
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: false, startSurrogateId: "startSurrogateId", endSurrogateId: "endSurrogateId", globalStartSurrogateId: "globalStartSurrogateId", globalEndSurrogateId: "globalEndSurrogateId");
+            var completedResult = new BulkUpdateResult();
+            completedResult.ResourcesUpdated["Patient"] = 5;
+            var jobs = new List<JobInfo>
+            {
+                new JobInfo
+                {
+                    Id = 2,
+                    Status = JobStatus.Completed,
+                    GroupId = 123,
+                    Definition = "{...}", // Optionally, a serialized BulkUpdateDefinition
+                    Result = JsonConvert.SerializeObject(completedResult),
+                },
+                new JobInfo
+                {
+                    Id = 1,
+                    GroupId = 123,
+                    Definition = JsonConvert.SerializeObject(definition),
+                },
+            };
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), 123, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(jobs);
+            _supportedProfilesStore.GetProfilesTypes().Returns(new HashSet<string> { "ValueSet", "StructureDefinition", "CodeSystem" });
+
+            var substituteResults = new BulkUpdateResult();
+            substituteResults.ResourcesUpdated["StructureDefinition"] = 3;
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+                .Returns(args => substituteResults);
+
+            var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
+            Assert.Single(result.ResourcesUpdated);
+            Assert.Equal(3, result.ResourcesUpdated["StructureDefinition"]);
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());

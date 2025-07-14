@@ -199,11 +199,11 @@ namespace Microsoft.Health.JobManagement
             {
                 if (ex.IsCustomerCaused)
                 {
-                    _logger.LogJobWarning(ex, jobInfo, "Job failed due to customer caused issue.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobWarning(ex, jobInfo, "Job soft failed due to customer caused issue.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
                 else
                 {
-                    _logger.LogJobError(ex, jobInfo, "Job failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
@@ -215,7 +215,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete on soft job failure.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;

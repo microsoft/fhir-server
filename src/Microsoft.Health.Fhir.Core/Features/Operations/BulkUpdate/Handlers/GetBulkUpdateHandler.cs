@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 {
                     long jobTotal = 0;
 
-                    void UpdateResources(Dictionary<string, long> source, Dictionary<string, long> target)
+                    void UpdateResources(IDictionary<string, long> source, Dictionary<string, long> target)
                     {
                         foreach (var key in source.Keys)
                         {
@@ -132,9 +132,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                         }
                     }
 
-                    UpdateResources((Dictionary<string, long>)result.ResourcesUpdated, resourcesUpdated);
-                    UpdateResources((Dictionary<string, long>)result.ResourcesIgnored, resourcesIgnored);
-                    UpdateResources((Dictionary<string, long>)result.ResourcesPatchFailed, resourcesPatchFailed);
+                    UpdateResources(result.ResourcesUpdated, resourcesUpdated);
+                    UpdateResources(result.ResourcesIgnored, resourcesIgnored);
+                    UpdateResources(result.ResourcesPatchFailed, resourcesPatchFailed);
                 }
             }
 

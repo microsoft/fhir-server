@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
@@ -22,15 +24,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
+        private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<CancelBulkUpdateHandler> _logger;
 
         public CancelBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
+            ISupportedProfilesStore supportedProfiles,
             ILogger<CancelBulkUpdateHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _supportedProfiles = EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -76,6 +81,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 // Try to cancel the job.
                 _logger.LogInformation("Attempting to cancel bulk update job {JobId}", request.JobId);
                 await _queueClient.CancelJobByGroupIdAsync(QueueType.BulkUpdate, request.JobId, cancellationToken);
+
+                // Check if any completed job in the group updated a profile resource type
+                var profileTypes = _supportedProfiles.GetProfilesTypes();
+                foreach (var job in jobs)
+                {
+                    BulkUpdateResult bulkUpdateResult;
+                    try
+                    {
+                        bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
+                    }
+                    catch
+                    {
+                        continue; // Skip if deserialization fails
+                    }
+
+                    if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
+                    {
+                        _supportedProfiles.Refresh();
+                        break;
+                    }
+                }
 
                 return new CancelBulkUpdateResponse(HttpStatusCode.Accepted);
             }

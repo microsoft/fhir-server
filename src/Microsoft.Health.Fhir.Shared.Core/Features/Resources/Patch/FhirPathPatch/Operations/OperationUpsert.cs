@@ -41,51 +41,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
             try
             {
-                Target = ResourceElement
-                            .Select(Operation.Path)
-                            .RequireOneOrMoreElements()
-                            .GetFirstElementNode();
+                // Cache the result of selecting the path
+                var pathElements = ResourceElement.Select(Operation.Path).RequireOneOrMoreElements();
+                Target = pathElements.GetFirstElementNode();
 
-                // Select the element we want to Upsert
-                var targetAtName = Target.Select(Operation.Name).ToList();
-
-                if (targetAtName.Count == 0) // If the element doesn't exist
+                if (!Target.Select(Operation.Name).Any())
                 {
-                    // If we couldn't find an element or a collection then, we can ADD it
-                    try
-                    {
-                        Target = ResourceElement
-                                    .Select(Operation.Path)
-                                    .RequireOneOrMoreElements()
-                                    .RequireMultipleElementsInSameCollection()
-                                    .GetFirstElementNode();
-
-                        ElementNode valueElementNodeToAdd = Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
-                        Target.Add(Provider, valueElementNodeToAdd);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch upsert operation.", ex);
-                    }
+                    // Add the new element
+                    Target = pathElements.RequireMultipleElementsInSameCollection().GetFirstElementNode();
+                    var valueElementNodeToAdd = Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
+                    Target.Add(Provider, valueElementNodeToAdd);
                 }
-                else // If the element exists
+                else
                 {
-                    try
-                    {
-                        // For upsert since we are using ADD operation structure
-                        var newPathAndName = Operation.Path + "." + Operation.Name;
-                        Target = ResourceElement
-                                    .Select(newPathAndName)
-                                    .RequireOneOrMoreElements()
-                                    .RequireSingleElement()
-                                    .GetFirstElementNode();
+                    // Replace the existing element
+                    Target = pathElements
+                        .GetFirstElementNode()
+                        .Select(Operation.Name)
+                        .RequireOneOrMoreElements()
+                        .RequireSingleElement()
+                        .GetFirstElementNode();
 
-                        Target.ReplaceWith(Provider, ValueElementNode);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch upsert operation.", ex);
-                    }
+                    Target.ReplaceWith(Provider, ValueElementNode);
                 }
             }
             catch (InvalidOperationException ex)

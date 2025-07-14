@@ -74,12 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
                 var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
 
-                // If system level Parallel bulk update then create sub jobs by resourceType-surrogateId ranges
+                // For Parallel bulk update, when there are no SearchParameters then create sub jobs by resourceType-surrogateId ranges
                 using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && (definition.SearchParameters is null || !definition.SearchParameters.Any()))
                 {
-                    // For system level bulk update, get all the resource types that are used in the system and enqueue jobs for each resource type-surrogateId range combination.
-                    // For ResourceType based bulk updates query with includes and revinclude could return multiple resourceTypes so we will do the generic search without surrogateId ranges
+                    _logger.LogInformation("Creating bulk update subjobs by resourceType-surrogateId ranges.");
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
@@ -131,58 +130,69 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 }
                 else if (definition.IsParallel)
                 {
-                    // read all the data from search using Continuation token and create processing definitions and enqueue them by storing continuation token as well
-                    string nextContinuationToken;
+                    // For Parallel bulk update, when there are SearchParameters then create sub jobs at continuation token level for matched and included resources.
+                    string nextContinuationToken = null;
                     string prevContinuationToken = null;
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
+
+                    // Run a search to get the first page of results
                     SearchResult searchResult = await Search(definition, searchService, searchParams, false, cancellationToken);
 
+                    // If the search result is empty, we can skip the rest of the processing
                     while ((searchResult?.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(prevContinuationToken))
                     {
+                        // Store the continuation token for the next iteration
                         nextContinuationToken = searchResult.ContinuationToken;
 
+                        // Enqueue the job for the current page of results
                         _logger.LogJobInformation(jobInfo, "Creating bulk update definition (3).");
                         var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, null, false);
-
                         _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (3).");
                         await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
-                        // check if includes continuation token is present, if so, we need to read next page for includes and
-                        // then enqueue the job with includes continuation token
+                        // Check if includes continuation token is present, if so, we need to read next page for includes and enqueue the job with includes continuation token
                         if (searchResult.IncludesContinuationToken is not null && AreIncludeResultsTruncated())
                         {
                             SearchResult searchResultIncludes;
                             string currentIncludesContinuationToken = searchResult.IncludesContinuationToken;
+
+                            // With do-while we register the job first for included results on the next page and then read that next page of included results to see if there are more
                             do
                             {
-                                // Since this page contains Include token, let's register the job for that page of included results
+                                // Since this page contains Include token, let's first register the job for the next page of included results
+                                _logger.LogJobInformation(jobInfo, "Creating bulk update definition (4).");
                                 processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, currentIncludesContinuationToken, false);
+                                _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
                                 await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
+                                // For the first time if there are included results this will not be null
                                 if (string.IsNullOrEmpty(currentIncludesContinuationToken))
                                 {
                                     break;
                                 }
 
-                                // Create a new clone list for ct and ict
+                                // Search the next page by creating a new clone list for prevContinuationToken and currentIncludesContinuationToken
                                 var cloneListForInclude = new List<Tuple<string, string>>(searchParams);
                                 cloneListForInclude.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(prevContinuationToken)));
                                 cloneListForInclude.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(currentIncludesContinuationToken)));
 
-                                // Run a search to see if there are more included results
+                                // Run a search to get more included results (i.e. next-next page of includes)
                                 searchResultIncludes = await Search(definition, searchService, cloneListForInclude, true, cancellationToken);
                                 currentIncludesContinuationToken = searchResultIncludes.IncludesContinuationToken;
                             }
-                            while (!string.IsNullOrEmpty(currentIncludesContinuationToken));
+                            while (!string.IsNullOrEmpty(currentIncludesContinuationToken)); // Break when there are no more included results to process
                         }
 
-                        if (nextContinuationToken is null)
+                        // Break if there are no more pages to process
+                        if (string.IsNullOrEmpty(nextContinuationToken))
                         {
-                            // No more results to process
                             break;
                         }
 
+                        // If there re more pages, update the previous continuation token to register the job for the next page
                         prevContinuationToken = nextContinuationToken;
+
+                        // Get the next page of results using the continuation token
                         var cloneList = new List<Tuple<string, string>>(searchParams);
                         cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)));
                         searchResult = await Search(definition, searchService, cloneList, false, cancellationToken);
@@ -190,10 +200,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 }
                 else if (groupJobs.Count == 1)
                 {
-                    _logger.LogJobInformation(jobInfo, "Creating bulk update definition (4).");
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update definition (5).");
                     var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, null, null, true);
-
-                    _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
+                    _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (5).");
                     await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
 
@@ -238,8 +247,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Creates a bulk update processing job.
-        // Each processing job only updates one resource type based on the surrogate Id ranges if provided
         internal static BulkUpdateDefinition CreateProcessingDefinition(BulkUpdateDefinition baseDefinition, ISearchService searchService, CancellationToken cancellationToken, string resourceType = null, string continuationToken = null, string includesContinuationToken = null, bool readNextPage = false, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
             var searchParameters = new List<Tuple<string, string>>()
@@ -252,8 +259,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 searchParameters.AddRange(baseDefinition.SearchParameters);
             }
 
-            // run a search for included results
-            // TODO: can this be null?
             var cloneList = new List<Tuple<string, string>>();
             if (baseDefinition.SearchParameters != null)
             {

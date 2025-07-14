@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -149,26 +150,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 _contextAccessor.RequestContext = existingFhirRequestContext;
 
                 // Get all jobs for the group
-                var jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
+                var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken)).ToList();
 
-                // Filter out the current and group job, and keep only active subjobs
-                var activeJobs = jobs.Where(j => j.Id != jobInfo.Id && j.Id != jobInfo.GroupId && (j.Status == JobStatus.Created || j.Status == JobStatus.Running));
+                // Filter out the current job and group job, and keep only active subjobs
+                var activeJobs = jobs.Where(j => j.Id != jobInfo.Id && j.Id != jobInfo.GroupId &&
+                    (j.Status == JobStatus.Created || j.Status == JobStatus.Running)).ToList();
 
                 // Only proceed if this is the last active subjob in the group
-                if (!activeJobs.Any())
+                if (activeJobs.Count == 0)
                 {
                     var profileTypes = _supportedProfiles.GetProfilesTypes();
 
                     // Check if current result or any completed job in the group updated a profile resource type
-                    bool needRefresh =
-                        result.ResourcesUpdated.Keys.Any(profileTypes.Contains) ||
-                        jobs.Where(j => j.Id != jobInfo.GroupId && j.Status == JobStatus.Completed)
-                            .Select(j => j.DeserializeResult<BulkUpdateResult>())
-                            .Where(r => r != null)
-                            .SelectMany(r => r.ResourcesUpdated.Keys)
-                            .Any(profileTypes.Contains);
+                    bool needRefresh = result.ResourcesUpdated.Keys.Any(profileTypes.Contains);
 
-                    if (needRefresh)
+                    // Filter jobs to completed subjobs with results (excluding group job)
+                    var completedJobs = jobs.Where(j => j.Id != jobInfo.GroupId && j.Result != null).ToList();
+
+                    if (!needRefresh)
+                    {
+                        foreach (var job in completedJobs)
+                        {
+                            BulkUpdateResult bulkUpdateResult;
+                            try
+                            {
+                                bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
+                            }
+                            catch
+                            {
+                                continue; // Skip if deserialization fails
+                            }
+
+                            if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
+                            {
+                                _supportedProfiles.Refresh();
+                                break;
+                            }
+                        }
+                    }
+                    else
                     {
                         _supportedProfiles.Refresh();
                     }
