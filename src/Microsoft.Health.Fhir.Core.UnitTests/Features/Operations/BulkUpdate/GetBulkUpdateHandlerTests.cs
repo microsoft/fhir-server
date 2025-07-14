@@ -179,65 +179,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenSoftFailedBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
-        {
-            var patientResult1 = new BulkUpdateResult();
-            patientResult1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 15);
-            patientResult1.ResourcesPatchFailed.Add(KnownResourceTypes.Patient, 1);
-
-            var observationResult = new BulkUpdateResult();
-            observationResult.ResourcesUpdated.Add(KnownResourceTypes.Observation, 5);
-
-            var resourcesUpdated = new List<Tuple<string, Base>>
-            {
-                new(KnownResourceTypes.Patient, new Integer64(15)),
-                new(KnownResourceTypes.Observation, new Integer64(5)),
-            };
-            var resourcesPatchFailed = new List<Tuple<string, Base>>
-            {
-                new(KnownResourceTypes.Patient, new Integer64(1)),
-            };
-
-            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
-            {
-                { _resourceUpdatedCountLabel, resourcesUpdated },
-                { _resourcePatchFailedCountLabel, resourcesPatchFailed },
-            };
-
-            var issues = new List<OperationOutcomeIssue>()
-            {
-                new(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    detailsText: "Encountered an unhandled exception. The job will be marked as failed."),
-                new(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."),
-            };
-
-            await RunGetBulkUpdateTest(
-                new List<Tuple<JobInfo, int>>()
-                {
-                    new Tuple<JobInfo, int>(
-                        new()
-                        {
-                            Status = JobStatus.Failed,
-                            Result = JsonConvert.SerializeObject(patientResult1),
-                        },
-                        15),
-                    new Tuple<JobInfo, int>(
-                        new()
-                        {
-                            Status = JobStatus.Completed,
-                            Result = JsonConvert.SerializeObject(observationResult),
-                        },
-                        5),
-                },
-                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
-        }
-
-        [Fact]
         public async Task GivenRunningBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();

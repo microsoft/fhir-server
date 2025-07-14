@@ -161,6 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 // Only proceed if this is the last active subjob in the group
                 if (activeJobs.Count == 0)
                 {
+                    _logger.LogInformation("This is the last processing job of Bulk update group job {GroupId}. Checking if any profile resources were updated", jobInfo.GroupId);
                     var profileTypes = _supportedProfiles.GetProfilesTypes();
 
                     // Check if current result or any completed job in the group updated a profile resource type

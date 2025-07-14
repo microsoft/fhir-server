@@ -44,27 +44,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirClient = fixture.TestFhirClient;
         }
 
-        [SkippableFact]
-        public async Task GivenVariousResourcesOfDifferentTypesAndIsParallelTrue_WhenBulkUpdated_ThenAllAreUpdated()
-        {
-            CheckBulkUpdateEnabled();
-
-            BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 2);
-            expectedResults.ResourcesUpdated.Add("Location", 1);
-            expectedResults.ResourcesUpdated.Add("Organization", 1);
-
-            var patchRequest = new Parameters()
-                .AddAddPatchParameter("Patient", "gender", new Code("female"))
-                .AddAddPatchParameter("Location", "mode", new Code("instance"))
-                .AddAddPatchParameter("Organization", "alias", new FhirString("newOrganization"));
-
-            ChangeTypeToUpsertPatchParameter(patchRequest);
-            await RunBulkUpdateRequest(patchRequest, expectedResults);
-        }
-
-        [SkippableFact]
-        public async Task GivenVariousResourcesOfDifferentTypesAndIsParallelFalse_WhenBulkUpdated_ThenAllAreUpdated()
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenVariousResourcesOfDifferentTypesAndIsParallelTrue_WhenBulkUpdated_ThenAllAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -80,8 +63,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var queryParam = new Dictionary<string, string>
                 {
-                    { "_isParallel", "false" },
+                    { "_isParallel", isParallel.ToString() },
                 };
+
             ChangeTypeToUpsertPatchParameter(patchRequest);
             await RunBulkUpdateRequest(patchRequest, expectedResults, queryParams: queryParam);
         }
@@ -398,9 +382,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
-        [SkippableFact]
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsAndIsParallelTrue_WhenCompleted_ThenIncludedResultsAreUpdated()
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsAndIsParallelIsPassed_WhenCompleted_ThenIncludedResultsAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -423,45 +409,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
-                };
-
-            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-            // Use your bulk update monitor method (similar to MonitorBulkDeleteJob)
-            BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 2000);
-            expectedResults.ResourcesUpdated.Add("Group", 1);
-            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
-        }
-
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsAndIsParallelFalse_WhenCompleted_ThenIncludedResultsAreUpdated()
-        {
-            CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2000 },
-                { "Group", 1 },
-            };
-            var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 2000);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-
-            // Create a patch request that updates a field on both Patient and Group
-            var patchRequest = new Parameters()
-                .AddAddPatchParameter("Patient", "active", new FhirBoolean(true))
-                .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
-
-            ChangeTypeToUpsertPatchParameter(patchRequest);
-
-            var queryParam = new Dictionary<string, string>
-                {
-                    { "_include", "Group:member" },
-                    { "_isParallel", "false" },
+                    { "_isParallel", isParallel.ToString() },
                 };
 
             using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);

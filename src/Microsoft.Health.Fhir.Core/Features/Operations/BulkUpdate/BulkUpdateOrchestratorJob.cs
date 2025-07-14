@@ -133,6 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // For Parallel bulk update, when there are SearchParameters then create sub jobs at continuation token level for matched and included resources.
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
+                    var definitions = new List<BulkUpdateDefinition>();
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
 
                     // Run a search to get the first page of results
@@ -147,8 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         // Enqueue the job for the current page of results
                         _logger.LogJobInformation(jobInfo, "Creating bulk update definition (3).");
                         var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, null, false);
-                        _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (3).");
-                        await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
+                        definitions.Add(processingRecord);
 
                         // Check if includes continuation token is present, if so, we need to read next page for includes and enqueue the job with includes continuation token
                         if (searchResult.IncludesContinuationToken is not null && AreIncludeResultsTruncated())
@@ -162,8 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                 // Since this page contains Include token, let's first register the job for the next page of included results
                                 _logger.LogJobInformation(jobInfo, "Creating bulk update definition (4).");
                                 processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, currentIncludesContinuationToken, false);
-                                _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
-                                await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
+                                definitions.Add(processingRecord);
 
                                 // For the first time if there are included results this will not be null
                                 if (string.IsNullOrEmpty(currentIncludesContinuationToken))
@@ -196,6 +195,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         var cloneList = new List<Tuple<string, string>>(searchParams);
                         cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)));
                         searchResult = await Search(definition, searchService, cloneList, false, cancellationToken);
+                    }
+
+                    if (definitions.Any())
+                    {
+                        _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
+                        await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                     }
                 }
                 else if (groupJobs.Count == 1)

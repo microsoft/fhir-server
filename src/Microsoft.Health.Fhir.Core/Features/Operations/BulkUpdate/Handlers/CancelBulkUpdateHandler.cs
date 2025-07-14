@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 foreach (var job in jobs)
                 {
                     BulkUpdateResult bulkUpdateResult;
-                    bool softDeleted = false;
+                    bool softFailed = false;
                     try
                     {
                         bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
                         if (job.Status == JobStatus.Failed && bulkUpdateResult.ResourcesPatchFailed.Any())
                         {
-                            softDeleted = true;
+                            softFailed = true;
                         }
                     }
                     catch
@@ -86,7 +86,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                         // Do nothing
                     }
 
-                    if ((!softDeleted && job.Status == JobStatus.Failed) || job.Status == JobStatus.Cancelled)
+                    // If resources failed on Patch then Job will be marked as Failed and other sub jobs will still continue to run
+                    // There will be conflict only if Failed job status is due to some other error than JobExecutionSoftFailureException
+                    if ((!softFailed && job.Status == JobStatus.Failed) || job.Status == JobStatus.Cancelled)
                     {
                         conflict = true;
                     }

@@ -97,6 +97,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenSoftFailedBulkUpdateJob_WhenCancelationIsRequested_ThenTheJobIsAccepted()
+        {
+            var bulkUpdateResult = new BulkUpdateResult();
+            bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
+            bulkUpdateResult.ResourcesPatchFailed.Add("Patient", 1);
+            await RunBulkUpdateTest(
+                new List<JobInfo>()
+                {
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Running,
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Failed,
+                        Result = JsonConvert.SerializeObject(bulkUpdateResult),
+                    },
+                },
+                HttpStatusCode.Accepted);
+        }
+
+        [Fact]
         public async Task GivenCancelledBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
         {
             await RunBulkUpdateTest(
