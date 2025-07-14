@@ -262,14 +262,19 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult(cancel);
         }
 
-        public Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
         {
-            if (jobInfos.Count == 0)
+            var activeJobs = jobInfos.Where(j => j.QueueType == queueType &&
+                                           (j.Status == JobStatus.Created || j.Status == JobStatus.Running))
+                                   .ToList();
+
+            if (returnParentOnly)
             {
-                return Task.FromResult<string>(null);
+                // Filter to only return parent jobs (jobs where Id == GroupId)
+                activeJobs = activeJobs.Where(j => j.Id == j.GroupId).ToList();
             }
 
-            return Task.FromResult(jobInfos.Where(j => j.QueueType == queueType && (j.Status == JobStatus.Created || j.Status == JobStatus.Running)).ToList().FirstOrDefault()?.Id.ToString());
+            return Task.FromResult<IReadOnlyList<JobInfo>>(activeJobs);
         }
 
         public void ClearJobs()

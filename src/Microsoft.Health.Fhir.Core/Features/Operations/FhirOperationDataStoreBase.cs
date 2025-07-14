@@ -474,8 +474,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     public virtual async Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
     {
-        var result = await _queueClient.PeekAsync((byte)QueueType.Reindex, cancellationToken);
-        return (!string.IsNullOrWhiteSpace(result), result);
+        var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, true, cancellationToken);
+        var firstActiveJob = activeJobs.Count > 0 ? activeJobs[0] : null;
+        return (firstActiveJob != null, firstActiveJob?.Id.ToString() ?? string.Empty);
     }
 
     private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate)

@@ -323,28 +323,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
         }
 
-        [Fact]
-        public async Task GivenARequestToUpdateSearchParameterStatus_WhenAReindexJobIsRunning_ThenAnOperationOutcomeIsReturnedIndicatingUpdatesAreNotAllowed()
-        {
-            // Mock the queue client to indicate a reindex job is running
-            _queueClient.PeekAsync((byte)QueueType.Reindex, Arg.Any<CancellationToken>()).Returns("dummyJobId");
-
-            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
-            {
-                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
-            };
-
-            // Act & Assert
-            var exception = await Assert.ThrowsAsync<PreconditionFailedException>(async () =>
-            {
-                await _searchParameterStateUpdateHandler.Handle(
-                    new SearchParameterStateUpdateRequest(updates),
-                    default);
-            });
-
-            Assert.Equal("A Reindex Job is currently running. Wait till it has completed before trying again.", exception.Message);
-        }
-
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
         {
             IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();

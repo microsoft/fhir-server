@@ -243,7 +243,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
         private async Task<bool> IsReindexRunningAsync(CancellationToken cancellationToken)
         {
-            return !string.IsNullOrEmpty(await _queueClient.PeekAsync((byte)QueueType.Reindex, cancellationToken));
+            var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, true, cancellationToken);
+            return activeJobs.Any();
         }
     }
 }
