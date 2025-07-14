@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features;
@@ -22,16 +23,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
     [Trait(Traits.Category, Categories.Web)]
     public sealed class HttpContextExtensionsTests
     {
-        [Fact]
-        public void WhenHttpContextDoesNotHaveCustomHeaders_ReturnDefaultValues()
+        [Trait(Traits.Category, Categories.Bundle)]
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public void WhenHttpContextDoesNotHaveCustomHeaders_ReturnDefaultValues(BundleProcessingLogic defaultAndExpectBundleProcessingLogic)
         {
+            // Empty HttpContext simulates the case where no custom headers are set.
             HttpContext httpContext = GetFakeHttpContext();
 
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
             Assert.False(isLatencyOverEfficiencyEnabled);
 
-            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic();
-            Assert.Equal(BundleProcessingLogic.Sequential, bundleProcessingLogic);
+            // Given different default values for the bundle processing logic, we expect the same value to be returned.
+            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
+                defaultBundleProcessingLogic: defaultAndExpectBundleProcessingLogic);
+            Assert.Equal(defaultAndExpectBundleProcessingLogic, bundleProcessingLogic);
+
+            // Empty header is expected to be assumed as valid.
+            bool isBundleProcessingLogicValid = httpContext.IsBundleProcessingLogicValid();
+            Assert.True(isBundleProcessingLogicValid);
 
             // #conditionalQueryParallelism
             ConditionalQueryProcessingLogic conditionalQueryProcessingLogic = httpContext.GetConditionalQueryProcessingLogic();
@@ -85,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(processingLogic, conditionalQueryProcessingLogic);
         }
 
+        [Trait(Traits.Category, Categories.Bundle)]
         [Theory]
         [InlineData("", BundleProcessingLogic.Sequential)]
         [InlineData(null, BundleProcessingLogic.Sequential)]
@@ -103,9 +115,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var httpHeaders = new Dictionary<string, string>() { { BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, value } };
             HttpContext httpContext = GetFakeHttpContext(httpHeaders);
 
-            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic();
+            BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
+                defaultBundleProcessingLogic: BundleProcessingLogic.Sequential);
 
             Assert.Equal(processingLogic, bundleProcessingLogic);
+        }
+
+        [Trait(Traits.Category, Categories.Bundle)]
+        [Theory]
+        [InlineData("2112")]
+        [InlineData("red barchetta")]
+        public void WhenHttpContextHasCustomHeaders_WithInvalidValues_ThatShouldBeIdentified(string value)
+        {
+            var httpHeaders = new Dictionary<string, string>() { { BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            bool isBundleProcessingLogicValid = httpContext.IsBundleProcessingLogicValid();
+            Assert.False(isBundleProcessingLogicValid);
         }
 
         [Fact]
@@ -143,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             {
                 foreach (var header in optionalHttpHeaders)
                 {
-                    httpContext.Request.Headers.Append(header.Key, header.Value);
+                    httpContext.Request.Headers.Append(header.Key, new StringValues(header.Value));
                 }
             }
 

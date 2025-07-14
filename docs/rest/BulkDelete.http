@@ -69,6 +69,22 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk Delete everything except patients
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&excludedResourceTypes=patient
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&excludedResourceTypes=Patient
 Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete with revinclude
+# @name bulkDelete
+DELETE https://{{hostname}}/Patient/$bulk-delete?_tag=oldData&_revinclude=*:*
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete removing references
+# @name bulkDelete
+DELETE https://{{hostname}}/Patient/$bulk-delete?_tag=oldData&_remove-references=true&_hardDelete=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+GET https://{{hostname}}/?_tag=oldData
 Authorization: Bearer {{bearer.response.body.access_token}}

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly SqlServerFhirModel _model;
-        private readonly ImportTaskConfiguration _importTaskConfiguration;
+        private readonly ImportJobConfiguration _importTaskConfiguration;
         private readonly ILogger<SqlImporter> _logger;
 
         public SqlImporter(
