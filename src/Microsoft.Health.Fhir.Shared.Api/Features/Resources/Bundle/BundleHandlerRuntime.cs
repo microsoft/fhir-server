@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
@@ -16,14 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public static class BundleHandlerRuntime
     {
-        // The default bundle processing logic for Transactions is set to Parallel, as by the FHIR specification, a transactional bundle
-        // cannot contain duplicated operations under the same bundle.
-        // The default bundle processing logic for Batches is set to Sequential, as current customer can haver esource identities overlaps
-        // (including resolved identities from conditional update/delete, which are not allowed in a transaction bundle).
-        private const BundleProcessingLogic BatchDefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
-        private const BundleProcessingLogic TransactionDefaultBundleProcessingLogic = BundleProcessingLogic.Parallel;
-
-        public static BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, BundleType? bundleType)
+        public static BundleProcessingLogic GetBundleProcessingLogic(BundleConfiguration bundleConfiguration, HttpContext outerHttpContext, BundleType? bundleType)
         {
             EnsureArg.IsNotNull(outerHttpContext, nameof(outerHttpContext));
 
@@ -32,12 +26,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (bundleType.Value == BundleType.Transaction)
                 {
                     // For transactions, the default processing logic is parallel.
-                    return outerHttpContext.GetBundleProcessingLogic(TransactionDefaultBundleProcessingLogic);
+                    return outerHttpContext.GetBundleProcessingLogic(bundleConfiguration.TransactionDefaultProcessingLogic);
                 }
                 else if (bundleType.Value == BundleType.Batch)
                 {
                     // For batch, the default processing logic is parallel.
-                    return outerHttpContext.GetBundleProcessingLogic(BatchDefaultBundleProcessingLogic);
+                    return outerHttpContext.GetBundleProcessingLogic(bundleConfiguration.BatchDefaultProcessingLogic);
                 }
             }
 

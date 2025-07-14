@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
+                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
 
                 if (_bundleType == BundleType.Batch)
                 {

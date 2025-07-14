@@ -7,6 +7,7 @@ using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -20,6 +21,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     [Trait(Traits.Category, Categories.Bundle)]
     public class BundleHandlerRuntimeTests
     {
+        private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
+
         [Theory]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
         [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
@@ -31,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(httpContext, bundleType);
+            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, bundleType);
 
             // Assert
             Assert.Equal(expectedDefaultProcessingLogic, result);
@@ -44,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var httpContext = GetHttpContext();
 
             // Act
-            var result = BundleHandlerRuntime.GetBundleProcessingLogic(httpContext, null);
+            var result = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, httpContext, null);
 
             // Assert
             Assert.Equal(BundleProcessingLogic.Sequential, result);
@@ -92,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public void GetBundleProcessingLogic_NullHttpContext_Throws()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(null, BundleType.Batch));
+            Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
         }
 
         private HttpContext GetHttpContext()
