@@ -108,11 +108,11 @@ namespace Microsoft.Health.JobManagement
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Peek next message from the queue without removing it
+        /// GetActiveJobsByQueueTypeAsync
         /// </summary>
-        /// <param name="queueType">Byte value for name of the queue</param>
+        /// <param name="queueType">They QueueType for the jobs to retrieve</param>
+        /// <param name="returnParentOnly">Flag to indicate if we should only return the parent job vs all jobs.</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>The next message in the queue, or null if there are no messages in the queue</returns>
-        public Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken);
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken);
     }
 }

@@ -106,6 +106,7 @@ Content-Type:application/fhir+json
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
 | mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
 | allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
+| eventualConsistency | Allows FHIR server to create resource and its search parameters in multiple SQL transactions. This can substantially increase ingestion throughput, but might cause delays before resource will become fully searchable. | 0..1 | To enable this feature pass true. By default it is false, so resource and its search parameters are created in single SQL transaction (strong consistency). |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -130,6 +131,10 @@ Content-Type:application/fhir+json
         },
         {
             "name": "allowNegativeVersions",
+            "valueBoolean": true
+        },
+        {
+            "name": "eventualConsistency",
             "valueBoolean": true
         },
         {

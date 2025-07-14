@@ -477,27 +477,49 @@ public class CosmosQueueClient : IQueueClient
         });
     }
 
-    public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
     {
-        var job = await PeekInternalAsync(queueType, cancellationToken);
-        return job?.Id.ToString() ?? null;
+        return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
     }
 
-    private async Task<JobInfo> PeekInternalAsync(byte queueType, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeInternalAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
     {
         QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
-           WHERE c.queueType = @queueType and c.status in (0,1)")
+           JOIN d in c.definitions
+           WHERE c.queueType = @queueType 
+           AND ARRAY_CONTAINS([0, 1], d.status)")
         .WithParameter("@queueType", queueType);
 
-        var response = await ExecuteQueryAsync(sqlQuerySpec, 1, queueType, cancellationToken);
+        var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
 
-        // Use indexable collection directly to avoid CA1826
         if (response.Count == 0)
         {
-            return null;
+            return Array.Empty<JobInfo>();
         }
 
-        return response[0].ToJobInfo().FirstOrDefault();
+        var jobInfos = new List<JobInfo>();
+
+        foreach (var jobGroup in response)
+        {
+            if (returnParentOnly)
+            {
+                // Parent job is the one where JobId equals the JobGroupWrapper.Id
+                var parentJob = jobGroup.Definitions.FirstOrDefault(d => d.JobId == jobGroup.Id);
+                if (parentJob != null && (parentJob.Status == (byte)JobStatus.Created || parentJob.Status == (byte)JobStatus.Running))
+                {
+                    jobInfos.AddRange(jobGroup.ToJobInfo(new[] { parentJob }));
+                }
+            }
+            else
+            {
+                // Return all active jobs in the group
+                var activeJobs = jobGroup.Definitions.Where(d =>
+                    d.Status == (byte)JobStatus.Created || d.Status == (byte)JobStatus.Running);
+                jobInfos.AddRange(jobGroup.ToJobInfo(activeJobs));
+            }
+        }
+
+        return jobInfos;
     }
 
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(

@@ -214,26 +214,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
-        public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand();
-            PopulatePeekCommand(sqlCommand, queueType);
-
-            var jobs = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "PeekAsync failed.");
-            if (jobs.Any())
-            {
-                return jobs[0].Id.ToString();
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        private static void PopulatePeekCommand(SqlCommand sqlCommand, byte queueType)
-        {
-            sqlCommand.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
-            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+            PopulateGetActiveJobsCommand(sqlCommand, queueType, returnParentOnly);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetActiveJobByQueueType failed.");
         }
 
         public bool IsInitialized()
@@ -299,6 +284,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
             }
+        }
+
+        private static void PopulateGetActiveJobsCommand(SqlCommand cmd, byte queueType, bool returnParentOnly)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetActiveJobs";
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            cmd.Parameters.AddWithValue("@ReturnParentOnly", returnParentOnly);
         }
     }
 }
