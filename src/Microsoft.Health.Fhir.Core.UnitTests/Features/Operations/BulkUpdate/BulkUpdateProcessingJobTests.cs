@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             substituteResults.ResourcesUpdated["Observation"] = 1;
             substituteResults.ResourcesIgnored["CarePlan"] = 2;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Single(result.ResourcesIgnored);
             Assert.Equal(2, result.ResourcesIgnored["CarePlan"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
         }
 
@@ -102,14 +102,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), true, Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), true, Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -135,14 +135,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
         }
 
@@ -176,14 +176,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.Received(1).Refresh();
         }
@@ -219,14 +219,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.Received(1).Refresh();
         }
@@ -261,14 +261,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["StructureDefinition"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["StructureDefinition"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.Received(1).Refresh();
         }
@@ -304,14 +304,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["Patient"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
@@ -344,14 +344,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["StructureDefinition"] = 3;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
             Assert.Single(result.ResourcesUpdated);
             Assert.Equal(3, result.ResourcesUpdated["StructureDefinition"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var exceptionMessage = "Partial failure occurred";
             var incompleteException = new IncompleteOperationException<BulkUpdateResult>(new Exception(exceptionMessage), partialResult);
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns<Task<BulkUpdateResult>>(x => { throw incompleteException; });
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns<Task<BulkUpdateResult>>(x => { throw incompleteException; });
 
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Contains(exceptionMessage, ex.Message);
@@ -404,7 +404,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             result.ResourcesIgnored["StructureDefinition"] = 2;
             result.ResourcesPatchFailed["Patient"] = 1;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
 
             // Act & Assert
             var ex = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -433,7 +433,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             var emptyResult = new BulkUpdateResult();
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(emptyResult));
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(emptyResult));
 
             // Act
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             var unexpectedException = new InvalidOperationException("Unexpected error");
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns<Task<BulkUpdateResult>>(x => throw unexpectedException);
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>()).Returns<Task<BulkUpdateResult>>(x => throw unexpectedException);
 
             // Act & Assert
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));

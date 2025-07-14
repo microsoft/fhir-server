@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly HashSet<string> _excludedResourceTypes = ["SearchParameter", "StructureDefinition"];
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
-        private const int MaxParallelThreads = 64;
 
         public BulkUpdateService(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -92,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
         }
 
-        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
+        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, uint maximumNumberOfResourcesPerQuery, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<SearchResultEntry> searchResults;
             bool tooManyIncludeResults = false;
@@ -154,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                         updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
 
-                        if (updateTasks.Count >= MaxParallelThreads)
+                        if (updateTasks.Count >= parallelThreads)
                         {
                             await updateTasks[0];
                         }
@@ -164,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated() && readNextPage && pageOne)
                     {
                         // run a search for included results
-                        (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, readNextPage, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
+                        (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, parallelThreads, readNextPage, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
                     }
 
                     pageOne = false;
@@ -191,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated() && readNextPage)
                         {
                             // run a search for included results
-                            (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, readNextPage, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
+                            (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, parallelThreads - updateTasks.Count, readNextPage, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
                         }
                     }
                     else
@@ -306,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
-        private async Task<(Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult)> HandleIncludedResources(string resourceType, string fhirPatchParameters, bool readNextPage, uint maximumNumberOfResourcesPerQuery, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult, CancellationToken cancellationToken)
+        private async Task<(Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult)> HandleIncludedResources(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, uint maximumNumberOfResourcesPerQuery, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult, CancellationToken cancellationToken)
         {
             var cloneList = new List<Tuple<string, string>>(conditionalParameters);
             cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
@@ -315,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
 
-            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, maximumNumberOfResourcesPerQuery, true, cloneList, bundleResourceContext, cancellationToken);
+            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, parallelThreads, readNextPage, maximumNumberOfResourcesPerQuery, true, cloneList, bundleResourceContext, cancellationToken);
             resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
             finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
             return (resourceTypesUpdated, finalBulkUpdateResult);

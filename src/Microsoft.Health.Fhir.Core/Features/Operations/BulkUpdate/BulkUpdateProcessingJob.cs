@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private readonly IMediator _mediator;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
+        private const int MaxParallelThreads = 64;
 
         public BulkUpdateProcessingJob(
             IQueueClient queueClient,
@@ -112,7 +113,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 try
                 {
                     bool isIncludesOperation = definition.SearchParameters is not null && definition.SearchParameters.Any(p => p.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesOperation, queryParametersList, null, cancellationToken);
+                    _logger.LogInformation("Executing bulk update job {GroupId} and {JobId} with include request as : {IsInclude}", jobInfo.GroupId, jobInfo.Id, isIncludesOperation.ToString());
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, MaxParallelThreads, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesOperation, queryParametersList, null, cancellationToken);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
@@ -184,12 +186,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                             if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
                             {
                                 _supportedProfiles.Refresh();
+                                _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", job.GroupId, job.Id);
                                 break;
                             }
                         }
                     }
                     else
                     {
+                        _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", jobInfo.GroupId, jobInfo.Id);
                         _supportedProfiles.Refresh();
                     }
                 }

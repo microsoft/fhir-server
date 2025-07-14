@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenCompletedJobWithProfileResourceUpdate_WhenHandle_ThenProfilesAreRefreshed()
+        public async Task GivenCompletedJobWithProfileResourceUpdate_WhenCancelationIsRequested_ThenProfilesAreRefreshed()
         {
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
             _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenSoftFailedJobWithProfileResourceUpdate_WhenHandle_ThenProfilesAreRefreshed()
+        public async Task GivenSoftFailedJobWithProfileResourceUpdate_WhenCancelationIsRequested_ThenProfilesAreRefreshed()
         {
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
             _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
