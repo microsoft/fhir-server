@@ -898,6 +898,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [SkippableFact]
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        public async Task GivenABulkDeleteJob_WhenRemovingReferences_ThenReferencesAreRemoved()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        {
+#if Stu3
+            Skip.If(true, "Referenced used isn't present in Stu3");
+#else
+            CheckBulkDeleteEnabled();
+
+            var resourceTypes = new Dictionary<string, long>()
+            {
+                { "Patient", 1 },
+            };
+
+            string tag = Guid.NewGuid().ToString();
+            var patient = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
+
+            var observation = Activator.CreateInstance<Observation>();
+            observation.Meta = new Meta()
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag),
+                },
+            };
+            observation.Subject = new ResourceReference("Patient/" + patient.Id);
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept("test", "test");
+
+            await _fhirClient.CreateAsync(observation);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
+
+            using HttpRequestMessage request = GenerateBulkDeleteRequest(
+                tag,
+                "Patient/$bulk-delete",
+                queryParams: new Dictionary<string, string>
+                {
+                    { "_hardDelete", "true" },
+                    { "_remove-references", "true" },
+                });
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
+
+            var searchResults = await _fhirClient.SearchAsync(ResourceType.Observation, "_tag=" + tag);
+            Assert.Single(searchResults.Resource.Entry);
+
+            var observationResult = (Observation)searchResults.Resource.Entry[0].Resource;
+            Assert.Null(observationResult.Subject.Reference);
+            Assert.Equal("Referenced resource deleted", observationResult.Subject.Display);
+#endif
+        }
+
         private async Task RunBulkDeleteRequest(
             Dictionary<string, long> expectedResults,
             bool addUndeletedResource = false,
