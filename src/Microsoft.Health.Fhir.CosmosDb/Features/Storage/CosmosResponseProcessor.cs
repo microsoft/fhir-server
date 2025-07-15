@@ -73,6 +73,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 string retryHeader = headers["x-ms-retry-after-ms"];
                 exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
             }
+            else if (statusCode == HttpStatusCode.RequestTimeout)
+            {
+                // Cosmos DB returned 408 due to insufficient RUs or other timeout. Provide actionable message.
+                string message = Microsoft.Health.Fhir.Core.Resources.CosmosDbRequestTimeout;
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestTimeoutException(message);
+            }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
                 exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestNotValidException(Microsoft.Health.Fhir.Core.Resources.InvalidContinuationToken);
