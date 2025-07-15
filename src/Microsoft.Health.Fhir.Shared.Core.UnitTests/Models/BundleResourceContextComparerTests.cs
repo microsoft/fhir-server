@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
-    [Trait(Traits.Category, Categories.Transaction)]
+    [Trait(Traits.Category, Categories.BundleTransaction)]
     public sealed class BundleResourceContextComparerTests
     {
         private readonly Guid _bundleOperationId = Guid.NewGuid();
