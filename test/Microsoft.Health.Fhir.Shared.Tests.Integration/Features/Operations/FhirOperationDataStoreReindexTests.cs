@@ -131,7 +131,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType, null)
             {
                 Error = queryListError,
-                FailureCount = new ReindexJobConfiguration().ConsecutiveFailuresThreshold,
             };
             job.JobRecord.QueryList.TryAdd(reindexJobQueryStatus, 1);
 

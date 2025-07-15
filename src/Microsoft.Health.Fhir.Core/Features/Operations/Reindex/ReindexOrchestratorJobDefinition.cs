@@ -18,8 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public uint MaximumNumberOfResourcesPerWrite { get; set; }
 
-        public long GroupId { get; internal set; }
-
         public string Id { get; internal set; }
     }
 }
