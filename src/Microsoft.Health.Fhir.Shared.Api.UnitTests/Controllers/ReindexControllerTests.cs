@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));

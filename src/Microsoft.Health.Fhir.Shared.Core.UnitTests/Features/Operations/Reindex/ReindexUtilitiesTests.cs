@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resultList.Add(entry2);
             var result = new SearchResult(resultList, "token", null, new List<Tuple<string, string>>());
 
-            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, batchSize, CancellationToken.None);
+            await _reindexUtilities.ProcessSearchResultsAsync(result, batchSize, CancellationToken.None);
 
             await _fhirDataStore.Received().BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(c => c.Count() == 2), Arg.Any<CancellationToken>());

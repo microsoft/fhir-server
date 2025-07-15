@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
             }
 
-            return new ReindexJobRecord(paramHashMap, new List<string>(), new List<string>(), new List<string>(), maxResourcePerQuery);
+            return new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), maxResourcePerQuery);
         }
     }
 }

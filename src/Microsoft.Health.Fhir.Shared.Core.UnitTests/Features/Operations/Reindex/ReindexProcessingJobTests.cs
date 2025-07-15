@@ -67,7 +67,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     StartResourceSurrogateId = 0,
                     ContinuationToken = null,
                 },
-                ResourceTypeSearchParameterHashMap = "accountHash",
                 SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
                 TypeId = (int)JobType.ReindexProcessing,
             };
@@ -103,7 +102,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _reindexUtilities
                 .ProcessSearchResultsAsync(
                     Arg.Any<SearchResult>(),
-                    Arg.Any<IReadOnlyDictionary<string, string>>(),
                     Arg.Any<int>(),
                     Arg.Any<CancellationToken>())
                 .Returns(Task.CompletedTask);
@@ -114,7 +112,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             // Verify ProcessSearchResultsAsync was called
             await _reindexUtilities.Received(1).ProcessSearchResultsAsync(
                 Arg.Any<SearchResult>(),
-                Arg.Any<IReadOnlyDictionary<string, string>>(),
                 Arg.Any<int>(),
                 Arg.Any<CancellationToken>());
 
@@ -168,7 +165,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     EndResourceSurrogateId = 2,
                     StartResourceSurrogateId = 0,
                 },
-                ResourceTypeSearchParameterHashMap = "accountHash",
                 SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
                 TypeId = (int)JobType.ReindexProcessing,
             };
