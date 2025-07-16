@@ -33,22 +33,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
     {
         private const int _mockedSearchCount = 5;
 
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly IQueueClient _queueClient = new TestQueueClient();
+        private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private CancellationToken _cancellationToken;
 
         public ReindexProcessingJobTests()
         {
+            Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _cancellationToken = _cancellationTokenSource.Token;
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
                      () => _searchService.CreateMockScope(),
-                     _reindexUtilities,
                      NullLoggerFactory.Instance,
-                     _queueClient);
+                     _queueClient,
+                     fhirDataStoreScope,
+                     _resourceWrapperFactory);
         }
 
         [Fact]
@@ -98,22 +101,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     null,  // sortOrder
                     new List<Tuple<string, string>>())); // unsupportedSearchParameters
 
-            // Also set up the reindex utilities mock
-            _reindexUtilities
-                .ProcessSearchResultsAsync(
-                    Arg.Any<SearchResult>(),
-                    Arg.Any<int>(),
-                    Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
-
             var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(
                 await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            // Verify ProcessSearchResultsAsync was called
-            await _reindexUtilities.Received(1).ProcessSearchResultsAsync(
-                Arg.Any<SearchResult>(),
-                Arg.Any<int>(),
-                Arg.Any<CancellationToken>());
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
         }

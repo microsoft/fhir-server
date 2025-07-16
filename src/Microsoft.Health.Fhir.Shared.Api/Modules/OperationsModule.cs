@@ -44,8 +44,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsService<IResourceToByteArraySerializer>();
 
-            services.AddSingleton<IReindexUtilities, ReindexUtilities>();
-
             services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
 
             services.Add<ImportResourceLoader>()

@@ -64,13 +64,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private Task _jobHostingTask;
         private IQueueClient _queueClient;
         private IJobFactory _jobFactory;
-        private IReindexUtilities _reindexUtilities;
 
         private readonly FhirStorageTestsFixture _fixture;
         private readonly IFhirStorageTestHelper _testHelper;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IScoped<IFhirDataStore> _scopedDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
+        private IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager2;
 
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
             _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
 
-            ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
+            _resourceWrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
                 new RawResourceFactory(new FhirJsonSerializer()),
                 new FhirRequestContextAccessor(),
                 _searchIndexer,
@@ -159,12 +159,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                     _searchParameterDefinitionManager);
 
             _searchService = _fixture.SearchService.CreateMockScope();
-
-            // Also set up the reindex utilities
-            _reindexUtilities = new ReindexUtilities(
-                                () => _scopedDataStore,
-                                _searchParameterStatusManager,
-                                wrapperFactory);
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
@@ -240,11 +234,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
+                        Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
-                            _reindexUtilities,
                             NullLoggerFactory.Instance,
-                            _queueClient);
+                            _queueClient,
+                            fhirDataStoreScope,
+                            _resourceWrapperFactory);
                     }
                     else
                     {

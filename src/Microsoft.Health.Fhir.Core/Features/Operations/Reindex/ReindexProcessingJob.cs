@@ -10,6 +10,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Dom;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -29,31 +31,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     {
         private ILogger<ReindexOrchestratorJob> _logger;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly IReindexUtilities _reindexUtilities;
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private IQueueClient _queueClient;
         private const int MaxTimeoutRetries = 3;
+        private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(MaxTimeoutRetries, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
-            IReindexUtilities reindexUtilities,
             ILoggerFactory loggerFactory,
-            IQueueClient queueClient)
+            IQueueClient queueClient,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
-            _reindexUtilities = reindexUtilities;
             _queueClient = queueClient;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
+            _resourceWrapperFactory = resourceWrapperFactory;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -154,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                await _timeoutRetries.ExecuteAsync(async () => await _reindexUtilities.ProcessSearchResultsAsync(result, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
@@ -267,6 +273,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 throw; // This line should never be reached
+            }
+        }
+
+        /// <summary>
+        /// For each result in a batch of resources this will extract new search params
+        /// Then compare those to the old values to determine if an update is needed
+        /// Needed updates will be committed in a batch
+        /// </summary>
+        /// <param name="results">The resource batch to process</param>
+        /// <param name="batchSize">The number of resources to reindex at a time (e.g. 1000)</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A Task</returns>
+        public async Task ProcessSearchResultsAsync(SearchResult results, int batchSize, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(results, nameof(results));
+
+            var updateSearchIndices = new List<ResourceWrapper>();
+
+            // This should never happen, but in case it does, we will set a low default to ensure we don't get stuck in loop
+            if (batchSize == 0)
+            {
+                batchSize = 500;
+            }
+
+            foreach (var entry in results.Results)
+            {
+                entry.Resource.SearchParameterHash = string.Empty;
+                _resourceWrapperFactory.Update(entry.Resource);
+                updateSearchIndices.Add(entry.Resource);
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+            }
+
+            using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
+            {
+                for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
+                {
+                    var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
+                    await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                }
             }
         }
     }
