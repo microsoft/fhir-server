@@ -150,15 +150,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task GivenAnExceptionWithRequestTimeoutStatusCode_WhenProcessing_ThenRequestTimeoutExceptionShouldThrow()
+        public async Task GivenAnExceptionWithRequestTimeoutStatusCode_WhenProcessing_ThenCosmosDbRequestTimeoutExceptionShouldThrow()
         {
             // Arrange
             var errorMessage = "Request timed out. More info: https://aka.ms/cosmosdb-tsg-request-timeout";
             ResponseMessage response = CreateResponseException(errorMessage, HttpStatusCode.RequestTimeout);
 
             // Act & Assert
-            var ex = await Assert.ThrowsAsync<RequestTimeoutException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
+            var ex = await Assert.ThrowsAsync<Microsoft.Health.Fhir.Core.Exceptions.CosmosDbRequestTimeoutException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
+
+            // Verify the exception message comes from the resource string
             Assert.Contains("Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load", ex.Message);
+
+            // Verify that RetryAfter is null since we're not providing a retry time for 408 timeouts
+            Assert.Null(ex.RetryAfter);
         }
 
         private static ResponseMessage CreateResponseException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)

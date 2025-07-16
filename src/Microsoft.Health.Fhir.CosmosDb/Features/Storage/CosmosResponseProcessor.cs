@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             else if (statusCode == HttpStatusCode.RequestTimeout)
             {
                 // Cosmos DB returned 408 due to insufficient RUs or other timeout. Provide actionable message.
-                string message = Microsoft.Health.Fhir.Core.Resources.CosmosDbRequestTimeout;
-                exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestTimeoutException(message);
+                _logger.LogWarning("Cosmos DB request timeout detected. This typically indicates insufficient provisioned throughput (RUs) or high load. Status: {StatusCode}, Error: {ErrorMessage}", statusCode, errorMessage);
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.CosmosDbRequestTimeoutException();
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
