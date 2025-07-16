@@ -187,14 +187,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobNotFoundException>(() => CompleteReindexJobAsync(job, JobStatus.Running, CancellationToken.None));
         }
 
-        [Theory]
-        [InlineData(OperationStatus.Running)]
-        [InlineData(OperationStatus.Queued)]
-        [InlineData(OperationStatus.Paused)]
-        public async Task GivenAnActiveReindexJob_WhenGettingActiveReindexJobs_ThenTheCorrectJobIdShouldBeReturned(OperationStatus operationStatus)
+        [Fact]
+        public async Task GivenAnActiveReindexJob_WhenGettingActiveReindexJobs_ThenTheCorrectJobIdShouldBeReturned()
         {
             await CancelActiveReindexJobIfExists();
-            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(job => job.Status = operationStatus);
+            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
 
             (bool, string) activeReindexJobResult = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
 

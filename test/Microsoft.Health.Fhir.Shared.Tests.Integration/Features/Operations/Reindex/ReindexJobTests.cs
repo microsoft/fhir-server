@@ -509,17 +509,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenJobConflictExceptionThrown()
+        public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenActiveJobShouldBeReturned()
         {
             await CancelActiveReindexJobIfExists();
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
-            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse firstResponse = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
-            Assert.NotNull(response);
-            Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
+            Assert.NotNull(firstResponse);
+            Assert.False(string.IsNullOrWhiteSpace(firstResponse.Job.JobRecord.Id));
 
-            await Assert.ThrowsAsync<Core.Features.Operations.JobConflictException>(() => _createReindexRequestHandler.Handle(request, CancellationToken.None));
+            // Store the original job ID and status
+            string originalJobId = firstResponse.Job.JobRecord.Id;
+            OperationStatus originalStatus = firstResponse.Job.JobRecord.Status;
+
+            // Create another reindex request - should return the same job instead of throwing an exception
+            CreateReindexResponse secondResponse = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(secondResponse);
+            Assert.Equal(originalJobId, secondResponse.Job.JobRecord.Id);
         }
 
         [Fact]

@@ -15,7 +15,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
     public class TestQueueClient : IQueueClient
     {
         private List<JobInfo> jobInfos = new List<JobInfo>();
-        private long largestId = 1;
+        private long largestId = 0;
 
         public Action DequeueFaultAction { get; set; }
 
@@ -162,7 +162,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             var result = new List<JobInfo>();
 
-            long gId = groupId ?? largestId++;
+            long gId = groupId ?? ++largestId;
 
             foreach (string definition in definitions)
             {
@@ -280,7 +280,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         public void ClearJobs()
         {
             jobInfos.Clear();
-            largestId = 1;
+            largestId = 0;
         }
     }
 }

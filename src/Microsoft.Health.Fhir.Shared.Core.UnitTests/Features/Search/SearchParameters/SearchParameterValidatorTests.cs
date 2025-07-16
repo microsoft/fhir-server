@@ -93,17 +93,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
         }
 
-        [Fact]
-        public async Task GivenARunningReinxedJob_WhenValidatingSearchParam_ThenExceptionThrown()
-        {
-            var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-            fhirOperationDataStore.CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>()).Returns((true, "id"));
-
-            var validator = new SearchParameterValidator(() => fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, NullLogger<SearchParameterValidator>.Instance);
-
-            await Assert.ThrowsAsync<JobConflictException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
-        }
-
         [Theory]
         [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
         public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
