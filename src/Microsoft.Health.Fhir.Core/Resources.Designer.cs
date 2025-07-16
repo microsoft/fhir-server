@@ -1896,5 +1896,14 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.
+        /// </summary>
+        internal static string CosmosDbRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
+            }
+        }
     }
 }
