@@ -176,15 +176,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
-            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
+            // Create a local job record with a random ID that doesn't exist in the database or queue
+            var nonExistentJobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>())
+            {
+                Id = "999999", // Use a non-existent ID
+            };
 
-            ReindexJobRecord job = jobWrapper.JobRecord;
-            WeakETag jobVersion = jobWrapper.ETag;
-
-            await _testHelper.DeleteReindexJobRecordAsync(job.Id);
-            await GetTestQueueClient().DeleteJobByIdAsync((byte)QueueType.Reindex, job.Id, CancellationToken.None);
-
-            await Assert.ThrowsAsync<JobNotFoundException>(() => CompleteReindexJobAsync(job, JobStatus.Running, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => CompleteReindexJobAsync(nonExistentJobRecord, JobStatus.Running, CancellationToken.None));
         }
 
         [Fact]
