@@ -590,7 +590,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             const int MIN_POLL_INTERVAL_MS = 100;
             const int MAX_POLL_INTERVAL_MS = 5000;
             const int DEFAULT_POLL_INTERVAL_MS = 1000;
-            const int SEARCH_PARAMETER_CHECK_INTERVAL_MS = 60000; // Check every 1 minute
+            const int SEARCH_PARAMETER_CHECK_INTERVAL_MS = 300000; // Check every 5 minutes
 
             int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
 

@@ -310,7 +310,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
         var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
 
-        if (cancelledJobsExist && !failedJobsExist)
+        if (cancelledJobsExist && !failedJobsExist && !inFlightJobsExist)
         {
             status = JobStatus.Cancelled;
         }
@@ -474,7 +474,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     {
         var activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, true, cancellationToken);
         var firstActiveJob = activeJobs.Count > 0 ? activeJobs[0] : null;
-        return (firstActiveJob != null, firstActiveJob?.Id.ToString() ?? string.Empty);
+        return (firstActiveJob != null, firstActiveJob?.Id.ToString() ?? null);
     }
 
     private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate)
