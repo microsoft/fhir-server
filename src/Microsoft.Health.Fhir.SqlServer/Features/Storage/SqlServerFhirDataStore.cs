@@ -470,6 +470,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
+
+                // Check for constraint violations
+                var constraintCheckresults = ValidateConstraintViolations(resources);
+
+                // Check if there are any conflicts while constraint checks
+                if (constraintCheckresults.Conflicts.Any())
+                {
+                    conflicts.AddRange(constraintCheckresults.Conflicts);
+                }
+
+                // 2. Subsequent processing should only operate on the validated resources.
+                if (!constraintCheckresults.ValidResources.Any())
+                {
+                    return (loaded, conflicts); // All resources had conflicts, so we can stop here.
+                }
+
+                // 3. Shadow the 'resources' variable to ensure the rest of the method uses the validated list.
+                resources = constraintCheckresults.ValidResources;
+
                 if (importMode == ImportMode.InitialLoad)
                 {
                     var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
@@ -692,6 +711,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // Finally merge the resources to the db.
                     await Merge(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), keepLastUpdated, useReplicasForReads);
                     loaded.AddRange(inputNoConflict);
+                }
+
+                // Validate if there are any constraint violations
+                (List<ImportResource> ValidResources, List<ImportResource> Conflicts) ValidateConstraintViolations(IReadOnlyList<ImportResource> resources)
+                {
+                    var validResources = new List<ImportResource>();
+                    var conflicts = new List<ImportResource>();
+                    var tokenRowGenerator = new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var codeMaxLengthAllowed = VLatest.TokenSearchParam.Code.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        bool hasConflict = false;
+                        try
+                        {
+                            // We generate the TVPs to check if validation is failing for any column
+                            var tokenRows = tokenRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+
+                            foreach (var row in tokenRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int codeByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow != null && codeByteLength < codeMaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenSearchParam_CodeOverflow";
+                                    conflicts.Add(resource);
+                                    hasConflict = true;
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while creating TokenSearchParam";
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                        }
+
+                        if (!hasConflict)
+                        {
+                            validResources.Add(resource);
+                        }
+                    }
+
+                    return (validResources, conflicts);
                 }
             }
 
