@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddFactory<IScoped<IBulkUpdateService>>();
             services.AddScoped<IBulkUpdateService, BulkUpdateService>();
-            services.AddTransient(typeof(ICustomFhirJsonSerializer<>), typeof(CustomFhirJsonSerializer<>));
         }
     }
 }

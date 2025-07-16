@@ -142,7 +142,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
             _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
 
-            var updatedResources = new Dictionary<string, int> { { "ValueSet", 1 } };
             var bulkUpdateResult = new BulkUpdateResult();
             bulkUpdateResult.ResourcesUpdated.Add("ValueSet", 1);
             bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
@@ -177,7 +176,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
             _supportedProfiles.GetProfilesTypes().Returns(profileTypes);
 
-            var updatedResources = new Dictionary<string, int> { { "ValueSet", 1 } };
             var bulkUpdateResult = new BulkUpdateResult();
             bulkUpdateResult.ResourcesUpdated.Add("ValueSet", 1);
             bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);

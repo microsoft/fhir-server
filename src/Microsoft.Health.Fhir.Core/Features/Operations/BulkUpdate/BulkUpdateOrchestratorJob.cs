@@ -37,7 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private const int CoordinatorMaxDegreeOfParallelization = 4;
         private const int NumberOfParallelRecordRanges = 100;
         private const string OperationCompleted = "Completed";
-        private readonly List<string> _excludedResourceTypes = new() { "SearchParameter", "StructureDefinition" };
 
         public BulkUpdateOrchestratorJob(
             IQueueClient queueClient,
@@ -82,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
-                    resourceTypes = resourceTypes.Where(x => !_excludedResourceTypes.Contains(x)).ToList();
+                    resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
                     var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
 

@@ -75,6 +75,28 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 return resource.ToResourceElement();
             }
 
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<Resource, string>>>(
+            provider =>
+            {
+                var jsonSerializer = provider.GetRequiredService<FhirJsonSerializer>();
+                var xmlSerializer = provider.GetRequiredService<FhirXmlSerializer>();
+
+                return new Dictionary<FhirResourceFormat, Func<Resource, string>>
+                {
+                    {
+                        FhirResourceFormat.Json, resource => jsonSerializer.SerializeToString(resource)
+                    },
+                    {
+                        FhirResourceFormat.Xml, resource => xmlSerializer.SerializeToString(resource)
+                    },
+                };
+            });
+
+            services.Add<ResourceSerializer>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IResourceSerializer>();
+
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(_ =>
             {
                 return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>

@@ -56,7 +56,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(resourceTypes.ToList());
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>()).Returns((x) =>
             {
-                var result = new SearchResult(2, new List<Tuple<string, string>>());
                 return Task.FromResult(GenerateSearchResult(2));
             });
 
@@ -122,11 +121,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that 6 processing jobs were queued
-            var calls = _queueClient.ReceivedCalls();
+            // Checks that 1 processing job was queued
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
             var definitions = calls
-                .Skip(1) // Skip the first call (index 0)
-                .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
+                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
 
@@ -170,13 +170,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(6).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
             // Checks that 6 processing jobs were queued
-            var calls = _queueClient.ReceivedCalls();
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
             var definitions = calls
-                .Skip(1) // Skip the first call (index 0)
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
@@ -254,13 +255,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(2).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
             // Checks that 6 processing jobs were queued
-            var calls = _queueClient.ReceivedCalls();
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
             var definitions = calls
-                .Skip(1) // Skip the first call (index 0)
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
@@ -353,13 +355,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(8).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
             // Checks that 8 processing jobs were queued
-            var calls = _queueClient.ReceivedCalls();
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
             var definitions = calls
-                .Skip(1) // Skip the first call (index 0)
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]

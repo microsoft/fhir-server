@@ -55,7 +55,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk update
 # @name bulkUpdate
-PATCH https://{{hostname}}/Patient/$bulk-update?_isparallel=true
+PATCH https://{{hostname}}/CarePlan/$bulk-update?_isparallel=true
 Prefer: respond-async
 content-type: application/fhir+json
 Authorization: Bearer {{bearer.response.body.access_token}}
@@ -97,7 +97,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                 },
                 {
                     "name": "path",
-                    "valueString": "Patient.language"
+                    "valueString": "Patient"
                 },
                 {
                     "name": "name",
@@ -138,10 +138,10 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ### This REPLACE operation for $bulk-update will update the reference for all Observation resources if they exist.
-### Use PatWithObservations1 and PatWithObservations2 validate
+### Use PatWithObservations1 and PatWithObservations2 to validate
 
 ### Get all the referred Observations for Patient PatWithObservations1
-GET https://{{hostname}}/Observation?subject=Patient/PatWithObservations2 
+GET https://{{hostname}}/Observation?subject=Patient/PatWithObservations1 
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk update
@@ -177,7 +177,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ### This REPLACE operation for $bulk-update will update medicationReference for all MedicationRequest resources if they exist.
-### Use med0302 and med0303 validate
+### Use med0302 and med0303 to validate
 # @name bulkUpdate
 PATCH https://{{hostname}}/MedicationRequest/$bulk-update?status=active&_isparallel=true&medication=med0302&_revinclude=MedicationRequest:medication
 Prefer: respond-async

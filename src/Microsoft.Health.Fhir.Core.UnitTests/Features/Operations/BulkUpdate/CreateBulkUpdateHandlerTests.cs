@@ -64,8 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _queueClient,
                 _contextAccessor,
                 _searchService,
-                Substitute.For<ICustomFhirJsonSerializer<Resource>>(),
-                Substitute.For<IResourceDeserializer>(),
+                Substitute.For<IResourceSerializer>(),
                 Substitute.For<ILogger<CreateBulkUpdateHandler>>());
         }
 

@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenVariousResourcesOfDifferentTypesAndIsParallelTrue_WhenBulkUpdated_ThenAllAreUpdated(bool isParallel)
+        public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkUpdated_ThenAllAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -71,9 +71,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableTheory]
-        [InlineData("Patient")]
-        [InlineData("Organization")]
-        public async Task GivenResourcesOfOneType_WhenBulkUpdatedByType_ThenAllOfThatTypeAreUpdated(string resourceType)
+        [InlineData("Patient", true)]
+        [InlineData("Patient", false)]
+        [InlineData("Organization", true)]
+        [InlineData("Organization", false)]
+        public async Task GivenResourcesOfOneType_WhenBulkUpdatedByType_ThenAllOfThatTypeAreUpdated(string resourceType, bool isParallel)
         {
             CheckBulkUpdateEnabled();
             BulkUpdateResult expectedResults = new BulkUpdateResult();
@@ -81,8 +83,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "gender", new Code("female"))
                 .AddAddPatchParameter("Organization", "alias", new FhirString("newOrganization"));
+
+            var queryParam = new Dictionary<string, string>
+                {
+                    { "_isParallel", isParallel.ToString() },
+                };
             ChangeTypeToUpsertPatchParameter(patchRequest);
-            await RunBulkUpdateRequest(patchRequest, expectedResults, true, $"{resourceType}/$bulk-update");
+            await RunBulkUpdateRequest(patchRequest, expectedResults, true, $"{resourceType}/$bulk-update", queryParams: queryParam);
         }
 
         [SkippableFact]
@@ -233,7 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableFact]
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        public async Task GivenBulkUpdateJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreUpdated()
+        public async Task GivenBulkUpdateJobWithIncludeSearchWithIsParallelTrue_WhenCompleted_ThenIncludedResourcesAreUpdated()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
 #if Stu3
@@ -299,6 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Observation:*" },
+                    { "_isParallel", "true" },
                 };
 
             HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "Observation/$bulk-update", queryParam);
@@ -312,7 +320,90 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-        public async Task GivenBulkUpdateJobWithRevincludeSearch_WhenCompleted_ThenIncludedResourcesAreUpdated()
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        public async Task GivenBulkUpdateJobWithIncludeSearchWithIsParallelFalse_WhenCompleted_ThenIncludedResourcesAreUpdated()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        {
+#if Stu3
+    Skip.If(true, "Referenced used isn't present in Stu3");
+#else
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 1 },
+                { "Observation", 1 },
+                { "Encounter", 1 },
+            };
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            // Create resources of different types with the same tag
+            var patient = Samples.GetJsonSample<Patient>("Patient");
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            patient = await _fhirClient.CreateAsync(patient);
+
+            var encounter = Activator.CreateInstance<Encounter>();
+            encounter.Meta = new Meta
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag.Code),
+                },
+            };
+            encounter.Status = EncounterStatus.Planned;
+#if !R5
+            encounter.Class = new Coding("test", "test");
+#else
+            encounter.Class = new List<CodeableConcept>();
+            encounter.Class.Add(new CodeableConcept("test", "test"));
+#endif
+
+            encounter = await _fhirClient.CreateAsync(encounter);
+
+            var observation = Activator.CreateInstance<Observation>();
+            observation.Meta = new Meta
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding("testTag", tag.Code),
+                },
+            };
+            observation.Subject = new ResourceReference("Patient/" + patient.Id);
+            observation.Encounter = new ResourceReference("Encounter/" + encounter.Id);
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept("test", "test");
+
+            await _fhirClient.CreateAsync(observation);
+
+            await Task.Delay(5000); // Ensure resources are created
+
+            var patchRequest = new Parameters()
+                .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
+                .AddReplacePatchParameter("Observation.status", new Code("amended"))
+                .AddReplacePatchParameter("Encounter.status", new Code("finished"));
+
+            var queryParam = new Dictionary<string, string>
+                {
+                    { "_include", "Observation:*" },
+                    { "_isParallel", "false" },
+                };
+
+            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "Observation/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            BulkUpdateResult expectedResults = new BulkUpdateResult();
+            expectedResults.ResourcesUpdated.Add("Patient", 1);
+            expectedResults.ResourcesUpdated.Add("Observation", 1);
+            expectedResults.ResourcesUpdated.Add("Encounter", 1);
+            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+#endif
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBulkUpdateJobWithRevincludeSearch_WhenCompleted_ThenIncludedResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -333,9 +424,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             encounter.Meta = new Meta
             {
                 Tag = new List<Coding>
-        {
-            new Coding("testTag", tag.Code),
-        },
+                {
+                    new Coding("testTag", tag.Code),
+                },
             };
             encounter.Subject = new ResourceReference("Patient/" + patient.Id);
             encounter.Status = EncounterStatus.Planned;
@@ -371,6 +462,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var queryParam = new Dictionary<string, string>
                 {
                     { "_revinclude", "*:*" },
+                    { "_isParallel", isParallel.ToString() },
                 };
 
             HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "Patient/$bulk-update", queryParam);

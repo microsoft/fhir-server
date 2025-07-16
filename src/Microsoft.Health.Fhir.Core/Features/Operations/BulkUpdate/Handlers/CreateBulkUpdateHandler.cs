@@ -36,26 +36,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchService _searchService;
         private readonly ILogger<CreateBulkUpdateHandler> _logger;
-        private readonly List<string> _excludedResourceTypes = new() { "SearchParameter", "StructureDefinition"};
         private readonly List<string> _bulkUpdateSupportedOperations = new() { "Upsert", "Replace" };
-        private readonly ICustomFhirJsonSerializer<Resource> _customFhirJsonSerializer;
-        private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IResourceSerializer _resourceSerializer;
 
         public CreateBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService,
-            ICustomFhirJsonSerializer<Resource> customFhirJsonSerializer,
-            IResourceDeserializer resourceDeserializer,
+            IResourceSerializer resourceSerializer,
             ILogger<CreateBulkUpdateHandler> logger)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
-            _customFhirJsonSerializer = EnsureArg.IsNotNull(customFhirJsonSerializer, nameof(customFhirJsonSerializer));
-            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            _resourceSerializer = EnsureArg.IsNotNull(resourceSerializer, nameof(resourceSerializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -70,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
-            if (_excludedResourceTypes.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
+            if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
             }
@@ -105,7 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             // converting parameters to string using fhir Serializer
-            var parametersString = _customFhirJsonSerializer.Serialize(request.Parameters);
+            var parametersString = _resourceSerializer.Serialize(request.Parameters, FhirResourceFormat.Json);
+
             var processingDefinition = new BulkUpdateDefinition(
                 JobType.BulkUpdateOrchestrator,
                 request.ResourceType,

@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             substituteResults.ResourcesUpdated["Observation"] = 1;
             substituteResults.ResourcesIgnored["CarePlan"] = 2;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Is<bool>(b => b == false), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Single(result.ResourcesIgnored);
             Assert.Equal(2, result.ResourcesIgnored["CarePlan"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Is<bool>(b => b == false), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
         }
 
@@ -146,63 +146,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
-        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyCompleteJob_WhenJobIsRun_ThenProfilesAreRefreshed()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyCompleteOrFailedJob_WhenJobIsRun_ThenProfilesAreRefreshed(bool isFailed)
         {
             _updater.ClearReceivedCalls();
 
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: false, startSurrogateId: "startSurrogateId", endSurrogateId: "endSurrogateId", globalStartSurrogateId: "globalStartSurrogateId", globalEndSurrogateId: "globalEndSurrogateId");
             var completedResult = new BulkUpdateResult();
             completedResult.ResourcesUpdated["StructureDefinition"] = 5;
+            if (isFailed)
+            {
+                completedResult.ResourcesPatchFailed["StructureDefinition"] = 6;
+            }
+
             var jobs = new List<JobInfo>
             {
                 new JobInfo
                 {
                     Id = 2,
-                    Status = JobStatus.Completed,
-                    GroupId = 123,
-                    Definition = "{...}", // Optionally, a serialized BulkUpdateDefinition
-                    Result = JsonConvert.SerializeObject(completedResult),
-                },
-                new JobInfo
-                {
-                    Id = 1,
-                    GroupId = 123,
-                    Definition = JsonConvert.SerializeObject(definition),
-                },
-            };
-            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), 123, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(jobs);
-            _supportedProfilesStore.GetProfilesTypes().Returns(new HashSet<string> { "ValueSet", "StructureDefinition", "CodeSystem" });
-
-            var substituteResults = new BulkUpdateResult();
-            substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
-                .Returns(args => substituteResults);
-
-            var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
-            Assert.Single(result.ResourcesUpdated);
-            Assert.Equal(3, result.ResourcesUpdated["Patient"]);
-
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobs[1].Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
-            _supportedProfilesStore.Received(1).Refresh();
-        }
-
-        [Fact]
-        public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyFailedJob_WhenJobIsRun_ThenProfilesAreRefreshed()
-        {
-            _updater.ClearReceivedCalls();
-
-            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: false, startSurrogateId: "startSurrogateId", endSurrogateId: "endSurrogateId", globalStartSurrogateId: "globalStartSurrogateId", globalEndSurrogateId: "globalEndSurrogateId");
-            var completedResult = new BulkUpdateResult();
-            completedResult.ResourcesUpdated["StructureDefinition"] = 5;
-            completedResult.ResourcesPatchFailed["StructureDefinition"] = 6;
-            var jobs = new List<JobInfo>
-            {
-                new JobInfo
-                {
-                    Id = 2,
-                    Status = JobStatus.Failed,
+                    Status = isFailed ? JobStatus.Failed : JobStatus.Completed,
                     GroupId = 123,
                     Definition = "{...}", // Optionally, a serialized BulkUpdateDefinition
                     Result = JsonConvert.SerializeObject(completedResult),

@@ -509,16 +509,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     Name = pair.Key,
                 };
 
-                foreach (var part in pair.Value)
-                {
-                    var partComponent = new Parameters.ParameterComponent
+                parameterComponent.Part.AddRange(
+                    pair.Value.Select(part => new Parameters.ParameterComponent
                     {
                         Name = part.Item1,
                         Value = (DataType)part.Item2,
-                    };
-
-                    parameterComponent.Part.Add(partComponent);
-                }
+                    }));
 
                 list.Add(parameterComponent);
             }
