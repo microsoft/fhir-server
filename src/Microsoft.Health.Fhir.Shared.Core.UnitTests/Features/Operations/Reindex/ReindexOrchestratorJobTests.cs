@@ -43,7 +43,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private ISearchParameterStatusManager _searchParameterStatusmanager;
-        private Func<ReindexOrchestratorJob> _reindexJobTaskFactory;
+        private Func<ReindexOrchestratorJob> _reindexOrchestratorJobTaskFactory;
+        private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IQueueClient _queueClient = new TestQueueClient();
 
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
 
-            _reindexJobTaskFactory = () =>
+            _reindexOrchestratorJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
                      _queueClient,
                      () => _searchService.CreateMockScope(),
@@ -122,15 +123,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
             searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
 
-            var reindexJobTaskFactory = () =>
-             new ReindexOrchestratorJob(
-                 _queueClient,
-                 () => _searchService.CreateMockScope(),
-                 _searchDefinitionManager,
-                 ModelInfoProvider.Instance,
-                 searchParameterStatusmanager,
-                 _searchParameterOperations,
-                 NullLoggerFactory.Instance);
+            // Create mock dependencies for ReindexProcessingJob
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+
+            // Set up the factory for ReindexProcessingJob
+            _reindexProcessingJobTaskFactory = () => new ReindexProcessingJob(
+                () => _searchService.CreateMockScope(),
+                NullLoggerFactory.Instance,
+                _queueClient,
+                () => fhirDataStore.CreateMockScope(),
+                resourceWrapperFactory);
+
+            var reindexOrchestratorJobTaskFactory = () =>
+                new ReindexOrchestratorJob(
+                    _queueClient,
+                    () => _searchService.CreateMockScope(),
+                    _searchDefinitionManager,
+                    ModelInfoProvider.Instance,
+                    searchParameterStatusmanager,
+                    _searchParameterOperations,
+                    NullLoggerFactory.Instance);
+
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -145,16 +159,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             };
 
             var mockSearchResult = new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>());
+            mockSearchResult.ReindexResult = new SearchResultReindex()
+            {
+                Count = _mockedSearchCount,
+                StartResourceSurrogateId = 1,
+                EndResourceSurrogateId = 1000,
+            };
 
-            // setup search result
+            // Setup search result for count queries
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 true,
                 Arg.Any<CancellationToken>(),
                 true).
-                Returns(
-                    mockSearchResult);
+                Returns(mockSearchResult);
 
             var defaultSearchResult = new SearchResult(0, new List<Tuple<string, string>>());
             _searchService.SearchForReindexAsync(
@@ -163,9 +182,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 true,
                 Arg.Any<CancellationToken>(),
                 true).
-                Returns(
-                    defaultSearchResult);
+                Returns(defaultSearchResult);
 
+            // Setup search result for processing queries (non-count)
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<string>(),
@@ -173,21 +192,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(CreateSearchResult());
-#pragma warning disable CS0618 // Type or member is obsolete
-            try
-            {
-                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-            }
-            catch (RetriableJobException ex)
-            {
-                Assert.Equal("Reindex job with Id: 1 has been started. Status: Running.", ex.Message);
-            }
-#pragma warning restore CS0618 // Type or member is obsolete
 
-            // verify search for count
+            // Execute the orchestrator job
+            var orchestratorTask = reindexOrchestratorJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+
+            // Simulate processing job execution by running them in parallel
+            _ = Task.Run(
+                async () =>
+            {
+                await Task.Delay(100, _cancellationToken); // Give orchestrator time to create jobs
+
+                // Get all processing jobs created by the orchestrator
+                var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
+                var childJobs = processingJobs.Where(j => j.Id != jobInfo.Id).ToList();
+
+                // Execute each processing job
+                foreach (var childJob in childJobs)
+                {
+                    try
+                    {
+                        childJob.Status = JobStatus.Running;
+                        var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(childJob, _cancellationToken);
+                        childJob.Status = JobStatus.Completed;
+                        childJob.Result = result;
+                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        childJob.Status = JobStatus.Failed;
+                        childJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
+                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                    }
+                }
+            },
+                _cancellationToken);
+
+            // Wait for orchestrator job to complete
+            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await orchestratorTask);
+
+            // Verify search for count
             await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), Arg.Is(true), Arg.Any<CancellationToken>(), true);
 
-            // verify search for results
+            // Verify search for results
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
@@ -196,10 +242,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 true);
 
             var reindexJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, 1, true, _cancellationToken);
-            var processingJob = reindexJobs.FirstOrDefault();
+            var processingJob = reindexJobs.FirstOrDefault(j => j.Id != jobInfo.Id);
 
-            Assert.Single(reindexJobs);
             Assert.NotNull(processingJob);
+            Assert.Equal(JobStatus.Completed, processingJob.Status);
 
             var processingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(processingJob.Definition);
             Assert.Equal(_mockedSearchCount, processingJobDefinition.ResourceCount.Count);
@@ -222,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 CreateDate = DateTime.UtcNow,
                 Status = JobStatus.Running,
             };
-            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexOrchestratorJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
             Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
             Assert.False(jobs.Any());
@@ -252,7 +298,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
             }
 
-            return new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), maxResourcePerQuery);
+            return new ReindexJobRecord(paramHashMap, new List<string>(), new List<string>(), new List<string>(), maxResourcePerQuery);
         }
     }
 }
