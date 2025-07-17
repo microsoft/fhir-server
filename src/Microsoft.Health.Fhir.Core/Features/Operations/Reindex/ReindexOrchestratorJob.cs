@@ -727,13 +727,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                                     // Only update search parameters for resource types that we haven't processed yet
                                     var jobsToProcess = completedJobsByResourceType[resourceType];
-                                    await UpdateSearchParameterStatus(jobsToProcess, cancellationToken);
 
-                                    // Mark these jobs as having their search parameters updated
-                                    foreach (var job in jobsToProcess)
-                                    {
-                                        processedJobIds.Add(job.Id);
-                                    }
+                                    await ProcessCompletedJobs(
+                                        jobsToProcess,
+                                        false,
+                                        cancellationToken);
 
                                     // Remove this resource type from the tracking dictionary to prevent duplicate processing
                                     completedJobsByResourceType.Remove(resourceType);
@@ -777,15 +775,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Process all jobs at the end, but filter out those that already had search parameters updated
             await ProcessCompletedJobs(
                 jobInfos,
-                processedJobIds,
+                true,
                 cancellationToken);
         }
 
         private async Task ProcessCompletedJobs(
             List<JobInfo> jobInfos,
-            HashSet<long> processedJobIds,
+            bool allJobsComplete,
             CancellationToken cancellationToken)
         {
+            HashSet<long> processedJobIds = new HashSet<long>();
+
             // Get all completed and failed jobs
             var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
             var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
@@ -849,10 +849,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            // Update the final completion count and status
-            _currentResult.CompletedJobs = jobInfos.Count(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed);
-            _reindexJobRecord.Status = OperationStatus.Completed;
-            _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.Id, _currentResult.CompletedJobs);
+            if (allJobsComplete)
+            {
+                // Update the final completion count and status
+                _currentResult.CompletedJobs = jobInfos.Count(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed);
+                _reindexJobRecord.Status = OperationStatus.Completed;
+                _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.Id, _currentResult.CompletedJobs);
+            }
 
             return;
         }
