@@ -326,6 +326,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         TypeId = (int)JobType.ReindexProcessing,
                         GroupId = _jobInfo.GroupId,
+                        ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                         ResourceCount = new SearchResultReindex
                         {
                             StartResourceSurrogateId = range.StartId,
@@ -443,6 +444,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             string searchParameterHash = string.Empty;
 
+            if (!_reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash))
+            {
+                searchParameterHash = string.Empty;
+            }
+
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 try
@@ -541,6 +547,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             _reindexJobRecord.ResourceCounts.TryGetValue(resourceType, out SearchResultReindex searchResultReindex);
             return searchResultReindex;
+        }
+
+        private string GetHashMapByResourceType(string resourceType)
+        {
+            _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string searchResultHashMap);
+            return searchResultHashMap;
         }
 
         private bool CheckJobRecordForAnyWork()

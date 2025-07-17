@@ -109,6 +109,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             string searchParameterHash = string.Empty;
 
+            if (string.IsNullOrEmpty(_reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap))
+            {
+                searchParameterHash = string.Empty;
+            }
+
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 try
@@ -160,7 +165,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                var dictionary = new Dictionary<string, string>
+                {
+                    { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
+                };
+
+                await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
@@ -282,10 +292,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Needed updates will be committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
+        /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
         /// <param name="batchSize">The number of resources to reindex at a time (e.g. 1000)</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, int batchSize, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, int batchSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
 
@@ -299,7 +310,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (var entry in results.Results)
             {
-                entry.Resource.SearchParameterHash = string.Empty;
+                if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
+                {
+                    searchParamHash = string.Empty;
+                }
+
+                entry.Resource.SearchParameterHash = searchParamHash;
                 _resourceWrapperFactory.Update(entry.Resource);
                 updateSearchIndices.Add(entry.Resource);
 
