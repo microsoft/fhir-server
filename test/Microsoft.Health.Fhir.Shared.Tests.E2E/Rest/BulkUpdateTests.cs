@@ -478,7 +478,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsAndIsParallelIsPassed_WhenCompleted_ThenIncludedResultsAreUpdated(bool isParallel)
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithDifferentScenarios_WhenCompleted_ThenResultsAreMatched(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -507,11 +507,103 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-            // Use your bulk update monitor method (similar to MonitorBulkDeleteJob)
             BulkUpdateResult expectedResults = new BulkUpdateResult();
             expectedResults.ResourcesUpdated.Add("Patient", 2000);
             expectedResults.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // For Ignored resources
+            patchRequest = new Parameters()
+                .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+            queryParam = new Dictionary<string, string>
+                {
+                    { "_include", "Group:member" },
+                    { "_isParallel", isParallel.ToString() },
+                };
+            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
+
+            BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2000);
+            expectedResultsForIgnored.ResourcesUpdated.Add("Group", 1);
+            await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
+
+            // For Patch failures
+            patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient", "id", new FhirString("newId"))
+                .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+            queryParam = new Dictionary<string, string>
+                {
+                    { "_include", "Group:member" },
+                    { "_isParallel", isParallel.ToString() },
+                };
+            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
+
+            BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2000);
+            expectedResultsPatchFailed.ResourcesUpdated.Add("Group", 1);
+            await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWithDifferentScenarios_WhenCompleted_ThenResultsAreMatched(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2000 },
+                { "Group", 1 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 2000);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
+
+            // Create a patch request that updates a field on Patient
+            var patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient", "active", new FhirBoolean(true));
+
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            BulkUpdateResult expectedResults = new BulkUpdateResult();
+            expectedResults.ResourcesUpdated.Add("Patient", 2000);
+            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // For Ignored resources
+            patchRequest = new Parameters()
+                .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
+
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
+
+            BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2000);
+            await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
+
+            // For Patch failures
+            patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient", "id", new FhirString("newId"))
+                .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
+
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+
+            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
+
+            BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2000);
+            await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
 
         private async Task RunBulkUpdateRequest(

@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Dictionary<string, long> resourceTypesUpdated = new Dictionary<string, long>();
             BulkUpdateResult finalBulkUpdateResult = new BulkUpdateResult();
             Dictionary<string, long> totalResources = new Dictionary<string, long>();
-            Dictionary<string, long> resourcesIgnored = new Dictionary<string, long>();
+            Dictionary<string, long> resourcesIgnored = new Dictionary<string, long>(); // contains the count of resources that have no valid patch parameters or excluded resource types
             Dictionary<string, long> commonPatchFailures = new Dictionary<string, long>();
             Dictionary<string, string> commonPatchFailureReasons = new Dictionary<string, string>();
             ConcurrentDictionary<string, long> patchFailures = new ConcurrentDictionary<string, long>();
@@ -339,25 +339,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     : group.Value;
             }
 
-            // Add resources ignored by resource type by filtering out the excluded resource types
+            // Add excluded resource types to resourcesIgnored and remove it from resourcesPerPage
             foreach (var kvp in resourcesPerPage.Where(kvp => OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(kvp.Key)))
             {
                 resourcesIgnored[kvp.Key] = resourcesIgnored.TryGetValue(kvp.Key, out var existing)
                     ? existing + kvp.Value
                     : kvp.Value;
+                resourcesPerPage.Remove(kvp.Key);
             }
 
-            // Filter the resourcesPerPage by removing the excluded resource types
-            foreach (var resource in resourcesIgnored)
+            // Use ResourcesIgnored keys that were found in last page and count the numbers for this page and remove it from resourcesPerPage
+            foreach (var key in resourcesIgnored.Keys.Intersect(resourcesPerPage.Keys).ToList())
             {
-                resourcesPerPage.Remove(resource.Key);
+                // Store the count of resources that would fail to patch in commonPatchFailures
+                resourcesIgnored[key] = resourcesIgnored[key] + resourcesPerPage[key];
+                resourcesPerPage.Remove(key);
             }
 
             // Filter the resourcesPerPage by removing the commonPatchFailures
             foreach (var key in commonPatchFailures.Keys.Intersect(resourcesPerPage.Keys).ToList())
             {
                 // Store the count of resources that would fail to patch in commonPatchFailures
-                commonPatchFailures[key] = resourcesPerPage[key];
+                commonPatchFailures[key] = commonPatchFailures[key] + resourcesPerPage[key];
                 resourcesPerPage.Remove(key);
             }
 
