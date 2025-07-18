@@ -1,7 +1,7 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/dotnet/.devcontainer/base.Dockerfile
+# See here for image contents: https://github.com/devcontainers/images/tree/main/src/base-debian/.devcontainer/base.Dockerfile
 
 # Note: You can use any Debian/Ubuntu based image you want. 
-FROM mcr.microsoft.com/vscode/devcontainers/base:0-buster
+FROM mcr.microsoft.com/devcontainers/base:bookworm
 
 # [Option] Install zsh
 ARG INSTALL_ZSH="true"
@@ -10,7 +10,7 @@ ARG UPGRADE_PACKAGES="false"
 # [Option] Enable non-root Docker access in container
 ARG ENABLE_NONROOT_DOCKER="true"
 # [Option] Use the OSS Moby CLI instead of the licensed Docker CLI
-ARG USE_MOBY="true"
+ARG USE_MOBY="false"
 
 # Install needed packages and setup non-root user. Use a separate RUN statement to add your
 # own dependencies. A user of "automatic" attempts to reuse an user ID if one already exists.
@@ -28,7 +28,7 @@ RUN apt-get update \
     && dos2unix /setup/library-scripts/*.sh \
     && /bin/bash /setup/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" "true" "true" \
     # Use Docker script from script library to set things up
-    && /bin/bash /setup/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "/var/run/docker-host.sock" "/var/run/docker.sock" "${USERNAME}" \
+    && /bin/bash /setup/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "/var/run/docker-host.sock" "/var/run/docker.sock" "${USERNAME}" "${USE_MOBY}" \
     # Clean up
     && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /setup/library-scripts/
 
