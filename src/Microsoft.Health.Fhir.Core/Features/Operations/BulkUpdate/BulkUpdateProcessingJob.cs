@@ -99,8 +99,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 }
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"));
-
                 if (definition.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, definition.Type));

@@ -73,9 +73,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
                 var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
 
+                // Check if definition.SearchParameters is not null and only have one SearchParameter which is LastUpdated
+                bool noOtherSearchParameters = definition.SearchParameters == null;
+                if (!noOtherSearchParameters && definition.SearchParameters.Count == 1 &&
+                    string.Equals(definition.SearchParameters[0].Item1, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                {
+                    noOtherSearchParameters = true;
+                }
+
                 // For Parallel bulk update, when there are no SearchParameters then create sub jobs by resourceType-surrogateId ranges
                 using var searchService = _searchService.Invoke();
-                if (definition.IsParallel && (definition.SearchParameters is null || !definition.SearchParameters.Any()))
+                if (definition.IsParallel && noOtherSearchParameters)
                 {
                     _logger.LogInformation("Creating bulk update subjobs by resourceType-surrogateId ranges.");
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)

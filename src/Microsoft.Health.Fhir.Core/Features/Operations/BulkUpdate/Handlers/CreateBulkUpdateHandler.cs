@@ -86,8 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
 
-            searchParameters.RemoveAll(x => string.Equals(x.Item1, "_lastUpdated", StringComparison.OrdinalIgnoreCase));
-
             // Validate that the operations are supported
             foreach (var parameter in request.Parameters.Parameter)
             {

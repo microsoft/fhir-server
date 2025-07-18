@@ -484,11 +484,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var resourceTypes = new Dictionary<string, long>
             {
-                { "Patient", 2000 },
+                { "Patient", 2005 },
                 { "Group", 1 },
             };
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 2000);
+            await CreateGroupWithPatients(tag, 2005);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 2000);
+            expectedResults.ResourcesUpdated.Add("Patient", 2005);
             expectedResults.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
 
@@ -525,7 +525,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
-            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2000);
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2005);
             expectedResultsForIgnored.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
 
@@ -543,7 +543,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
-            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2000);
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2005);
             expectedResultsPatchFailed.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
@@ -558,11 +558,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var resourceTypes = new Dictionary<string, long>
             {
-                { "Patient", 2000 },
+                { "Patient", 2005 },
                 { "Group", 1 },
             };
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 2000);
+            await CreateGroupWithPatients(tag, 2005);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -576,7 +576,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 2000);
+            expectedResults.ResourcesUpdated.Add("Patient", 2005);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
 
             // For Ignored resources
@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
-            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2000);
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2005);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
 
             // For Patch failures
@@ -602,7 +602,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
-            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2000);
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2005);
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
 
