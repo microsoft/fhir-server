@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
+        private HashSet<long> _processedJobIds = new HashSet<long>();
+
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -784,8 +786,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             bool allJobsComplete,
             CancellationToken cancellationToken)
         {
-            HashSet<long> processedJobIds = new HashSet<long>();
-
             // Get all completed and failed jobs
             var failedJobInfos = jobInfos.Where(j => j.Status == JobStatus.Failed).ToList();
             var succeededJobInfos = jobInfos.Where(j => j.Status == JobStatus.Completed).ToList();
@@ -801,7 +801,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(failedJobInfo.Result);
                     _currentResult.FailedResources += result.FailedResourceCount;
-                    processedJobIds.Add(failedJobInfo.Id);
+                    _processedJobIds.Add(failedJobInfo.Id);
                 }
 
                 string userMessage = $"{_reindexJobRecord.FailureCount} resource(s) failed to be reindexed." +
@@ -818,7 +818,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(succeededJobInfo.Result);
                     _currentResult.SucceededResources += result.SucceededResourceCount;
-                    processedJobIds.Add(succeededJobInfo.Id);
                 }
 
                 (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(succeededJobInfos);
@@ -838,13 +837,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // Only update search parameters for jobs that haven't been processed yet
                     var unprocessedJobs = succeededJobInfos
-                        .Where(job => !processedJobIds.Contains(job.Id))
+                        .Where(job => !_processedJobIds.Contains(job.Id))
                         .ToList();
 
                     if (unprocessedJobs.Any())
                     {
                         _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
                         await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
+                        _processedJobIds.UnionWith(unprocessedJobs.Select(j => j.Id));
                     }
                 }
             }
