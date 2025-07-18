@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />

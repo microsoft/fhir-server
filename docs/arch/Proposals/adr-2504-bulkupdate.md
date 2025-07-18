@@ -72,7 +72,7 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
         {
         "name": "operation",
         "part": [
-          { "name": "type",  "valueCode": "add" },
+          { "name": "type",  "valueCode": "replace" },
           { "name": "path",  "valueString": "Resource.meta.security" },
           { "name": "value", "valueCoding": {
               "system": "http://example.org/consent",
@@ -92,7 +92,7 @@ Our platform already supports the FHIR `$import` feature for incremental loads. 
 - **Logging** – Should have the audit log for each bulk-update call with the resource IDs of the items that have been updated successfully. In case of error, should provide the valid reason with failed to update resource IDs.
 - **Partial updates** – Resources with valid requests should get updated. The failed resources should be logged with the reason.
 - **Supports upsert operations** - Unlike FHIR PATCH, with bulk-update user can pass in operation type as `upsert`, which would replace the element if it already exists.
-- **Use existing oprtation type** - Operation type such as `add`, `insert` and `replace` will function in the same way as they do in the FHIR Patch call.
+- **Use existing oprtation type** - Operation type such as `replace` will function in the same way as the FHIR Patch call.
 
 ###  High‑Level Flow
 

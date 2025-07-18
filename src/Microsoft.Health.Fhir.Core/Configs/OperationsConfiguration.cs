@@ -22,5 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ImportJobConfiguration Import { get; set; } = new ImportJobConfiguration();
 
         public BulkDeleteJobConfiguration BulkDelete { get; set; } = new BulkDeleteJobConfiguration();
+
+        public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
     }
 }
