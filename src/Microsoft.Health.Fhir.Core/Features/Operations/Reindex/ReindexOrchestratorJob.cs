@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         private HashSet<long> _processedJobIds = new HashSet<long>();
+        private HashSet<string> _processedSearchParameters = new HashSet<string>();
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -214,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (!CheckJobRecordForAnyWork())
             {
                 // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
-                await UpdateSearchParameterStatus(notYetIndexedParams.Select(p => new JobInfo { Definition = JsonConvert.SerializeObject(new ReindexProcessingJobDefinition { SearchParameterUrls = new List<string> { p.Url.OriginalString } }) }).ToList(), cancellationToken);
+                await UpdateSearchParameterStatus(notYetIndexedParams.Select(p => new JobInfo { Definition = JsonConvert.SerializeObject(new ReindexProcessingJobDefinition { SearchParameterUrls = new List<string> { p.Url.OriginalString } }) }).ToList(), null, cancellationToken);
                 return null;
             }
 
@@ -261,6 +262,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (resourceCount.Count <= 0)
                 {
                     continue; // Skip if there are no resources to process
+                }
+
+                // Get search parameters that are valid for this specific resource type
+                var validSearchParameterUrls = GetValidSearchParameterUrlsForResourceType(resourceType);
+
+                if (!validSearchParameterUrls.Any())
+                {
+                    _logger.LogWarning("No valid search parameters found for resource type {ResourceType} in reindex job {JobId}", resourceType, _jobInfo.Id);
                 }
 
                 // Create a list to store the ranges for processing
@@ -338,11 +347,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         ResourceType = resourceType,
                         MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
                         MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
-                        SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
+                        SearchParameterUrls = validSearchParameterUrls.ToImmutableList(),
                     };
 
                     definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
                 }
+
+                _logger.LogInformation(
+                    "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}", resourceType, validSearchParameterUrls.Count, string.Join(", ", validSearchParameterUrls));
             }
 
             try
@@ -476,14 +488,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             LogReindexJobRecordErrorMessage();
         }
 
-        private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, CancellationToken cancellationToken)
+        private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, List<string> readySearchParameters, CancellationToken cancellationToken)
         {
             // Check if all the resource types which are base types of the search parameter
             // were reindexed by this job. If so, then we should mark the search parameters
             // as fully reindexed
             var fullyIndexedParamUris = new List<string>();
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var reindexedSearchParameters = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(completedJobs.First().Definition).SearchParameterUrls;
+            var reindexedSearchParameters = (readySearchParameters ?? ParseJobDefinition(completedJobs.First())?.SearchParameterUrls)
+                ?.Where(url => !_processedSearchParameters.Contains(url))
+                .ToList();
+
+            if (reindexedSearchParameters == null || !reindexedSearchParameters.Any())
+            {
+                _logger.LogDebug("No new search parameters to process for reindex job {JobId}", _jobInfo.Id);
+                return;
+            }
 
             foreach (var searchParameterUrl in reindexedSearchParameters)
             {
@@ -496,10 +516,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     case SearchParameterStatus.PendingDisable:
                         _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Disabled.", _jobInfo.Id, searchParamInfo.Url);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
+                        _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.PendingDelete:
                         _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Deleted.", _jobInfo.Id, searchParamInfo.Url);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
+                        _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.Supported:
                     case SearchParameterStatus.Enabled:
@@ -512,6 +534,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameters: '{ParamUris} to Enabled.'", _jobInfo.Id, string.Join("', '", fullyIndexedParamUris));
                 await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken);
+                _processedSearchParameters.UnionWith(fullyIndexedParamUris);
             }
         }
 
@@ -682,61 +705,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                         if (newlyCompletedJobs.Any())
                         {
-                            // Group the newly completed jobs by resource type
-                            foreach (var job in newlyCompletedJobs)
+                            // Process newly completed jobs and determine ready search parameters in one pass
+                            var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(
+                                newlyCompletedJobs,
+                                updatedJobs,
+                                processedJobIds);
+
+                            // Update search parameter status for ready parameters
+                            if (readySearchParameters.Any())
                             {
-                                processedJobIds.Add(job.Id);
-
-                                var jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                                var resourceType = jobDefinition.ResourceType;
-
-                                if (!completedJobsByResourceType.TryGetValue(resourceType, out var jobList))
+                                var jobsForReadyParameters = GetJobsForSearchParameters(newlyCompletedJobs, readySearchParameters);
+                                if (jobsForReadyParameters.Any())
                                 {
-                                    jobList = new List<JobInfo>();
-                                    completedJobsByResourceType[resourceType] = jobList;
-                                }
-
-                                jobList.Add(job);
-                            }
-
-                            // Check for resource types with all jobs completed
-                            foreach (var resourceType in completedJobsByResourceType.Keys.ToList())
-                            {
-                                // Check if all jobs for this resourceType are complete
-                                var allJobsForResourceType = updatedJobs
-                                    .Where(j =>
-                                    {
-                                        if (j.Id == _jobInfo.GroupId)
-                                        {
-                                            return false;
-                                        }
-
-                                        try
-                                        {
-                                            var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
-                                            return def.ResourceType == resourceType;
-                                        }
-                                        catch
-                                        {
-                                            return false;
-                                        }
-                                    })
-                                    .ToList();
-
-                                if (allJobsForResourceType.All(j => j.Status == JobStatus.Completed))
-                                {
-                                    _logger.LogInformation("All jobs for resourceType {ResourceType} are complete. Updating search parameter status.", resourceType);
-
-                                    // Only update search parameters for resource types that we haven't processed yet
-                                    var jobsToProcess = completedJobsByResourceType[resourceType];
-
-                                    await ProcessCompletedJobs(
-                                        jobsToProcess,
-                                        false,
-                                        cancellationToken);
-
-                                    // Remove this resource type from the tracking dictionary to prevent duplicate processing
-                                    completedJobsByResourceType.Remove(resourceType);
+                                    await ProcessCompletedJobs(jobsForReadyParameters, false, readySearchParameters, cancellationToken);
                                 }
                             }
                         }
@@ -778,12 +759,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await ProcessCompletedJobs(
                 jobInfos,
                 true,
+                null,
                 cancellationToken);
         }
 
         private async Task ProcessCompletedJobs(
             List<JobInfo> jobInfos,
             bool allJobsComplete,
+            List<string> readySearchParameters,
             CancellationToken cancellationToken)
         {
             // Get all completed and failed jobs
@@ -843,7 +826,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     if (unprocessedJobs.Any())
                     {
                         _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
-                        await UpdateSearchParameterStatus(unprocessedJobs, cancellationToken);
+                        await UpdateSearchParameterStatus(unprocessedJobs, readySearchParameters, cancellationToken);
                         _processedJobIds.UnionWith(unprocessedJobs.Select(j => j.Id));
                     }
                 }
@@ -1011,6 +994,220 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling pending jobs for reindex job {JobId}", _jobInfo.Id);
+            }
+        }
+
+        /// <summary>
+        /// Unified method to process completed jobs and determine which search parameters are ready for status updates.
+        /// Combines job processing with search parameter readiness checking to reduce duplication.
+        /// </summary>
+        private List<string> ProcessCompletedJobsAndDetermineReadiness(
+            List<JobInfo> newlyCompletedJobs,
+            IReadOnlyList<JobInfo> allJobs,
+            HashSet<long> processedJobIds)
+        {
+            // Track completed jobs by resource type for efficient lookup
+            var completedResourceTypes = new HashSet<string>();
+
+            // Process newly completed jobs and track their resource types
+            foreach (var job in newlyCompletedJobs)
+            {
+                processedJobIds.Add(job.Id);
+
+                var jobDefinition = ParseJobDefinition(job);
+                if (jobDefinition != null)
+                {
+                    completedResourceTypes.Add(jobDefinition.ResourceType);
+                }
+            }
+
+            // Check which search parameters are ready for status updates
+            var readySearchParameters = new List<string>();
+
+            foreach (var searchParamUrl in _reindexJobRecord.SearchParams)
+            {
+                if (IsSearchParameterFullyCompleted(searchParamUrl, allJobs))
+                {
+                    readySearchParameters.Add(searchParamUrl);
+                    _logger.LogInformation(
+                        "Search parameter {SearchParamUrl} is ready for status update - all related resource types completed",
+                        searchParamUrl);
+                }
+            }
+
+            return readySearchParameters;
+        }
+
+        /// <summary>
+        /// Safely parses job definition with consistent error handling
+        /// </summary>
+        private ReindexProcessingJobDefinition ParseJobDefinition(JobInfo job)
+        {
+            try
+            {
+                return JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse job definition for job {JobId}", job.Id);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Determines if a search parameter has all its related resource types completed.
+        /// Consolidates the logic for checking job completion across resource types.
+        /// </summary>
+        private bool IsSearchParameterFullyCompleted(string searchParamUrl, IReadOnlyList<JobInfo> allJobs)
+        {
+            try
+            {
+                // Get the search parameter definition
+                var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUrl);
+
+                // Get all resource types that this search parameter applies to
+                var applicableResourceTypes = GetDerivedResourceTypes(searchParamInfo.BaseResourceTypes);
+
+                // Filter to only resource types that are part of this reindex job
+                var reindexJobResourceTypes = applicableResourceTypes.Intersect(_reindexJobRecord.Resources).ToList();
+
+                if (!reindexJobResourceTypes.Any())
+                {
+                    return false; // No applicable resource types in this job
+                }
+
+                // Check if all jobs for all applicable resource types are completed
+                foreach (var resourceType in reindexJobResourceTypes)
+                {
+                    if (!AreAllJobsForResourceTypeCompleted(resourceType, searchParamUrl, allJobs))
+                    {
+                        _logger.LogDebug(
+                            "Search parameter {SearchParamUrl} not ready - resource type {ResourceType} still has incomplete jobs", searchParamUrl, resourceType);
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error checking completion status for search parameter {SearchParamUrl}", searchParamUrl);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Checks if all jobs for a specific resource type and search parameter combination are completed.
+        /// Consolidates the job filtering logic used throughout the class.
+        /// </summary>
+        private bool AreAllJobsForResourceTypeCompleted(string resourceType, string searchParamUrl, IReadOnlyList<JobInfo> allJobs)
+        {
+            var jobsForResourceType = GetJobsForResourceTypeAndSearchParameter(allJobs, resourceType, searchParamUrl);
+            return jobsForResourceType.Any() && jobsForResourceType.All(j => j.Status == JobStatus.Completed);
+        }
+
+        /// <summary>
+        /// Unified method to filter jobs by resource type and search parameter.
+        /// Replaces multiple similar LINQ queries throughout the class.
+        /// </summary>
+        private List<JobInfo> GetJobsForResourceTypeAndSearchParameter(
+            IReadOnlyList<JobInfo> allJobs,
+            string resourceType,
+            string searchParamUrl)
+        {
+            return allJobs
+                .Where(j =>
+                {
+                    if (j.Id == _jobInfo.GroupId)
+                    {
+                        return false;
+                    }
+
+                    var jobDefinition = ParseJobDefinition(j);
+                    return jobDefinition != null &&
+                           jobDefinition.ResourceType == resourceType &&
+                           jobDefinition.SearchParameterUrls.Contains(searchParamUrl);
+                })
+                .ToList();
+        }
+
+        /// <summary>
+        /// Gets jobs that contain any of the specified search parameters
+        /// </summary>
+        private List<JobInfo> GetJobsForSearchParameters(List<JobInfo> jobs, List<string> searchParameterUrls)
+        {
+            return jobs
+                .Where(job =>
+                {
+                    var jobDefinition = ParseJobDefinition(job);
+                    return jobDefinition != null &&
+                           jobDefinition.SearchParameterUrls.Any(url => searchParameterUrls.Contains(url));
+                })
+                .ToList();
+        }
+
+        /// <summary>
+        /// Gets the search parameter URLs that are valid for the specified resource type.
+        /// Filters the reindex job's search parameters to only include those that apply to the given resource type.
+        /// </summary>
+        /// <param name="resourceType">The resource type to filter search parameters for</param>
+        /// <returns>A list of search parameter URLs that are valid for the resource type</returns>
+        private List<string> GetValidSearchParameterUrlsForResourceType(string resourceType)
+        {
+            var validSearchParameterUrls = new List<string>();
+
+            try
+            {
+                // Get all search parameters that are valid for this resource type
+                var searchParametersForResourceType = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
+                var validSearchParameterUrlsSet = searchParametersForResourceType.Select(sp => sp.Url.OriginalString).ToHashSet();
+
+                // Filter the reindex job's search parameters to only include those valid for this resource type
+                foreach (var searchParamUrl in _reindexJobRecord.SearchParams)
+                {
+                    if (validSearchParameterUrlsSet.Contains(searchParamUrl))
+                    {
+                        validSearchParameterUrls.Add(searchParamUrl);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Search parameter {SearchParamUrl} is not valid for resource type {ResourceType} and will be excluded from processing job", searchParamUrl, resourceType);
+                    }
+                }
+
+                // Additional validation: Ensure search parameters from the reindex job actually apply to this resource type
+                // by checking their BaseResourceTypes
+                var finalValidUrls = new List<string>();
+                foreach (var searchParamUrl in validSearchParameterUrls)
+                {
+                    try
+                    {
+                        var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUrl);
+                        var applicableResourceTypes = GetDerivedResourceTypes(searchParamInfo.BaseResourceTypes);
+
+                        if (applicableResourceTypes.Contains(resourceType))
+                        {
+                            finalValidUrls.Add(searchParamUrl);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Search parameter {SearchParamUrl} base resource types {BaseTypes} do not include {ResourceType}", searchParamUrl, string.Join(", ", searchParamInfo.BaseResourceTypes), resourceType);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error validating search parameter {SearchParamUrl} for resource type {ResourceType}", searchParamUrl, resourceType);
+                    }
+                }
+
+                return finalValidUrls;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error getting valid search parameters for resource type {ResourceType}. Using all search parameters as fallback.", resourceType);
+
+                // Fallback to all search parameters if there's an error
+                return _reindexJobRecord.SearchParams.ToList();
             }
         }
     }
