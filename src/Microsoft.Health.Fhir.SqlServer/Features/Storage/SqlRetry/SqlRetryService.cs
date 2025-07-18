@@ -237,6 +237,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
         {
+            SqlCommandExtensions.LogSqlCommand(sqlCommand, logger);
+
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -289,6 +291,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task<IReadOnlyList<TResult>> ExecuteSqlDataReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, bool allRows, bool isReadOnly, CancellationToken cancellationToken)
         {
+            SqlCommandExtensions.LogSqlCommand(sqlCommand, logger);
+
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -334,6 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
         {
+            SqlCommandExtensions.LogSqlCommand(sqlCommand, logger);
             return await ExecuteSqlDataReaderAsync(sqlCommand, readerToResult, logger, logMessage, true, isReadOnly, cancellationToken);
         }
 

@@ -80,9 +80,9 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT 'CleanpEventLog', 'LogEvent'
                 foreach (var searchParamTable in searchParamTables)
                 {
                     var st = DateTime.UtcNow;
-#pragma warning disable CA2100
+#pragma warning disable CA2100, CA2000
                     using var sqlCommand = new SqlCommand($"SELECT SearchParamId, count_big(*) FROM dbo.{searchParamTable} GROUP BY SearchParamId") { CommandTimeout = 0 };
-#pragma warning disable CA2100
+#pragma warning disable CA2100, CA2000
                     var searchParamCounts = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => { return new SearchParamCount { SearchParamTable = searchParamTable, SearchParamId = reader.GetInt16(0), RowCount = reader.GetInt64(1) }; }, _logger, cancellationToken);
                     foreach (var searchParamCount in searchParamCounts)
                     {
