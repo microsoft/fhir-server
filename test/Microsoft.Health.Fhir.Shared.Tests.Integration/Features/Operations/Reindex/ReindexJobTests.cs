@@ -102,7 +102,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task InitializeAsync()
         {
-            // First delete any leftover resources from previous test runs
+            // Initialize critical fields first before cleanup
+            _fhirOperationDataStore = _fixture.OperationDataStore;
+            _fhirStorageTestHelper = _fixture.TestHelper;
+            _scopedDataStore = _fixture.DataStore.CreateMockScope();
+            _searchService = _fixture.SearchService.CreateMockScope();
+
+            // Now we can safely delete leftover resources from previous test runs
             var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             await DeleteTestResources(cleanupCts.Token);
             cleanupCts.Dispose();
@@ -114,10 +120,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             });
 
             _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
-            _fhirOperationDataStore = _fixture.OperationDataStore;
-            _fhirStorageTestHelper = _fixture.TestHelper;
-            _scopedDataStore = _fixture.DataStore.CreateMockScope();
 
             _jobConfiguration = new ReindexJobConfiguration();
             _optionsReindexConfig.Value.Returns(_jobConfiguration);
@@ -157,8 +159,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                     Deserializers.ResourceDeserializer,
                                                     _searchParameterOperations,
                                                     _searchParameterDefinitionManager);
-
-            _searchService = _fixture.SearchService.CreateMockScope();
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
@@ -966,6 +966,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
 
+                // CRITICAL: Force the search parameter definition manager to refresh/sync
+                // This is the missing piece - the search service needs to know about status changes
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+                // Now test the actual search functionality
                 // Rerun the same search as above
                 searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
                 Assert.Single(searchResults.Results);
@@ -1024,6 +1029,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Stopwatch stopwatch = Stopwatch.StartNew();
             while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < MaxNumberOfAttempts)
             {
+                // Check for any processing jobs that need to be executed
+                var allJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, response.Job.JobRecord.GroupId, true, cancellationTokenSource.Token);
+                var processingJobs = allJobs.Where(j => j.Status == JobStatus.Created || j.Status == JobStatus.Running).ToList();
+
+                // Execute any pending processing jobs
+                foreach (var processingJob in processingJobs.Where(j => j.Status == JobStatus.Created))
+                {
+                    try
+                    {
+                        var scopedJob = _jobFactory.Create(processingJob);
+                        var result = await scopedJob.Value.ExecuteAsync(processingJob, cancellationTokenSource.Token);
+                        processingJob.Status = JobStatus.Completed;
+                        processingJob.Result = result;
+                        await _queueClient.CompleteJobAsync(processingJob, false, cancellationTokenSource.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        processingJob.Status = JobStatus.Failed;
+                        processingJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
+                        await _queueClient.CompleteJobAsync(processingJob, false, cancellationTokenSource.Token);
+                    }
+                }
+
                 await Task.Delay(delay);
                 delayCount++;
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
@@ -1031,8 +1059,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 if (operationStatus == OperationStatus.Completed &&
                     (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled))
                 {
-                    // Fail-fast.
-                    // If the expected status is 'Completed', and the job failed or if it was canceled, then stop the test quickly.
                     Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}.");
                 }
             }
@@ -1076,7 +1102,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 var searchIndexValues = new List<SearchIndexEntry>();
                 searchIndexValues.Add(new SearchIndexEntry(searchParamInfo, searchValue));
-                _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals(id))).Returns(searchIndexValues);
+
+                // Add null check for ResourceElement
+                _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r != null && r.Id != null && r.Id.Equals(id))).Returns(searchIndexValues);
             }
         }
 
