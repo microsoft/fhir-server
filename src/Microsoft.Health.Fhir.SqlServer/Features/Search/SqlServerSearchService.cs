@@ -1167,7 +1167,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Count = totalCount,
                 StartResourceSurrogateId = startResourceSurrogateId,
                 EndResourceSurrogateId = endResourceSurrogateId,
-                CurrentResourceSurrogateId = startResourceSurrogateId,
             };
 
             return searchResult;
@@ -1209,7 +1208,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Count = totalCount,
                 StartResourceSurrogateId = startResourceSurrogateId,
                 EndResourceSurrogateId = endResourceSurrogateId,
-                CurrentResourceSurrogateId = startResourceSurrogateId,
             };
 
             return searchResult;
