@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -142,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     string prevContinuationToken = null;
                     var definitions = new List<BulkUpdateDefinition>();
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
+                    searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
 
                     // Run a search to get the first page of results
                     SearchResult searchResult = await BulkUpdateOrchestratorJob.Search(definition, searchService, searchParams, cancellationToken);
