@@ -307,6 +307,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     }
                     else if (_knownHttpVerbsInOperation.Count > 1)
                     {
+                        // If multiple HTTP Verbs are used, then resources must be sorted by BundleResourceContext.
+                        // This is required to ensure that resources are processed in the correct order following the FHIR specification.
+                        // This logic is documented on "BundleResourceContextComparer" and applicable to Bundle Transactions.
                         resources = _resources.Values.OrderBy(x => x.BundleResourceContext, _contextComparer).ToList();
                     }
                     else

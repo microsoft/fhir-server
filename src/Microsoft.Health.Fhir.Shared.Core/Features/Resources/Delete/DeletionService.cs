@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly CoreFeatureConfiguration _configuration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -72,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IOptions<CoreFeatureConfiguration> configuration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ISearchParameterOperations searchParameterOperations,
+            IResourceDeserializer resourceDeserializer,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _configuration = EnsureArg.IsNotNull(configuration.Value, nameof(configuration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -444,6 +447,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var parallelBag = new ConcurrentBag<(string, string, bool)>();
             try
             {
+                if (request.RemoveReferences)
+                {
+                    foreach (var item in resourcesToDelete)
+                    {
+                        await RemoveReferences(item, request, cancellationToken);
+                    }
+                }
+
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
                 var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
@@ -524,6 +535,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             });
 
             return auditTask;
+        }
+
+        private async Task RemoveReferences(SearchResultEntry resource, ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        {
+            using (var searchService = _searchServiceFactory.Invoke())
+            {
+                var parameters = new List<Tuple<string, string>>()
+                {
+                    Tuple.Create(KnownQueryParameterNames.Id, resource.Resource.ResourceId),
+                    Tuple.Create(KnownQueryParameterNames.ReverseInclude, "*:*"),
+                };
+                var results = await searchService.Value.SearchAsync(
+                    resourceType: resource.Resource.ResourceTypeName,
+                    queryParameters: parameters,
+                    cancellationToken: cancellationToken);
+                var includesContinuationToken = results.IncludesContinuationToken;
+                var revincludeResults = results.Results.Where(result => result.Resource.ResourceId != resource.Resource.ResourceId);
+
+                while (revincludeResults.Any())
+                {
+                    var resourcesWithReferences = revincludeResults.Select(entry => _resourceDeserializer.Deserialize(entry.Resource));
+
+                    var modifiedResources = new List<ResourceWrapperOperation>();
+                    foreach (var reference in resourcesWithReferences)
+                    {
+                        ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceTypeName + "/" + resource.Resource.ResourceId);
+                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: false);
+                        modifiedResources.Add(new ResourceWrapperOperation(
+                            wrapper,
+                            allowCreate: false,
+                            keepHistory: true,
+                            weakETag: null,
+                            requireETagOnUpdate: false,
+                            keepVersion: false,
+                            bundleResourceContext: request.BundleResourceContext));
+                    }
+
+                    using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+
+                    await fhirDataStore.Value.MergeAsync(modifiedResources, cancellationToken);
+
+                    if (includesContinuationToken != null)
+                    {
+                        var clonedParameters = new List<Tuple<string, string>>(parameters);
+                        clonedParameters.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(includesContinuationToken)));
+                        results = await searchService.Value.SearchAsync(
+                            resourceType: resource.Resource.ResourceTypeName,
+                            queryParameters: clonedParameters,
+                            cancellationToken: cancellationToken,
+                            isIncludesOperation: true);
+                        includesContinuationToken = results.IncludesContinuationToken;
+                        revincludeResults = results.Results;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
         }
 
         private bool AreIncludeResultsTruncated()

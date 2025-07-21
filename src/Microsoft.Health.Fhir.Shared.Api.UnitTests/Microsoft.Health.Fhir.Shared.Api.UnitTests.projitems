@@ -64,6 +64,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerEdgeCaseTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerRuntimeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerStatisticsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandlerTests.cs" />
