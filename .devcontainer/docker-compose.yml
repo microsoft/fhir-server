@@ -30,7 +30,8 @@ services:
     entrypoint: /usr/local/share/docker-init.sh
 
     # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
-    network_mode: service:cosmos
+    # network_mode: service:cosmos
+    network_mode: "host"
 
     # so the container won't exit
     command: sleep infinity
