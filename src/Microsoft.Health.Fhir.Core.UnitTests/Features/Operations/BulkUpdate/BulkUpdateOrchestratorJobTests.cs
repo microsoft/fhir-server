@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludesPage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchAndIncludedResources()
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludesPage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
@@ -266,40 +266,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
-            Assert.Equal(2, definitions.Length);
+            Assert.Single(definitions);
 
-            for (int i = 0; i < definitions.Length; i++)
-            {
-                var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[i]);
+            var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[0]);
 
-                // check actualDefinition.Type contains one of the type from resourceTypes
-                Assert.NotNull(actualDefinition.Type);
-                Assert.Equal("Patient", actualDefinition.Type);
+            // check actualDefinition.Type contains one of the type from resourceTypes
+            Assert.NotNull(actualDefinition.Type);
+            Assert.Equal("Patient", actualDefinition.Type);
 
-                // First call will be normal search with CT and ICT both null
-                // The first search call will return ICT with CT = null, there would be 1 such call for search as a second call for includes
-                if (i == 0)
-                {
-                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
-                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
-                }
-                else
-                {
-                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
-                    Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
-                }
-            }
+            // First call will be normal search with CT and ICT both null
+            Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
+            Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludes_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchAndIncludedResources()
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludes_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 
             int callCountForMatchResults = 0;
-            int callCountForIncludesResults = 0;
-
             _searchService
                 .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), false)
                 .Returns(_ =>
@@ -310,19 +296,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     // Total 4 matched pages, with the first 2 pages having "includesContinuationToken"
                     var continuationToken = callCountForMatchResults <= 3 ? "continuationToken" : null;
                     var includesContinuationToken = callCountForMatchResults <= 2 ? "includesContinuationToken" : null;
-                    return Task.FromResult(GenerateSearchResult(2, continuationToken, includesContinuationToken));
-                });
-
-            // For included results
-            _searchService
-                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), true)
-                .Returns(_ =>
-                {
-                    callCountForIncludesResults++;
-
-                    // First 2 calls: return "includesContinuationToken", 3rd call: return null
-                    var continuationToken = "continuationToken";
-                    var includesContinuationToken = callCountForIncludesResults <= 2 ? "includesContinuationToken" : null;
                     return Task.FromResult(GenerateSearchResult(2, continuationToken, includesContinuationToken));
                 });
 
@@ -358,7 +331,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that 8 processing jobs were queued
+            // Checks that 4 processing jobs were queued for 4 matched result pages
             var calls = _queueClient.ReceivedCalls()
                 .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
                 .ToList();
@@ -366,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
                 .SelectMany(defs => defs) // Flatten all arrays into one sequence
                 .ToArray(); // Convert to a single string[]
-            Assert.Equal(8, definitions.Length);
+            Assert.Equal(4, definitions.Length);
 
             for (int i = 0; i < definitions.Length; i++)
             {
@@ -376,27 +349,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Assert.NotNull(actualDefinition.Type);
                 Assert.Equal("Patient", actualDefinition.Type);
 
+                // Just read all the matched pages
                 // MatchPage1 hence 1st call equeued as (ct=null,ict=null)
-                // Has 2 pages of includes so 2nd and 3rd(search for include is called) and 4th(search for include is called) call => (ct = null, ict = "includesContinuationToken")
-                // MatchPage2 hence 5th call (ct=continuationToken, ict=null)
-                // Has includes continuation token so 6th call (ct=continuationToken, ict=includesContinuationToken)
-                // MatchPage3 hence 7th call (ct=continuationToken, ict=null)
-                // MatchPage4 hence 8th call (ct=continuationToken, ict=null)
+                // MatchPage2 hence 2nd call (ct=continuationToken, ict=null)
+                // MatchPage3 hence 3rd call (ct=continuationToken, ict=null)
+                // MatchPage4 hence 4th call (ct=continuationToken, ict=null)
 
                 if (i == 0)
                 {
                     Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
                     Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
-                }
-                else if (i > 0 && i < 4)
-                {
-                    Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
-                    Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
-                }
-                else if (i == 5)
-                {
-                    Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
-                    Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
                 }
                 else
                 {

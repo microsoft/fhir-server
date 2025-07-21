@@ -115,11 +115,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             try
             {
                 ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
-                while ((searchResult.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(ct))
+                if ((searchResult.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(ct))
                 {
                     ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
                     ict = searchResult.IncludesContinuationToken;
                     searchResults = searchResult.Results.ToList();
+
+                    // For resources that are included
+                    if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated())
+                    {
+                        // run a search for included results
+                        (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, parallelThreads - updateTasks.Count, true, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
+                    }
+
+                    // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
+                    if (!string.IsNullOrEmpty(ct) && readNextPage)
+                    {
+                        var cloneList = new List<Tuple<string, string>>(conditionalParameters);
+                        if (isIncludesRequest)
+                        {
+                            // for include requests, keep ct as is and remove the includesContinuationToken and add new includesContinuationToken to the cloneList
+                            cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
+                            cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
+                        }
+                        else
+                        {
+                            cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
+                            cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
+                        }
+
+                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, parallelThreads, readNextPage, maximumNumberOfResourcesPerQuery, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
+                        resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
+                        finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
+                    }
 
                     // Group the results based on the resource type and prepare the conditional patch requests
                     BuildConditionalPatchRequests(conditionalParameters, bundleResourceContext, searchResults, totalResources, resourcesIgnored, commonPatchFailures, conditionalPatchResourceRequests, deserializedFhirPatchParameters);
@@ -137,49 +165,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (patchedResources.Any())
                     {
                         updateTasks.Add(UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, cancellationTokenSource.Token));
-                        if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
+                        if (!updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
                         {
-                            break;
+                            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+
+                            updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
+
+                            if (updateTasks.Count >= parallelThreads)
+                            {
+                                await updateTasks[0];
+                            }
                         }
-
-                        AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-
-                        updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
-
-                        if (updateTasks.Count >= parallelThreads)
-                        {
-                            await updateTasks[0];
-                        }
-                    }
-
-                    // For resources that are included
-                    if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated() && readNextPage)
-                    {
-                        // run a search for included results
-                        (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, parallelThreads - updateTasks.Count, readNextPage, maximumNumberOfResourcesPerQuery, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
-                    }
-
-                    // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
-                    if (!string.IsNullOrEmpty(ct) && readNextPage)
-                    {
-                        var cloneList = new List<Tuple<string, string>>(conditionalParameters);
-                        if (isIncludesRequest)
-                        {
-                            // for include requests, keep ct as is and remove the includesContinuationToken and add new includesContinuationToken to the cloneList
-                            cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
-                            cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
-                        }
-                        else
-                        {
-                            cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
-                        }
-
-                        searchResult = await Search(resourceType, isIncludesRequest, cloneList, cancellationToken);
-                        ict = searchResult.IncludesContinuationToken;
-                    }
-                    else
-                    {
-                        break;
                     }
                 }
             }
@@ -300,6 +296,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private async Task<SearchResult> Search(string resourceType, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
+            // check if conditionalParameters has cotinuation token or includesContinuationToken
+            if (conditionalParameters.Any(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase)))
+            {
+                var ct = ContinuationTokenEncoder.Decode(conditionalParameters.Where(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase)).Select(t => t.Item2).First());
+            }
+
+            if (conditionalParameters.Any(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase)))
+            {
+                var ict = ContinuationTokenEncoder.Decode(conditionalParameters.Where(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase)).Select(t => t.Item2).First());
+            }
+
             using (var searchService = _searchServiceFactory.Invoke())
             {
                 return await searchService.Value.SearchAsync(
@@ -513,7 +520,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 false,
                 patchedResources.Select((item) => (item.Value.ResourceElement.InstanceType, item.Key, item.Value.IsInclude)));
 
-            ResourceWrapperOperation[] wrapperOperations = await Task.WhenAll(patchedResources.Select(async item =>
+            ResourceWrapperOperation[] wrapperOperationsIncludes = await Task.WhenAll(patchedResources.Where(pr => pr.Value.IsInclude).Select(async item =>
+            {
+                // If there isn't a cached capability statement (IE this is the first request made after a service starts up) then performance on this request will be terrible as the capability statement needs to be rebuilt for every resource.
+                // This is because the capability statement can't be made correctly in a background job, so it doesn't cache the result.
+                // The result is good enough for background work, but can't be used for metadata as the urls aren't formated properly.
+                bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Value.ResourceElement.InstanceType, cancellationToken);
+                ResourceWrapper updateWrapper = CreateUpdateWrapper(patchedResources[item.Key].ResourceElement);
+                return new ResourceWrapperOperation(updateWrapper, true, keepHistory, null, false, false, bundleResourceContext: bundleResourceContext);
+            }));
+
+            ResourceWrapperOperation[] wrapperOperationsMatches = await Task.WhenAll(patchedResources.Where(pr => !pr.Value.IsInclude).Select(async item =>
             {
                 // If there isn't a cached capability statement (IE this is the first request made after a service starts up) then performance on this request will be terrible as the capability statement needs to be rebuilt for every resource.
                 // This is because the capability statement can't be made correctly in a background job, so it doesn't cache the result.
@@ -527,7 +544,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             try
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
-                await fhirDataStore.Value.MergeAsync(wrapperOperations, cancellationToken);
+
+                // Update includes first so that the reference for match result remains intact for next pages
+                if (wrapperOperationsIncludes.Any())
+                {
+                    await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, cancellationToken);
+                }
+
+                await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken);
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {

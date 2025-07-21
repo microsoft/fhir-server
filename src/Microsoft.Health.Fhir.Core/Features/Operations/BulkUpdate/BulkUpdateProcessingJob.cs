@@ -110,9 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 try
                 {
-                    bool isIncludesOperation = definition.SearchParameters is not null && definition.SearchParameters.Any(p => p.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase));
-                    _logger.LogInformation("Executing bulk update job {GroupId} and {JobId} with include request as : {IsInclude}", jobInfo.GroupId, jobInfo.Id, isIncludesOperation.ToString());
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, MaxParallelThreads, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesOperation, queryParametersList, null, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, MaxParallelThreads, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesRequest: false, queryParametersList, null, cancellationToken);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
