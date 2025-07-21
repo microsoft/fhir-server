@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that 6 processing jobs were queued
+            // Checks that only 1 processing jobs was queued
             var calls = _queueClient.ReceivedCalls()
                 .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
                 .ToList();

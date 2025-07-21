@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 try
                 {
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, MaxParallelThreads, definition.ReadNextPage, definition.MaximumNumberOfResourcesPerQuery, isIncludesRequest: false, queryParametersList, null, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, MaxParallelThreads, definition.ReadNextPage, isIncludesRequest: false, queryParametersList, null, cancellationToken);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
