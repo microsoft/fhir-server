@@ -478,17 +478,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWithDifferentScenarios_WhenCompleted_ThenResultsAreMatched(bool isParallel)
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWithBulkUpdateOnAllResources_WhenCompleted_ThenAllResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
             var resourceTypes = new Dictionary<string, long>
             {
                 { "Patient", 2005 },
-                { "Group", 1 },
             };
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 2005);
+            await CreatePatients(tag, 2005);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -504,9 +503,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BulkUpdateResult expectedResults = new BulkUpdateResult();
             expectedResults.ResourcesUpdated.Add("Patient", 2005);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWithNoApplicablePatchRequest_WhenCompleted_ThenResourcesAreIgnored(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2005 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatients(tag, 2005);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Ignored resources
-            patchRequest = new Parameters()
+            var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
 
             ChangeTypeToUpsertPatchParameter(patchRequest);
@@ -516,9 +533,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
             expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2005);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWhenPatchFails_WhenCompleted_ThenCorrectCountIsReturnedWithPatchFailed(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2005 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatients(tag, 2005);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
-            patchRequest = new Parameters()
+            var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "id", new FhirString("newId"))
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
 
@@ -536,7 +571,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithDifferentScenarios_WhenCompleted_ThenResultsAreMatched(bool isParallel)
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithBulkUpdateOnAllResources_WhenCompleted_ThenAllResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -569,12 +604,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesUpdated.Add("Patient", 2005);
             expectedResults.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithNoApplicablePatchRequest_WhenCompleted_ThenResourcesAreIgnored(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2005 },
+                { "Group", 1 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 2005);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Ignored resources
-            patchRequest = new Parameters()
+            var patchRequest = new Parameters()
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
             ChangeTypeToUpsertPatchParameter(patchRequest);
-            queryParam = new Dictionary<string, string>
+            var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
                     { "_isParallel", isParallel.ToString() },
@@ -586,13 +640,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 2005);
             expectedResultsForIgnored.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWhenPatchFails_WhenCompleted_ThenCorrectCountIsReturnedWithPatchFailed(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2005 },
+                { "Group", 1 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 2005);
+
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
             // For Patch failures
-            patchRequest = new Parameters()
+            var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "id", new FhirString("newId"))
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
             ChangeTypeToUpsertPatchParameter(patchRequest);
-            queryParam = new Dictionary<string, string>
+            var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
                     { "_isParallel", isParallel.ToString() },
@@ -604,6 +677,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 2005);
             expectedResultsPatchFailed.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
+        }
+
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsOnMultiplePages_WhenCompleted_ThenResultsAreMatched(bool isParallel)
+        {
+            CheckBulkUpdateEnabled();
+
+            var resourceTypes = new Dictionary<string, long>
+            {
+                { "Patient", 2005 },
+                { "Group", 1 },
+            };
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 2005);
 
             // For included resources present on different pages
             // Create chunk of Group resources with same tag
@@ -613,12 +703,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateGroupWithPatients(tag, 20005);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
-            queryParam = new Dictionary<string, string>
+            var queryParam = new Dictionary<string, string>
                 {
                     { "_include", "Group:member" },
                     { "_isParallel", isParallel.ToString() },
                 };
-            patchRequest = new Parameters()
+            var patchRequest = new Parameters()
                 .AddAddPatchParameter("Patient", "active", new FhirBoolean(true))
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
             ChangeTypeToUpsertPatchParameter(patchRequest);
@@ -797,7 +887,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 var id = Guid.NewGuid();
                 Group group = new Group();
-                group.Member = new List<Group.MemberComponent>();
 #if !R5
                 group.Actual = true;
 #else
@@ -811,8 +900,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 createBundle.Entry.Add(new Bundle.EntryComponent { Resource = group, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"Group/{id}" } });
 
-                group.Member.Add(new Group.MemberComponent { Entity = new ResourceReference($"Group/{id}") });
+                if (i > 0 && i % 490 == 0)
+                {
+                    // Since bundles can only hold 500 resources Patients need to be made in multiple calls
+                    using FhirResponse<Bundle> subResponse = await _fhirClient.PostBundleAsync(createBundle);
+                    Assert.Equal(HttpStatusCode.OK, subResponse.StatusCode);
 
+                    createBundle = new Bundle();
+                    createBundle.Type = Bundle.BundleType.Batch;
+                    createBundle.Entry = new List<Bundle.EntryComponent>();
+                }
+            }
+
+            using FhirResponse<Bundle> response = await _fhirClient.PostBundleAsync(createBundle);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        private async Task CreatePatients(string tag, int count)
+        {
+            Bundle createBundle = new Bundle();
+            createBundle.Type = Bundle.BundleType.Batch;
+            createBundle.Entry = new List<Bundle.EntryComponent>();
+
+            for (int i = 0; i < count; i++)
+            {
+                var id = Guid.NewGuid();
+                var patient = new Patient();
+                patient.Meta = new Meta();
+                patient.Meta.Tag = new List<Coding> { new Coding("http://e2etests", tag) };
+                patient.Id = id.ToString();
+
+                createBundle.Entry.Add(new Bundle.EntryComponent { Resource = patient, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"Patient/{id}" } });
                 if (i > 0 && i % 490 == 0)
                 {
                     // Since bundles can only hold 500 resources Patients need to be made in multiple calls
