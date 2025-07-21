@@ -635,7 +635,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
                                 || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(input.Resource); // version and last updated are not aligned
+                            conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {
@@ -718,30 +718,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var validResources = new List<ImportResource>();
                     var conflicts = new List<ImportResource>();
-                    var tokenRowGenerator = new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap);
+
+                    // Remove the resources causing the TokenSearchParam constraint conflicts
+                    var tokenSearchParamRowGenerator = new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap);
 
                     // Code column max length allowed
-                    var codeMaxLengthAllowed = VLatest.TokenSearchParam.Code.Metadata.MaxLength;
-
+                    var tokenSearchParamCodeMaxLengthAllowed = VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.MaxLength;
                     foreach (var resource in resources)
                     {
-                        bool hasConflict = false;
                         try
                         {
-                            // We generate the TVPs to check if validation is failing for any column
-                            var tokenRows = tokenRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
-
-                            foreach (var row in tokenRows)
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenSearchParamRows = tokenSearchParamRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenSearchParamRows)
                             {
                                 // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
                                 int codeByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code);
 
                                 // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
-                                if (row.CodeOverflow != null && codeByteLength < codeMaxLengthAllowed)
+                                if (row.CodeOverflow != null && codeByteLength < tokenSearchParamCodeMaxLengthAllowed)
                                 {
                                     resource.ImportError = "CHK_TokenSearchParam_CodeOverflow";
                                     conflicts.Add(resource);
-                                    hasConflict = true;
                                     break; // Move to the next resource once a conflict is found.
                                 }
                             }
@@ -749,15 +747,232 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
-                            resource.ImportError = "Something went wrong while creating TokenSearchParam";
+                            resource.ImportError = "Something went wrong while generating search parameters";
                             conflicts.Add(resource);
-                            hasConflict = true;
                         }
+                    }
 
-                        if (!hasConflict)
+                    // Remove the resources causing the TokenTokenCompositeSearchParam constraint conflicts
+                    var tokenTokenCompositeSearchParamRowGenerator = new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var tokenSearchParamCode1MaxLengthAllowed = VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.MaxLength;
+                    var tokenSearchParamCode2MaxLengthAllowed = VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.MaxLength;
+                    foreach (var resource in resources)
+                    {
+                        try
                         {
-                            validResources.Add(resource);
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenTokenCompositeSearchParamRows = tokenTokenCompositeSearchParamRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenTokenCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code1ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code1);
+                                int code2ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code2);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow1 != null && code1ByteLength < tokenSearchParamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenTokenCompositeSearchParam_CodeOverflow1";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow2 != null && code2ByteLength < tokenSearchParamCode2MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenTokenCompositeSearchParam_CodeOverflow2";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Remove the resources causing the TokenStringCompositeSearchParam constraint conflicts
+                    var tokenStringCompositeSearchParamListRowGenerator = new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var tokenStringCompositeSearchparamCode1MaxLengthAllowed = VLatest.TokenStringCompositeSearchParam.Code1.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        try
+                        {
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenStringCompositeSearchParamRows = tokenStringCompositeSearchParamListRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenStringCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code1ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code1);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow1 != null && code1ByteLength < tokenStringCompositeSearchparamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenStringCompositeSearchParam_CodeOverflow1";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Remove the resources causing the TokenStringCompositeSearchParam constraint conflicts
+                    var tokenQuantityCompositeSearchParamListRowGenerator = new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var tokenQuanityCompositeSearchparamCode1MaxLengthAllowed = VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        try
+                        {
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenQuantityCompositeSearchParamRows = tokenQuantityCompositeSearchParamListRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenQuantityCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code1ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code1);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow1 != null && code1ByteLength < tokenQuanityCompositeSearchparamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenQuantityCompositeSearchParam_CodeOverflow1";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Remove the resources causing the TokenNumberNumberCompositeSearchParam constraint conflicts
+                    var tokenNumberNumberCompositeSearchParamListRowGenerator = new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var tokenNumberNumberCompositeSearchparamCode1MaxLengthAllowed = VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        try
+                        {
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenNumberNumberCompositeSearchParamRows = tokenNumberNumberCompositeSearchParamListRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenNumberNumberCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code1ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code1);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow1 != null && code1ByteLength < tokenNumberNumberCompositeSearchparamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Remove the resources causing the TokenDateTimeCompositeSearchParam constraint conflicts
+                    var tokenDateTimeCompositeSearchParamListRowGenerator = new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var tokenDateTimeCompositeSearchparamCode1MaxLengthAllowed = VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        try
+                        {
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var tokenDateTimeCompositeSearchParamRows = tokenDateTimeCompositeSearchParamListRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in tokenDateTimeCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code1ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code1);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow1 != null && code1ByteLength < tokenDateTimeCompositeSearchparamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Remove the resources causing the ReferenceTokenCompositeSearchParam constraint conflicts
+                    var referenceTokenCompositeSearchParamListRowGenerator = new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+
+                    // Code column max length allowed
+                    var referenceTokenCompositeSearchparamCode1MaxLengthAllowed = VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.MaxLength;
+
+                    foreach (var resource in resources)
+                    {
+                        try
+                        {
+                            // We generate the TVPs to check if constraint validations are failing for any search param table
+                            var referenceTokenCompositeSearchParamRows = referenceTokenCompositeSearchParamListRowGenerator.GenerateRows(new[] { new MergeResourceWrapper(resource.ResourceWrapper, false, false) });
+                            foreach (var row in referenceTokenCompositeSearchParamRows)
+                            {
+                                // This C# logic exactly mirrors the SQL CHECK constraint: DATALENGTH(Code)
+                                int code2ByteLength = System.Text.Encoding.Unicode.GetByteCount(row.Code2);
+
+                                // A violation occurs if overflow exists when the code did not fill the column's byte capacity.
+                                if (row.CodeOverflow2 != null && code2ByteLength < referenceTokenCompositeSearchparamCode1MaxLengthAllowed)
+                                {
+                                    resource.ImportError = "CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2";
+                                    conflicts.Add(resource);
+                                    break; // Move to the next resource once a conflict is found.
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate search parameters for resource at index {Index} during import validation.", resource.Index);
+                            resource.ImportError = "Something went wrong while generating search parameters";
+                            conflicts.Add(resource);
+                        }
+                    }
+
+                    // Return constraint violating resources and valid resources
+                    if (conflicts.Any())
+                    {
+                        validResources.AddRange(resources.Where(x => !conflicts.Contains(x)));
+                    }
+                    else
+                    {
+                        validResources.AddRange(resources);
                     }
 
                     return (validResources, conflicts);
