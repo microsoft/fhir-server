@@ -700,7 +700,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateGroups(tag, 1010);
 
             // Create Group with included Patients
-            await CreateGroupWithPatients(tag, 20005);
+            await CreateGroupWithPatients(tag, 2005);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
             var queryParam = new Dictionary<string, string>
