@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesUpdated.Add("Location", 1);
             expectedResults.ResourcesUpdated.Add("Organization", 1);
             expectedResults.ResourcesIgnored.Add("StructureDefinition", 2);
-            expectedResults.ResourcesIgnored.Add("SearchParameter", 3);
+            expectedResults.ResourcesIgnored.Add("SearchParameter", 2);
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
@@ -169,16 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _fhirClient.CreateAsync(structureDefinition);
 
             var randomName = Guid.NewGuid().ToString().ComputeHash()[28..].ToLower();
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-AppointmentStatus");
-            searchParam.Meta = new Meta();
-            searchParam.Meta.Tag.Add(tag);
-            searchParam.Name = randomName;
-            searchParam.Url = searchParam.Url.Replace("foo", randomName);
-            searchParam.Code = randomName;
-            searchParam.Id = randomName;
-            await _fhirClient.CreateAsync(searchParam);
-
-            searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
             searchParam.Meta = new Meta();
             searchParam.Meta.Tag.Add(tag);
             searchParam.Name = randomName;
@@ -247,14 +238,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     Skip.If(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 1 },
-                { "Observation", 1 },
-                { "Encounter", 1 },
-            };
-
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
             // Create resources of different types with the same tag
@@ -301,7 +284,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
-                .AddReplacePatchParameter("Encounter.status", new Code("finished"));
+                .AddReplacePatchParameter("Encounter.status", new Code("planned"));
 
             var queryParam = new Dictionary<string, string>
                 {
@@ -328,14 +311,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     Skip.If(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 1 },
-                { "Observation", 1 },
-                { "Encounter", 1 },
-            };
-
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
             // Create resources of different types with the same tag
@@ -382,7 +357,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
-                .AddReplacePatchParameter("Encounter.status", new Code("finished"));
+                .AddReplacePatchParameter("Encounter.status", new Code("planned"));
 
             var queryParam = new Dictionary<string, string>
                 {
@@ -406,14 +381,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithRevincludeSearch_WhenCompleted_ThenIncludedResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 1 },
-                { "Observation", 1 },
-                { "Encounter", 1 },
-            };
-
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
             var patient = Samples.GetJsonSample<Patient>("Patient");
             patient.Meta = new Meta();
@@ -458,7 +425,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters()
                 .AddReplacePatchParameter("Patient.active", new FhirBoolean(true))
                 .AddReplacePatchParameter("Observation.status", new Code("amended"))
-                .AddReplacePatchParameter("Encounter.status", new Code("finished"));
+                .AddReplacePatchParameter("Encounter.status", new Code("planned"));
             var queryParam = new Dictionary<string, string>
                 {
                     { "_revinclude", "*:*" },
@@ -481,11 +448,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWithBulkUpdateOnAllResources_WhenCompleted_ThenAllResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 2005);
 
@@ -513,10 +475,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
 
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 2005);
 
@@ -542,11 +500,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfResultsWhenPatchFails_WhenCompleted_ThenCorrectCountIsReturnedWithPatchFailed(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreatePatients(tag, 2005);
 
@@ -574,12 +527,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithBulkUpdateOnAllResources_WhenCompleted_ThenAllResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-                { "Group", 1 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 2005);
 
@@ -613,12 +560,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWithNoApplicablePatchRequest_WhenCompleted_ThenResourcesAreIgnored(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-                { "Group", 1 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 2005);
 
@@ -649,12 +590,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsWhenPatchFails_WhenCompleted_ThenCorrectCountIsReturnedWithPatchFailed(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-                { "Group", 1 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 2005);
 
@@ -686,12 +621,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkUpdateJobWithMoreThanOnePageOfIncludeResultsOnMultiplePages_WhenCompleted_ThenResultsAreMatched(bool isParallel)
         {
             CheckBulkUpdateEnabled();
-
-            var resourceTypes = new Dictionary<string, long>
-            {
-                { "Patient", 2005 },
-                { "Group", 1 },
-            };
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 2005);
 
