@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// For how long we cache profile in memory.
         /// </summary>
-        public int CacheDurationInSeconds { get; set; } = 30;
+        public int CacheDurationInSeconds { get; set; } = 14400;
     }
 }

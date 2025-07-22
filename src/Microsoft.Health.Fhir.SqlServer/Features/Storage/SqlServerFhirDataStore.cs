@@ -340,12 +340,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
-
-                if (results.ContainsKey(resourceExt.GetIdentifier()))
-                {
-                    _logger.LogError("duplicate key");
-                }
-
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
