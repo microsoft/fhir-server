@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     { "_isParallel", isParallel.ToString() },
                 };
-            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, null, queryParam);
+            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, "$bulk-update", queryParam);
 
             // Monitor the job until completion
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
