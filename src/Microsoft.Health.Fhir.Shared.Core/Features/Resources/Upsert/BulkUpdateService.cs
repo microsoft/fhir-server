@@ -667,6 +667,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         private static Dictionary<string, long> AppendUpdateResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
         {
+            if (results == null)
+            {
+                return new Dictionary<string, long>();
+            }
+
             foreach (var newResult in newResults)
             {
                 foreach (var (key, value) in newResult)
