@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             try
             {
-                _logger.LogInformation("Dequeuing next job.");
+                _logger.LogDebug("Dequeuing next job.");
                 var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
                 jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
                 if (jobInfo != null)

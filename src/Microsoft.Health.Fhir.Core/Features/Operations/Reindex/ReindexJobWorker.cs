@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
-                        _logger.LogDebug("Reindex job worker canceled.");
+                        _logger.LogInformation("Reindex job worker canceled.");
                     }
                     catch (Exception ex)
                     {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Check for any new Reindex Jobs
                     try
                     {
-                        _logger.LogInformation("Number of Tasks in the list {RunningTasksCount}.", runningTasks.Count);
+                        _logger.LogDebug("Number of Tasks in the list {RunningTasksCount}.", runningTasks.Count);
 
                         // Remove all completed tasks.
                         foreach (var task in runningTasks.Where(task => task.Task.IsCompleted).ToList())
@@ -103,21 +103,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             runningTasks.Remove(task);
                         }
 
-                        _logger.LogInformation("Number of running Tasks after removing completed tasks {RunningTasksCount}.", runningTasks.Count);
+                        _logger.LogDebug("Number of running Tasks after removing completed tasks {RunningTasksCount}.", runningTasks.Count);
 
                         // Get list of available jobs.
                         if (runningTasks.Count < _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                         {
                             using IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke();
 
-                            _logger.LogInformation("Querying datastore for reindex jobs.");
+                            _logger.LogDebug("Querying datastore for reindex jobs.");
 
                             IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
                                 _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
                                 _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
                                 cancellationToken);
 
-                            _logger.LogInformation("No.of reindex jobs picked.{JobsPicked} ", jobs.Count);
+                            _logger.LogDebug("No.of reindex jobs picked.{JobsPicked} ", jobs.Count);
 
                             foreach (ReindexJobWrapper job in jobs)
                             {
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
                         // End the execution of the task
-                        _logger.LogDebug("Polling Reindex jobs canceled.");
+                        _logger.LogInformation("Polling Reindex jobs canceled.");
                     }
                     catch (Exception ex)
                     {
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     // End the execution of the task
-                    _logger.LogDebug("Reindex job worker canceled.");
+                    _logger.LogInformation("Reindex job worker canceled.");
                 }
             }
         }

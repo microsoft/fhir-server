@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"{Name}.ExecuteAsync: starting...");
+            _logger.LogDebug($"{Name}.ExecuteAsync: starting...");
 
             await InitParamsAsync();
 
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken),
                 _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, cancellationToken));
 
-            _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
+            _logger.LogDebug($"{Name}.ExecuteAsync: completed.");
         }
 
         protected abstract Task RunWorkAsync(CancellationToken cancellationToken);
@@ -77,10 +78,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            using (_logger.BeginTimedScope($"{Name}.OnNextTickAsync"))
-            {
-                await RunWorkAsync(cancellationToken);
-            }
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            await RunWorkAsync(cancellationToken);
+
+            _logger.LogDebug($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
         }
 
         private async Task InitParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.

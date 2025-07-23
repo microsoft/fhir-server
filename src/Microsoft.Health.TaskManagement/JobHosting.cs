@@ -43,6 +43,7 @@ namespace Microsoft.Health.JobManagement
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
+            _logger.LogInformation("Queue {QueueType} is starting.", queueType);
 
             // parallel dequeue
             for (var thread = 0; thread < runningJobCount; thread++)
@@ -61,7 +62,7 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Dequeuing next job for {QueueType}.", queueType);
+                                _logger.LogDebug("Dequeuing next job for {QueueType}.", queueType);
 
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
@@ -102,7 +103,7 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Empty queue {QueueType}. Delaying until next iteration.", queueType);
+                                _logger.LogDebug("Empty queue {QueueType}. Delaying until next iteration.", queueType);
                                 await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                             }
                             catch (TaskCanceledException)
