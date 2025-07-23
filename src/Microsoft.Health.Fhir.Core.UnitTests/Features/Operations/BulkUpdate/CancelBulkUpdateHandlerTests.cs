@@ -21,6 +21,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
@@ -219,6 +220,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
+
+            var request = new CancelBulkUpdateRequest(1);
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>())
+                .Throws(new System.InvalidOperationException("Unexpected error"));
+
+            var request = new CancelBulkUpdateRequest(1);
+            await Assert.ThrowsAsync<System.InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenUserHasPartialAccess_ThenUnauthorizedFhirActionExceptionIsThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+
+            var request = new CancelBulkUpdateRequest(1);
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJobWithNoJobsInGroup_WhenCancelationIsRequested_ThenNotFoundIsReturned()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo>());
 
             var request = new CancelBulkUpdateRequest(1);
             await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));

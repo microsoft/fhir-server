@@ -28,6 +28,16 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 {
+    /// <summary>
+    /// Orchestrates bulk update operation for FHIR resources by coordinating the creation and enqueuing of processing jobs.
+    /// Determines the optimal strategy for partitioning bulk update work:
+    /// - If the parallel flag is true and there are no search parameters, partitions jobs by resource type and surrogate ID ranges. (At system level or at resource type level without any search parameters).
+    /// - If the parallel flag is true and search parameters are present, runs search queries and creates jobs for each page (continuation token).
+    /// - If the parallel flag is false, enqueues a single processing job.
+    /// Leverages parallelization for efficient processing.
+    /// Each processing job is responsible for reading, matching and referenced(included) resources and updating them.
+    /// Ensures context propagation, logging, and robust handling of job execution scenarios.
+    /// </summary>
     [JobTypeId((int)JobType.BulkUpdateOrchestrator)]
     public class BulkUpdateOrchestratorJob : IJob
     {

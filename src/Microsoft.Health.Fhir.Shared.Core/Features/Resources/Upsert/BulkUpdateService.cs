@@ -54,6 +54,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
+    /// <summary>
+    /// Provides bulk update functionality for FHIR resources, supporting conditional patching and parallel processing.
+    /// This service coordinates searching, patching, and updating resources in batches, handling included resources, error aggregation, and audit logging.
+    /// It ensures robust exception handling and efficient resource updates across multiple resource types and pages.
+    /// </summary>
     public class BulkUpdateService : IBulkUpdateService
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
@@ -87,6 +92,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
+        /// <summary>
+        /// Performs bulk updates on multiple FHIR resources using conditional patch parameters.
+        /// Executes search, patch, and update operations in parallel, supporting continuation for paged results.
+        /// For non-page-level jobs, reads all result pages and processes them in reverse order to maintain update consistency.
+        /// Prioritizes updating included resources before matched resources to prevent invalid continuation tokens due to surrogate ID changes for matched resources.
+        /// For included resources, processes from the last page backward, as _lastUpdated is only applied to matched resources.
+        /// This approach avoids returning already updated resources in subsequent searches and ensures accurate bulk updates.
+        /// Handles batching, error aggregation, and audit logging throughout the operation.
+        /// </summary>
         public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<SearchResultEntry> searchResults;
@@ -238,6 +252,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return finalBulkUpdateResult;
         }
 
+        /// <summary>
+        /// Finalizes patch results for a page, updates audit logs, and resets tracking dictionaries for the next page.
+        /// </summary>
         private async Task FinalizePatchResultsAndAuditAsync(string resourceType, BulkUpdateResult finalBulkUpdateResult, Dictionary<string, long> resourcesIgnored, Dictionary<string, long> commonPatchFailures, ConcurrentDictionary<string, long> patchFailures, ConcurrentDictionary<string, List<(string id, Exception exception)>> patchExceptions)
         {
             // Let's update finalBulkUpdateResult with current page patch results commonPatchFailures, patchFailures, resourcesIgnored
@@ -279,6 +296,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        /// <summary>
+        /// Handles included resources in bulk update by recursively processing continuation tokens and aggregating results.
+        /// </summary>
         private async Task<(Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult)> HandleIncludedResources(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult, CancellationToken cancellationToken)
         {
             var cloneList = new List<Tuple<string, string>>(conditionalParameters);
@@ -294,19 +314,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return (resourceTypesUpdated, finalBulkUpdateResult);
         }
 
+        /// <summary>
+        /// Executes a search for resources to be updated, supporting includes and conditional parameters.
+        /// </summary>
         private async Task<SearchResult> Search(string resourceType, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
-            // check if conditionalParameters has cotinuation token or includesContinuationToken
-            if (conditionalParameters.Any(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase)))
-            {
-                var ct = ContinuationTokenEncoder.Decode(conditionalParameters.Where(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase)).Select(t => t.Item2).First());
-            }
-
-            if (conditionalParameters.Any(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase)))
-            {
-                var ict = ContinuationTokenEncoder.Decode(conditionalParameters.Where(t => t.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase)).Select(t => t.Item2).First());
-            }
-
             using (var searchService = _searchServiceFactory.Invoke())
             {
                 return await searchService.Value.SearchAsync(
@@ -320,6 +332,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        /// <summary>
+        /// Builds conditional patch requests for each resource type found in the search results,
+        /// grouping applicable patch parameters and tracking ignored or failed resources.
+        /// </summary>
         private static void BuildConditionalPatchRequests(
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             BundleResourceContext bundleResourceContext,
@@ -413,6 +429,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        /// <summary>
+        /// Applies patch operations to resources in parallel, tracking failures and exceptions for each resource type.
+        /// </summary>
         private static void ApplyPatchToResources(
             ConcurrentDictionary<string, List<(string id, Exception ex)>> patchExceptions,
             IReadOnlyCollection<SearchResultEntry> searchResults,
@@ -507,6 +526,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        /// <summary>
+        /// Updates a page of patched resources in the data store, logs audit events, and returns update counts by resource type.
+        /// </summary>
         private async Task<Dictionary<string, long>> UpdateResourcePage(
             ConcurrentDictionary<string, (bool IsInclude, ResourceElement ResourceElement)> patchedResources,
             string resourceType,
@@ -585,12 +607,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return patchedResources.GroupBy(x => x.Value.ResourceElement.InstanceType).ToDictionary(x => x.Key, x => (long)x.Count());
         }
 
+        /// <summary>
+        /// Creates a resource wrapper for an updated resource, preserving metadata and identifiers.
+        /// </summary>
         private ResourceWrapper CreateUpdateWrapper(ResourceElement resourceElement)
         {
             ResourceWrapper updateWrapper = _resourceWrapperFactory.CreateResourceWrapper(resourceElement.ToPoco<Resource>(), _resourceIdProvider, deleted: false, keepMeta: true);
             return updateWrapper;
         }
 
+        /// <summary>
+        /// Creates an audit log entry for the bulk update operation, including affected resources and status.
+        /// </summary>
         private System.Threading.Tasks.Task CreateAuditLog(string primaryResourceType, bool complete, IEnumerable<(string resourceType, string resourceId, bool included)> items, HttpStatusCode statusCode = HttpStatusCode.OK, string typeOfAudit = "Affected Items")
         {
             var auditTask = System.Threading.Tasks.Task.Run(() =>
@@ -624,6 +652,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return auditTask;
         }
 
+        /// <summary>
+        /// Determines if include results in the current request context are truncated.
+        /// </summary>
         private bool AreIncludeResultsTruncated()
         {
             return _contextAccessor.RequestContext.BundleIssues.Any(
@@ -631,6 +662,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// Appends update results from new resource counts to the existing results dictionary.
+        /// </summary>
         private static Dictionary<string, long> AppendUpdateResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
         {
             foreach (var newResult in newResults)
@@ -647,6 +681,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return results;
         }
 
+        /// <summary>
+        /// Aggregates bulk update results from sub-results into the main result object.
+        /// </summary>
         private static BulkUpdateResult AppendBulkUpdateResultsFromSubResults(BulkUpdateResult result, BulkUpdateResult newResult)
         {
             AppendUpdateResults(result.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesUpdated) });

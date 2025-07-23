@@ -195,14 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
 
                 // if failed and no issues and if patchFailedCount and job is still running then soft failed job retun 202 until enitre job is complete
-                if (resourcesPatchFailed.Any() && !isJobComplete)
-                {
-                    statusCode = HttpStatusCode.Accepted;
-                }
-                else
-                {
-                    statusCode = failureResultCode;
-                }
+                statusCode = resourcesPatchFailed.Any() && !isJobComplete ? HttpStatusCode.Accepted : failureResultCode;
             }
             else if (succeeded)
             {

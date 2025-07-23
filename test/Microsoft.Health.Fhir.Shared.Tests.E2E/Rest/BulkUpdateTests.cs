@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Extensions;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.Encounter;
@@ -44,10 +45,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirClient = fixture.TestFhirClient;
         }
 
+        [SkippableFact]
+        public async Task GivenBulkUpdateRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
+        {
+            CheckBulkUpdateEnabled();
+            var patchRequest = new Parameters()
+                .AddReplacePatchParameter("Patient.gender", new Code("female"));
+            var response = await SendBulkUpdateRequest(
+                "tag",
+                patchRequest,
+                queryParams: new Dictionary<string, string>
+                {
+                    { "invalidParam", "badRequest" },
+                });
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [SkippableFact]
+        public async Task GivenBulkUpdateRequestWithUnsupportedPatchType_WhenRequested_ThenBadRequestIsReturned()
+        {
+            CheckBulkUpdateEnabled();
+            var patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient", "gender", new Code("female"))
+                .AddInsertPatchParameter("Patient.nothing", new FhirString("test"), 2);
+            var response = await SendBulkUpdateRequest(
+                "tag",
+                patchRequest);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [SkippableTheory]
+        [InlineData("SearchParameter")]
+        [InlineData("StructureDefinition")]
+        public async Task GivenBulkUpdateRequestWithUnsupportedResourceTypes_WhenRequested_ThenBadRequestIsReturned(string resourceType)
+        {
+            CheckBulkUpdateEnabled();
+            var patchRequest = new Parameters();
+
+            var response = await SendBulkUpdateRequest(
+                "tag",
+                patchRequest,
+                $"{resourceType}/$bulk-update",
+                null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
         [SkippableTheory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkUpdated_ThenAllAreUpdated(bool isParallel)
+        public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkUpdatedAtSystemLevel_ThenAllAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -92,59 +141,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkUpdateRequest(patchRequest, expectedResults, true, $"{resourceType}/$bulk-update", queryParams: queryParam);
         }
 
-        [SkippableFact]
-        public async Task GivenBulkUpdateRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
-        {
-            CheckBulkUpdateEnabled();
-            var patchRequest = new Parameters()
-                .AddReplacePatchParameter("Patient.gender", new Code("female"));
-            var response = await SendBulkUpdateRequest(
-                "tag",
-                patchRequest,
-                queryParams: new Dictionary<string, string>
-                {
-                    { "invalidParam", "badRequest" },
-                });
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [SkippableFact]
-        public async Task GivenBulkUpdateRequestWithUnsupportedPatchType_WhenRequested_ThenBadRequestIsReturned()
-        {
-            CheckBulkUpdateEnabled();
-
-            BulkUpdateResult expectedResults = new BulkUpdateResult();
-            var patchRequest = new Parameters()
-                .AddAddPatchParameter("Patient", "gender", new Code("female"))
-                .AddInsertPatchParameter("Patient.nothing", new FhirString("test"), 2);
-            var response = await SendBulkUpdateRequest(
-                "tag",
-                patchRequest);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
         [SkippableTheory]
-        [InlineData("SearchParameter")]
-        [InlineData("StructureDefinition")]
-        public async Task GivenBulkUpdateRequestWithUnsupportedResourceTypes_WhenRequested_ThenBadRequestIsReturned(string resourceType)
-        {
-            CheckBulkUpdateEnabled();
-            BulkUpdateResult expectedResults = new BulkUpdateResult();
-            var patchRequest = new Parameters();
-
-            var response = await SendBulkUpdateRequest(
-                "tag",
-                patchRequest,
-                $"{resourceType}/$bulk-update",
-                null);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [SkippableFact]
-        public async Task GivenBulkUpdateRequestOnSystemLevel_WhenCompleted_ThenExcludedResourcesAreNotUpdated()
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBulkUpdateRequestOnSystemLevel_WhenCompleted_ThenExcludedResourcesAreNotUpdatedAndCountedInIgnoredResources(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _fhirClient.CreateAsync(searchParam);
 
             // Create resources of different types with the same tag
-            var patient = await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
+            await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);
             var location = new Location
             {
                 Meta = new Meta
@@ -223,7 +223,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ChangeTypeToUpsertPatchParameter(patchRequest);
 
             // Create the request with Observation and Location as excluded resource types
-            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest);
+
+            var queryParam = new Dictionary<string, string>
+                {
+                    { "_isParallel", isParallel.ToString() },
+                };
+            HttpResponseMessage response = await SendBulkUpdateRequest(tag.Code, patchRequest, null, queryParam);
 
             // Monitor the job until completion
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);

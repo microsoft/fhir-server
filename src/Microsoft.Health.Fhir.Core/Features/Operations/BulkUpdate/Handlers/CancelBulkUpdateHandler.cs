@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     try
                     {
                         bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
-                        if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
+                        if (bulkUpdateResult.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
                         {
                             needRefresh = true;
                         }

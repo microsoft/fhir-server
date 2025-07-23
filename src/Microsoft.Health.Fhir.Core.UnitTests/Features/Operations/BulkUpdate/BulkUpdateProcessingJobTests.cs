@@ -31,6 +31,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             substituteResults.ResourcesUpdated["Observation"] = 1;
             substituteResults.ResourcesIgnored["CarePlan"] = 2;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Is<bool>(b => b == false), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Is<bool>(b => !b), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Single(result.ResourcesIgnored);
             Assert.Equal(2, result.ResourcesIgnored["CarePlan"]);
 
-            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Is<bool>(b => b == false), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
+            await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Is<bool>(b => !b), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
         }
 
@@ -321,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenProcessingJobWhenIncompleteOperationExceptionIsThrownd_WhenJobIsRun_ThenJobExecutionExceptionIsThrownAndPartialResultsAreHandled()
+        public async Task GivenProcessingJobWhenIncompleteOperationExceptionIsThrown_WhenJobIsRun_ThenJobExecutionExceptionIsThrownAndPartialResultsAreHandled()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true);
             var jobInfo = new JobInfo
@@ -431,6 +432,100 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Equal("Unexpected error", ex.Message);
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenJobInfoIsNull_ThenArgumentNullExceptionIsThrown()
+        {
+            await Assert.ThrowsAsync<ArgumentNullException>(async () => await _processingJob.ExecuteAsync(null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenJobDefinitionIsMalformed_ThenJsonExceptionIsThrown()
+        {
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = "not a valid json",
+            };
+
+            await Assert.ThrowsAsync<JsonReaderException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
+        {
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Throws(new InvalidOperationException("Queue error"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenSupportedProfilesStoreThrowsException_ThenExceptionIsPropagated()
+        {
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            var jobs = new List<JobInfo>
+            {
+                new JobInfo
+                {
+                    Id = 2,
+                    Status = JobStatus.Completed,
+                    GroupId = 1,
+                    Definition = JsonConvert.SerializeObject(definition),
+                    Result = JsonConvert.SerializeObject(new BulkUpdateResult()),
+                },
+                jobInfo,
+            };
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), 1, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(jobs);
+            _supportedProfilesStore.GetProfilesTypes().Throws(new InvalidOperationException("Profiles error"));
+
+            var substituteResults = new BulkUpdateResult();
+            substituteResults.ResourcesUpdated["Patient"] = 3;
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+                .Returns(args => substituteResults);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenMediatorThrowsException_ThenExceptionIsPropagated()
+        {
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            var substituteResults = new BulkUpdateResult();
+            substituteResults.ResourcesUpdated["Patient"] = 3;
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+                .Returns(args => substituteResults);
+
+            _mediator.Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>())
+                .Throws(new InvalidOperationException("Mediator error"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
     }
 }

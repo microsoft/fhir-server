@@ -26,6 +26,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
@@ -59,7 +60,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 return Task.FromResult(GenerateSearchResult(2));
             });
 
-            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, isParallel: true);
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_lastUpdated", "value"),
+            };
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, searchParams, "test", "test", "test", null, isParallel: true);
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,
@@ -140,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrue_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
         {
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
@@ -203,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludesPage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludePage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
@@ -280,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludes_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludesPages_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
@@ -472,7 +478,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenBulkUpdateJob_WhenIsParallelIsTrueWithNoSearchParamAndGetUsedResourceTypesReturnsEmpty_ThenNoProcessingJobsAreEnqueued()
+        public async Task GivenBulkUpdateJob_WhenIsParallelIsTrueWithoutSearchParamAndGetUsedResourceTypesReturnsEmpty_ThenNoProcessingJobsAreEnqueued()
         {
             // Arrange
             _queueClient.ClearReceivedCalls();
@@ -528,6 +534,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
             await _searchService.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
+        {
+            SetupMockQueue(2);
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string> { "Patient" });
+            _queueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>())
+                .Throws(new InvalidOperationException("Unexpected error"));
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchServiceThrowsException_ThenExceptionIsPropagated()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Throws(new InvalidOperationException("Search error"));
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenJobInfoIsNull_ThenArgumentNullExceptionIsThrown()
+        {
+            await Assert.ThrowsAsync<ArgumentNullException>(async () => await _orchestratorJob.ExecuteAsync(null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenJobDefinitionIsMalformed_ThenExceptionIsPropagated()
+        {
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = "not a valid json",
+                CreateDate = DateTime.Now,
+            };
+
+            await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
         private void SetupMockQueue(int numRanges)

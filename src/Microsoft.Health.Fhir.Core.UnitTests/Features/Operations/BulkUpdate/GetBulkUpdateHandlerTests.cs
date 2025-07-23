@@ -134,6 +134,70 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenMixedStatusJobs_WhenStatusRequested_ThenAggregatedStatusIsReturned()
+        {
+            var completedResult = new BulkUpdateResult();
+            completedResult.ResourcesUpdated.Add(KnownResourceTypes.Patient, 10);
+
+            var failedResult = new BulkUpdateResult();
+            failedResult.ResourcesUpdated.Add(KnownResourceTypes.Observation, 5);
+
+            var jobs = new List<Tuple<JobInfo, int>>
+            {
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(completedResult) }, 10),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(failedResult) }, 5),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Running }, 0),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Archived }, 0),
+            };
+
+            var resourcesUpdated = new List<Tuple<string, Base>>
+            {
+                new(KnownResourceTypes.Patient, new Integer64(10)),
+                new(KnownResourceTypes.Observation, new Integer64(5)),
+            };
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
+            {
+                { _resourceUpdatedCountLabel, resourcesUpdated },
+            };
+
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."),
+                new(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: "Job In Progress"),
+            };
+
+            await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
+        }
+
+        [Fact]
+        public async Task GivenAllRunningBulkUpdateJobs_WhenStatusRequested_ThenAcceptedWithNoResultsAndInProgressIssue()
+        {
+            // Arrange: All jobs in the group are in Running status, no results.
+            var jobs = new List<Tuple<JobInfo, int>>
+            {
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Running }, 0),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Running }, 0),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Running }, 0),
+            };
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>(); // No results
+
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "Job In Progress"),
+            };
+
+            // Act & Assert
+            await RunGetBulkUpdateTest(
+                jobs,
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
+        }
+
+        [Fact]
         public async Task GivenFailedBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -254,6 +318,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var patientResult1 = new BulkUpdateResult();
             patientResult1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 15);
             patientResult1.ResourcesPatchFailed.Add(KnownResourceTypes.Patient, 5);
+            patientResult1.ResourcesPatchFailed.Add(KnownResourceTypes.Observation, 3);
 
             var resourcesUpdated = new List<Tuple<string, Base>>
             {
@@ -263,6 +328,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var resourcesPatchFailed = new List<Tuple<string, Base>>
             {
                 new(KnownResourceTypes.Patient, new Integer64(5)),
+                new(KnownResourceTypes.Observation, new Integer64(3)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -311,6 +377,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         0),
                 },
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
+        }
+
+        [Fact]
+        public async Task GivenEmptyResultsJob_WhenStatusRequested_ThenReturnsNoResults()
+        {
+            var result = new BulkUpdateResult(); // No resources updated/ignored/failed
+            var jobs = new List<Tuple<JobInfo, int>>
+            {
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result) }, 0),
+            };
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>(); // Empty
+
+            await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
+        }
+
+        [Fact]
+        public async Task GivenJobWithNullOrMissingDefinitionOrResult_WhenStatusRequested_ThenHandlesGracefully()
+        {
+            var jobs = new List<Tuple<JobInfo, int>>
+            {
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Completed, Result = null }, 0),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Completed }, 0),
+                new Tuple<JobInfo, int>(new JobInfo { Status = JobStatus.Completed, Definition = null }, 0),
+            };
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>(); // Empty
+
+            await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]

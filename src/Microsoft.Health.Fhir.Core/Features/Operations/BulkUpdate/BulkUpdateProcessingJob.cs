@@ -36,6 +36,13 @@ using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 {
+    /// <summary>
+    /// Executes bulk update processing for FHIR resources within a bulk update job group.
+    /// Reads each processing job, prepares query parameters, and coordinates updates using the bulk update service.
+    /// Handles error reporting, publishes update metrics, and manages request context propagation.
+    /// Refreshes supported FHIR profiles if profile resources are updated.
+    /// Implements robust exception handling to distinguish between partial and complete failures.
+    /// </summary>
     [JobTypeId((int)JobType.BulkUpdateProcessing)]
     public class BulkUpdateProcessingJob : IJob
     {
@@ -91,7 +98,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 using IScoped<IBulkUpdateService> upsertService = _updateFactory.Invoke();
                 Exception exception = null;
 
-                var tillTime = new PartialDateTime(jobInfo.CreateDate);
                 var queryParametersList = new List<Tuple<string, string>>();
                 if (definition.SearchParameters is not null)
                 {

@@ -138,6 +138,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenBulkUpdateRequest_WhenSearchParamsIsNull_ThenJobIsCreated()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
+                Assert.Equal(_testUrl, definition.Url);
+                Assert.Equal(_testUrl, definition.BaseUrl);
+                Assert.Single(definition.SearchParameters); // Will have _lastUpdated parameter added by the handler
+
+                return new List<JobInfo>()
+                    {
+                        new JobInfo()
+                        {
+                            Id = 1,
+                        },
+                    };
+            });
+
+            Parameters parameters = GenerateParameters("replace");
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, null, parameters, false);
+
+            var response = await _handler.Handle(request, CancellationToken.None);
+            Assert.NotNull(response);
+            Assert.Equal(1, response.Id);
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateRequest_WhenQueueClientThrowsUnexpectedException_ThenExceptionIsPropagated()
+        {
+            var searchParams = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>())
+                .Throws(new InvalidOperationException("Unexpected error"));
+
+            Parameters parameters = GenerateParameters("replace");
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
+        }
+
+        [Fact]
         public async Task GivenBulkUpdateRequest_WhenJobCreationRequestedWhileAnotherJobAlreadyRunning_ThenBadRequestIsReturned()
         {
             var searchParams = new List<Tuple<string, string>>()

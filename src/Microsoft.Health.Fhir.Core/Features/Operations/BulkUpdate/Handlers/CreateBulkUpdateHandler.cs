@@ -71,7 +71,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
             }
 
-            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters); // remove read only restriction
+            var searchParameters = new List<Tuple<string, string>>(); // remove read only restriction
+            if (request.ConditionalParameters != null && request.ConditionalParameters.Any())
+            {
+                // Add conditional parameters to searchParameters
+                searchParameters.AddRange(request.ConditionalParameters);
+            }
 
             // Remove _isParallel from searchParameters
             searchParameters = searchParameters.Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.IsParallel, StringComparison.OrdinalIgnoreCase)).ToList();
