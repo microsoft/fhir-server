@@ -26,6 +26,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\resource-reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\bulk-update.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
     <EmbeddedResource Include="Data\OperationDefinition\includes.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />

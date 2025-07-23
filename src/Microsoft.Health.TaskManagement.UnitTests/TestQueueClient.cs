@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -26,6 +27,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
         public Func<TestQueueClient, long, CancellationToken, IReadOnlyList<JobInfo>> GetJobByGroupIdFunc { get; set; }
+
+        public Func<TestQueueClient, CancellationToken, IReadOnlyList<JobInfo>> GetJobByQueueTypeFunc { get; set; }
 
         public List<JobInfo> JobInfos
         {
