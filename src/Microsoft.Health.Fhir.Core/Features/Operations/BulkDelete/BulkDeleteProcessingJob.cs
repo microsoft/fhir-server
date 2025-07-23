@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             maxDeleteCount: null,
                             deleteAll: true,
                             versionType: definition.VersionType,
-                            allowPartialSuccess: false), // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
+                            allowPartialSuccess: false, // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
+                            removeReferences: definition.RemoveReferences),
                         cancellationToken,
                         definition.ExcludedResourceTypes);
                 }

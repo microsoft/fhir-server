@@ -39,6 +39,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -196,7 +197,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), logger);
+            Deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
+
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
 
             var collection = new ServiceCollection();
 
@@ -210,9 +214,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider services = collection.BuildServiceProvider();
 
             Mediator = new Mediator(services);
-
-            Deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
         }
 
         public async Task DisposeAsync()
