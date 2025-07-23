@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             if (results == null)
             {
-                return new Dictionary<string, long>();
+                results = new Dictionary<string, long>();
             }
 
             foreach (var newResult in newResults)
