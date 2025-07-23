@@ -195,6 +195,31 @@ namespace Microsoft.Health.JobManagement
 
                 return;
             }
+            catch (JobExecutionSoftFailureException ex)
+            {
+                if (ex.IsCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Job soft failed due to customer caused issue.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
+                jobInfo.Status = JobStatus.Failed;
+
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete on soft job failure.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                return;
+            }
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobWarning(ex, jobInfo, "Job canceled due to unhandled cancellation exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);

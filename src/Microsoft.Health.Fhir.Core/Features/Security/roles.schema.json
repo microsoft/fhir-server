@@ -16,7 +16,8 @@
                 "import",
                 "editProfileDefinitions",
                 "smart",
-                "searchParameter"
+                "searchParameter",
+                "bulkOperator"
             ]
         }
     },
