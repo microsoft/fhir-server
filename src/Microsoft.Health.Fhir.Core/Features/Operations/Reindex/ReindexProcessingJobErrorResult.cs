@@ -3,20 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public class ReindexJobException : Exception
+    public class ReindexProcessingJobErrorResult
     {
-        public ReindexJobException(string message)
-            : base(message, null)
-        {
-        }
-
-        public ReindexJobException(string message, Exception inner)
-            : base(message, inner)
-        {
-        }
+        public string Message { get; set; }
     }
 }

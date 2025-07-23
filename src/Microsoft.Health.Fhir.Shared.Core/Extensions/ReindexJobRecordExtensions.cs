@@ -29,17 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
             parametersResource.Add(JobRecordProperties.Id, new FhirString(job.Id));
 
-            if (job.Error != null && job.Error.Count > 0)
-            {
-                var outputMessages = new List<Parameters.ParameterComponent>();
-                foreach (var error in job.Error)
-                {
-                    outputMessages.Add(new Parameters.ParameterComponent() { Name = error.Code, Value = new FhirString(error.Diagnostics) });
-                }
-
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Output, Part = outputMessages });
-            }
-
             if (job.StartTime.HasValue)
             {
                 parametersResource.Add(JobRecordProperties.StartTime, new FhirDateTime(job.StartTime.Value));
@@ -54,9 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             decimal progress = 0;
             decimal rounded = 0;
-            if (job.Count > 0 && job.Progress > 0)
+            long totalResourceCount = job.ResourceCounts?.Sum(entry => entry.Value.Count) ?? 0;
+
+            if (totalResourceCount > 0 && job.Progress > 0)
             {
-                progress = (decimal)job.Progress / job.Count * 100;
+                progress = (decimal)job.Progress / totalResourceCount * 100;
                 rounded = Math.Round(progress, 1);
             }
             else
@@ -64,17 +55,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 progress = 0;
             }
 
-            if (rounded == 100.0M && job.Count != job.Progress)
+            if (rounded == 100.0M && totalResourceCount != job.Progress)
             {
                 rounded = 99.9M;
             }
 
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
-            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
+            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(totalResourceCount));
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
             parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(rounded));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
-            parametersResource.Add(JobRecordProperties.MaximumConcurrency, new FhirDecimal(job.MaximumConcurrency));
 
             if (!string.IsNullOrEmpty(job.ResourceList))
             {
@@ -86,33 +76,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             {
                 string msgLabelSuffix = string.Empty;
                 var outputMessages = new StringBuilder();
-                bool hasValue = false;
 
                 foreach (KeyValuePair<string, Features.Search.SearchResultReindex> kvp in resourcesWithCounts)
                 {
-                    // because this is a newer field that we want to display and to be backwards compatible, we'll only display this if the CountReindexed > 0
-                    hasValue = kvp.Value.CountReindexed > 0;
-
-                    if (hasValue)
+                    if (string.IsNullOrWhiteSpace(msgLabelSuffix))
                     {
-                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
-                        {
-                            msgLabelSuffix = $" ({nameof(kvp.Value.CountReindexed)} of {nameof(kvp.Value.Count)})";
-                        }
-
-                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.CountReindexed.ToString("N0")} of {kvp.Value.Count.ToString("N0")}");
-                    }
-                    else
-                    {
-                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
-                        {
-                            msgLabelSuffix = " (resource count)";
-                        }
-
-                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.Count.ToString("N0")}");
+                        msgLabelSuffix = " (resource count)";
                     }
 
-                    hasValue = false;
+                    outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.Count.ToString("N0")}");
                 }
 
                 if (outputMessages.Length > 0)
@@ -136,13 +108,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
             }
 
-            if (!string.IsNullOrEmpty(job.TargetDataStoreUsagePercentage.ToString()))
+            if (!string.IsNullOrEmpty(job.FailureDetails?.FailureReason))
             {
-                parametersResource.Add(JobRecordProperties.TargetDataStoreUsagePercentage, new FhirDecimal(job.TargetDataStoreUsagePercentage));
+                parametersResource.Add(JobRecordProperties.FailureDetails, new FhirString(job.FailureDetails.FailureReason));
             }
 
-            parametersResource.Add(JobRecordProperties.QueryDelayIntervalInMilliseconds, new FhirDecimal(job.QueryDelayIntervalInMilliseconds));
             parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerQuery, new FhirDecimal(job.MaximumNumberOfResourcesPerQuery));
+
+            parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerWrite, new FhirDecimal(job.MaximumNumberOfResourcesPerWrite));
 
             return parametersResource.ToResourceElement();
         }

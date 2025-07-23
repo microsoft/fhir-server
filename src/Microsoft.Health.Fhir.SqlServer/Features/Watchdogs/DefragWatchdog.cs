@@ -289,25 +289,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<(long groupId, long jobId, long version)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            await using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@QueueType", QueueType);
+            var activeJobs = await _sqlQueueClient.GetActiveJobsByQueueTypeAsync(QueueType, false, cancellationToken);
+
             (long groupId, long jobId, long version) id = (-1, -1, -1);
-            await _sqlRetryService.ExecuteSql(
-                cmd,
-                async (command, cancel) =>
-                {
-                    await using var reader = await command.ExecuteReaderAsync(cancel);
-                    while (await reader.ReadAsync(cancel))
-                    {
-                        if (reader.GetString(2) == "Defrag")
-                        {
-                            id = (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(3));
-                        }
-                    }
-                },
-                _logger,
-                null,
-                cancellationToken);
+
+            var defragJob = activeJobs.FirstOrDefault(job => job.Definition == "Defrag");
+            if (defragJob != null)
+            {
+                id = (defragJob.GroupId, defragJob.Id, defragJob.Version);
+            }
 
             return (id.groupId, id.jobId, id.version);
         }

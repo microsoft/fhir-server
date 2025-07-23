@@ -34,7 +34,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchParameterBehaviorTests()
         {
-            _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            // Instead of using Substitute.For<RawResourceFactory>, create a mock of IRawResourceFactory
+            _rawResourceFactory = Substitute.For<IRawResourceFactory>();
+
+            // Set up the Create method with specific argument matchers
+            _rawResourceFactory.Create(
+                Arg.Any<ResourceElement>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(callInfo =>
+                {
+                    // Implementation for Create method
+                    var resource = callInfo.ArgAt<ResourceElement>(0);
+                    var keepMeta = callInfo.ArgAt<bool>(1);
+                    var keepVersion = callInfo.ArgAt<bool>(2);
+
+                    // Return a mock RawResource
+                    return new RawResource("mock data", FhirResourceFormat.Json, keepMeta);
+                });
+
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
                 .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
