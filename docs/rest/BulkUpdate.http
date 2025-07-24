@@ -1,0 +1,720 @@
+# .SUMMARY Sample requests to verify Bulk-Update functionality
+# These commands will update multiple resources in a single request.
+# The assumption for the requests and resources below:
+# The FHIR version is R4 or R5
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Setup test data
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BulkUpdateSampleData.json
+
+@bulkUpdateLocation = {{bulkUpdate.response.headers.Content-Location}}
+
+
+### Get Bulk Update request
+GET {{bulkUpdateLocation}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Cancel Bulk Update request
+DELETE {{bulkUpdateLocation}}
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Update Requests for FHIR
+### This UPSERT operation for $bulk-update will update the security tag and language for all Patient resources if they exist.
+### If the security tag or language does not exist, it will be added.
+### This operation will not update the security tag for Observation type resources even though the request includes them.
+### _isparallel=true and without any other search parameters, processing jobs will be created by Patient-SurrogateId range
+### If _isparallel=false , the job will run sequentially
+
+### Get Patient with security tag
+GET https://{{hostname}}/Patient?_security!=http://example.org/security-system|SECURITY_TAG_CODE
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Patient with language
+GET https://{{hostname}}/Patient?_language=fr
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
+# @name bulkUpdate
+PATCH https://{{hostname}}/CarePlan/$bulk-update?_isparallel=true
+Prefer: respond-async
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "language"
+                },
+                {
+                    "name": "value",
+                    "valueCode": "en"
+                }
+            ]
+        },
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Observation.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This REPLACE operation for $bulk-update will update the reference for all Observation resources if they exist.
+### Use PatWithObservations1 and PatWithObservations2 to validate
+
+### Get all the referred Observations for Patient PatWithObservations1
+GET https://{{hostname}}/Observation?subject=Patient/PatWithObservations1 
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update?_isparallel=true&_id=PatWithObservations1&_revinclude=Observation:subject
+Prefer: respond-async
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Observation.subject"
+                },
+                {
+                    "name": "value",
+                    "valueReference": {
+                        "reference": "Patient/PatWithObservations2"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This REPLACE operation for $bulk-update will update medicationReference for all MedicationRequest resources if they exist.
+### Use med0302 and med0303 to validate
+# @name bulkUpdate
+PATCH https://{{hostname}}/MedicationRequest/$bulk-update?status=active&_isparallel=true&medication=med0302&_revinclude=MedicationRequest:medication
+Prefer: respond-async
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "MedicationRequest.medication"
+                },
+                {
+                    "name": "value",
+                    "valueReference": {
+                        "reference": "med0303"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This operation will replace the category for all ServiceRequest resources if it exists. 
+
+### Get ServiceRequest with category
+GET https://{{hostname}}/ServiceRequest?category=http://terminology.hl7.org/CodeSystem/service-category|new-category-code
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk update
+# @name bulkUpdate
+PATCH https://{{hostname}}/ServiceRequest/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "ServiceRequest.category"
+                },
+                {
+                    "name": "value",
+                    "valueCodeableConcept": {
+                        "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/service-category",
+                            "code": "new-category-code",
+                            "display": "New Category Display"
+                        }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This operation will replace the maritalStatus for all Patient resources if it exists. 
+### It will not add the maritalStatus if it does not exist. It will fail for patients where it does not exist.
+### default value of _isparallel=true and without any other search parameters, processing jobs will be created by Patient-SurrogateId range
+### If _isparallel=false , the job will run sequentially
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.maritalStatus"
+                },
+                {
+                    "name": "value",
+                    "valueCodeableConcept": {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/v3-MaritalStatus",
+                                "code": "M",
+                                "display": "Married"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This operation will replace the metadata security tag on Observation resource. 
+# @name bulkUpdate
+PATCH https://{{hostname}}/Observation/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Observation.meta.security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+                            "code": "R",
+                            "display": "restricted"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+
+### Bulk update operation with type Add/Insert/Move is not supported for bulk-update requests.
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "add"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "deceased"
+                },
+                {
+                    "name": "value",
+                    "valueBoolean": false
+                }
+            ]
+        }
+    ]
+}
+
+### Bulk update on StructureDefinition/SearchParameter is not supported
+# @name bulkUpdate
+PATCH https://{{hostname}}/StructureDefinition/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "StructureDefinition.experimental"
+                },
+                {
+                    "name": "value",
+                    "valueBoolean": false
+                }
+            ]
+        }
+    ]
+}
+
+### Bulk update operation at System level - All resources will be updated with the specified security tag
+# @name bulkUpdate
+PATCH https://{{hostname}}/$bulk-update?_isParallel=true
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Resource.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### Bulk update operation at System level - Only the resources for which the operation is mentioned will be updated with the specified security tag
+# @name bulkUpdate
+PATCH https://{{hostname}}/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Observation.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### System level bulk update operation to run in parallel
+# @name bulkUpdate
+PATCH https://{{hostname}}/$bulk-update?_isParallel=true
+Prefer: respond-async
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.where(url = 'ombCategory').value"
+                },
+                {
+                    "name": "value",
+                    "valueCoding" : {
+                        "system" : "urn:oid:2.16.840.1.113883.6.238",
+                        "code" : "2054-5",
+                        "display" : "Black or African American"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This operation will fail as the versionId is immutable and cannot be updated.
+## Try to patch version (result = fail)
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.meta.versionId"
+                },
+                {
+                    "name": "value",
+                    "valueId": "abc"
+                }
+            ]
+        }
+    ]
+}
+
+### Update with _include=*
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update?_include=*
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Resource.meta"
+                },
+                {
+                    "name": "name",
+                    "valueString": "security"
+                },
+                {
+                    "name": "value",
+                    "valueCoding": {
+                        "system": "http://example.org/security-system",
+                        "code": "SECURITY_TAG_CODE",
+                        "display": "Updated Security Tag Display"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+### This operation will update the name of the Patient resource with the specified identifier.
+## If the Patient resource does not exist, it will not create a new resource.
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update?identifier=http://hospital.smarthealthit.org|1032704
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.name[0]"
+                },
+                {
+                    "name": "value",
+                    "valueHumanName": {
+                        "family": "Doe",
+                        "given": [
+                            "Jane"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+###
+## Add link (used in patient merge)
+# @name bulkUpdate
+PATCH https://{{hostname}}/Patient/$bulk-update
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: respond-async
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "link"
+                },
+                {
+                    "name": "value",
+                    "part": [
+                        {
+                            "name": "other",
+                            "valueReference": {
+                                "reference": "Patient/other",
+                                "type": "Patient"
+                            }
+                        },
+                        {
+                            "name": "type",
+                            "valueCode": "replaces"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "upsert"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "link"
+                },
+                {
+                    "name": "value",
+                    "part": [
+                        {
+                            "name": "other",
+                            "valueReference": {
+                                "reference": "Patient/other",
+                                "type": "Patient"
+                            }
+                        },
+                        {
+                            "name": "type",
+                            "valueCode": "replaces"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

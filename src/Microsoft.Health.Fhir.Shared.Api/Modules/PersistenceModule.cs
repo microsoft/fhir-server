@@ -39,6 +39,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddFactory<IScoped<IDeletionService>>();
             services.AddScoped<IDeletionService, DeletionService>();
+
+            services.AddFactory<IScoped<IBulkUpdateService>>();
+            services.AddScoped<IBulkUpdateService, BulkUpdateService>();
         }
     }
 }

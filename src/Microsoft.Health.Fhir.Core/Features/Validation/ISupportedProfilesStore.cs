@@ -16,6 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="disableCacheRefresh">Should we check server for new updates or get data out of cache.</param>
         IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false);
 
+        /// <summary>
+        /// Provide supported profiles for specified.
+        /// </summary>
+        IReadOnlySet<string> GetProfilesTypes();
+
         void Refresh();
     }
 }

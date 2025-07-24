@@ -26,10 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         EditProfileDefinitions = 1 << 8, // Allows to Create/Update/Delete resources related to profile's resources.
         Import = 1 << 9,
         SearchParameter = 1 << 10,
+        BulkOperator = 1 << 11,
 
         Smart = 1 << 30, // Do not include Smart in the '*' case.  We only want smart for a user if explicitly added to the role or user
 
         [EnumMember(Value = "*")]
-        All = (SearchParameter << 1) - 1,
+        All = (BulkOperator << 1) - 1,
     }
 }
