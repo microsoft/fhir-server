@@ -276,6 +276,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.GetBulkDeleteStatusById;
                     break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.GetBulkUpdateStatusById;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
@@ -329,6 +332,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     break;
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.BulkDeleteDefinition;
+                    break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.BulkUpdateDefinition;
                     break;
                 case OperationsConstants.SearchParameterStatus:
                     routeName = RouteNames.SearchParameterStatusOperationDefinition;

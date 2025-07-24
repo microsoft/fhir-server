@@ -84,5 +84,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string Includes = nameof(Includes);
 
         internal const string IncludesOperationDefinition = nameof(IncludesOperationDefinition);
+
+        internal const string GetBulkUpdateStatusById = nameof(GetBulkUpdateStatusById);
+
+        internal const string CancelBulkUpdate = nameof(CancelBulkUpdate);
+
+        internal const string BulkUpdateDefinition = nameof(BulkUpdateDefinition);
     }
 }

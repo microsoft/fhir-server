@@ -107,6 +107,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedMessage, exception.Message);
         }
 
+        [Theory]
+        [InlineData("Patient?")]
+        [InlineData("")]
+        [InlineData("?test")]
+        public async Task GivenATransactionBundle_WhenUrlIsNotWellFormed_ThenRequestNotValidExceptionShouldBeThrown(string invalidUrl)
+        {
+            var bundle = Samples.GetBasicTransactionBundleWithSingleResource();
+
+            bundle.Entry.First().Request = new Hl7.Fhir.Model.Bundle.RequestComponent()
+            {
+                Method = Hl7.Fhir.Model.Bundle.HTTPVerb.PUT,
+                Url = invalidUrl,
+            };
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+        }
+
         private static void ValidateIdDictionaryPopulatedCorrectly(Dictionary<string, (string resourceId, string resourceType)> idDictionary, Action<KeyValuePair<string, (string resourceId, string resourceType)>>[] actions)
         {
             Assert.Collection(idDictionary, actions);
