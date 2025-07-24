@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -59,6 +60,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             string hash = sb.ToString().ComputeHash();
             return hash;
+        }
+
+        public static bool IsBaseTypeSearchParameter(this SearchParameterInfo searchParameter)
+        {
+            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
+
+            var resourceType = (searchParameter.BaseResourceTypes?.Any() ?? false) ? searchParameter.BaseResourceTypes[0] : null;
+            return (string.Equals(resourceType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
+                && (searchParameter.Code?.StartsWith('_') ?? false);
         }
     }
 }
