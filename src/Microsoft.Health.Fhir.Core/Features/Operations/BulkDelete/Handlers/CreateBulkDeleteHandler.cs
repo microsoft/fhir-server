@@ -59,7 +59,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 _ => DataActions.HardDelete | DataActions.Delete,
             };
 
-            if (await _authorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
+            // Combine required access with BulkOperator
+            DataActions combinedRequiredActions = requiredDataAction | DataActions.BulkOperator;
+
+            // Check if user has any of the required actions
+            var grantedActions = await _authorizationService.CheckAccess(combinedRequiredActions, cancellationToken);
+            if ((grantedActions & combinedRequiredActions) == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }

@@ -65,15 +65,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Substitute.For<ILogger<CreateBulkDeleteHandler>>());
         }
 
-        [Fact]
-        public async Task GivenBulkDeleteRequest_WhenJobCreationRequested_ThenJobIsCreated()
+        [Theory]
+        [InlineData(DataActions.HardDelete)]
+        [InlineData(DataActions.Delete)]
+        [InlineData(DataActions.BulkOperator)]
+        [InlineData(DataActions.BulkOperator | DataActions.Delete)]
+        [InlineData(DataActions.BulkOperator | DataActions.HardDelete)]
+        [InlineData(DataActions.HardDelete | DataActions.Delete)]
+        public async Task GivenBulkDeleteRequest_WhenJobCreationRequestedWithEitherAccess_ThenJobIsCreated(DataActions access)
         {
             var searchParams = new List<Tuple<string, string>>()
             {
                 new Tuple<string, string>("param", "value"),
             };
 
-            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(access);
             _contextAccessor.RequestContext.BundleIssues.Clear();
             _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
             {
@@ -84,12 +90,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Assert.Equal(searchParams.Count + 1, definition.SearchParameters.Count); // Adds the max time
 
                 return new List<JobInfo>()
+                {
+                    new JobInfo()
                     {
-                        new JobInfo()
-                        {
-                            Id = 1,
-                        },
-                    };
+                        Id = 1,
+                    },
+                };
             });
 
             var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);

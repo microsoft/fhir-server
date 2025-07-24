@@ -54,8 +54,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenAGetRequest_WhenUserUnauthorized_ThenUnauthorizedFhirExceptionThrown()
+        [Theory]
+        [InlineData(DataActions.Reindex, true)]
+        [InlineData(DataActions.BulkOperator, true)]
+        [InlineData(DataActions.None, false)]
+        [InlineData(DataActions.Read, false)]
+        public async Task GivenAGetRequest_WhenCheckingAuthorization_ThenAccessIsEnforced(DataActions access, bool shouldSucceed)
         {
             var request = new GetReindexRequest("id");
 
@@ -64,11 +68,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
-            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(access);
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            if (shouldSucceed)
+            {
+                var result = await handler.Handle(request, CancellationToken.None);
+                Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            }
         }
 
         [Fact]
@@ -100,8 +112,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.IsType<RequestRateExceededException>(thrownException.InnerException);
         }
 
-        [Fact]
-        public async Task GivenACancelRequest_WhenUserUnauthorized_ThenUnauthorizedFhirExceptionThrown()
+        [Theory]
+        [InlineData(DataActions.None, false)]
+        [InlineData(DataActions.Read, false)]
+        [InlineData(DataActions.Delete, false)]
+        [InlineData(DataActions.HardDelete, false)]
+        [InlineData(DataActions.BulkOperator, true)]
+        [InlineData(DataActions.Reindex, true)]
+        public async Task GivenACancelRequest_WhenCheckingAccess_ThenAccessIsEnforced(DataActions access, bool shouldSucceed)
         {
             var request = new CancelReindexRequest("id");
 
@@ -110,11 +128,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
-            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(access);
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            if (shouldSucceed)
+            {
+                var result = await handler.Handle(request, CancellationToken.None);
+                Assert.NotNull(result);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            }
         }
 
         [Fact]

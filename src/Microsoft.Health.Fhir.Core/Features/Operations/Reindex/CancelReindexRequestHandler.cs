@@ -52,7 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
+            // check if the user has the required permissions (either the Reindex permission or Bulk operator permission) to cancel the reindex job
+            DataActions requiredDataActions = DataActions.BulkOperator | DataActions.Reindex;
+            var grantedActions = await _authorizationService.CheckAccess(requiredDataActions, cancellationToken);
+            if ((grantedActions & requiredDataActions) == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }

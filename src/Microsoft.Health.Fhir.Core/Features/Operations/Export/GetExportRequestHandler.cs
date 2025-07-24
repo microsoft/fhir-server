@@ -37,7 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Export, cancellationToken) != DataActions.Export)
+            // check if the user has the required permissions (either an Export permission or Bulk operator permission) to Get an export job
+            DataActions requiredDataActions = DataActions.BulkOperator | DataActions.Export;
+            var grantedActions = await _authorizationService.CheckAccess(requiredDataActions, cancellationToken);
+            if ((grantedActions & requiredDataActions) == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }

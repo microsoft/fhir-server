@@ -44,7 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
+            DataActions requiredDataActions = DataActions.BulkOperator | DataActions.Import;
+            var grantedActions = await _authorizationService.CheckAccess(requiredDataActions, cancellationToken);
+            if ((grantedActions & requiredDataActions) == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }

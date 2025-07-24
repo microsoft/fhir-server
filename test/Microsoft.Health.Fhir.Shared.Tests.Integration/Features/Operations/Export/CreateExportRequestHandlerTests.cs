@@ -15,8 +15,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -24,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -333,6 +336,43 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
+        }
+
+        [Theory]
+        [InlineData(DataActions.Export, true)]
+        [InlineData(DataActions.BulkOperator, true)]
+        [InlineData(DataActions.None, false)]
+        [InlineData(DataActions.Read, false)]
+        public async Task GivenCreateExportRequest_WhenCheckingAuthorization_ThenAccessIsEnforced(DataActions access, bool shouldSucceed)
+        {
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(DataActions.Export, Arg.Any<CancellationToken>()).Returns(access);
+
+            IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
+            optionsExportConfig.Value.Returns(_exportJobConfiguration);
+
+            var handler = new CreateExportRequestHandler(
+                _claimsExtractor,
+                _fhirOperationDataStore,
+                authorizationService,
+                optionsExportConfig,
+                _requestContextAccessor,
+                _searchOptionsFactory,
+                Substitute.For<ILogger<CreateExportRequestHandler>>(),
+                true);
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+
+            if (shouldSucceed)
+            {
+                var response = await handler.Handle(request, _cancellationToken);
+                Assert.NotNull(response);
+                Assert.False(string.IsNullOrWhiteSpace(response.JobId));
+            }
+            else
+            {
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, _cancellationToken));
+            }
         }
 
         [Fact]
