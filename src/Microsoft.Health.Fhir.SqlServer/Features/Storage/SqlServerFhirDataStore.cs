@@ -728,6 +728,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var tokenDateTimeCompositeSearchParamListRowGenerator = new TokenDateTimeCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
                     var referenceTokenCompositeSearchParamListRowGenerator = new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), tokenSearchParamRowGenerator, _searchParameterTypeMap);
 
+                    // Traverse through the resources to check which resources are causing constraint violation
                     foreach (var resource in resources)
                     {
                         bool hasConflict = false;
@@ -736,7 +737,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         try
                         {
-                            // TokenSearchParam
+                            // TokenSearchParam constraint validation
                             foreach (var row in tokenSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code != null && row.CodeOverflow != null &&
@@ -754,9 +755,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Token-Token Composite
+                            // Token-Token Composite search param constraint validation
                             foreach (var row in tokenTokenCompositeSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
                             {
+                                // Check if constraint for CodeOverflow1 or CodeOverflow2 is violating
                                 if ((row.CodeOverflow1 != null && Encoding.UTF8.GetByteCount(row.Code1 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.MaxLength) ||
                                     (row.CodeOverflow2 != null && Encoding.UTF8.GetByteCount(row.Code2 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.MaxLength))
                                 {
@@ -772,7 +774,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Token-String Composite
+                            // Token-String Composite search param constraint validation
                             foreach (var row in tokenStringCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code1 != null && row.CodeOverflow1 != null &&
@@ -790,7 +792,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Token-Quantity Composite
+                            // Token-Quantity Composite search param constraint validation
                             foreach (var row in tokenQuantityCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code1 != null && row.CodeOverflow1 != null &&
@@ -808,7 +810,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Token-NumberNumber Composite
+                            // Token-NumberNumber Composite search param constraint validation
                             foreach (var row in tokenNumberNumberCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code1 != null && row.CodeOverflow1 != null &&
@@ -826,7 +828,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Token-DateTime Composite
+                            // Token-DateTime Composite search param constraint validation
                             foreach (var row in tokenDateTimeCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code1 != null && row.CodeOverflow1 != null &&
@@ -844,7 +846,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue; // If conflict then move to next resource
                             }
 
-                            // Reference-Token Composite
+                            // Reference-Token Composite search param constraint validation
                             foreach (var row in referenceTokenCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
                             {
                                 if (row.Code2 != null && row.CodeOverflow2 != null &&
