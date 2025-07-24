@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -235,7 +236,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
             try
             {
-                var result = _searchParameterComparer.CompareExpression(incomingSearchParameter.Expression, existingSearchParameter.Expression);
+                var result = _searchParameterComparer.CompareExpression(
+                    incomingSearchParameter.Expression,
+                    existingSearchParameter.Expression,
+                    existingSearchParameter.IsBaseTypeSearchParameter());
                 switch (result)
                 {
                     case 0:

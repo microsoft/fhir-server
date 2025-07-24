@@ -714,6 +714,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                         "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
                     },
                 },
+                new object[]
+                {
+                    "Practitioner",
+                    "_id",
+                    new SearchParameter[]
+                    {
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Practitioner },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Practitioner },
+#endif
+                            Code = "_id",
+                            Expression = "Practitioner.id",
+                            Name = "USCorePractitionerId",
+                            Type = SearchParamType.Token,
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Practitioner },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Practitioner },
+#endif
+                            Code = "_id",
+                            Expression = "Practitioner.id",
+                            Name = "USCorePractitionerId",
+                            Type = SearchParamType.Token,
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id1",
+                        },
+                        new SearchParameter()
+                        {
+#if R4 || R4B || Stu3
+                            Base = new List<ResourceType?> { ResourceType.Practitioner },
+#else
+                            Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Practitioner },
+#endif
+                            Code = "_id",
+                            Expression = "Practitioner.id",
+                            Name = "USCorePractitionerId",
+                            Type = SearchParamType.Token,
+                            Url = "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id2",
+                        },
+                    },
+                    new string[]
+                    {
+                        "http://hl7.org/fhir/SearchParameter/Resource-id",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id1",
+                        "http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id2",
+                    },
+                },
             };
 
             foreach (var d in data)

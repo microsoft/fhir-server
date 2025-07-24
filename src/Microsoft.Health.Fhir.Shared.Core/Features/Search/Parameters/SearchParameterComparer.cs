@@ -17,6 +17,7 @@ using Hl7.FhirPath;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Hl7.FhirPath.Expressions.Expression;
@@ -41,10 +42,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(x, nameof(x));
             EnsureArg.IsNotNull(y, nameof(y));
 
-            if (!string.Equals(x.Url.OriginalString, y.Url.OriginalString, StringComparison.OrdinalIgnoreCase))
+            // TODO: need 'derivedFrom' to compare the url properly. (https://hl7.org/fhir/searchparameter-definitions.html#SearchParameter.derivedFrom)
+            var isBaseTypeSearchParameter = x.IsBaseTypeSearchParameter() || y.IsBaseTypeSearchParameter();
+            var result = 0;
+            if (!isBaseTypeSearchParameter)
             {
-                _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
-                return int.MinValue;
+                if (!string.Equals(x.Url.OriginalString, y.Url.OriginalString, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
+                    return int.MinValue;
+                }
+
+                var baseX = x.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
+                var baseY = y.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
+                result = CompareBase(baseX, baseY);
+                if (result == int.MinValue)
+                {
+                    _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
+                    return result;
+                }
             }
 
             if (!string.Equals(x.Code, y.Code, StringComparison.OrdinalIgnoreCase))
@@ -59,26 +75,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 return int.MinValue;
             }
 
-            var baseX = x.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            var baseY = y.BaseResourceTypes?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            var result = CompareBase(baseX, baseY);
-            if (result == int.MinValue)
-            {
-                _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
-                return result;
-            }
-
-            var expressionResult = CompareExpression(x.Expression, y.Expression);
+            var expressionResult = CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter);
             if (expressionResult == int.MinValue)
             {
                 _logger.LogInformation($"Expression mismatch: '{x.Expression}', '{y.Expression}'");
                 return expressionResult;
-            }
-
-            if (result != 0 && expressionResult != 0 && result != expressionResult)
-            {
-                _logger.LogInformation($"Superset/subset relation mismatch: base={result}, expression={expressionResult}");
-                return int.MinValue;
             }
 
             result = result == 0 ? expressionResult : result;
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             return compsX.Count == compsY.Count ? 0 : 1;
         }
 
-        public int CompareExpression(string x, string y)
+        public int CompareExpression(string x, string y, bool baseTypeExpression = false)
         {
             if (x == null || y == null)
             {
@@ -164,6 +165,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
             try
             {
+                if (baseTypeExpression)
+                {
+                    return CompareBaseTypeExpression(x, y);
+                }
+
                 var expX = _compiler.Parse(x);
                 var expY = _compiler.Parse(y);
                 return CompareExpression(expX, expY);
@@ -173,6 +179,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 _logger.LogError(ex, $"Failed to compare expressions: '{x}', '{y}'");
                 throw;
             }
+        }
+
+        private static int CompareBaseTypeExpression(string x, string y)
+        {
+            if (x == null || y == null)
+            {
+                return int.MinValue;
+            }
+
+            var resourceTypeX = x.Substring(0, x.IndexOf('.', StringComparison.Ordinal));
+            var resourceTypeY = y.Substring(0, y.IndexOf('.', StringComparison.Ordinal));
+            var expX = x.Substring(x.IndexOf('.', StringComparison.Ordinal));
+            var expY = y.Substring(y.IndexOf('.', StringComparison.Ordinal));
+            if (!string.Equals(expX, expY, StringComparison.OrdinalIgnoreCase))
+            {
+                return int.MinValue;
+            }
+
+            if (string.Equals(resourceTypeX, resourceTypeY, StringComparison.OrdinalIgnoreCase))
+            {
+                return 0;
+            }
+
+            if (IsBaseResourceType(resourceTypeX))
+            {
+                return -1;
+            }
+
+            return IsBaseResourceType(resourceTypeY) ? 1 : int.MinValue;
         }
 
         private int CompareExpression(Expression x, Expression y)
@@ -400,6 +435,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     expressions.Add(expression);
                     break;
             }
+        }
+
+        private static bool IsBaseResourceType(string resourceType)
+        {
+            return string.Equals(resourceType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

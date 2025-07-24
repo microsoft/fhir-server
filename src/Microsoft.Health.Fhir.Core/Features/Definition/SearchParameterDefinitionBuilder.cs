@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -344,11 +345,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     _ => new ConcurrentQueue<SearchParameterInfo>(new[] { searchParam }),
                     (_, existing) =>
                     {
+                        var isBaseTypeSearchParameter = searchParam.IsBaseTypeSearchParameter();
                         if (existing.TryPeek(out var sp) && sp != null)
                         {
                             if (searchParam.Type != sp.Type)
                             {
                                 logger.LogWarning("The types of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            isBaseTypeSearchParameter |= sp.IsBaseTypeSearchParameter();
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression, isBaseTypeSearchParameter) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
                                 return existing;
                             }
 
@@ -362,17 +371,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                     return existing;
                                 }
                             }
-
-                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression) == int.MinValue)
-                            {
-                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
-                                return existing;
-                            }
                         }
 
                         var list = new List<SearchParameterInfo>(existing);
                         list.Add(searchParam);
-                        list.Sort((x, y) => searchParameterComparer.CompareExpression(y.Expression, x.Expression));
+                        if (isBaseTypeSearchParameter)
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter));
+                        }
+                        else
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(y.Expression, x.Expression));
+                        }
+
                         return new ConcurrentQueue<SearchParameterInfo>(list);
                     });
             }

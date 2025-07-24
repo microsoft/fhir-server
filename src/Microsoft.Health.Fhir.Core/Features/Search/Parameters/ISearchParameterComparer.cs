@@ -16,6 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         int CompareComponent(IEnumerable<(string definition, string expression)> x, IEnumerable<(string definition, string expression)> y);
 
-        int CompareExpression(string x, string y);
+        int CompareExpression(string x, string y, bool baseTypeExpression = false);
     }
 }

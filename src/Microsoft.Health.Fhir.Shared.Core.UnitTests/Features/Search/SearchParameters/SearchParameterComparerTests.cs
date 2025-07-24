@@ -118,9 +118,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
         public void GivenExpressions_WhenComparing_ThenCorrectResultShouldBeReturn(
             string expression1,
             string expression2,
+            bool baseTypeExpression,
             int result)
         {
-            Assert.Equal(result, _comparer.CompareExpression(expression1, expression2));
+            Assert.Equal(result, _comparer.CompareExpression(expression1, expression2, baseTypeExpression));
         }
 
         [Theory]
@@ -413,48 +414,105 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                 {
                     "AllergyIntolerance.code",
                     "AllergyIntolerance.code",
+                    false,
                     0,
                 },
                 new object[]
                 {
                     "AdverseEvent.event",
                     "AdverseEvent.location",
+                    false,
                     int.MinValue,
                 },
                 new object[]
                 {
                     "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
                     "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
+                    false,
                     0,
                 },
                 new object[]
                 {
                     "ActivityDefinition.relatedArtifact.where(type='composed-of').resource",
                     "ActivityDefinition.relatedArtifact.where(type='depends-on').resource",
+                    false,
                     int.MinValue,
                 },
                 new object[]
                 {
                     "AllergyIntolerance.code | (MedicationStatement.medication as CodeableConcept)",
                     "(MedicationStatement.medication as CodeableConcept) | AllergyIntolerance.code",
+                    false,
                     0,
                 },
                 new object[]
                 {
                     "(ActivityDefinition.useContext.value as Quantity) | (ActivityDefinition.useContext.value as Range)",
                     "ActivityDefinition.useContext.value as Range",
+                    false,
                     1,
                 },
                 new object[]
                 {
                     "PlanDefinition.library | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library",
                     "ActivityDefinition.relatedArtifact.where(type='depends-on').resource | ActivityDefinition.library | EventDefinition.relatedArtifact.where(type='depends-on').resource | EvidenceVariable.relatedArtifact.where(type='depends-on').resource | Library.relatedArtifact.where(type='depends-on').resource | Measure.relatedArtifact.where(type='depends-on').resource | Measure.library | PlanDefinition.relatedArtifact.where(type='depends-on').resource | PlanDefinition.library",
+                    false,
                     -1,
                 },
                 new object[]
                 {
                     "CareTeam.name | CareTeam.participant.member | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
                     "CareTeam.name | CareTeam.participant.category | CareTeam.extension('http://hl7.org/fhir/StructureDefinition/careteam-alias').value",
+                    false,
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    "Practitioner.id",
+                    "Resource.id",
+                    true,
+                    1,
+                },
+                new object[]
+                {
+                    "Resource.meta.tag",
+                    "Patient.meta.tag",
+                    true,
+                    -1,
+                },
+                new object[]
+                {
+                    "DomainResource.text",
+                    "Observation.text",
+                    true,
+                    -1,
+                },
+                new object[]
+                {
+                    "Practitioner.ids",
+                    "Resource.id",
+                    true,
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    "Resource.meta.tag",
+                    "DomainResource.meta.tag",
+                    true,
+                    -1,
+                },
+                new object[]
+                {
+                    "Resource.type",
+                    "Resource.type",
+                    true,
+                    0,
+                },
+                new object[]
+                {
+                    "Patient.id",
+                    "Practitioner.id",
+                    true,
                     int.MinValue,
                 },
             };
@@ -1040,6 +1098,44 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                         },
                         expression: "DocumentReference.relatesTo | DocumentReference.id",
                         baseResourceTypes: new[] { "DocumentReference" }),
+                    int.MinValue,
+                },
+                new object[]
+                {
+                    // 1st base-type SP, and 2nd custom SP
+                    new SearchParameterInfo(
+                        name: "_id",
+                        code: "_id",
+                        searchParamType: ValueSets.SearchParamType.Token,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                        expression: "Resource.id",
+                        baseResourceTypes: new[] { "Resource" }),
+                    new SearchParameterInfo(
+                        name: "USCorePractitionerId",
+                        code: "_id",
+                        searchParamType: ValueSets.SearchParamType.Token,
+                        url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id"),
+                        expression: "Practitioner.id",
+                        baseResourceTypes: new[] { "Practitioner" }),
+                    -1,
+                },
+                new object[]
+                {
+                    // 1st base-type SP, and 2nd custom SP
+                    new SearchParameterInfo(
+                        name: "_id",
+                        code: "_id",
+                        searchParamType: ValueSets.SearchParamType.Token,
+                        url: new Uri("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                        expression: "Resource.id",
+                        baseResourceTypes: new[] { "Resource" }),
+                    new SearchParameterInfo(
+                        name: "USCorePractitionerId",
+                        code: "_id",
+                        searchParamType: ValueSets.SearchParamType.Token,
+                        url: new Uri("http://hl7.org/fhir/us/core/SearchParameter/us-core-practitioner-id"),
+                        expression: "Practitioner.ids",
+                        baseResourceTypes: new[] { "Practitioner" }),
                     int.MinValue,
                 },
             };
