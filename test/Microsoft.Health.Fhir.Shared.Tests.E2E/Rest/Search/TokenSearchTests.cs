@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -122,6 +123,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync($"?_tag={Fixture.Tag}&_type={ResourceType.Observation}&value-concept:not={queryValue}");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
+
+            ValidateBundle(bundle, expected);
+        }
+
+        [Theory]
+        [InlineData("VALUE")]
+        [InlineData("value")]
+        public async Task GivenATokenSearchParameterWithTwoValuesThatOnlyDifferInCase_WhenSearchedByEitherValue_ThenTheResourceWillBeReturned(string queryValue)
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_tag={Fixture.Tag}&identifier={queryValue}");
+
+            Observation[] expected = Fixture.Observations.Where((_, i) => _.Identifier.Any((id) => id.Value == queryValue)).ToArray();
 
             ValidateBundle(bundle, expected);
         }
