@@ -2435,19 +2435,11 @@ CREATE OR ALTER PROCEDURE dbo.GetGeoReplicationLag
 AS
 BEGIN
     SET NOCOUNT ON;
-    BEGIN TRY
-        SELECT replication_state_desc,
-               replication_lag_sec,
-               last_replication
-        FROM   sys.dm_geo_replication_link_status
-        WHERE  role_desc = 'PRIMARY';
-    END TRY
-    BEGIN CATCH
-        SELECT CAST (NULL AS NVARCHAR (256)) AS replication_state_desc,
-               CAST (NULL AS INT) AS replication_lag_sec,
-               CAST (NULL AS DATETIMEOFFSET) AS last_replication
-        WHERE  1 = 0;
-    END CATCH
+    SELECT replication_state_desc,
+           replication_lag_sec,
+           last_replication
+    FROM   sys.dm_geo_replication_link_status
+    WHERE  role_desc = 'PRIMARY';
 END
 
 GO
