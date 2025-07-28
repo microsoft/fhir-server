@@ -10,7 +10,10 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -168,13 +171,27 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
-
             services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
-
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+
+            // Conditionally register GeoReplicationLagWatchdog based on core feature flag
+            services.AddSingleton<GeoReplicationLagWatchdog>(provider =>
+            {
+                var coreFeatures = provider.GetService<IOptions<CoreFeatureConfiguration>>();
+
+                if (coreFeatures?.Value?.EnableGeoRedundancy == true)
+                {
+                    var sqlRetryService = provider.GetRequiredService<ISqlRetryService>();
+                    var logger = provider.GetRequiredService<ILogger<GeoReplicationLagWatchdog>>();
+                    var mediator = provider.GetRequiredService<IMediator>();
+                    var schemaInformation = provider.GetRequiredService<SchemaInformation>();
+                    return new GeoReplicationLagWatchdog(sqlRetryService, logger, mediator, schemaInformation);
+                }
+
+                return null;
+            });
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()
