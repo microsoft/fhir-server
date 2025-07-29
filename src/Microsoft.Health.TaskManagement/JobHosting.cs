@@ -22,6 +22,7 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
+        private DateTime _lastHeartbeatLog;
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -43,6 +44,8 @@ namespace Microsoft.Health.JobManagement
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
+            _lastHeartbeatLog = DateTime.UtcNow;
+
             _logger.LogInformation("Queue {QueueType} is starting.", queueType);
 
             // parallel dequeue
@@ -57,6 +60,12 @@ namespace Microsoft.Health.JobManagement
 
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
+                        if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
+                        {
+                            _lastHeartbeatLog = DateTime.UtcNow;
+                            _logger.LogInformation("{QueueType} working is running.", queueType);
+                        }
+
                         JobInfo nextJob = null;
                         if (_queueClient.IsInitialized())
                         {

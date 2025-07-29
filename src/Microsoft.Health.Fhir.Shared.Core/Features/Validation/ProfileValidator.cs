@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -72,6 +73,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             _logger.LogDebug("Getting Validator");
             var validator = GetValidator();
             OperationOutcome result;
@@ -87,6 +91,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             _logger.LogDebug("Finished validating");
+
+            if (stopwatch.ElapsedMilliseconds > 1000)
+            {
+                _logger.LogWarning("Long running validation: {Time}", stopwatch.ElapsedMilliseconds);
+            }
 
             var outcomeIssues = result.Issue.OrderBy(x => x.Severity)
                 .Select(issue =>
