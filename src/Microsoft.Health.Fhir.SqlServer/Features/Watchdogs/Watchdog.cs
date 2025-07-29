@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             if (DateTime.UtcNow - _lastLog > TimeSpan.FromHours(1))
             {
-                _lastLog = DateTime.Now;
+                _lastLog = DateTime.UtcNow;
                 _logger.LogInformation($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
             }
             else
