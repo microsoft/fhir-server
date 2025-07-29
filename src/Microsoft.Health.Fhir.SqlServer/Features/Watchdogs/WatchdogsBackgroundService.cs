@@ -64,8 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
-            // Only add GeoReplicationLagWatchdog if the feature is enabled and the watchdog is available
-            if (_coreFeatureConfiguration.EnableGeoRedundancy && _geoReplicationLagWatchdog != null)
+            // Only add GeoReplicationLagWatchdog if the feature is enabled
+            if (_coreFeatureConfiguration.EnableGeoRedundancy)
             {
                 tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }

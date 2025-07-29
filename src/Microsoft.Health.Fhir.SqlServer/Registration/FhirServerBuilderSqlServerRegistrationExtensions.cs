@@ -176,22 +176,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFactory<IScoped<TransactionWatchdog>>();
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
 
-            // Conditionally register GeoReplicationLagWatchdog based on core feature flag
-            services.AddSingleton<GeoReplicationLagWatchdog>(provider =>
-            {
-                var coreFeatures = provider.GetService<IOptions<CoreFeatureConfiguration>>();
-
-                if (coreFeatures?.Value?.EnableGeoRedundancy == true)
-                {
-                    var sqlRetryService = provider.GetRequiredService<ISqlRetryService>();
-                    var logger = provider.GetRequiredService<ILogger<GeoReplicationLagWatchdog>>();
-                    var mediator = provider.GetRequiredService<IMediator>();
-                    var schemaInformation = provider.GetRequiredService<SchemaInformation>();
-                    return new GeoReplicationLagWatchdog(sqlRetryService, logger, mediator, schemaInformation);
-                }
-
-                return null;
-            });
+            services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

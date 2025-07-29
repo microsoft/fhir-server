@@ -367,7 +367,7 @@ RAISERROR('Test',18,127)
             // Verify the stored procedure exists
             var spExists = (int)ExecuteSql("SELECT COUNT(*) FROM sys.objects WHERE name = 'GetGeoReplicationLag' AND type = 'P'");
             Assert.Equal(1, spExists);
-            _testOutputHelper.WriteLine("✓ GetGeoReplicationLag stored procedure exists");
+            _testOutputHelper.WriteLine("GetGeoReplicationLag stored procedure exists");
 
             // Initialize watchdog parameters
             var geoWatchdog = new GeoReplicationLagWatchdog();

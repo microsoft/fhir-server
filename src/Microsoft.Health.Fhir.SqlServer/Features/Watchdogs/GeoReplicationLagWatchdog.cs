@@ -38,8 +38,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly IMediator _mediator;
         private readonly SchemaInformation _schemaInformation;
 
-        private const string NoReplicationTemplate = "GeoReplicationLagWatchdog: No geo-replication configured or database is not primary.";
-        private const string ReplicationInfoTemplate = "GeoReplicationLagWatchdog: Replication state={ReplicationState}, lag={LagSeconds}s, last replication={LastReplication}";
         private const string CatchUpReplicationLagDescription = "CATCH_UP";
         private const string SeedingUpReplicationLagDescription = "SEEDING";
         private const int MinRequiredSchemaVersion = (int)SchemaVersion.V92;
@@ -99,13 +97,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                 if (replicationInfos.Count == 0)
                 {
-                    _logger.LogDebug(NoReplicationTemplate);
+                    _logger.LogDebug("GeoReplicationLagWatchdog: No geo-replication configured or database is not primary.");
                     return;
                 }
 
                 foreach (var info in replicationInfos)
                 {
-                    _logger.LogInformation(ReplicationInfoTemplate, info.ReplicationState, info.LagSeconds, info.LastReplication);
+                    // Log warning if replication lag is high (e.g., > 300 seconds)
+                    if (info.LagSeconds.HasValue)
+                    {
+                        if (info.LagSeconds.HasValue && info.LagSeconds.Value > 300)
+                        {
+                            _logger.LogWarning("GeoReplicationLagWatchdog: High replication lag detected: {LagSeconds} seconds", info.LagSeconds.Value);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("GeoReplicationLagWatchdog: Replication state={ReplicationState}, lag={LagSeconds}s, last replication={LastReplication}", info.ReplicationState, info.LagSeconds, info.LastReplication);
+                        }
+                    }
 
                     await _mediator.Publish(
                         new GeoReplicationLagNotification
@@ -130,11 +139,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 // Handle the case where geo-replication view doesn't exist (non-Azure SQL Database)
                 _logger.LogDebug("GeoReplicationLagWatchdog: Geo-replication monitoring not available - not running on Azure SQL Database with geo-replication enabled");
-                return;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "GeoReplicationLagWatchdog: Unexpected error while checking geo-replication status");
                 return;
             }
         }
