@@ -420,7 +420,7 @@ namespace Microsoft.Health.Fhir.Importer
                 }
                 else
                 {
-                    var defaultAzureCredential = new DefaultAzureCredential();
+                    var defaultAzureCredential = new DefaultAzureCredential();  // CodeQL [SM05137] This is non-production testing code which is not deployed to production environments.
                     blobServiceClient = new BlobServiceClient(new Uri($"https://{storageAccountName}.blob.core.windows.net"), defaultAzureCredential);
                 }
 
