@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid.Util;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
             // Check Customer Key Health - CMK
-            var customerKeyHealth = await GetKeyHealthAsync(cancellationToken).ConfigureAwait(false);
+            var customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
             if (!customerKeyHealth.IsHealthy)
             {
                 return HealthCheckResult.Degraded($"Customer managed key is unhealthy. Reason: {customerKeyHealth.Reason}");
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             return HealthCheckResult.Healthy();
         }
 
-        public async Task<CustomerKeyHealth> GetKeyHealthAsync(CancellationToken cancellationToken = default)
+        public async Task<CustomerKeyHealth> IsCustomerManagedKeyHealthyAsync(CancellationToken cancellationToken = default)
         {
             return await _customerKeyHealthCache.GetAsync(cancellationToken).ConfigureAwait(false);
         }
