@@ -408,7 +408,7 @@ RAISERROR('Test',18,127)
             await cts.CancelAsync();
             await wdTask;
 
-            _testOutputHelper.WriteLine("Watchdog executed successfully and handled non-Azure SQL environment gracefully");
+            _testOutputHelper.WriteLine("Watchdog executed successfully");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()

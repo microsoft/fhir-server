@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private const string CatchUpReplicationLagDescription = "CATCH_UP";
         private const string SeedingUpReplicationLagDescription = "SEEDING";
+        private const string PendingReplicationLagDescription = "SEEDING";
+
         private const int MinRequiredSchemaVersion = (int)SchemaVersion.V92;
 
         public GeoReplicationLagWatchdog(
@@ -128,7 +130,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     // Log error if replication state indicates issues
                     if (!string.IsNullOrEmpty(info.ReplicationState) &&
                         !info.ReplicationState.Equals(CatchUpReplicationLagDescription, StringComparison.OrdinalIgnoreCase) &&
-                        !info.ReplicationState.Equals(SeedingUpReplicationLagDescription, StringComparison.OrdinalIgnoreCase))
+                        !info.ReplicationState.Equals(SeedingUpReplicationLagDescription, StringComparison.OrdinalIgnoreCase) &&
+                        !info.ReplicationState.Equals(PendingReplicationLagDescription, StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogError("GeoReplicationLagWatchdog: Replication state issue: {ReplicationState}", info.ReplicationState);
                         await _sqlRetryService.TryLogEvent("GeoReplicationLagWatchdog", "Error", $"Replication state: {info.ReplicationState}", null, cancellationToken);
