@@ -14,22 +14,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
     /// Default implementation of <see cref="IHealthCheckStatusReporter"/>.
-    /// Checks the health status of the customer-managed key.
+    /// Checks the health status of health checks.
     /// </summary>
     public class HealthCheckStatusReporter : IHealthCheckStatusReporter
     {
-        private readonly SqlStatusReporter _sqlCustomerManagedKeyStatusReporter;
+        private readonly SqlStatusReporter _sqlStatusReporter;
 
         public HealthCheckStatusReporter(SqlStatusReporter sqlCustomerManagedKeyStatusReporter)
         {
-            _sqlCustomerManagedKeyStatusReporter = sqlCustomerManagedKeyStatusReporter;
+            _sqlStatusReporter = sqlCustomerManagedKeyStatusReporter;
         }
 
         /// <inheritdoc />
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
             // TODO: Check both Cosmos  as well
-            return await _sqlCustomerManagedKeyStatusReporter.IsHealthyAsync(cancellationToken).ConfigureAwait(false);
+            return await _sqlStatusReporter.IsHealthyAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
