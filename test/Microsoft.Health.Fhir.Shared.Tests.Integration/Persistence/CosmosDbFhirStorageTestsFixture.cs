@@ -170,14 +170,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     var builder = new ConfigurationBuilder();
                     builder.AddEnvironmentVariables();
 
-                    var tokenCredential = GetTokenCredential();
-
                     dataCollectionSetup = new ResourceManagerCollectionSetup(
                         optionsMonitor,
                         _cosmosDataStoreConfiguration,
                         builder.Build(),
                         fhirStoredProcs,
-                        tokenCredential,
+                        GetTokenCredential(),
                         tc => new ArmClient(tc),
                         NullLogger<ResourceManagerCollectionSetup>.Instance);
                 }
