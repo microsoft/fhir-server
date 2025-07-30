@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
+using Azure.ResourceManager;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
@@ -169,12 +170,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     var builder = new ConfigurationBuilder();
                     builder.AddEnvironmentVariables();
 
+                    var tokenCredential = GetTokenCredential();
+
                     dataCollectionSetup = new ResourceManagerCollectionSetup(
                         optionsMonitor,
                         _cosmosDataStoreConfiguration,
                         builder.Build(),
                         fhirStoredProcs,
-                        GetTokenCredential(),
+                        tokenCredential,
+                        tc => new ArmClient(tc),
                         NullLogger<ResourceManagerCollectionSetup>.Instance);
                 }
                 else
