@@ -84,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
+            var coreConfig = new CoreFeatureConfiguration { ProfileValidationOnCreate = configValue };
+            config.Value.Returns(coreConfig);
             var headers = new Dictionary<string, StringValues>();
             if (headerValue != null)
             {
