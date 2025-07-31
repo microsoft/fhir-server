@@ -70,6 +70,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bulk delete operation has already completed.
+        /// </summary>
+        internal static string BulkDeleteOperationCompleted {
+            get {
+                return ResourceManager.GetString("BulkDeleteOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bulk update operation has already completed.
+        /// </summary>
+        internal static string BulkUpdateOperationCompleted {
+            get {
+                return ResourceManager.GetString("BulkUpdateOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
         internal static string BundleRequiredForBatchOrTransaction {
@@ -445,6 +463,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ExportFormatNotFound {
             get {
                 return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export operation has already completed.
+        /// </summary>
+        internal static string ExportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ExportOperationCompleted", resourceCulture);
             }
         }
         
