@@ -96,5 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the server supports the includes.
         /// </summary>
         public bool SupportsIncludes { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server enables clinical reference duplication.
+        /// </summary>
+        public bool EnableClinicalReferenceDuplication { get; set; } = false;
     }
 }
