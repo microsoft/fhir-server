@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private const string CatchUpReplicationLagDescription = "CATCH_UP";
         private const string SeedingUpReplicationLagDescription = "SEEDING";
-        private const string PendingReplicationLagDescription = "SEEDING";
+        private const string PendingReplicationLagDescription = "PENDING";
 
         private const int MinRequiredSchemaVersion = (int)SchemaVersion.V92;
 
