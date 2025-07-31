@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
+        Task<HttpResponseMessage> BulkUpdateAsync(string uri, Parameters patchRequest, CancellationToken cancellationToken = default);
+
         Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleOptions bundleOptions = default, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)

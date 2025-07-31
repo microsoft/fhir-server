@@ -766,6 +766,9 @@
   <data name="UnsupportedIncludesOperation" xml:space="preserve">
     <value>The '$includes' operation is not supported.</value>
   </data>
+  <data name="UnsupportedBulkUpdateOperation" xml:space="preserve">
+    <value>The 'bulk-update' operation is not supported.</value>
+  </data>
   <data name="SearchParamaterIncludesCountExceedLimit" xml:space="preserve">
     <value>The '_includesCount' parameter exceeds limit configured for server. Current limit is {0} while the `_includesCount` parameter set to {1}.</value>
   </data>
@@ -789,5 +792,9 @@
   </data>
   <data name="InvalidReturnPreferenceValue" xml:space="preserve">
     <value>The 'returnPreference' value '{0}' is invalid. The supported values are: {1}.</value>
+  </data>
+  <data name="CosmosDbRequestTimeout" xml:space="preserve">
+    <value>Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.</value>
+    <comment>Error message for Cosmos DB 408 RequestTimeout due to insufficient RUs or high load.</comment>
   </data>
 </root>

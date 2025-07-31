@@ -89,6 +89,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (entry.Request.Method == HTTPVerb.PUT)
             {
                 string[] conditionalUpdate = entry.Request.Url.Split('?');
+                if (conditionalUpdate.Length <= 1)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, entry.Request.Method));
+                }
+
                 resourceType = conditionalUpdate[0];
                 conditionalQueries = conditionalUpdate[1];
             }
@@ -123,6 +128,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request?.Url;
+            if (string.IsNullOrWhiteSpace(requestUrl))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequestUrl));
+            }
+
             var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
             if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
             {
@@ -130,11 +140,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             HTTPVerb? requestMethod = entry.Request?.Method;
-
-            if (string.IsNullOrWhiteSpace(requestUrl))
-            {
-                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequestUrl));
-            }
 
             // Search operations using _search and POST endpoint is not supported for bundle.
             // Conditional Delete operation is also not currently not supported.

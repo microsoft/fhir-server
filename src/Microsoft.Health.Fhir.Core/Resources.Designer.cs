@@ -1772,6 +1772,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;bulk-update&apos; operation is not supported..
+        /// </summary>
+        internal static string UnsupportedBulkUpdateOperation {
+            get {
+                return ResourceManager.GetString("UnsupportedBulkUpdateOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
@@ -1876,6 +1885,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.
+        /// </summary>
+        internal static string CosmosDbRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
             }
         }
     }
