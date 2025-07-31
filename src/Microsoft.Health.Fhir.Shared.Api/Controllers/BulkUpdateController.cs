@@ -42,17 +42,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
-        private readonly CoreFeatureConfiguration _coreFeaturesConfig;
+        private readonly OperationsConfiguration _operationConfiguration;
 
         public BulkUpdateController(
             IMediator mediator,
             IUrlResolver urlResolver,
-            IOptions<CoreFeatureConfiguration> coreFeatures,
+            IOptions<OperationsConfiguration> operationConfiguration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            _coreFeaturesConfig = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures));
+            _operationConfiguration = EnsureArg.IsNotNull(operationConfiguration.Value, nameof(operationConfiguration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
         }
 
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfOperationIsSupported()
         {
-            if (!_coreFeaturesConfig.SupportsBulkUpdate || !string.Equals(_fhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            if (!_operationConfiguration.BulkUpdate.Enabled || !string.Equals(_fhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(Fhir.Core.Resources.UnsupportedBulkUpdateOperation);
             }

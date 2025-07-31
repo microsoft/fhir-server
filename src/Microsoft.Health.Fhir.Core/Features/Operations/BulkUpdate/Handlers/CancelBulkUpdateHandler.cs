@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
                 // Check if any completed job in the group updated a profile resource type
                 var profileTypes = _supportedProfiles.GetProfilesTypes();
-
+                var hasPendingJobs = jobs.Any(job => job.Status == JobStatus.Running || job.Status == JobStatus.Created);
                 foreach (var job in jobs)
                 {
                     BulkUpdateResult bulkUpdateResult;
@@ -100,9 +100,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 }
 
                 // If the job is already completed for any reason, return conflict status.
-                if (conflict || allComplete)
+                // Need to return conflict when there are one/few jobs that softFailed with status as failed(causing allComplete=false), but all the other jobs are completed
+                if (conflict || allComplete || !hasPendingJobs)
                 {
-                    return new CancelBulkUpdateResponse(HttpStatusCode.Conflict);
+                    throw new OperationFailedException(Core.Resources.BulkUpdateOperationCompleted, HttpStatusCode.Conflict);
                 }
 
                 // Try to cancel the job.
