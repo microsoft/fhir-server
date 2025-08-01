@@ -169,8 +169,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 
-            services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
 

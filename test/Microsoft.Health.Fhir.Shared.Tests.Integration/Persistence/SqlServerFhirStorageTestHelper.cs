@@ -158,21 +158,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", defragWatchdog.HeartbeatTimeoutSecId);
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
-            using var cmd2 = new SqlCommand(
-                @"
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
-INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 2
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 2000
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 1.0/24/3600
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
-                ",
-                conn);
-            var cleanupWatchdog = new CleanupEventLogWatchdog();
-            cmd2.Parameters.AddWithValue("@PeriodSecId", cleanupWatchdog.PeriodSecId);
-            cmd2.Parameters.AddWithValue("@LeasePeriodSecId", cleanupWatchdog.LeasePeriodSecId);
-            await cmd2.ExecuteNonQueryAsync(CancellationToken.None);
-
             using var cmd3 = new SqlCommand(
                 @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 2
