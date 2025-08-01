@@ -616,7 +616,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
                                 || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(input.Resource); // version and last updated are not aligned
+                            conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {
@@ -655,13 +655,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
                         versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
                         input.KeepVersion = true;
-                        if (int.Parse(versionSlotKey.Key.VersionId) > 0)
+                        var versionSlotValue = int.Parse(versionSlotKey.Key.VersionId);
+                        if (versionSlotValue > 0)
                         {
                             input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
                         }
                         else
                         {
-                            if (allowNegativeVersions)
+                            if (allowNegativeVersions && versionSlotValue < 0)
                             {
                                 input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
                             }
