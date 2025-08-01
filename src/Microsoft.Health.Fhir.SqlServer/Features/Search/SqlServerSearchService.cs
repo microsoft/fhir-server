@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
-        private readonly IParameterStore _parameterStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
@@ -93,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
-            IParameterStore parameterStore,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -105,7 +103,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            EnsureArg.IsNotNull(parameterStore, nameof(parameterStore));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -118,7 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
-            _parameterStore = parameterStore;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -501,7 +497,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             using var rawResourceStream = new MemoryStream(rawResourceBytes);
                                             var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                            _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+                                            _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
                                             if (string.IsNullOrEmpty(decompressedResource))
                                             {
@@ -1423,7 +1419,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                         using var rawResourceStream = new MemoryStream(rawResourceBytes);
                                         var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+                                        _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
                                         if (string.IsNullOrEmpty(decompressedResource))
                                         {
