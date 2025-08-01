@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public async Task ExecuteAsync(string name, bool allowRebalance, double periodSec, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("WatchdogLease.StartAsync: starting...");
+            _logger.LogDebug("WatchdogLease.StartAsync: starting...");
 
             _allowRebalance = allowRebalance;
             _leaseEndTime = DateTimeOffset.MinValue;
@@ -68,12 +68,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken);
 
-            _logger.LogInformation("WatchdogLease.StartAsync: completed.");
+            _logger.LogDebug("WatchdogLease.StartAsync: completed.");
         }
 
         protected async Task OnNextTickAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"WatchdogLease.RunAsync: Starting acquire: resource=[{_watchdogName}] worker=[{_worker}] period={_fhirTimer.PeriodSec} timeout={_leaseTimeoutSec}...");
+            _logger.LogDebug($"WatchdogLease.RunAsync: Starting acquire: resource=[{_watchdogName}] worker=[{_worker}] period={_fhirTimer.PeriodSec} timeout={_leaseTimeoutSec}...");
 
             await using var cmd = new SqlCommand("dbo.AcquireWatchdogLease") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", _watchdogName);
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _leaseEndTime = isAcquired ? leaseEndTime : _leaseEndTime;
             }
 
-            _logger.LogInformation($"WatchdogLease.RunAsync: Completed acquire: resource=[{_watchdogName}] worker=[{_worker}] period={PeriodSec} timeout={_leaseTimeoutSec} leaseEndTime=[{leaseEndTime:s}] isAcquired={isAcquired} currentHolder=[{currentHolder}].");
+            _logger.LogDebug($"WatchdogLease.RunAsync: Completed acquire: resource=[{_watchdogName}] worker=[{_worker}] period={PeriodSec} timeout={_leaseTimeoutSec} leaseEndTime=[{leaseEndTime:s}] isAcquired={isAcquired} currentHolder=[{currentHolder}].");
         }
     }
 }
