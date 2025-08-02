@@ -16,6 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IBulkUpdateService
     {
-        public Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, Models.BundleResourceContext bundleResourceContext, CancellationToken cancellationToken);
+        public Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, Models.BundleResourceContext bundleResourceContext, CancellationToken cancellationToken);
     }
 }

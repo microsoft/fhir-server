@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && noOtherSearchParameters)
                 {
-                    _logger.LogInformation("Creating bulk update subjobs by resourceType-surrogateId ranges.");
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges.");
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
@@ -149,6 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 else if (definition.IsParallel)
                 {
                     // For Parallel bulk update, when there are SearchParameters then create sub jobs at continuation token level for matched and included resources.
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs at page level.");
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
                     var definitions = new List<BulkUpdateDefinition>();
