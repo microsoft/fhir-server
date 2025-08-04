@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Net.Http.Headers;
@@ -138,6 +139,7 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+                services.Configure<CleanupEventLogWatchdogOptions>(Configuration.GetSection(CleanupEventLogWatchdogOptions.SectionName));
             }
         }
 

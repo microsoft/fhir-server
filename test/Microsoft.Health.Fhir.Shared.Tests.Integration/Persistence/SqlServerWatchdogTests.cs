@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -136,7 +137,7 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            // TODO: Temp code to test database stats
+            // TODO: Temp code to test database stats for SearchParamStats and configurable LogRawResourceStats
             var factory = CreateResourceWrapperFactory();
             var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
             var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
@@ -148,7 +149,9 @@ END
             var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
             ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+            var options = Substitute.For<IOptions<CleanupEventLogWatchdogOptions>>();
+            options.Value.Returns(new CleanupEventLogWatchdogOptions { LogRawResourceStatsEnabled = true, LogRawResourceStatsBatchSize = 10000 });
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper), options);
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
@@ -170,7 +173,23 @@ END
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
 
-            // TODO: Temp code to test database stats for SearchParamStats
+            // TODO: Temp code to test database stats
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("tmp_GetRawResources") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "tmp_GetRawResources message is not found");
+
+            startTime = DateTime.UtcNow;
+            while ((GetEventLogCount("DatabaseStats.ResourceTypeTotals") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.ResourceTypeTotals message is not found");
+
             startTime = DateTime.UtcNow;
             while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
