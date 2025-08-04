@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             var sqlHealthCheck = new SqlHealthCheck(_customerKeyHealthCache, _logger);
 
             // Act
-            var result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
+            HealthCheckResult result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
 
             // Assert
             Assert.Equal(HealthStatus.Healthy, result.Status);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             var sqlHealthCheck = new SqlHealthCheck(_customerKeyHealthCache, _logger);
 
             // Act
-            var result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
+            HealthCheckResult result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
 
             // Assert
             Assert.Equal(HealthStatus.Degraded, result.Status);
