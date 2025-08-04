@@ -2446,6 +2446,18 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE OR ALTER PROCEDURE dbo.GetGeoReplicationLag
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT replication_state_desc,
+           replication_lag_sec,
+           last_replication
+    FROM   sys.dm_geo_replication_link_status
+    WHERE  role_desc = 'PRIMARY';
+END
+
+GO
 CREATE PROCEDURE dbo.GetIndexCommands
 @Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
 WITH EXECUTE AS 'dbo'

@@ -63,6 +63,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         new CodeableConcept("system", "test"),
                     };
+                },
+                o =>
+                {
+                    SetObservation(o, cc => { });
+                    o.Identifier = new List<Identifier>();
+                    o.Identifier.Add(new Identifier("test", "VALUE"));
+                    o.Identifier.Add(new Identifier("test", "value"));
                 });
 
             void SetObservation(Observation observation, Action<CodeableConcept> codeableConceptCustomizer)

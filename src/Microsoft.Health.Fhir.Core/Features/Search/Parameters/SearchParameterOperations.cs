@@ -199,6 +199,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
 
+                // ICM:648766003 *** NEW: Sync after delete to ensure all pods know about the deletion ***
+                await GetAndApplySearchParameterUpdates(cancellationToken);
+
                 _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);

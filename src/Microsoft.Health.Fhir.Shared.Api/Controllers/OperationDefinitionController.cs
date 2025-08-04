@@ -214,10 +214,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     operationEnabled = _coreFeatureConfiguration.SupportsSelectableSearchParameters;
                     break;
                 case OperationsConstants.BulkDelete:
-                    operationEnabled = _coreFeatureConfiguration.SupportsBulkDelete;
+                    operationEnabled = _operationConfiguration.BulkDelete.Enabled;
                     break;
                 case OperationsConstants.BulkUpdate:
-                    operationEnabled = _coreFeatureConfiguration.SupportsBulkUpdate;
+                    operationEnabled = _operationConfiguration.BulkUpdate.Enabled;
                     break;
                 case OperationsConstants.Includes:
                     operationEnabled = _coreFeatureConfiguration.SupportsIncludes;

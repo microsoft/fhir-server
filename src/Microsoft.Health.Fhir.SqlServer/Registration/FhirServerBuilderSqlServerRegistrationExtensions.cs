@@ -10,7 +10,10 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -162,13 +165,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
-
             services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
-
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+
+            services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

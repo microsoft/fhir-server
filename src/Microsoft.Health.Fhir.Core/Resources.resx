@@ -606,6 +606,15 @@
   <data name="ImportOperationCompleted" xml:space="preserve">
     <value>Import operation has already completed</value>
   </data>
+  <data name="BulkDeleteOperationCompleted" xml:space="preserve">
+    <value>Bulk delete operation has already completed</value>
+  </data>
+  <data name="BulkUpdateOperationCompleted" xml:space="preserve">
+    <value>Bulk update operation has already completed</value>
+  </data>
+  <data name="ExportOperationCompleted" xml:space="preserve">
+    <value>Export operation has already completed</value>
+  </data>
   <data name="ConditionalRequestTooCostly" xml:space="preserve">
     <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
   </data>
