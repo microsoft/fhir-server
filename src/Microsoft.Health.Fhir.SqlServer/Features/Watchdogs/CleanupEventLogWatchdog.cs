@@ -118,7 +118,7 @@ SELECT object_name = object_name(object_id)
         }
 
         // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
-        // 
+        //
         // Critical Issues Found in Watchdog Code:
         // 1. Does this job ever complete? Is there a way for us to know the scanning of the dbo.Resource table is completed and the job can be skipped?
         // 2. Excessive Database Connection Creation: The LogRawResourceStats creates an enormous number of database connections (300,000+ operations in 10 hours).
