@@ -53,7 +53,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
+            // Check for create and update permissions, maintaining legacy Write support
+            var requiredAccess = DataActions.Create | DataActions.Update | DataActions.Write;
+            var grantedAccess = await AuthorizationService.CheckAccess(requiredAccess, cancellationToken);
+
+            // Need either specific granular permission or legacy Write permission
+            if ((grantedAccess & (DataActions.Create | DataActions.Update | DataActions.Write)) == 0)
             {
                 throw new UnauthorizedFhirActionException();
             }

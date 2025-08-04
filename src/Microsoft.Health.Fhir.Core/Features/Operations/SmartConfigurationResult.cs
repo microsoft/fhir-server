@@ -26,6 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             Capabilities = capabilities;
         }
 
+        public SmartConfigurationResult(Uri authorizationEndpoint, Uri tokenEndpoint, ICollection<string> capabilities, ICollection<string> scopesSupported)
+        {
+            EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
+            EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
+            EnsureArg.IsNotNull(capabilities, nameof(capabilities));
+
+            AuthorizationEndpoint = authorizationEndpoint;
+            TokenEndpoint = tokenEndpoint;
+            Capabilities = capabilities;
+            ScopesSupported = scopesSupported;
+        }
+
         [JsonConstructor]
         public SmartConfigurationResult()
         {
@@ -39,5 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         [JsonProperty("capabilities")]
         public ICollection<string> Capabilities { get; private set; }
+
+        [JsonProperty("scopes_supported")]
+        public ICollection<string> ScopesSupported { get; private set; }
     }
 }

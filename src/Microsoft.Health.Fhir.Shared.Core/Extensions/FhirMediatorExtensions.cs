@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
 
-            return new SmartConfigurationResult(response.AuthorizationEndpoint, response.TokenEndpoint, response.Capabilities);
+            return new SmartConfigurationResult(response.AuthorizationEndpoint, response.TokenEndpoint, response.Capabilities, response.ScopesSupported);
         }
 
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)

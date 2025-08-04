@@ -22,10 +22,24 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             Capabilities = capabilities;
         }
 
+        public GetSmartConfigurationResponse(Uri authorizationEndpoint, Uri tokenEndpoint, ICollection<string> capabilities, ICollection<string> scopesSupported)
+        {
+            EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
+            EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
+            EnsureArg.IsNotNull(capabilities, nameof(capabilities));
+
+            AuthorizationEndpoint = authorizationEndpoint;
+            TokenEndpoint = tokenEndpoint;
+            Capabilities = capabilities;
+            ScopesSupported = scopesSupported;
+        }
+
         public Uri AuthorizationEndpoint { get; }
 
         public Uri TokenEndpoint { get; }
 
         public ICollection<string> Capabilities { get; }
+
+        public ICollection<string> ScopesSupported { get; }
     }
 }

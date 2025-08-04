@@ -419,6 +419,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write | DataActions.Export, "user"),
                 },
             };
+
+            // SMART v2 scope format tests
+            yield return new object[] { "patient/Patient.rs", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.ReadV2 | DataActions.Export | DataActions.Search, "patient") } };
+            yield return new object[] { "patient/Patient.r", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.ReadV2 | DataActions.Export, "patient") } };
+            yield return new object[] { "patient/Patient.s", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Search, "patient") } };
+            yield return new object[] { "patient/Patient.c", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Create, "patient") } };
+            yield return new object[] { "patient/all.c", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Create, "patient") } };
+            yield return new object[] { "patient.all.c", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Create, "patient") } };
+            yield return new object[] { "patient/Patient.u", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Update, "patient") } };
+            yield return new object[] { "patient/Patient.d", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Delete, "patient") } };
+            yield return new object[] { "patient/Patient.cruds", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Create | DataActions.Update | DataActions.Delete | DataActions.ReadV2 | DataActions.Export | DataActions.Search, "patient") } };
+            yield return new object[] { "user/*.rs", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadV2 | DataActions.Export | DataActions.Search, "user") } };
+            yield return new object[]
+            {
+                "patient/Patient.rs user/Observation.cud",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.ReadV2 | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                },
+            };
+
+            // Test v1 vs v2 behavior: v1 .read includes search, v2 .r does not include search
+            yield return new object[] { "patient/Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
+            yield return new object[]
+            {
+                "patient/Patient.read patient/Observation.r",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.ReadV2 | DataActions.Export, "patient"),
+                },
+            };
+
+            // Test v1 vs v2 write behavior: v1 .write includes all write operations, v2 granular permissions
+            yield return new object[] { "patient/Patient.write", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient") } };
+            yield return new object[]
+            {
+                "patient/Patient.write user/Observation.cu",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "user"),
+                },
+            };
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
