@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenUnhealthyCustomerKeyHealth_WhenCheckHealthAsync_ThenReturnsUnhealthyResult()
+        public async Task GivenUnhealthyCustomerKeyHealth_WhenCheckHealthAsync_ThenReturnsDegradedResult()
         {
             // Arrange
             var healthCheckContext = new HealthCheckContext();
