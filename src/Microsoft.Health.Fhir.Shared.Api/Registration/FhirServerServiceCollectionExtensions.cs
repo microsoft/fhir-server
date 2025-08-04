@@ -95,7 +95,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 return throttlingOptions;
             });
 
-            if (string.Equals(configurationRoot["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
