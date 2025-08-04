@@ -95,6 +95,20 @@ namespace Microsoft.Extensions.DependencyInjection
                 return throttlingOptions;
             });
 
+            if (string.Equals(configurationRoot["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                services.Configure<ForwardedHeadersOptions>(options =>
+                {
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
+
+                    // Only loopback proxies are allowed by default.
+                    // Clear that restriction because forwarders are enabled by explicit
+                    // configuration.
+                    options.KnownNetworks.Clear();
+                    options.KnownProxies.Clear();
+                });
+            }
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
@@ -189,8 +203,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
+                    IConfiguration config = app.ApplicationServices.GetRequiredService<IConfiguration>();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
+
+                    if (string.Equals(config["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        app.UseForwardedHeaders();
+                    }
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
