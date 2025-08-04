@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
 
                     // Run a search to get the first page of results
-                    SearchResult searchResult = await BulkUpdateOrchestratorJob.Search(definition, searchService, searchParams, cancellationToken);
+                    SearchResult searchResult = await Search(definition, searchService, searchParams, cancellationToken);
 
                     // If the search result is empty, we can skip the rest of the processing
                     while ((searchResult?.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(prevContinuationToken))
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 definition.Type,
                 searchParams,
                 cancellationToken,
-                false,
+                true,
                 resourceVersionTypes: ResourceVersionType.Latest,
                 onlyIds: true,
                 isIncludesOperation: false);
