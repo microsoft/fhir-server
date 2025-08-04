@@ -137,7 +137,7 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            // TODO: Temp code to test database stats for SearchParamStats and configurable LogRawResourceStats
+            // TODO: Temp code to test database stats
             var factory = CreateResourceWrapperFactory();
             var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
             var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();

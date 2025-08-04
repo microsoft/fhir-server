@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     public class CleanupEventLogWatchdogOptions
     {
         /// <summary>Used to bind this class to configuration data source.</summary>
-        public const string SectionName = "CleanupEventLogWatchdog";
+        public const string SectionName = "SqlServer:CleanupEventLogWatchdog";
 
         /// <summary>
         /// Enables or disables the LogRawResourceStats functionality.
