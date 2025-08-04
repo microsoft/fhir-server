@@ -15,6 +15,7 @@ using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
@@ -23,13 +24,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlHealthCheckTests
     {
-        private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
-        private readonly ILogger<SqlHealthCheck> _logger;
+        private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache = Substitute.For<ValueCache<CustomerKeyHealth>>();
+        private readonly ILogger<SqlHealthCheck> _logger = Substitute.For<ILogger<SqlHealthCheck>>();
+
+        private readonly TestSqlHealthCheck _healthCheck;
 
         public SqlHealthCheckTests()
         {
-            _customerKeyHealthCache = new ValueCache<CustomerKeyHealth>();
-            _logger = new LoggerFactory().CreateLogger<SqlHealthCheck>();
+            _healthCheck = new TestSqlHealthCheck(_customerKeyHealthCache, _logger);
         }
 
         [Fact]
@@ -39,10 +41,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             var healthCheckContext = new HealthCheckContext();
             var customerKeyHealth = new CustomerKeyHealth { IsHealthy = true };
             _customerKeyHealthCache.Set(customerKeyHealth);
-            var sqlHealthCheck = new SqlHealthCheck(_customerKeyHealthCache, _logger);
 
             // Act
-            HealthCheckResult result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(healthCheckContext);
 
             // Assert
             Assert.Equal(HealthStatus.Healthy, result.Status);
@@ -53,12 +54,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
         {
             // Arrange
             var healthCheckContext = new HealthCheckContext();
-            var customerKeyHealth = new CustomerKeyHealth { IsHealthy = false };
+            var customerKeyHealth = new CustomerKeyHealth
+            {
+                IsHealthy = false,
+                Reason = HealthStatusReason.CustomerManagedKeyAccessLost,
+            };
             _customerKeyHealthCache.Set(customerKeyHealth);
-            var sqlHealthCheck = new SqlHealthCheck(_customerKeyHealthCache, _logger);
 
             // Act
-            HealthCheckResult result = await sqlHealthCheck.CheckHealthAsync(healthCheckContext);
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(healthCheckContext);
 
             // Assert
             Assert.Equal(HealthStatus.Degraded, result.Status);
