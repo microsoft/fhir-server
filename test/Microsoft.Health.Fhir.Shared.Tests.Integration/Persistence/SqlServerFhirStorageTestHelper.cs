@@ -263,7 +263,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue where QueueType = {0}", QueueType.Reindex), connection);
+            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue where QueueType = {0}", (int)QueueType.Reindex), connection);
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -273,7 +273,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue WHERE GroupId = @id and QueueType = {0}", QueueType.Reindex), connection);
+            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue WHERE GroupId = @id and QueueType = {0}", (int)QueueType.Reindex), connection);
 
             var parameter = new SqlParameter { ParameterName = "@id", Value = id };
             command.Parameters.Add(parameter);
