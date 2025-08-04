@@ -20,6 +20,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlHealthCheckTests
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
