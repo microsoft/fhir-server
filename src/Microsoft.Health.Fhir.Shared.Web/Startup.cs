@@ -14,7 +14,6 @@ using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,20 +101,6 @@ namespace Microsoft.Health.Fhir.Web
 
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
-
-            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
-            {
-                services.Configure<ForwardedHeadersOptions>(options =>
-                {
-                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
-
-                    // Only loopback proxies are allowed by default.
-                    // Clear that restriction because forwarders are enabled by explicit
-                    // configuration.
-                    options.KnownNetworks.Clear();
-                    options.KnownProxies.Clear();
-                });
-            }
 
             if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusOn) && prometheusOn)
             {
@@ -210,10 +195,6 @@ namespace Microsoft.Health.Fhir.Web
 
                 await next.Invoke();
             });
-            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
-            {
-                app.UseForwardedHeaders();
-            }
 
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
@@ -309,53 +290,53 @@ namespace Microsoft.Health.Fhir.Web
                         builder.AddAttributes(resourceAttributes);
                     });
                 services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+                {
+                    options.RecordException = true;
+                    options.EnrichWithHttpRequest = (activity, request) =>
                     {
-                        options.RecordException = true;
-                        options.EnrichWithHttpRequest = (activity, request) =>
+                        if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
                         {
-                            if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
-                            {
-                                string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
-                                activity?.SetTag(propertyName, userAgent);
-                            }
-                        };
-                        options.EnrichWithHttpResponse = (activity, response) =>
+                            string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
+                            activity?.SetTag(propertyName, userAgent);
+                        }
+                    };
+                    options.EnrichWithHttpResponse = (activity, response) =>
+                    {
+                        var request = response?.HttpContext?.Request;
+                        if (request != null)
                         {
-                            var request = response?.HttpContext?.Request;
-                            if (request != null)
+                            var name = request.Path.Value;
+                            if (request.RouteValues != null
+                                && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
+                                && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
                             {
-                                var name = request.Path.Value;
-                                if (request.RouteValues != null
-                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
-                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
+                                name = $"{controller}/{action}";
+                                var parameterArray = request.RouteValues.Keys?.Where(
+                                    k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
+                                    .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+                                    .ToArray();
+                                if (parameterArray != null && parameterArray.Any())
                                 {
-                                    name = $"{controller}/{action}";
-                                    var parameterArray = request.RouteValues.Keys?.Where(
-                                        k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
-                                        .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
-                                        .ToArray();
-                                    if (parameterArray != null && parameterArray.Any())
-                                    {
-                                        name += $" [{string.Join("/", parameterArray)}]";
-                                    }
+                                    name += $" [{string.Join("/", parameterArray)}]";
                                 }
+                            }
 
-                                if (!string.IsNullOrWhiteSpace(name))
-                                {
-                                    activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
-                                }
+                            if (!string.IsNullOrWhiteSpace(name))
+                            {
+                                activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
                             }
-                        };
-                    });
+                        }
+                    };
+                });
                 services.Configure<OpenTelemetryLoggerOptions>(options =>
+                {
+                    options.AddProcessor(sp =>
                     {
-                        options.AddProcessor(sp =>
-                        {
-                            var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
-                            var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
-                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
-                        });
+                        var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+                        var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
+                        return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
                     });
+                });
             }
         }
 
