@@ -290,53 +290,53 @@ namespace Microsoft.Health.Fhir.Web
                         builder.AddAttributes(resourceAttributes);
                     });
                 services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
-                {
-                    options.RecordException = true;
-                    options.EnrichWithHttpRequest = (activity, request) =>
                     {
-                        if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
+                        options.RecordException = true;
+                        options.EnrichWithHttpRequest = (activity, request) =>
                         {
-                            string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
-                            activity?.SetTag(propertyName, userAgent);
-                        }
-                    };
-                    options.EnrichWithHttpResponse = (activity, response) =>
-                    {
-                        var request = response?.HttpContext?.Request;
-                        if (request != null)
-                        {
-                            var name = request.Path.Value;
-                            if (request.RouteValues != null
-                                && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
-                                && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
+                            if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
                             {
-                                name = $"{controller}/{action}";
-                                var parameterArray = request.RouteValues.Keys?.Where(
-                                    k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
-                                    .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
-                                    .ToArray();
-                                if (parameterArray != null && parameterArray.Any())
+                                string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
+                                activity?.SetTag(propertyName, userAgent);
+                            }
+                        };
+                        options.EnrichWithHttpResponse = (activity, response) =>
+                        {
+                            var request = response?.HttpContext?.Request;
+                            if (request != null)
+                            {
+                                var name = request.Path.Value;
+                                if (request.RouteValues != null
+                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
+                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
                                 {
-                                    name += $" [{string.Join("/", parameterArray)}]";
+                                    name = $"{controller}/{action}";
+                                    var parameterArray = request.RouteValues.Keys?.Where(
+                                        k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
+                                        .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+                                        .ToArray();
+                                    if (parameterArray != null && parameterArray.Any())
+                                    {
+                                        name += $" [{string.Join("/", parameterArray)}]";
+                                    }
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(name))
+                                {
+                                    activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
                                 }
                             }
-
-                            if (!string.IsNullOrWhiteSpace(name))
-                            {
-                                activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
-                            }
-                        }
-                    };
-                });
-                services.Configure<OpenTelemetryLoggerOptions>(options =>
-                {
-                    options.AddProcessor(sp =>
-                    {
-                        var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
-                        var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
-                        return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
+                        };
                     });
-                });
+                services.Configure<OpenTelemetryLoggerOptions>(options =>
+                    {
+                        options.AddProcessor(sp =>
+                        {
+                            var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+                            var failureMetricHandler = sp.GetRequiredService<IFailureMetricHandler>();
+                            return new AzureMonitorOpenTelemetryLogEnricher(httpContextAccessor, failureMetricHandler);
+                        });
+                    });
             }
         }
 
