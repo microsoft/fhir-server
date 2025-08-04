@@ -608,7 +608,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 try
                 {
                     var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
-                    return def.TypeId == 8 && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+                    return def.TypeId == (int)JobType.ReindexProcessing && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
                 }
                 catch
                 {
@@ -690,7 +690,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             try
                             {
                                 var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition);
-                                return def.TypeId == 8 && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+                                return def.TypeId == (int)JobType.ReindexProcessing && (j.Status == JobStatus.Running || j.Status == JobStatus.Created);
                             }
                             catch
                             {
