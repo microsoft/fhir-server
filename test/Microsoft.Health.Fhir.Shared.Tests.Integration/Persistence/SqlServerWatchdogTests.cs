@@ -170,7 +170,7 @@ END
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
 
-            // TODO: Temp code to test database stats - only SearchParamStats should remain
+            // TODO: Temp code to test database stats for SearchParamStats
             startTime = DateTime.UtcNow;
             while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
