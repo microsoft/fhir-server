@@ -45,10 +45,39 @@ function Run-DotNetTest {
     Write-Host "TRX Output: $trxFilePath"
     Write-Host "Test Arguments: $Arguments"
     
-    # Build the dotnet test command
-    $fullCommand = "dotnet $Command $Arguments --logger `"trx;LogFileName=$trxFilePath`" --results-directory `"$resultsDirectory`" -v normal"
+    # Build the argument list for dotnet test
+    $argumentList = @()
+    $argumentList += $Command
     
+    # Split the test arguments and add them individually
+    if (-not [string]::IsNullOrWhiteSpace($Arguments)) {
+        # Split arguments respecting quotes - use regex to properly handle quoted strings
+        $Arguments = $Arguments.Trim()
+        $argMatches = [regex]::Matches($Arguments, '("[^"]*"|\S+)')
+        foreach ($match in $argMatches) {
+            $arg = $match.Value
+            # Remove surrounding quotes if present
+            if ($arg.StartsWith('"') -and $arg.EndsWith('"')) {
+                $arg = $arg.Substring(1, $arg.Length - 2)
+            }
+            $argumentList += $arg
+        }
+    }
+    
+    # Add logger and results directory arguments
+    $argumentList += "--logger"
+    $argumentList += "trx;LogFileName=$trxFilePath"
+    $argumentList += "--results-directory"
+    $argumentList += $resultsDirectory
+    $argumentList += "-v"
+    $argumentList += "normal"
+    
+    $fullCommand = "dotnet " + ($argumentList -join " ")
     Write-Host "Executing: $fullCommand"
+    Write-Host "Arguments passed to dotnet:"
+    for ($i = 0; $i -lt $argumentList.Count; $i++) {
+        Write-Host "  [$i]: '$($argumentList[$i])'"
+    }
     Write-Host "==========================================="
     
     # Change to working directory
@@ -57,7 +86,7 @@ function Run-DotNetTest {
         Set-Location $WorkDir
         
         # Execute the dotnet test command
-        $process = Start-Process -FilePath "dotnet" -ArgumentList "$Command $Arguments --logger `"trx;LogFileName=$trxFilePath`" --results-directory `"$resultsDirectory`" -v normal" -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$resultsDirectory\stdout-attempt$AttemptNumber.log" -RedirectStandardError "$resultsDirectory\stderr-attempt$AttemptNumber.log"
+        $process = Start-Process -FilePath "dotnet" -ArgumentList $argumentList -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$resultsDirectory\stdout-attempt$AttemptNumber.log" -RedirectStandardError "$resultsDirectory\stderr-attempt$AttemptNumber.log"
         
         Write-Host "Test execution completed with exit code: $($process.ExitCode)"
         
