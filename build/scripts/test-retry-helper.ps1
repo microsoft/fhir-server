@@ -52,9 +52,12 @@ function Analyze-TestResults {
                     $totalTests++
                     if ($result.outcome -eq "Passed") {
                         $passedTests++
-                    } else {
+                    } elseif ($result.outcome -eq "Failed" -or $result.outcome -eq "Error" -or $result.outcome -eq "Timeout") {
                         $failedTests++
                         Write-Host "Failed test: $($result.testName) - Outcome: $($result.outcome)"
+                    } else {
+                        # Handle skipped, not executed, etc. - don't count as failed but mention them
+                        Write-Host "Test skipped or not executed: $($result.testName) - Outcome: $($result.outcome)"
                     }
                 }
             }

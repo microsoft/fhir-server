@@ -87,6 +87,27 @@ steps:
     filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
     arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
 
+- powershell: |
+    Write-Host "=== TEST RETRY SUMMARY ==="
+    Write-Host "Test Run: ${{ parameters.testRunTitle }}"
+    Write-Host "Total Tests: $(TestTotalCount)"
+    Write-Host "Passed Tests: $(TestPassedCount)"
+    Write-Host "Failed Tests: $(TestFailedCount)"
+    Write-Host "Success Rate: $([math]::Round([double]$(TestSuccessRate) * 100, 2))%"
+    Write-Host "Success Threshold: $([math]::Round(${{ parameters.successThreshold }} * 100, 2))%"
+    Write-Host "Retry Attempts Made: $(TestRetryAttempt)"
+    Write-Host "Max Retries Allowed: ${{ parameters.maxRetries }}"
+    if ([bool]$(TestShouldRetry) -and [int]$(TestRetryAttempt) -lt ${{ parameters.maxRetries }}) {
+        Write-Host "Status: Tests failed and were retried" -ForegroundColor Yellow
+    } elseif ([double]$(TestSuccessRate) -ge ${{ parameters.successThreshold }}) {
+        Write-Host "Status: Tests passed threshold - SUCCESS" -ForegroundColor Green
+    } else {
+        Write-Host "Status: Tests failed threshold and max retries reached - FAILED" -ForegroundColor Red
+    }
+    Write-Host "=========================="
+  displayName: 'Test Retry Summary'
+  condition: always()
+
 - task: PublishTestResults@2
   displayName: 'Publish Test Results'
   inputs:
