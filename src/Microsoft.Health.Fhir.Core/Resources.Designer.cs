@@ -70,6 +70,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bulk delete operation has already completed.
+        /// </summary>
+        internal static string BulkDeleteOperationCompleted {
+            get {
+                return ResourceManager.GetString("BulkDeleteOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bulk update operation has already completed.
+        /// </summary>
+        internal static string BulkUpdateOperationCompleted {
+            get {
+                return ResourceManager.GetString("BulkUpdateOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
         internal static string BundleRequiredForBatchOrTransaction {
@@ -286,6 +304,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failure inserting data due to a code value overflow. Please contact support for assistance..
+        /// </summary>
+        internal static string ConstraintViolation {
+            get {
+                return ResourceManager.GetString("ConstraintViolation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Fail to access the container registry &apos;{0}&apos;, please check the registry configuration..
         /// </summary>
         internal static string ContainerRegistryNotAuthorized {
@@ -445,6 +472,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ExportFormatNotFound {
             get {
                 return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export operation has already completed.
+        /// </summary>
+        internal static string ExportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ExportOperationCompleted", resourceCulture);
             }
         }
         
@@ -836,6 +872,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Found job id &apos;{0}&apos;, but it is a child job and not the primary reindex job..
+        /// </summary>
+        internal static string JobNotReindexOrchestratorJob {
+            get {
+                return ResourceManager.GetString("JobNotReindexOrchestratorJob", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.link values omitted because they exceeded the maximum Uri length..
         /// </summary>
         internal static string LinksCantBeCreated {
@@ -1214,11 +1259,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete..
+        ///   Looks up a localized string similar to A Reindex Job is currently running. Wait till it has completed before trying again..
         /// </summary>
-        internal static string ReindexRunning {
+        internal static string ReindexRunningException {
             get {
-                return ResourceManager.GetString("ReindexRunning", resourceCulture);
+                return ResourceManager.GetString("ReindexRunningException", resourceCulture);
             }
         }
         
@@ -1561,6 +1606,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterRequestNotValid {
             get {
                 return ResourceManager.GetString("SearchParameterRequestNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support..
+        /// </summary>
+        internal static string SearchParametersNotInitialized {
+            get {
+                return ResourceManager.GetString("SearchParametersNotInitialized", resourceCulture);
             }
         }
         

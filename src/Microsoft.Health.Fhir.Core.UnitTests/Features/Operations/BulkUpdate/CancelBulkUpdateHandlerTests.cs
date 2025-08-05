@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -16,9 +17,11 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -65,40 +68,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 HttpStatusCode.Accepted);
         }
 
-        [Fact]
-        public async Task GivenCompletedBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
+        [Theory]
+        [MemberData(nameof(BulkUpdateJobConflictTestData))]
+        public async Task GivenBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned(IReadOnlyList<JobInfo> jobInfo)
         {
-            await RunBulkUpdateTest(
-                new List<JobInfo>()
-                {
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Completed,
-                    },
-                },
-                HttpStatusCode.Conflict);
+            await RunBulkUpdateTest(jobInfo, HttpStatusCode.Conflict);
         }
 
         [Fact]
-        public async Task GivenFailedBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
-        {
-            await RunBulkUpdateTest(
-                new List<JobInfo>()
-                {
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Running,
-                    },
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Failed,
-                    },
-                },
-                HttpStatusCode.Conflict);
-        }
-
-        [Fact]
-        public async Task GivenSoftFailedBulkUpdateJob_WhenCancelationIsRequested_ThenTheJobIsAccepted()
+        public async Task GivenSoftFailedBulkUpdateJobWithOtherJobRunning_WhenCancelationIsRequested_ThenTheJobIsAccepted()
         {
             var bulkUpdateResult = new BulkUpdateResult();
             bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
@@ -117,24 +95,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     },
                 },
                 HttpStatusCode.Accepted);
-        }
-
-        [Fact]
-        public async Task GivenCancelledBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned()
-        {
-            await RunBulkUpdateTest(
-                new List<JobInfo>()
-                {
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Running,
-                    },
-                    new JobInfo()
-                    {
-                        Status = JobStatus.Cancelled,
-                    },
-                },
-                HttpStatusCode.Conflict);
         }
 
         [Fact]
@@ -256,6 +216,69 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
+        public static IEnumerable<object[]> BulkUpdateJobConflictTestData()
+        {
+            // Test 1: Cancelled job
+            var bulkUpdateResult = new BulkUpdateResult();
+            bulkUpdateResult.ResourcesUpdated.Add("Patient", 1);
+            bulkUpdateResult.ResourcesIgnored.Add("Observation", 1);
+
+            yield return new object[]
+            {
+                new List<JobInfo>
+                {
+                    new JobInfo
+                    {
+                        Status = JobStatus.Cancelled,
+                        Result = null,
+                    },
+                },
+            };
+
+            // Test 2: Completed job
+            yield return new object[]
+            {
+                new List<JobInfo>
+                {
+                    new JobInfo
+                    {
+                        Status = JobStatus.Completed,
+                        Result = JsonConvert.SerializeObject(bulkUpdateResult),
+                    },
+                },
+            };
+
+            // Test 3: Failed jobs
+            var bulkUpdateResultSoftFailed = new BulkUpdateResult();
+            bulkUpdateResultSoftFailed.ResourcesUpdated.Add("Patient", 1);
+            bulkUpdateResultSoftFailed.ResourcesPatchFailed.Add("Patient", 1);
+
+            var bulkUpdateResultFailed = new BulkUpdateResult();
+            bulkUpdateResultFailed.Issues.Add("Encountered an unhandled exception. The job will be marked as failed.");
+
+            yield return new object[]
+            {
+                new List<JobInfo>
+                {
+                    new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(bulkUpdateResult) },
+                    new JobInfo { Status = JobStatus.Failed },
+                    new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(bulkUpdateResultFailed) },
+                    new JobInfo { Status = JobStatus.Failed, Result = "SQL exception error" },
+                    new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(bulkUpdateResultSoftFailed) },
+                },
+            };
+
+            // Test 4: Soft failed with completed
+            yield return new object[]
+            {
+                new List<JobInfo>
+                {
+                    new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(bulkUpdateResult) },
+                    new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(bulkUpdateResultSoftFailed) },
+                },
+            };
+        }
+
         private async Task RunBulkUpdateTest(IReadOnlyList<JobInfo> jobs, HttpStatusCode expectedStatus)
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
@@ -263,16 +286,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(jobs);
             var request = new CancelBulkUpdateRequest(1);
-            var response = await _handler.Handle(request, CancellationToken.None);
 
-            Assert.Equal(expectedStatus, response.StatusCode);
-            if (expectedStatus == HttpStatusCode.Accepted)
+            if (expectedStatus == HttpStatusCode.Conflict)
             {
-                await _queueClient.ReceivedWithAnyArgs(1).CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.Handle(request, CancellationToken.None));
+                Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
             }
             else
             {
-                await _queueClient.DidNotReceiveWithAnyArgs().CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                var response = await _handler.Handle(request, CancellationToken.None);
+
+                Assert.Equal(expectedStatus, response.StatusCode);
+                if (expectedStatus == HttpStatusCode.Accepted)
+                {
+                    await _queueClient.ReceivedWithAnyArgs(1).CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                }
+                else
+                {
+                    await _queueClient.DidNotReceiveWithAnyArgs().CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+                }
             }
         }
     }
