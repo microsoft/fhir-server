@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var dateCurrent = new PartialDateTime(Clock.UtcNow);
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
-            // remnove maxCount from searchParameters
+            // remove maxCount from searchParameters
             searchParameters.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.MaxCount, StringComparison.OrdinalIgnoreCase));
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
@@ -93,9 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
-
-            // Add back the maxCount to searchParameters
-            searchParameters.Add(Tuple.Create(KnownQueryParameterNames.MaxCount, request.MaxCount.ToString()));
 
             // Validate that the operations are supported
             foreach (var parameter in request.Parameters.Parameter)

@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
-                Assert.Equal((searchParams?.Count ?? 0) + 2, definition.SearchParameters.Count);
+                Assert.Equal((searchParams?.Count ?? 0) + 1, definition.SearchParameters.Count);
                 return new List<JobInfo>()
                 {
                     new JobInfo()
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
-                Assert.Equal(searchParams.Count + 2, definition.SearchParameters.Count);
+                Assert.Equal(searchParams.Count + 1, definition.SearchParameters.Count);
                 Assert.Null(definition.Type);
 
                 return new List<JobInfo>()
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
-                Assert.Equal(2, definition.SearchParameters.Count); // Will have _lastUpdated + _maxCount parameter added by the handler
+                Assert.Single(definition.SearchParameters); // Will have _lastUpdated parameter added by the handler
 
                 return new List<JobInfo>()
                     {

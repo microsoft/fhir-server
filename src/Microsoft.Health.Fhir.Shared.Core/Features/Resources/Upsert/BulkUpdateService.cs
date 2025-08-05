@@ -129,8 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             try
             {
-                ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
-                if ((searchResult.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(ct))
+                if (searchResult.Results != null && searchResult.Results.Any())
                 {
                     ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
                     ict = searchResult.IncludesContinuationToken;
@@ -187,6 +186,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
                         }
                     }
+                }
+                else
+                {
+                    _logger.LogInformation("No resources found for bulk update operation for resource type {ResourceType}.", resourceType);
                 }
             }
             catch (Exception ex)

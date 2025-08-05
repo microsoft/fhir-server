@@ -103,13 +103,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && noOtherSearchParameters)
                 {
-                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges.");
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
                     resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
-                    var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
+                    var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1;
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges with Global start surrogate ID: {GlobalStartId}, Global end surrogate ID: {GlobalEndId}", globalStartId, globalEndId);
 
                     var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
                                             .Select(x => JsonConvert.DeserializeObject<BulkUpdateDefinition>(x.Definition))
