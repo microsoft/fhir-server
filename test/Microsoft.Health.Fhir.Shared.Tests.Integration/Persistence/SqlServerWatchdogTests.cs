@@ -12,6 +12,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -150,7 +151,9 @@ END
             var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
             ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+            var options = Substitute.For<IOptions<CleanupEventLogWatchdogOptions>>();
+            options.Value.Returns(new CleanupEventLogWatchdogOptions { LogRawResourceStatsEnabled = true, LogRawResourceStatsBatchSize = 10000 });
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper), options);
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
