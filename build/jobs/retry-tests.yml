@@ -16,94 +16,17 @@ parameters:
   default: {}
 
 steps:
-- powershell: |
-    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]0"
-    Write-Host "##vso[task.setvariable variable=TestShouldRetry]true"
-  displayName: 'Initialize retry variables'
-
-- task: DotNetCoreCLI@2
-  displayName: '${{ parameters.testRunTitle }} (Attempt 1)'
-  inputs:
-    command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }}'
-    workingDirectory: ${{ parameters.workingDirectory }}
-    testRunTitle: '${{ parameters.testRunTitle }}'
-  env: ${{ parameters.environmentVariables }}
-  continueOnError: true
-
 - task: PowerShell@2
-  displayName: 'Analyze test results (Attempt 1)'
+  displayName: '${{ parameters.testRunTitle }} with Retry Logic'
   inputs:
-    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
-  continueOnError: true
-
-- task: DotNetCoreCLI@2
-  displayName: '${{ parameters.testRunTitle }} (Attempt 2)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
-  inputs:
-    command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }}'
-    workingDirectory: ${{ parameters.workingDirectory }}
-    testRunTitle: '${{ parameters.testRunTitle }} (Retry 1)'
+    filePath: '$(Build.SourcesDirectory)/build/scripts/run-tests-with-retry.ps1'
+    arguments: >-
+      -TestCommand "${{ parameters.testCommand }}"
+      -TestArguments "${{ parameters.testArguments }}"
+      -TestRunTitle "${{ parameters.testRunTitle }}"
+      -WorkingDirectory "${{ parameters.workingDirectory }}"
+      -SuccessThreshold ${{ parameters.successThreshold }}
   env: ${{ parameters.environmentVariables }}
-  continueOnError: true
-
-- powershell: |
-    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]1"
-  displayName: 'Update retry attempt counter'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
-
-- task: PowerShell@2
-  displayName: 'Analyze test results (Attempt 2)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), le(variables['TestRetryAttempt'], 2))
-  inputs:
-    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
-  continueOnError: true
-
-- task: DotNetCoreCLI@2
-  displayName: '${{ parameters.testRunTitle }} (Attempt 3)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
-  inputs:
-    command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }}'
-    workingDirectory: ${{ parameters.workingDirectory }}
-    testRunTitle: '${{ parameters.testRunTitle }} (Retry 2)'
-  env: ${{ parameters.environmentVariables }}
-  continueOnError: true
-
-- powershell: |
-    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]2"
-  displayName: 'Update retry attempt counter'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
-
-- task: PowerShell@2
-  displayName: 'Final test result analysis'
-  inputs:
-    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
-
-- powershell: |
-    Write-Host "=== TEST RETRY SUMMARY ==="
-    Write-Host "Test Run: ${{ parameters.testRunTitle }}"
-    Write-Host "Total Tests: $(TestTotalCount)"
-    Write-Host "Passed Tests: $(TestPassedCount)"
-    Write-Host "Failed Tests: $(TestFailedCount)"
-    Write-Host "Success Rate: $([math]::Round([double]$(TestSuccessRate) * 100, 2))%"
-    Write-Host "Success Threshold: $([math]::Round(${{ parameters.successThreshold }} * 100, 2))%"
-    Write-Host "Retry Attempts Made: $(TestRetryAttempt)"
-    Write-Host "Max Retries Allowed: 2"
-    if ([bool]$(TestShouldRetry) -and [int]$(TestRetryAttempt) -lt 2) {
-        Write-Host "Status: Tests failed and were retried" -ForegroundColor Yellow
-    } elseif ([double]$(TestSuccessRate) -ge ${{ parameters.successThreshold }}) {
-        Write-Host "Status: Tests passed threshold - SUCCESS" -ForegroundColor Green
-    } else {
-        Write-Host "Status: Tests failed threshold and max retries reached - FAILED" -ForegroundColor Red
-    }
-    Write-Host "=========================="
-  displayName: 'Test Retry Summary'
-  condition: always()
 
 - task: PublishTestResults@2
   displayName: 'Publish Test Results'
