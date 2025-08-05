@@ -20,12 +20,7 @@ steps:
   displayName: '${{ parameters.testRunTitle }} with Retry Logic'
   inputs:
     filePath: '$(Build.SourcesDirectory)/build/scripts/run-tests-with-retry.ps1'
-    arguments: >-
-      -TestCommand "${{ parameters.testCommand }}"
-      -TestArguments "${{ parameters.testArguments }}"
-      -TestRunTitle "${{ parameters.testRunTitle }}"
-      -WorkingDirectory "${{ parameters.workingDirectory }}"
-      -SuccessThreshold ${{ parameters.successThreshold }}
+    arguments: '-TestCommand "${{ parameters.testCommand }}" -TestArguments "${{ parameters.testArguments }}" -TestRunTitle "${{ parameters.testRunTitle }}" -WorkingDirectory "${{ parameters.workingDirectory }}" -SuccessThreshold ${{ parameters.successThreshold }}'
   env: ${{ parameters.environmentVariables }}
 
 - task: PublishTestResults@2
