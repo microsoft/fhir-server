@@ -90,7 +90,6 @@ steps:
       testArguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      maxRetries: 2
       successThreshold: 0.95
       environmentVariables:
         'TestEnvironmentUrl': $(TestEnvironmentUrl)

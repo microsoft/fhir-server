@@ -8,9 +8,6 @@ parameters:
 - name: workingDirectory
   type: string
   default: "$(System.ArtifactsDirectory)"
-- name: maxRetries
-  type: number
-  default: 2
 - name: successThreshold
   type: number
   default: 0.95
@@ -28,7 +25,7 @@ steps:
   displayName: '${{ parameters.testRunTitle }} (Attempt 1)'
   inputs:
     command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults"'
+    arguments: '${{ parameters.testArguments }}'
     workingDirectory: ${{ parameters.workingDirectory }}
     testRunTitle: '${{ parameters.testRunTitle }}'
   env: ${{ parameters.environmentVariables }}
@@ -38,15 +35,15 @@ steps:
   displayName: 'Analyze test results (Attempt 1)'
   inputs:
     filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
   continueOnError: true
 
 - task: DotNetCoreCLI@2
   displayName: '${{ parameters.testRunTitle }} (Attempt 2)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
   inputs:
     command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults/Retry1"'
+    arguments: '${{ parameters.testArguments }}'
     workingDirectory: ${{ parameters.workingDirectory }}
     testRunTitle: '${{ parameters.testRunTitle }} (Retry 1)'
   env: ${{ parameters.environmentVariables }}
@@ -55,22 +52,22 @@ steps:
 - powershell: |
     Write-Host "##vso[task.setvariable variable=TestRetryAttempt]1"
   displayName: 'Update retry attempt counter'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
 
 - task: PowerShell@2
   displayName: 'Analyze test results (Attempt 2)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), le(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), le(variables['TestRetryAttempt'], 2))
   inputs:
     filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
   continueOnError: true
 
 - task: DotNetCoreCLI@2
   displayName: '${{ parameters.testRunTitle }} (Attempt 3)'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
   inputs:
     command: ${{ parameters.testCommand }}
-    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults/Retry2"'
+    arguments: '${{ parameters.testArguments }}'
     workingDirectory: ${{ parameters.workingDirectory }}
     testRunTitle: '${{ parameters.testRunTitle }} (Retry 2)'
   env: ${{ parameters.environmentVariables }}
@@ -79,13 +76,13 @@ steps:
 - powershell: |
     Write-Host "##vso[task.setvariable variable=TestRetryAttempt]2"
   displayName: 'Update retry attempt counter'
-  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], 2))
 
 - task: PowerShell@2
   displayName: 'Final test result analysis'
   inputs:
     filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
-    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries 2'
 
 - powershell: |
     Write-Host "=== TEST RETRY SUMMARY ==="
@@ -96,8 +93,8 @@ steps:
     Write-Host "Success Rate: $([math]::Round([double]$(TestSuccessRate) * 100, 2))%"
     Write-Host "Success Threshold: $([math]::Round(${{ parameters.successThreshold }} * 100, 2))%"
     Write-Host "Retry Attempts Made: $(TestRetryAttempt)"
-    Write-Host "Max Retries Allowed: ${{ parameters.maxRetries }}"
-    if ([bool]$(TestShouldRetry) -and [int]$(TestRetryAttempt) -lt ${{ parameters.maxRetries }}) {
+    Write-Host "Max Retries Allowed: 2"
+    if ([bool]$(TestShouldRetry) -and [int]$(TestRetryAttempt) -lt 2) {
         Write-Host "Status: Tests failed and were retried" -ForegroundColor Yellow
     } elseif ([double]$(TestSuccessRate) -ge ${{ parameters.successThreshold }}) {
         Write-Host "Status: Tests passed threshold - SUCCESS" -ForegroundColor Green
@@ -113,7 +110,7 @@ steps:
   inputs:
     testResultsFormat: 'VSTest'
     testResultsFiles: '**/*.trx'
-    searchFolder: '$(Agent.TempDirectory)/TestResults'
+    searchFolder: '$(Agent.TempDirectory)'
     mergeTestResults: true
     testRunTitle: '${{ parameters.testRunTitle }}'
   condition: always()

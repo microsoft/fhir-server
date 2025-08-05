@@ -62,7 +62,6 @@ jobs:
       testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
       testRunTitle: '${{ parameters.version }} Cosmos Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      maxRetries: 2
       successThreshold: 0.95
       environmentVariables:
         'CosmosDb__Host': $(CosmosDb--Host)
@@ -118,7 +117,6 @@ jobs:
       testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
       testRunTitle: '${{ parameters.version }} SQL Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      maxRetries: 2
       successThreshold: 0.95
       environmentVariables:
         'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'

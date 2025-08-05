@@ -28,7 +28,6 @@ The retry mechanism automatically retries test executions when the success rate 
 
 ### Parameters
 - `successThreshold`: Minimum success rate to avoid retry (default: 0.95 = 95%)
-- `maxRetries`: Maximum number of retry attempts (default: 2)
 
 ### Usage Example
 ```yaml
@@ -37,7 +36,6 @@ The retry mechanism automatically retries test executions when the success rate 
     testCommand: test
     testArguments: '"path/to/tests.dll" --filter SomeFilter'
     testRunTitle: 'My Test Suite'
-    maxRetries: 2
     successThreshold: 0.95
     environmentVariables:
       SOME_ENV_VAR: 'value'
