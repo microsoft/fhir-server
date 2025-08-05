@@ -1,0 +1,98 @@
+parameters:
+- name: testCommand
+  type: string
+- name: testArguments
+  type: string
+- name: testRunTitle
+  type: string
+- name: workingDirectory
+  type: string
+  default: "$(System.ArtifactsDirectory)"
+- name: maxRetries
+  type: number
+  default: 2
+- name: successThreshold
+  type: number
+  default: 0.95
+- name: environmentVariables
+  type: object
+  default: {}
+
+steps:
+- powershell: |
+    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]0"
+    Write-Host "##vso[task.setvariable variable=TestShouldRetry]true"
+  displayName: 'Initialize retry variables'
+
+- task: DotNetCoreCLI@2
+  displayName: '${{ parameters.testRunTitle }} (Attempt 1)'
+  inputs:
+    command: ${{ parameters.testCommand }}
+    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults"'
+    workingDirectory: ${{ parameters.workingDirectory }}
+    testRunTitle: '${{ parameters.testRunTitle }}'
+  env: ${{ parameters.environmentVariables }}
+  continueOnError: true
+
+- task: PowerShell@2
+  displayName: 'Analyze test results (Attempt 1)'
+  inputs:
+    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+  continueOnError: true
+
+- task: DotNetCoreCLI@2
+  displayName: '${{ parameters.testRunTitle }} (Attempt 2)'
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  inputs:
+    command: ${{ parameters.testCommand }}
+    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults/Retry1"'
+    workingDirectory: ${{ parameters.workingDirectory }}
+    testRunTitle: '${{ parameters.testRunTitle }} (Retry 1)'
+  env: ${{ parameters.environmentVariables }}
+  continueOnError: true
+
+- powershell: |
+    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]1"
+  displayName: 'Update retry attempt counter'
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+
+- task: PowerShell@2
+  displayName: 'Analyze test results (Attempt 2)'
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), le(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  inputs:
+    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+  continueOnError: true
+
+- task: DotNetCoreCLI@2
+  displayName: '${{ parameters.testRunTitle }} (Attempt 3)'
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+  inputs:
+    command: ${{ parameters.testCommand }}
+    arguments: '${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)/TestResults/Retry2"'
+    workingDirectory: ${{ parameters.workingDirectory }}
+    testRunTitle: '${{ parameters.testRunTitle }} (Retry 2)'
+  env: ${{ parameters.environmentVariables }}
+  continueOnError: true
+
+- powershell: |
+    Write-Host "##vso[task.setvariable variable=TestRetryAttempt]2"
+  displayName: 'Update retry attempt counter'
+  condition: and(failed(), eq(variables['TestShouldRetry'], 'true'), lt(variables['TestRetryAttempt'], ${{ parameters.maxRetries }}))
+
+- task: PowerShell@2
+  displayName: 'Final test result analysis'
+  inputs:
+    filePath: '$(Build.SourcesDirectory)/build/scripts/test-retry-helper.ps1'
+    arguments: '-TestResultsPath "$(Agent.TempDirectory)/TestResults" -SuccessThreshold ${{ parameters.successThreshold }} -MaxRetries ${{ parameters.maxRetries }}'
+
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results'
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '**/*.trx'
+    searchFolder: '$(Agent.TempDirectory)/TestResults'
+    mergeTestResults: true
+    testRunTitle: '${{ parameters.testRunTitle }}'
+  condition: always()

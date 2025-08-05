@@ -56,21 +56,22 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Cosmos Integration Tests'
-    inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
+  - template: retry-tests.yml
+    parameters:
+      testCommand: test
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
+      testRunTitle: '${{ parameters.version }} Cosmos Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
-    env:
-      'CosmosDb__Host': $(CosmosDb--Host)
-      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
-      'CosmosDb__UseManagedIdentity': true
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+      maxRetries: 2
+      successThreshold: 0.95
+      environmentVariables:
+        'CosmosDb__Host': $(CosmosDb--Host)
+        'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
+        'CosmosDb__UseManagedIdentity': true
+        'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+        'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+        'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+        'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
 - job: "SqlIntegrationTests"
   pool:
@@ -111,19 +112,20 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Sql Integration Tests'
-    inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
+  - template: retry-tests.yml
+    parameters:
+      testCommand: test
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
+      testRunTitle: '${{ parameters.version }} SQL Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
-    env:
-      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+      maxRetries: 2
+      successThreshold: 0.95
+      environmentVariables:
+        'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+        'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+        'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+        'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+        'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
 - job: 'cosmosE2eTests'
   dependsOn: []
