@@ -313,8 +313,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "patient/Observation.read",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
                 },
             };
             yield return new object[]
@@ -323,8 +323,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Write, "user"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Delete | DataActions.Update, "user"),
                 },
             };
             yield return new object[]
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "practitioner/Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
                 },
             };
             yield return new object[]
@@ -342,20 +342,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "practitioner/Observation.wr",
                 new List<ScopeRestriction>()
                 {
+                    new ScopeRestriction("Patient", DataActions.ReadV2 | DataActions.Export | DataActions.Delete, "patient"),
                 },
             };
         }
 
         public static IEnumerable<object[]> GetTestScopes()
         {
-            yield return new object[] { "patient/Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient") } };
+            yield return new object[] { "patient/Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
             yield return new object[]
             {
                 "patient/Patient.read patient/Observation.read",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
                 },
             };
             yield return new object[]
@@ -363,8 +364,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "patient.Patient.read user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Write, "user"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
                 },
             };
 
@@ -373,26 +374,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "user.VisionPrescription.write user.all.read",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("VisionPrescription", DataActions.Write, "user"),
-                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export, "user"),
+                    new ScopeRestriction("VisionPrescription", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export | DataActions.Search, "user"),
                 },
             };
 
-            yield return new object[] { "user/*.*", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
-            yield return new object[] { "user/Encounter.*", new List<ScopeRestriction>() { new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
-            yield return new object[] { "user/all.*", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
-            yield return new object[] { "user/all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
-            yield return new object[] { "system.all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "system") } };
-            yield return new object[] { "patient.Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient") } };
-            yield return new object[] { "patient.Patient.all", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Write | DataActions.Export, "patient") } };
-            yield return new object[] { "patient.*.read", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export, "patient") } };
-            yield return new object[] { "patient.all.read", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export, "patient") } };
+            yield return new object[]
+            {
+                "user/*.*",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                },
+            };
+
+            yield return new object[] { "user/Encounter.*", new List<ScopeRestriction>() { new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user") } };
+            yield return new object[] { "user/all.*", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user") } };
+            yield return new object[] { "user/all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user") } };
+            yield return new object[] { "system.all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "system") } };
+            yield return new object[] { "patient.Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
+            yield return new object[] { "patient.Patient.all", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "patient") } };
+            yield return new object[] { "patient.*.read", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
+            yield return new object[] { "patient.all.read", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
             yield return new object[]
             {
                 "patient$Patient.read practitioner/Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
                 },
             };
             yield return new object[]
@@ -400,6 +409,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "patient$Patient.rd practitioner/Observation.wr",
                 new List<ScopeRestriction>()
                 {
+                    new ScopeRestriction("Patient", DataActions.ReadV2 | DataActions.Delete | DataActions.Export, "patient"),
                 },
             };
             yield return new object[]
@@ -414,9 +424,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.* fhirUser",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export, "user"),
-                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write | DataActions.Export, "user"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
+                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
                 },
             };
 
