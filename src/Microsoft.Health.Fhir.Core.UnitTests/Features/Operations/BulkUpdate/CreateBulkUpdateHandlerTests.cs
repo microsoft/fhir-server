@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -68,14 +69,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Substitute.For<ILogger<CreateBulkUpdateHandler>>());
         }
 
-        [Fact]
-        public async Task GivenBulkUpdateRequest_WhenJobCreationRequested_ThenJobIsCreated()
+        [Theory]
+        [MemberData(nameof(GetSearchParamsForJobCreation))]
+        public async Task GivenBulkUpdateRequestWithVariousSearchParams_WhenJobCreationRequested_ThenJobIsCreated(List<Tuple<string, string>> searchParams)
         {
-            var searchParams = new List<Tuple<string, string>>()
-            {
-                new Tuple<string, string>("param", "value"),
-            };
-
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
             _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
@@ -83,15 +80,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
-                Assert.Equal(searchParams.Count + 1, definition.SearchParameters.Count);
-
+                Assert.Equal((searchParams?.Count ?? 0) + 1, definition.SearchParameters.Count);
                 return new List<JobInfo>()
+                {
+                    new JobInfo()
                     {
-                        new JobInfo()
-                        {
-                            Id = 1,
-                        },
-                    };
+                        Id = 1,
+                    },
+                };
             });
 
             Parameters parameters = GenerateParameters("replace");
@@ -330,6 +326,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                             },
                         },
                     },
+                },
+            };
+        }
+
+        public static IEnumerable<object[]> GetSearchParamsForJobCreation()
+        {
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("param", "value"),
+                },
+            };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("_lastUpdated", "value1"),
+                    new Tuple<string, string>("_lastUpdated", "value2"),
+                    new Tuple<string, string>("_lastUpdated", "value3"),
                 },
             };
         }
