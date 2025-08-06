@@ -59,10 +59,7 @@ jobs:
   - template: retry-tests.yml
     parameters:
       testCommand: test
-      testArguments: >
-        "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll"
-        --filter DisplayName!~SqlServer
-        -v normal
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
       testRunTitle: '${{ parameters.version }} Cosmos Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
       successThreshold: 0.95
@@ -117,10 +114,7 @@ jobs:
   - template: retry-tests.yml
     parameters:
       testCommand: test
-      testArguments: >
-        "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll"
-        --filter DisplayName!~Cosmos
-        -v normal
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
       testRunTitle: '${{ parameters.version }} SQL Integration'
       workingDirectory: "$(System.ArtifactsDirectory)"
       successThreshold: 0.95

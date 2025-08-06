@@ -53,14 +53,26 @@ function Run-DotNetTest {
     if (-not [string]::IsNullOrWhiteSpace($Arguments)) {
         # Split arguments respecting quotes - use regex to properly handle quoted strings
         $Arguments = $Arguments.Trim()
-        $argMatches = [regex]::Matches($Arguments, '("[^"]*"|\S+)')
+        Write-Host "Raw arguments to parse: '$Arguments'"
+        
+        # Use a more robust regex that handles quoted strings with spaces and unquoted arguments
+        $argMatches = [regex]::Matches($Arguments, '("(?:[^"\\]|\\.)*"|\S+)')
+        
+        Write-Host "Found $($argMatches.Count) argument matches:"
         foreach ($match in $argMatches) {
-            $arg = $match.Value
-            # Remove surrounding quotes if present
-            if ($arg.StartsWith('"') -and $arg.EndsWith('"')) {
+            $arg = $match.Value.Trim()
+            Write-Host "  Raw match: '$arg'"
+            
+            # Remove surrounding quotes if present, but preserve internal quotes
+            if ($arg.StartsWith('"') -and $arg.EndsWith('"') -and $arg.Length -gt 1) {
                 $arg = $arg.Substring(1, $arg.Length - 2)
+                Write-Host "  After quote removal: '$arg'"
             }
-            $argumentList += $arg
+            
+            if (-not [string]::IsNullOrWhiteSpace($arg)) {
+                $argumentList += $arg
+                Write-Host "  Added to argument list: '$arg'"
+            }
         }
     }
     
@@ -153,9 +165,15 @@ function Analyze-TestResults {
             [xml]$trxContent = Get-Content $file.FullName
             
             # Parse TRX format - look for test results
+            # Handle both single result and array of results
             $testResults = $trxContent.TestRun.Results.UnitTestResult
             
             if ($testResults) {
+                # If there's only one test result, it's not an array, so wrap it
+                if ($testResults -is [System.Xml.XmlElement]) {
+                    $testResults = @($testResults)
+                }
+                
                 foreach ($result in $testResults) {
                     $totalTests++
                     if ($result.outcome -eq "Passed") {
@@ -168,15 +186,35 @@ function Analyze-TestResults {
                         Write-Host "Test skipped or not executed: $($result.testName) - Outcome: $($result.outcome)"
                     }
                 }
+            } else {
+                # If no UnitTestResult elements found, check for counters in the summary
+                $testDefinitions = $trxContent.TestRun.TestDefinitions.UnitTest
+                if ($testDefinitions) {
+                    # Count test definitions if results are not available
+                    if ($testDefinitions -is [System.Xml.XmlElement]) {
+                        $testDefinitions = @($testDefinitions)
+                    }
+                    $totalTests += $testDefinitions.Count
+                    Write-Host "Found $($testDefinitions.Count) test definitions but no results - assuming all failed"
+                    $failedTests += $testDefinitions.Count
+                }
             }
         }
         catch {
             Write-Warning "Failed to parse test result file $($file.FullName): $($_.Exception.Message)"
+            # If we can't parse the file, assume something went wrong and retry is needed
+            return @{
+                ShouldRetry = $true
+                TotalTests = 0
+                PassedTests = 0
+                FailedTests = 1
+                SuccessRate = 0.0
+            }
         }
     }
     
-    $successRate = if ($totalTests -gt 0) { $passedTests / $totalTests } else { 0.0 }
-    $shouldRetry = $successRate -lt $Threshold -and $failedTests -gt 0
+    $successRate = if ($totalTests -gt 0) { [double]$passedTests / [double]$totalTests } else { 0.0 }
+    $shouldRetry = $successRate -lt $Threshold -and ($failedTests -gt 0 -or $totalTests -eq 0)
     
     Write-Host "Test Results Summary:"
     Write-Host "  Total Tests: $totalTests"
@@ -212,6 +250,14 @@ Write-Host "Starting test execution with retry mechanism"
 Write-Host "Test Run: $TestRunTitle"
 Write-Host "Max Attempts: $MaxAttempts"
 Write-Host "Success Threshold: $($SuccessThreshold * 100)%"
+
+# Debug: Print the actual parameter values received
+Write-Host "Debug - Parameters received:"
+Write-Host "  TestCommand: '$TestCommand'"
+Write-Host "  TestArguments: '$TestArguments'"
+Write-Host "  TestRunTitle: '$TestRunTitle'"
+Write-Host "  WorkingDirectory: '$WorkingDirectory'"
+Write-Host "  SuccessThreshold: $SuccessThreshold"
 
 # Environment variables are passed through the Azure DevOps task env section
 
