@@ -511,9 +511,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
                             if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && existing.Matched.RawResource != null // TODO: Remove this line after version 82 deployment
                                 && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
                             {
+                                if (!input.KeepVersion)
+                                {
+                                    input.ResourceWrapper.Version = existing.Matched.Version;
+                                }
+
                                 loaded.Add(input);
                             }
                             else
@@ -660,6 +664,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
                             {
+                                input.ResourceWrapper.Version = existing.Matched.Version;
                                 loaded.Add(input);
                             }
                             else
