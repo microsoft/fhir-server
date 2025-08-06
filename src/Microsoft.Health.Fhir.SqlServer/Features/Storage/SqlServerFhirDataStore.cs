@@ -653,18 +653,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
                         var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
-                        versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
+                        versionSlots.TryGetValue(resourceKey, out var existing);
                         input.KeepVersion = true;
-                        var versionSlotValue = int.Parse(versionSlotKey.Key.VersionId);
-                        if (versionSlotValue > 0)
+                        var versionIdInt = int.Parse(existing.Key.VersionId);
+                        if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
                         {
-                            input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
+                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            {
+                                loaded.Add(input);
+                            }
+                            else
+                            {
+                                conflicts.Add(input);
+                            }
+                        }
+                        else if (versionIdInt > 0)
+                        {
+                            input.ResourceWrapper.Version = existing.Key.VersionId;
                         }
                         else
                         {
-                            if (allowNegativeVersions && versionSlotValue < 0)
+                            if (allowNegativeVersions)
                             {
-                                input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
+                                input.ResourceWrapper.Version = existing.Key.VersionId;
                             }
                             else
                             {
@@ -673,7 +684,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    var inputNoConflict = inputs.Except(conflicts);
+                    var inputNoConflict = inputs.Except(conflicts).Except(loaded);
 
                     // Make sure that version is incremented taking into account current state in the database.
                     var prevResourceId = string.Empty;
