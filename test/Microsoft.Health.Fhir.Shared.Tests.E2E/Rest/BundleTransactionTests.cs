@@ -304,8 +304,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
         {
-            // This test requires operations to be executed sequentially, as there is a dependecy between resources.
-            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Sequential;
+            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel;
 
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalCreateAndReference");
 
