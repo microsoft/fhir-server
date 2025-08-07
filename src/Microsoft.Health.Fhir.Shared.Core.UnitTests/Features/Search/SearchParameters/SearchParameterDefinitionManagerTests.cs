@@ -13,9 +13,11 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -61,7 +63,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, _searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchService = Substitute.For<ISearchService>();
+
+            _searchService = Substitute.For<ISearchService>();
+            var mockScopeProvider = _searchService.CreateMockScopeProvider();
+
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                mockScopeProvider,
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 

@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportOrchestratorJobResult
     {
         /// <summary>
-        /// Request Uri for the import opearion
+        /// Request Uri for the import operation
         /// </summary>
         public string Request { get; set; }
 

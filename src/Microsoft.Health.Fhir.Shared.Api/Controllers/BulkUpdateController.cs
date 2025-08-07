@@ -60,20 +60,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkUpdate)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null)
+        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(null, paramsResource, isParallel);
+            return await SendUpdateRequest(null, paramsResource, isParallel, maxCount);
         }
 
         [HttpPatch]
         [Route(KnownRoutes.BulkUpdateResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null)
+        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(typeParameter, paramsResource, isParallel);
+            return await SendUpdateRequest(typeParameter, paramsResource, isParallel, maxCount);
         }
 
         [HttpGet]
@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel)
+        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel, uint maxCount = 0)
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
-            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, HttpContext.RequestAborted);
+            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, maxCount, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkUpdate, result.Id.ToString());

@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
@@ -26,12 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
+        private readonly CleanupEventLogWatchdogOptions _options;
 
-        public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
+        public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger, IOptions<CleanupEventLogWatchdogOptions> options)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
             _compressedRawResourceConverter = new CompressedRawResourceConverter();
         }
 
@@ -51,7 +54,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            await LogRawResourceStats(cancellationToken);
+            if (_options.LogRawResourceStatsEnabled)
+            {
+                await LogRawResourceStats(cancellationToken);
+            }
+
             await LogSearchParamStats(cancellationToken);
         }
 
@@ -110,6 +117,13 @@ SELECT object_name = object_name(object_id)
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetString(0), _logger, cancellationToken);
         }
 
+        // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
+        //
+        // Critical Issues Found in Watchdog Code:
+        // 1. Does this job ever complete? Is there a way for us to know the scanning of the dbo.Resource table is completed and the job can be skipped?
+        // 2. Excessive Database Connection Creation: The LogRawResourceStats creates an enormous number of database connections (300,000+ operations in 10 hours).
+        // 3. Batch size may need to be configurable as currently 10,000 resources takes a lot of CPU and memory.
+        // 4. Potential Memory Issues: The LogRawResourceStats loads raw resource data and decompresses it in memory without proper disposal patterns.
         private async Task LogRawResourceStats(CancellationToken cancellationToken)
         {
             try
@@ -219,7 +233,7 @@ EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Actio
             using var cmd2 = new SqlCommand("INSERT INTO dbo.Parameters (Id, Char) SELECT 'tmp_GetMaxSurrogateId', 'LogEvent'");
             await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            using var cmd3 = new SqlCommand(@"
+            using var cmd3 = new SqlCommand($@"
 CREATE OR ALTER PROCEDURE dbo.tmp_GetRawResources @ResourceTypeId smallint, @SurrogateId bigint, @MaxSurrogateId bigint
 AS
 set nocount on
@@ -227,7 +241,7 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(100) = 'RC='+convert(varchar,@ResourceTypeId)+' S='+convert(varchar,@SurrogateId)+' M='+convert(varchar,@MaxSurrogateId)
        ,@st datetime = getUTCdate()
 
-SELECT TOP 10000
+SELECT TOP {_options.LogRawResourceStatsBatchSize}
        ResourceSurrogateId, RawResource
   FROM dbo.Resource
   WHERE ResourceTypeId = @ResourceTypeId

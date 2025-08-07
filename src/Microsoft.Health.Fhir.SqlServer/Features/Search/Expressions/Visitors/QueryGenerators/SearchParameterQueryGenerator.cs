@@ -136,7 +136,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             var referenceTargetTableAlias = context.TableAlias + ".";
             var referenceSourceTableAlias = "refSource";
 
-            context.StringBuilder.AppendLine("NOT EXISTS").AppendLine("(");
+            context.StringBuilder.AppendLine($"{referenceTargetTableAlias}{VLatest.Resource.IsHistory} = 0");
+            context.StringBuilder.AppendLine($"AND {referenceTargetTableAlias}{VLatest.Resource.IsDeleted} = 0");
+            context.StringBuilder.AppendLine("AND NOT EXISTS").AppendLine("(");
             using (context.StringBuilder.Indent())
             {
                 context.StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
@@ -145,10 +147,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
                 {
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceId}");
+                    context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceId}");
 
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.AppendLine($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceTypeId}");
+                    context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceTypeId}");
                 }
             }
 

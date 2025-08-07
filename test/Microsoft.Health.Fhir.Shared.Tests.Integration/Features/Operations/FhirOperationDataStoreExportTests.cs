@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         public async Task InitializeAsync()
         {
             await _testHelper.DeleteAllExportJobRecordsAsync();
+            GetTestQueueClient().ClearJobs();
         }
 
         public Task DisposeAsync()
@@ -180,6 +182,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(expected.StartTime, actual.StartTime);
             Assert.Equal(expected.Status, actual.Status);
             Assert.Equal(expected.QueuedTime, actual.QueuedTime);
+        }
+
+        private TestQueueClient GetTestQueueClient()
+        {
+            var operationDataStoreBase = _operationDataStore as FhirOperationDataStoreBase;
+            if (operationDataStoreBase == null)
+            {
+                throw new InvalidOperationException("Operation data store is not of type FhirOperationDataStoreBase");
+            }
+
+            var field = typeof(FhirOperationDataStoreBase).GetField("_queueClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var queueClient = field?.GetValue(operationDataStoreBase) as TestQueueClient;
+
+            if (queueClient == null)
+            {
+                throw new InvalidOperationException("Could not retrieve TestQueueClient from operation data store");
+            }
+
+            return queueClient;
         }
     }
 }

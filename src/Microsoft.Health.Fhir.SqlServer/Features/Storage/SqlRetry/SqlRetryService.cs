@@ -460,7 +460,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                if (sw.Elapsed.TotalMilliseconds > 5)
+                logger.LogDebug($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                if (sw.Elapsed.TotalSeconds > 1)
                 {
                     logSB.AppendLine($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
                     logger.LogWarning(logSB.ToString());
@@ -468,9 +469,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
-                if (sw.Elapsed.TotalMilliseconds > 5)
+                logger.LogDebug($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                if (sw.Elapsed.TotalSeconds > 1)
                 {
-                    logger.LogWarning($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                    logSB.AppendLine($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                    logger.LogWarning(logSB.ToString());
                 }
 
                 return conn;

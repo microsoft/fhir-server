@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -11,8 +12,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -20,11 +24,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ProfileValidator : IProfileValidator
     {
         private readonly IResourceResolver _resolver;
+        private ILogger<ProfileValidator> _logger;
 
-        public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
+        public ProfileValidator(
+            IProvideProfilesForValidation profilesResolver,
+            IOptions<ValidateOperationConfiguration> options,
+            ILogger<ProfileValidator> logger)
         {
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            _logger = logger;
 
             try
             {
@@ -62,8 +73,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            _logger.LogDebug("Getting Validator");
             var validator = GetValidator();
             OperationOutcome result;
+
+            _logger.LogDebug("Validating");
             if (!string.IsNullOrWhiteSpace(profile))
             {
                 result = validator.Validate(resource, profile);
@@ -71,6 +88,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             else
             {
                 result = validator.Validate(resource);
+            }
+
+            _logger.LogDebug("Finished validating");
+
+            if (stopwatch.ElapsedMilliseconds > 1000)
+            {
+                _logger.LogWarning("Long running validation: {Time}", stopwatch.ElapsedMilliseconds);
             }
 
             var outcomeIssues = result.Issue.OrderBy(x => x.Severity)

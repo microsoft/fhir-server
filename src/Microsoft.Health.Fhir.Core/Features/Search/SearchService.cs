@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (countOnly)
             {
-                searchOptions.CountOnly = true;
+                 searchOptions.CountOnly = true;
             }
 
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
