@@ -54,8 +54,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             var resource = request.Resource.ToPoco<Resource>();
 
-            // If an Id is supplied on create it should be removed/ignored
-            resource.Id = null;
+            // BundleHandler defines the ID of resources being created using POST, and updates references with these IDs.
+            // If new IDs are created, they will leave references in an inconsistent state.
+            if (!request.IsBundleInnerRequest)
+            {
+                // If an Id is supplied on create it should be removed/ignored
+                resource.Id = null;
+            }
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
