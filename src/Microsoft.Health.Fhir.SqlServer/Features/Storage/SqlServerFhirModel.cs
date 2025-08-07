@@ -42,7 +42,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable. Justification: SQLServerFhirModel is maintained in memory during all process execution.
     public sealed class SqlServerFhirModel : ISqlServerFhirModel
+#pragma warning restore CA1001
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -333,20 +335,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await reader.NextResultAsync(cancellationToken);
 
                     _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
+                    bool systemWarningLogged = false;
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-                        _systemToId.TryAdd(value, systemId);
+
+                        if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
+                            systemWarningLogged = true;
+                        }
                     }
 
                     // result set 6
                     await reader.NextResultAsync(cancellationToken);
 
                     _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
+                    bool quantityCodeWarningLogged = false;
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-                        _quantityCodeToId.TryAdd(value, quantityCodeId);
+
+                        if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
+                            quantityCodeWarningLogged = true;
+                        }
                     }
 
                     _resourceTypeToId = resourceTypeToId;

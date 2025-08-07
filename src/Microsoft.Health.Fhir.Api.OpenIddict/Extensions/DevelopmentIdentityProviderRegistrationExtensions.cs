@@ -73,8 +73,6 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
             if (developmentIdentityProviderConfiguration.Enabled)
             {
-                var host = configuration["ASPNETCORE_URLS"];
-
                 services.AddDbContext<ApplicationAuthDbContext>(options =>
                 {
                     options.UseInMemoryDatabase("DevAuthDb");

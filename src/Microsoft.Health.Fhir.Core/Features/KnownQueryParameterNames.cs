@@ -122,11 +122,13 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string IncludeAssociatedData = "includeAssociatedData";
 
         /// <summary>
-        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// Used by export and bulk-update to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
 
         public const string NotReferenced = "_not-referenced";
+
+        public const string RemoveReferences = "_remove-references";
 
         /// <summary>
         /// The $includes continuation token parameter.
@@ -137,5 +139,12 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// The $includes count parameter.
         /// </summary>
         public const string IncludesCount = "_includesCount";
+
+        /// <summary>
+        /// The excluded resource types parameter representing a comma separated list of resource types.
+        /// </summary>
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
+
+        public const string ReverseInclude = "_revinclude";
     }
 }

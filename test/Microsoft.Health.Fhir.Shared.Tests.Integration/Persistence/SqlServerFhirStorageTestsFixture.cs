@@ -297,7 +297,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
-                new SqlServerParameterStore(SqlConnectionBuilder, NullLogger<SqlServerParameterStore>.Instance),
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

@@ -6,15 +6,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.JobManagement.UnitTests
 {
     public class TestQueueClient : IQueueClient
     {
         private List<JobInfo> jobInfos = new List<JobInfo>();
-        private long largestId = 1;
+        private long largestId = 0;
 
         public Action DequeueFaultAction { get; set; }
 
@@ -25,6 +27,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
         public Func<TestQueueClient, long, CancellationToken, IReadOnlyList<JobInfo>> GetJobByGroupIdFunc { get; set; }
+
+        public Func<TestQueueClient, CancellationToken, IReadOnlyList<JobInfo>> GetJobByQueueTypeFunc { get; set; }
 
         public List<JobInfo> JobInfos
         {
@@ -67,11 +71,45 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Deletes a job from the queue by its ID
+        /// </summary>
+        /// <param name="queueType">Queue Type</param>
+        /// <param name="jobId">The ID of the job to delete</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        /// <exception cref="JobNotFoundException">Thrown when the job with the specified ID is not found</exception>
+        public Task DeleteJobByIdAsync(byte queueType, string jobId, CancellationToken cancellationToken)
+        {
+            if (!long.TryParse(jobId, out long parsedJobId))
+            {
+                throw new JobNotFoundException($"Invalid job id format: {jobId}");
+            }
+
+            lock (jobInfos)
+            {
+                var jobToDelete = jobInfos.FirstOrDefault(t => t.Id == parsedJobId && t.QueueType == queueType);
+                if (jobToDelete == null)
+                {
+                    throw new JobNotFoundException($"Job with id {jobId} not found.");
+                }
+
+                jobInfos.Remove(jobToDelete);
+            }
+
+            return Task.CompletedTask;
+        }
+
         public async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
             CompleteFaultAction?.Invoke();
 
             JobInfo jobInfoStore = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
+            if (jobInfoStore == null)
+            {
+                throw new JobNotFoundException($"Job with id {jobInfo.Id} not found.");
+            }
+
             jobInfoStore.Status = jobInfo.Status;
             jobInfoStore.Result = jobInfo.Result;
 
@@ -127,7 +165,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             var result = new List<JobInfo>();
 
-            long gId = groupId ?? largestId++;
+            long gId = groupId ?? ++largestId;
 
             foreach (string definition in definitions)
             {
@@ -144,13 +182,13 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         Id = largestId,
                         GroupId = gId,
                         Status = JobStatus.Created,
-                        HeartbeatDateTime = DateTime.Now,
+                        HeartbeatDateTime = DateTime.UtcNow,
                         QueueType = queueType,
                     };
 
                     if (newJob.Status == JobStatus.Created)
                     {
-                        newJob.CreateDate = DateTime.Now;
+                        newJob.CreateDate = DateTime.UtcNow;
                     }
 
                     result.Add(newJob);
@@ -225,6 +263,27 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             return Task.FromResult(cancel);
+        }
+
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+        {
+            var activeJobs = jobInfos.Where(j => j.QueueType == queueType &&
+                                           (j.Status == JobStatus.Created || j.Status == JobStatus.Running))
+                                   .ToList();
+
+            if (returnParentOnly)
+            {
+                // Filter to only return parent jobs (jobs where Id == GroupId)
+                activeJobs = activeJobs.Where(j => j.Id == j.GroupId).ToList();
+            }
+
+            return Task.FromResult<IReadOnlyList<JobInfo>>(activeJobs);
+        }
+
+        public void ClearJobs()
+        {
+            jobInfos.Clear();
+            largestId = 0;
         }
     }
 }

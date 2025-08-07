@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,10 +24,10 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, Dictionary<string, string> additionalHeaders = default, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default);
@@ -50,6 +51,8 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource;
+
+        Task<HttpResponseMessage> BulkUpdateAsync(string uri, Parameters patchRequest, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleOptions bundleOptions = default, CancellationToken cancellationToken = default);
 

@@ -94,10 +94,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     baseDefinition.DeleteOperation,
                     resourceType,
                     baseDefinition.SearchParameters,
+                    baseDefinition.ExcludedResourceTypes,
                     baseDefinition.Url,
                     baseDefinition.BaseUrl,
                     baseDefinition.ParentRequestId,
-                    baseDefinition.VersionType);
+                    baseDefinition.VersionType,
+                    baseDefinition.RemoveReferences);
             }
 
             return null;

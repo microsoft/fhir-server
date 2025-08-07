@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class OperationsConfiguration
     {
-        public IList<HostingBackgroundServiceQueueItem> HostingBackgroundServiceQueues { get; } = new List<HostingBackgroundServiceQueueItem>();
-
         public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
 
         public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
@@ -21,6 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public IntegrationDataStoreConfiguration IntegrationDataStore { get; set; } = new IntegrationDataStoreConfiguration();
 
-        public ImportTaskConfiguration Import { get; set; } = new ImportTaskConfiguration();
+        public ImportJobConfiguration Import { get; set; } = new ImportJobConfiguration();
+
+        public BulkDeleteJobConfiguration BulkDelete { get; set; } = new BulkDeleteJobConfiguration();
+
+        public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
     }
 }

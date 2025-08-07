@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
@@ -41,6 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ParametersExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerParallelOperations.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerRuntime.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerStatistics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleRouter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />

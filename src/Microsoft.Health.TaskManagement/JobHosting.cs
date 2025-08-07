@@ -22,6 +22,7 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
+        private DateTime _lastHeartbeatLog;
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -43,6 +44,9 @@ namespace Microsoft.Health.JobManagement
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
+            _lastHeartbeatLog = DateTime.UtcNow;
+
+            _logger.LogInformation("Queue {QueueType} is starting.", queueType);
 
             // parallel dequeue
             for (var thread = 0; thread < runningJobCount; thread++)
@@ -56,12 +60,18 @@ namespace Microsoft.Health.JobManagement
 
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
+                        if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
+                        {
+                            _lastHeartbeatLog = DateTime.UtcNow;
+                            _logger.LogInformation("{QueueType} working is running.", queueType);
+                        }
+
                         JobInfo nextJob = null;
                         if (_queueClient.IsInitialized())
                         {
                             try
                             {
-                                _logger.LogInformation("Dequeuing next job.");
+                                _logger.LogDebug("Dequeuing next job for {QueueType}.", queueType);
 
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
@@ -73,7 +83,7 @@ namespace Microsoft.Health.JobManagement
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "Failed to dequeue new job.");
+                                _logger.LogError(ex, "Failed to dequeue new job for {QueueType}.", queueType);
                             }
                         }
 
@@ -102,12 +112,12 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                _logger.LogInformation("Empty queue. Delaying until next iteration.");
+                                _logger.LogDebug("Empty queue {QueueType}. Delaying until next iteration.", queueType);
                                 await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                             }
                             catch (TaskCanceledException)
                             {
-                                _logger.LogInformation("Queue is stopping, worker is shutting down.");
+                                _logger.LogInformation("Queue {QueueType} is stopping, worker is shutting down.", queueType);
                             }
                         }
                     }
@@ -116,8 +126,8 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                 // If any worker crashes or complete after cancellation due to shutdown,
-                 // cancel all workers and wait for completion so they don't crash unnecessarily.
+                // If any worker crashes or complete after cancellation due to shutdown,
+                // cancel all workers and wait for completion so they don't crash unnecessarily.
                 await Task.WhenAny(workers.ToArray());
 #if NET6_0
                 cancellationTokenSource.Cancel();
@@ -191,6 +201,31 @@ namespace Microsoft.Health.JobManagement
                 catch (Exception completeEx)
                 {
                     _logger.LogJobError(completeEx, jobInfo, "Job failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                return;
+            }
+            catch (JobExecutionSoftFailureException ex)
+            {
+                if (ex.IsCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Job soft failed due to customer caused issue.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Job soft failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
+                jobInfo.Status = JobStatus.Failed;
+
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogJobError(completeEx, jobInfo, "Job failed to complete on soft job failure.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;

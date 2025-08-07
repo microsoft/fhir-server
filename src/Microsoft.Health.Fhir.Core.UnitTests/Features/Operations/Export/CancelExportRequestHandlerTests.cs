@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -146,11 +147,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private async Task<ExportJobOutcome> SetupAndExecuteCancelExportAsync(OperationStatus operationStatus, HttpStatusCode expectedStatusCode)
         {
             ExportJobOutcome outcome = SetupExportJob(operationStatus);
+            if (expectedStatusCode == HttpStatusCode.Conflict)
+            {
+                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _mediator.CancelExportAsync(JobId, _cancellationToken));
+                Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
+            }
+            else
+            {
+                CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
 
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(expectedStatusCode, response.StatusCode);
+                Assert.NotNull(response);
+                Assert.Equal(expectedStatusCode, response.StatusCode);
+            }
 
             return outcome;
         }

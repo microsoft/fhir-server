@@ -23,12 +23,12 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -88,6 +88,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {
                 var throttlingOptions = Options.Options.Create(fhirServerConfiguration.Throttling);
@@ -124,24 +125,6 @@ namespace Microsoft.Extensions.DependencyInjection
             AddMetricEmitter(services);
 
             return new FhirServerBuilder(services);
-        }
-
-        /// <summary>
-        /// Adds background worker services.
-        /// </summary>
-        /// <param name="fhirServerBuilder">FHIR server builder.</param>
-        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
-        /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddBackgroundWorkers(
-            this IFhirServerBuilder fhirServerBuilder,
-            IFhirRuntimeConfiguration runtimeConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            return fhirServerBuilder;
         }
 
         public static IFhirServerBuilder AddBundleOrchestrator(
@@ -189,9 +172,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-
-                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
-                    app.UseBaseHeaders();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
 

@@ -5,11 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -148,7 +151,9 @@ END
             var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
             ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+            var options = Substitute.For<IOptions<CleanupEventLogWatchdogOptions>>();
+            options.Value.Returns(new CleanupEventLogWatchdogOptions { LogRawResourceStatsEnabled = true, LogRawResourceStatsBatchSize = 10000 });
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper), options);
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
@@ -218,21 +223,28 @@ END
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
 
-            ExecuteSql("INSERT INTO Parameters (Id,Number) SELECT 'MergeResources.NoTransaction.IsEnabled', 1");
-
             ExecuteSql(@"
-CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
-FOR INSERT
+CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam FOR INSERT
 AS
-BEGIN
-  RAISERROR('Test',18,127)
-  RETURN
-END
+RAISERROR('Test',18,127)
             ");
 
             try
             {
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, new[] { mergeWrapper }, false, 0, cts.Token);
+                // no eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, cts.Token);
+            }
+            catch (SqlException e)
+            {
+                Assert.Equal("Test", e.Message);
+            }
+
+            Assert.Equal(0, GetCount("Resource")); // resource not inserted
+
+            try
+            {
+                // eventual consistency
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
             }
             catch (SqlException e)
             {
@@ -349,6 +361,59 @@ END
             await wdTask;
         }
 
+        [Fact]
+        public async Task GeoReplicationLagWatchdog()
+        {
+            // Enable logging
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'GeoReplicationLagWatchdog') A WHERE name NOT IN (SELECT Id FROM Parameters WHERE Char = 'LogEvent')");
+
+            // Verify the stored procedure exists
+            var spExists = (int)ExecuteSql("SELECT COUNT(*) FROM sys.objects WHERE name = 'GetGeoReplicationLag' AND type = 'P'");
+            Assert.Equal(1, spExists);
+            _testOutputHelper.WriteLine("GetGeoReplicationLag stored procedure exists");
+
+            // Initialize watchdog parameters
+            var geoWatchdog = new GeoReplicationLagWatchdog();
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{geoWatchdog.PeriodSecId}', '{geoWatchdog.LeasePeriodSecId}')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.PeriodSecId}', 1)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.LeasePeriodSecId}', 2)");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromMinutes(2));
+
+            var schemaInformation = _fixture.SchemaInformation;
+
+            var wd = new GeoReplicationLagWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<GeoReplicationLagWatchdog>.Create(_testOutputHelper),
+                Substitute.For<IMediator>(),
+                schemaInformation)
+            {
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+
+            DateTime startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 30)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.5), cts.Token);
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            // Wait for at least one execution cycle - the watchdog should handle the SqlException gracefully
+            await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+
+            await cts.CancelAsync();
+            await wdTask;
+
+            _testOutputHelper.WriteLine("Watchdog executed successfully");
+        }
+
         private ResourceWrapperFactory CreateResourceWrapperFactory()
         {
             var serializer = new FhirJsonSerializer();
@@ -379,13 +444,13 @@ END
                 Deserializers.ResourceDeserializer);
         }
 
-        private void ExecuteSql(string sql)
+        private object ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
-            cmd.ExecuteNonQuery();
+            return cmd.ExecuteScalar();
         }
 
         private long GetCount(string table)

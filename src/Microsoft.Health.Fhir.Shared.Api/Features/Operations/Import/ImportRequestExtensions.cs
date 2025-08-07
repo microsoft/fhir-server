@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string ModeParameterName = "mode";
         public const string ForceParameterName = "force";
         public const string AllowNegativeVersionsParameterName = "allowNegativeVersions";
+        public const string EventualConsistencyParameterName = "eventualConsistency";
         public const string ErrorContainerNameParameterName = "errorContainerName";
         public const string DefaultStorageDetailType = "azure-blob";
 
@@ -91,6 +92,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (importRequest.AllowNegativeVersions)
             {
                 parameters.Add(AllowNegativeVersionsParameterName, new FhirBoolean(true));
+            }
+
+            if (importRequest.EventualConsistency)
+            {
+                parameters.Add(EventualConsistencyParameterName, new FhirBoolean(true));
             }
 
             if (!string.IsNullOrEmpty(importRequest.ErrorContainerName))
@@ -169,6 +175,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (parameters.TryGetBooleanValue(AllowNegativeVersionsParameterName, out bool allow))
             {
                 importRequest.AllowNegativeVersions = allow;
+            }
+
+            if (parameters.TryGetBooleanValue(EventualConsistencyParameterName, out bool eventualConsistency))
+            {
+                importRequest.EventualConsistency = eventualConsistency;
             }
 
             if (parameters.TryGetStringValue(ErrorContainerNameParameterName, out string errorContainerName))

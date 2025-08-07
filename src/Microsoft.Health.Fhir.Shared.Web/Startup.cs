@@ -31,10 +31,12 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Net.Http.Headers;
@@ -92,13 +94,6 @@ namespace Microsoft.Health.Fhir.Web
                 AddTaskHostingService(services);
             }
 
-            /*
-            The execution of IHostedServices depends on the order they are added to the dependency injection container, so we
-            need to ensure that the schema is initialized before the background workers are started.
-            The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
-            */
-            fhirServerBuilder.AddBackgroundWorkers(runtimeConfiguration);
-
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
 
@@ -137,6 +132,7 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+                services.Configure<CleanupEventLogWatchdogOptions>(Configuration.GetSection(CleanupEventLogWatchdogOptions.SectionName));
             }
         }
 
@@ -170,7 +166,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AsSelf();
             services.AddFactory<IScoped<JobHosting>>();
 
-            services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<StorageInitializedNotification>>()
+            services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<HostingBackgroundService>()
                 .Singleton()
                 .AsSelf()

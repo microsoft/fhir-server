@@ -120,7 +120,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken)
+        /// <param name="ignoreSearchParameterNotSupportedException">The value indicating whether to ignore SearchParameterNotSupportedException.</param>
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
         {
             try
             {
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
                 _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken, ignoreSearchParameterNotSupportedException);
 
                 // Update the status of the search parameter in the definition manager once the status is updated in the store.
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
@@ -197,6 +198,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
+
+                // ICM:648766003 *** NEW: Sync after delete to ensure all pods know about the deletion ***
+                await GetAndApplySearchParameterUpdates(cancellationToken);
 
                 _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
