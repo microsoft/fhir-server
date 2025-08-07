@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
                         var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
-                        if (results == null || results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Count() == 0)
+                        if (results == null || !results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Any())
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
                         }
