@@ -268,10 +268,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
 
-        private static HTTPVerb GetHttpVerb(int index)
+        private static Bundle.HTTPVerb GetHttpVerb(int index)
         {
             int nextHttpVerb = index % 6;
-            return (HTTPVerb)nextHttpVerb;
+            return (Bundle.HTTPVerb)nextHttpVerb;
         }
     }
 }

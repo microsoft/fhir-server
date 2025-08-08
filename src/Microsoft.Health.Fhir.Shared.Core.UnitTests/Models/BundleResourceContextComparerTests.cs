@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -26,22 +27,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         {
             var resources = new BundleResourceContext[]
             {
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.HEAD, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.GET, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.PATCH, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.PUT, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.POST, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.DELETE, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.HEAD, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.GET, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PUT, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.DELETE, _bundleOperationId),
             };
 
             var sortedResources = resources.OrderBy(x => x, _comparer).ToList();
 
-            Assert.Equal(HTTPVerb.DELETE, sortedResources[0].HttpVerb);
-            Assert.Equal(HTTPVerb.POST, sortedResources[1].HttpVerb);
-            Assert.Equal(HTTPVerb.PUT, sortedResources[2].HttpVerb);
-            Assert.Equal(HTTPVerb.PATCH, sortedResources[3].HttpVerb);
-            Assert.Equal(HTTPVerb.GET, sortedResources[4].HttpVerb);
-            Assert.Equal(HTTPVerb.HEAD, sortedResources[5].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.DELETE, sortedResources[0].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.POST, sortedResources[1].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.PUT, sortedResources[2].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.PATCH, sortedResources[3].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.GET, sortedResources[4].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.HEAD, sortedResources[5].HttpVerb);
         }
 
         [Fact]
@@ -58,13 +59,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         {
             var resources = new BundleResourceContext[]
             {
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.PATCH, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
             };
 
             var sortedResources = resources.OrderBy(x => x, _comparer).ToList();
 
             Assert.Single(sortedResources);
-            Assert.Equal(HTTPVerb.PATCH, sortedResources[0].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.PATCH, sortedResources[0].HttpVerb);
         }
 
         [Fact]
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
             var resources = new BundleResourceContext[]
             {
                 null,
-                new BundleResourceContext(BundleProcessingLogic.Parallel, HTTPVerb.POST, _bundleOperationId),
+                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
                 null,
             };
 
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
 
             Assert.Null(sortedResources[0]);
             Assert.Null(sortedResources[1]);
-            Assert.Equal(HTTPVerb.POST, sortedResources[2].HttpVerb);
+            Assert.Equal(Bundle.HTTPVerb.POST, sortedResources[2].HttpVerb);
         }
     }
 }

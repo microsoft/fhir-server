@@ -11,7 +11,6 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -49,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -697,29 +697,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (HttpContext?.Request?.Headers != null)
             {
-                // Step 1 - Retrieve Bundle Processing Logic.
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestProcessingLogic, out StringValues rawBundleProcessingLogic))
+                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleRequestContext, out StringValues rawBundleRequestContext))
                 {
-                    if (Enum.TryParse<BundleProcessingLogic>(rawBundleProcessingLogic, out BundleProcessingLogic bundleProcessingLogic))
-                    {
-                        // Step 2 - Retrieve Bundle Operation ID.
-                        if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, out StringValues responseOperationId))
-                        {
-                            string rawId = responseOperationId.FirstOrDefault();
-                            if (Guid.TryParse(rawId, out Guid bundleOperationId))
-                            {
-                                // Step 3 - Retrieve resource HTTP verb.
-                                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderBundleResourceHttpVerb, out StringValues responseHttpVerb))
-                                {
-                                    string rawHttpVerb = responseHttpVerb.FirstOrDefault();
-                                    if (Enum.TryParse<HTTPVerb>(rawHttpVerb, ignoreCase: true, out HTTPVerb httpVerb))
-                                    {
-                                        return new BundleResourceContext(bundleProcessingLogic, httpVerb, bundleOperationId);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    BundleResourceContext bundleResourceContext = JObject.Parse(rawBundleRequestContext.FirstOrDefault()).ToObject<BundleResourceContext>();
+                    return bundleResourceContext;
                 }
             }
 

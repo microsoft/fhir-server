@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         {
             var bundleResourceContext = new BundleResourceContext(
                 BundleProcessingLogic.Parallel,
-                Hl7.Fhir.Rest.HTTPVerb.POST,
+                Hl7.Fhir.Model.Bundle.HTTPVerb.POST,
                 Guid.NewGuid());
 
             ValueSet valueSet = new ValueSet();
