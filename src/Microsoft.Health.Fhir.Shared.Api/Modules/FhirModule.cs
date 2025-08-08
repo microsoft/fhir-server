@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Guidance;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -220,6 +221,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddTransient<IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>, DuplicateClinicalReferenceBehavior>();
             services.AddTransient<IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>, DuplicateClinicalReferenceBehavior>();
             services.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>, DuplicateClinicalReferenceBehavior>();
+            services.AddSingleton<IClinicalReferenceDuplicator, ClinicalReferenceDuplicator>();
         }
     }
 }
