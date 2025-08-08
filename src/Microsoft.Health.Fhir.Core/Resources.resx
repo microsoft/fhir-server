@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -253,6 +253,10 @@
   </data>
   <data name="InvalidConditionalReference" xml:space="preserve">
     <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceToMultipleResources" xml:space="preserve">
+    <value>Given conditional reference '{0}' resolved to multiple resources.</value>
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
