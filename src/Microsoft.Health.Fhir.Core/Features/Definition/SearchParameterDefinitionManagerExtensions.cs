@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
         public static IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(this SearchParameterDefinitionManager manager, ICollection<string> resourceTypes)
         {
-            return manager.TypeLookup.Where(t => resourceTypes.Contains(t.Key)).SelectMany(t => t.Value.Values);
+            return manager.TypeLookup.Where(t => resourceTypes.Contains(t.Key)).SelectMany(t => t.Value.Values.SelectMany(x => x));
         }
 
         /// <summary>
