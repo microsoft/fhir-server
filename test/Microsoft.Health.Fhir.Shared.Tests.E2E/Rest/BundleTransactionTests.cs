@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(
                 requestBundle,
-                new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential }));
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
