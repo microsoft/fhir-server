@@ -286,6 +286,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
 
                     SetupContexts(
+                        bundleType.Value,
                         resourceExecutionContext.Context,
                         resourceExecutionContext.HttpVerb,
                         httpContext,

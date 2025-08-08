@@ -5,17 +5,21 @@
 
 using System;
 using Hl7.Fhir.Model;
+using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
     public sealed class BundleResourceContext
     {
-        public BundleResourceContext(BundleProcessingLogic processingLogic, Bundle.HTTPVerb httpVerb, Guid bundleOperationId)
+        public BundleResourceContext(BundleType bundleType, BundleProcessingLogic processingLogic, Bundle.HTTPVerb httpVerb, Guid bundleOperationId)
         {
+            BundleType = bundleType;
             ProcessingLogic = processingLogic;
             HttpVerb = httpVerb;
             BundleOperationId = bundleOperationId;
         }
+
+        public BundleType BundleType { get; }
 
         public BundleProcessingLogic ProcessingLogic { get; }
 

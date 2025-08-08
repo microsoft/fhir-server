@@ -760,6 +760,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private void SetupContexts(ResourceExecutionContext resourceExecutionContext, HttpContext httpContext)
         {
             SetupContexts(
+                bundleType: _bundleType.Value,
                 request: resourceExecutionContext.Context,
                 httpVerb: resourceExecutionContext.HttpVerb,
                 httpContext: httpContext,
@@ -781,6 +782,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// attributes, that would cause non-thread safe issues.
         /// </summary>
         private static void SetupContexts(
+            BundleType bundleType,
             RouteContext request,
             HTTPVerb httpVerb,
             HttpContext httpContext,
@@ -845,6 +847,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Propagate bundle context information to inner requests.
             BundleResourceContext bundleResourceContext = new BundleResourceContext(
+                bundleType,
                 processingLogic,
                 httpVerb,
                 bundleOperationId: processingLogic == BundleProcessingLogic.Sequential ? Guid.Empty : bundleOrchestratorOperation.Id);

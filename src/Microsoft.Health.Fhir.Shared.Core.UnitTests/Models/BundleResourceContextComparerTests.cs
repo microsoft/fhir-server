@@ -27,12 +27,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         {
             var resources = new BundleResourceContext[]
             {
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.HEAD, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.GET, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PUT, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.DELETE, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.HEAD, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.GET, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PUT, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.DELETE, _bundleOperationId),
             };
 
             var sortedResources = resources.OrderBy(x => x, _comparer).ToList();
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         {
             var resources = new BundleResourceContext[]
             {
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Transaction, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.PATCH, _bundleOperationId),
             };
 
             var sortedResources = resources.OrderBy(x => x, _comparer).ToList();
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
             var resources = new BundleResourceContext[]
             {
                 null,
-                new BundleResourceContext(BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
+                new BundleResourceContext(Bundle.BundleType.Transaction, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, _bundleOperationId),
                 null,
             };
 

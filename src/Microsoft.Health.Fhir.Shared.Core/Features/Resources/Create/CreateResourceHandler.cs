@@ -56,13 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             // BundleHandler defines the ID of resources being created using POST, and updates references with these IDs.
             // If new IDs are created, they will leave references in an inconsistent state.
-            // if (!request.IsBundleInnerRequest)
-            // {
-
-            // If an Id is supplied on create it should be removed/ignored
-            resource.Id = null;
-
-            // }
+            if (!(request.IsBundleInnerRequest && request.BundleResourceContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction && request.BundleResourceContext.ProcessingLogic == BundleProcessingLogic.Parallel))
+            {
+                resource.Id = null;
+            }
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
