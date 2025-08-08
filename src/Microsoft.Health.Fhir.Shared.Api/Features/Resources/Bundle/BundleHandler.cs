@@ -10,7 +10,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -53,6 +52,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -760,6 +760,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private void SetupContexts(ResourceExecutionContext resourceExecutionContext, HttpContext httpContext)
         {
             SetupContexts(
+                bundleType: _bundleType.Value,
                 request: resourceExecutionContext.Context,
                 httpVerb: resourceExecutionContext.HttpVerb,
                 httpContext: httpContext,
@@ -781,6 +782,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// attributes, that would cause non-thread safe issues.
         /// </summary>
         private static void SetupContexts(
+            BundleType bundleType,
             RouteContext request,
             HTTPVerb httpVerb,
             HttpContext httpContext,
@@ -834,24 +836,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Propagate Fine Grained Access Control to the new FHIR Request Context.
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
 
-            // Propagate bundle context information to inner requests.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpInnerBundleRequestProcessingLogic, processingLogic.ToString());
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderBundleResourceHttpVerb, httpVerb.ToString());
+            // Validation to make sure that the Bundle Orchestrator Operation is not null for parallel bundles.
             if (processingLogic == BundleProcessingLogic.Parallel)
             {
                 if (bundleOrchestratorOperation == null)
                 {
                     throw new InvalidOperationException("Bundle Orchestrator Operation should not be null for parallel-bundles.");
                 }
+            }
 
-                // Assign the current Bundle Orchestrator Operation ID as part of the downstream request.
-                newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, bundleOrchestratorOperation.Id.ToString());
-            }
-            else
-            {
-                // Assign an empty Bundle Orchestrator Operation ID.
-                newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpInnerBundleRequestHeaderOperationTag, Guid.Empty.ToString());
-            }
+            // Propagate bundle context information to inner requests.
+            BundleResourceContext bundleResourceContext = new BundleResourceContext(
+                bundleType,
+                processingLogic,
+                httpVerb,
+                bundleOperationId: processingLogic == BundleProcessingLogic.Sequential ? Guid.Empty : bundleOrchestratorOperation.Id);
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleRequestContext, JObject.FromObject(bundleResourceContext).ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
             bundleHttpContextAccessor.HttpContext = httpContext;

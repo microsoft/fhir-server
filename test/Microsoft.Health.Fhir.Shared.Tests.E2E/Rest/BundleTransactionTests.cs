@@ -101,9 +101,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack").ToPoco<Bundle>();
 
@@ -113,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(
                 requestBundle,
-                new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential }));
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
@@ -300,13 +302,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync(FhirBundleProcessingLogic processingLogic)
         {
-            // This test requires operations to be executed sequentially, as there is a dependecy between resources.
-            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Sequential;
-
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalCreateAndReference");
 
             var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
