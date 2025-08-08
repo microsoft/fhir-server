@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -187,6 +189,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
+
+            services.Add<SqlHealthCheck>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHealthCheck>();
 
             foreach (TypeRegistrationBuilder job in jobs)
             {
