@@ -60,6 +60,7 @@
     <PackageReference Include="Newtonsoft.Json.Schema" />
     <PackageReference Include="Polly" />
     <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
