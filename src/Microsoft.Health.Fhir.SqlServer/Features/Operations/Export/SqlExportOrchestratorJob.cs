@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -31,28 +32,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
         private IQueueClient _queueClient;
         private ISearchService _searchService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
+        private readonly IDynamicThreadingService _threadingService;
+        private readonly IResourceThrottlingService _throttlingService;
+        private readonly IDynamicThreadPoolManager _dynamicThreadPoolManager;
         private readonly ILogger<SqlExportOrchestratorJob> _logger;
 
         public SqlExportOrchestratorJob(
             IQueueClient queueClient,
             ISearchService searchService,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
+            IDynamicThreadingService threadingService,
+            IResourceThrottlingService throttlingService,
+            IDynamicThreadPoolManager dynamicThreadPoolManager,
             ILogger<SqlExportOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(threadingService, nameof(threadingService));
+            EnsureArg.IsNotNull(throttlingService, nameof(throttlingService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
             _searchService = searchService;
             _exportJobConfiguration = exportJobConfiguration.Value;
+            _threadingService = threadingService;
+            _throttlingService = throttlingService;
+            _dynamicThreadPoolManager = dynamicThreadPoolManager; // Can be null for optional feature
             _logger = logger;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+            // Acquire throttling semaphore for export operations
+            using var throttleHandle = await _throttlingService.AcquireAsync(OperationType.Export, cancellationToken);
 
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
@@ -83,42 +98,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                                         .GroupBy(x => x.ResourceType)
                                         .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
-                {
-                    var startId = globalStartId;
-                    if (enqueued.TryGetValue(type, out var max))
-                    {
-                        startId = max + 1;
-                    }
+                // Use adaptive threading if configured to do so (0 or negative values)
+                var coordinatorMaxDegreeOfParallelization = _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization > 0
+                    ? _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization
+                    : _threadingService.GetOptimalThreadCount(OperationType.Export);
 
-                    var rows = 1;
-                    while (rows > 0)
+                var isAdaptive = _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization <= 0;
+
+                _logger.LogInformation(
+                    "Export orchestrator using {ThreadCount} threads (adaptive: {IsAdaptive})",
+                    coordinatorMaxDegreeOfParallelization,
+                    isAdaptive);
+
+                // For adaptive mode, use runtime-adjustable parallel execution
+                if (isAdaptive)
+                {
+                    atLeastOneWorkerJobRegistered = await ExecuteWithRuntimeAdaptationAsync(resourceTypes, globalStartId, globalEndId, surrogateIdRangeSize, record, jobInfo.GroupId, enqueued, cancellationToken);
+                }
+                else
+                {
+                    await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = coordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
                     {
-                        var definitions = new List<ExportJobRecord>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, _exportJobConfiguration.NumberOfParallelRecordRanges, true, cancel);
-                        foreach (var range in ranges)
+                        var startId = globalStartId;
+                        if (enqueued.TryGetValue(type, out var max))
                         {
-                            if (range.EndId > startId)
+                            startId = max + 1;
+                        }
+
+                        var rows = 1;
+                        while (rows > 0)
+                        {
+                            var definitions = new List<ExportJobRecord>();
+                            var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, _exportJobConfiguration.NumberOfParallelRecordRanges, true, cancel);
+                            foreach (var range in ranges)
                             {
-                                startId = range.EndId;
+                                if (range.EndId > startId)
+                                {
+                                    startId = range.EndId;
+                                }
+
+                                _logger.LogJobInformation(jobInfo, "Creating export record (1).");
+                                var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                                definitions.Add(processingRecord);
                             }
 
-                            _logger.LogJobInformation(jobInfo, "Creating export record (1).");
-                            var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                            definitions.Add(processingRecord);
-                        }
+                            startId++; // make sure we do not intersect ranges
 
-                        startId++; // make sure we do not intersect ranges
-
-                        rows = definitions.Count;
-                        if (rows > 0)
-                        {
-                            _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
-                            await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
-                            atLeastOneWorkerJobRegistered = true;
+                            rows = definitions.Count;
+                            if (rows > 0)
+                            {
+                                _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
+                                await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
+                                atLeastOneWorkerJobRegistered = true;
+                            }
                         }
-                    }
-                });
+                    });
+                }
 
                 if (!atLeastOneWorkerJobRegistered)
                 {
@@ -236,6 +271,109 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             rec.Id = string.Empty;
             rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
             return rec;
+        }
+
+        /// <summary>
+        /// Executes the orchestrator processing with runtime thread adaptation for long-running operations.
+        /// </summary>
+        private async Task<bool> ExecuteWithRuntimeAdaptationAsync(
+            IEnumerable<string> resourceTypes,
+            long globalStartId,
+            long globalEndId,
+            int surrogateIdRangeSize,
+            ExportJobRecord record,
+            long groupId,
+            Dictionary<string, long> enqueued,
+            CancellationToken cancellationToken)
+        {
+            var atLeastOneWorkerJobRegistered = false;
+
+            if (_dynamicThreadPoolManager == null)
+            {
+                _logger.LogWarning("DynamicThreadPoolManager not available, falling back to static threading");
+
+                var fallbackThreadCount = _threadingService.GetOptimalThreadCount(OperationType.Export);
+                await Parallel.ForEachAsync(
+                    resourceTypes,
+                    new ParallelOptions { MaxDegreeOfParallelism = fallbackThreadCount, CancellationToken = cancellationToken },
+                    async (type, cancel) =>
+                    {
+                        var workerRegistered = await ProcessResourceTypeAsync(type, globalStartId, globalEndId, surrogateIdRangeSize, record, groupId, enqueued, cancel);
+                        if (workerRegistered)
+                        {
+                            atLeastOneWorkerJobRegistered = true;
+                        }
+                    });
+                return atLeastOneWorkerJobRegistered;
+            }
+
+            var registrationFlags = new List<bool>();
+            await _dynamicThreadPoolManager.ExecuteAdaptiveParallelAsync(
+                resourceTypes,
+                async (resourceType, cancel) =>
+                {
+                    var workerRegistered = await ProcessResourceTypeAsync(resourceType, globalStartId, globalEndId, surrogateIdRangeSize, record, groupId, enqueued, cancel);
+                    lock (registrationFlags)
+                    {
+                        registrationFlags.Add(workerRegistered);
+                    }
+                },
+                OperationType.Export,
+                recalculationInterval: null, // Use default 30-second recalculation interval
+                cancellationToken);
+
+            return registrationFlags.Any(x => x);
+        }
+
+        /// <summary>
+        /// Processes a single resource type for export.
+        /// </summary>
+        private async Task<bool> ProcessResourceTypeAsync(
+            string resourceType,
+            long globalStartId,
+            long globalEndId,
+            int surrogateIdRangeSize,
+            ExportJobRecord record,
+            long groupId,
+            Dictionary<string, long> enqueued,
+            CancellationToken cancellationToken)
+        {
+            var atLeastOneWorkerJobRegistered = false;
+            var startId = globalStartId;
+            if (enqueued.TryGetValue(resourceType, out var max))
+            {
+                startId = max + 1;
+            }
+
+            var rows = 1;
+            while (rows > 0)
+            {
+                var definitions = new List<ExportJobRecord>();
+                var ranges = await _searchService.GetSurrogateIdRanges(resourceType, startId, globalEndId, surrogateIdRangeSize, _exportJobConfiguration.NumberOfParallelRecordRanges, true, cancellationToken);
+                foreach (var range in ranges)
+                {
+                    if (range.EndId > startId)
+                    {
+                        startId = range.EndId;
+                    }
+
+                    _logger.LogInformation("Creating export record for {ResourceType} (adaptive).", resourceType);
+                    var processingRecord = CreateExportRecord(record, groupId, resourceType: resourceType, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                    definitions.Add(processingRecord);
+                }
+
+                startId++; // make sure we do not intersect ranges
+
+                rows = definitions.Count;
+                if (rows > 0)
+                {
+                    _logger.LogInformation("Enqueuing {Count} export jobs for {ResourceType} (adaptive).", definitions.Count, resourceType);
+                    await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: groupId, definitions: definitions.ToArray());
+                    atLeastOneWorkerJobRegistered = true;
+                }
+            }
+
+            return atLeastOneWorkerJobRegistered;
         }
     }
 }

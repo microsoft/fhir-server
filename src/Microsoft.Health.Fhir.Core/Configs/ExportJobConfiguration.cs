@@ -49,9 +49,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int NumberOfParallelRecordRanges { get; set; } = 100;
 
         /// <summary>
-        /// For SQL export, controlls the DOP (degree of parallelization) used by the coordinator to build sub-jobs.
+        /// For SQL export, controls the DOP (degree of parallelization) used by the coordinator to build sub-jobs.
+        /// When set to 0 or negative, will use adaptive threading based on system resources.
+        /// Defaults to adaptive threading (0).
         /// </summary>
-        public int CoordinatorMaxDegreeOfParallelization { get; set; } = 4;
+        public int CoordinatorMaxDegreeOfParallelization { get; set; } = 0;
+
+        /// <summary>
+        /// Maximum number of concurrent export operations to prevent resource exhaustion.
+        /// When set to 0 or negative, will use adaptive threading based on system resources.
+        /// </summary>
+        public int MaxConcurrentExportOperations { get; set; } = 0;
 
         /// <summary>
         /// Number of pages to be iterated before committing the export progress.
