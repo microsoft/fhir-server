@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
+            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<IDynamicThreadingService>(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
         }
 
         [Fact]
@@ -245,6 +246,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 _searchService.CreateMockScopeFactory(),
+                Substitute.For<IDynamicThreadingService>(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 
@@ -318,6 +320,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 _searchService.CreateMockScopeFactory(),
+                Substitute.For<IDynamicThreadingService>(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 

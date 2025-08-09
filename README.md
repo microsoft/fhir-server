@@ -48,6 +48,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 ## Additional Capabilities
 - [Bulk Export](docs/BulkExport.md): Describes using Bulk Export within the FHIR Server.
 - [Convert Data](docs/ConvertDataOperation.md): Describes how to use $convert-data to convert data into FHIR.
+- [Dynamic Threading Service](docs/DynamicThreadingService-Design.md): Describes the runtime-adaptive threading system for optimal performance.
 - [FHIR Proxy](https://github.com/microsoft/fhir-proxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 
 ## Tutorials & How-to Guides

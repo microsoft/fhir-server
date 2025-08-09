@@ -58,3 +58,47 @@ To use the format, you will need to set the following settings in the appSetting
 In the table above, you would use format in the following way `GET https://<<FHIR service base URL>>/$export?_format=TestFormat`. The result would be an export saved in a folder structure **test/\<resourcename>/\<id>** and the file name would be **\<timestamp>.ndjson**.
 
 Exported data can be deidentified using the [FHIR Tools for Anonymization](https://github.com/microsoft/FHIR-Tools-for-Anonymization#how-to-perform-de-identified-export-operation-on-the-fhir-server)
+
+## Performance Optimization
+
+### Threading Configuration
+
+The FHIR server supports both static and adaptive threading modes for export operations:
+
+#### Adaptive Threading (Recommended)
+Set `CoordinatorMaxDegreeOfParallelization` to `0` to enable runtime thread adaptation:
+
+```json
+{
+  "FhirServer": {
+    "Operations": {
+      "Export": {
+        "CoordinatorMaxDegreeOfParallelization": 0
+      }
+    }
+  }
+}
+```
+
+**Benefits:**
+- Automatic thread count optimization based on current system resources
+- Runtime adaptation during long-running exports (recalculates every 2 minutes)
+- Better performance in cloud environments with auto-scaling
+- Responds to changing system conditions and resource pressure
+
+#### Static Threading (Legacy)
+Set `CoordinatorMaxDegreeOfParallelization` to a positive value for fixed thread count:
+
+```json
+{
+  "FhirServer": {
+    "Operations": {
+      "Export": {
+        "CoordinatorMaxDegreeOfParallelization": 4
+      }
+    }
+  }
+}
+```
+
+For more details on the threading architecture, see the [Dynamic Threading Service Design Document](DynamicThreadingService-Design.md).

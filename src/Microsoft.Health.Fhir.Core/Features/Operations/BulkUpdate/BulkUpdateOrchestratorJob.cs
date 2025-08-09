@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -44,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IDynamicThreadingService _threadingService;
         private readonly ILogger<BulkUpdateOrchestratorJob> _logger;
-        private const int CoordinatorMaxDegreeOfParallelization = 4;
         private const int NumberOfParallelRecordRanges = 100;
         private const string OperationCompleted = "Completed";
 
@@ -53,15 +54,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             Func<IScoped<ISearchService>> searchService,
+            IDynamicThreadingService threadingService,
             ILogger<BulkUpdateOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(threadingService, nameof(threadingService));
 
             _queueClient = queueClient;
             _contextAccessor = contextAccessor;
             _searchService = searchService;
+            _threadingService = threadingService;
             _logger = logger;
         }
 
@@ -110,7 +114,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                             .GroupBy(x => x.Type)
                                             .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
 
-                    await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = CoordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
+                    var coordinatorMaxDegreeOfParallelization = _threadingService.GetOptimalThreadCount(OperationType.BulkUpdate);
+
+                    _logger.LogInformation(
+                        "BulkUpdate orchestrator using adaptive threading: {ThreadCount} threads",
+                        coordinatorMaxDegreeOfParallelization);
+
+                    await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = coordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
                     {
                         var startId = globalStartId;
                         if (enqueued.TryGetValue(type, out var max))

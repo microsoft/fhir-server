@@ -103,6 +103,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
             services.AddFhirServerBase(fhirServerConfiguration);
+            services.AddDynamicThreading();
 
             services.AddHttpClient(Options.Options.DefaultName)
                 .AddTransientHttpErrorPolicy(builder =>

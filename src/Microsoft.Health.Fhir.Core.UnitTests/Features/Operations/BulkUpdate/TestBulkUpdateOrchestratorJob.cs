@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -38,9 +39,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             Func<IScoped<ISearchService>> searchService,
+            IDynamicThreadingService threadingService,
             ILogger<BulkUpdateOrchestratorJob> logger,
             IFhirRequestContext testContext)
-            : base(queueClient, contextAccessor, searchService, logger)
+            : base(queueClient, contextAccessor, searchService, threadingService, logger)
         {
             _testContext = testContext;
         }

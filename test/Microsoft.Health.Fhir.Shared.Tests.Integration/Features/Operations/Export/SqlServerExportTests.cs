@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Export;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -62,7 +63,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService, _exportJobConfiguration, _logger);
+                var coordJob = new SqlExportOrchestratorJob(
+                    _queueClient,
+                    _searchService,
+                    _exportJobConfiguration,
+                    Substitute.For<IDynamicThreadingService>(),
+                    Substitute.For<IResourceThrottlingService>(),
+                    Substitute.For<IDynamicThreadPoolManager>(),
+                    _logger);
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 

@@ -10,7 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ImportJobConfiguration : HostingBackgroundServiceQueueItem
     {
         private const int DefaultTransactionSize = 1000;
-        private const int DefaultSqlIndexRebuildThreads = 3;
         private const int DefaultInfinitySqlTimeoutSec = 0;
         private const int DefaultPollingPeriodSec = 60;
 
@@ -33,8 +32,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Concurrent count for rebuild index operation.
+        /// When set to 0 or negative, will use adaptive threading based on system resources.
+        /// Defaults to adaptive threading (0).
         /// </summary>
-        public int SqlIndexRebuildThreads { get; set; } = DefaultSqlIndexRebuildThreads;
+        public int SqlIndexRebuildThreads { get; set; } = 0;
+
+        /// <summary>
+        /// Maximum number of concurrent import operations to prevent resource exhaustion.
+        /// When set to 0 or negative, will use adaptive threading based on system resources.
+        /// </summary>
+        public int MaxConcurrentImportOperations { get; set; } = 0;
 
         /// <summary>
         /// How often polling for new import jobs happens.
