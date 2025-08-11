@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditHelper _auditHelper;
         private readonly IClaimsExtractor _claimsExtractor;
-        private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IFhirRequestContext _fhirRequestContext;
         
         private readonly AuditLoggingMiddleware _middleware;
@@ -36,7 +35,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _auditHelper = Substitute.For<IAuditHelper>();
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
-            _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
             _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
@@ -45,8 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 next: context => Task.CompletedTask,
                 _fhirRequestContextAccessor,
                 _auditHelper,
-                _claimsExtractor,
-                _auditEventTypeMapping);
+                _claimsExtractor);
         }
 
         [Fact]

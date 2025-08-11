@@ -9,12 +9,10 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -27,20 +25,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditHelper _auditHelper;
         private readonly IClaimsExtractor _claimsExtractor;
-        private readonly IAuditEventTypeMapping _auditEventTypeMapping;
 
         public AuditLoggingMiddleware(
             RequestDelegate next,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditHelper auditHelper,
-            IClaimsExtractor claimsExtractor,
-            IAuditEventTypeMapping auditEventTypeMapping)
+            IClaimsExtractor claimsExtractor)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _auditHelper = EnsureArg.IsNotNull(auditHelper, nameof(auditHelper));
             _claimsExtractor = EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
-            _auditEventTypeMapping = EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -48,7 +43,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             EnsureArg.IsNotNull(context, nameof(context));
 
             var stopwatch = Stopwatch.StartNew();
-            var wasAuditLogged = false;
 
             try
             {
@@ -70,7 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                         
                         // Log the audit entry for the 405 response
                         _auditHelper.LogExecuted(context, _claimsExtractor, shouldCheckForAuthXFailure: false, durationMs: stopwatch.ElapsedMilliseconds);
-                        wasAuditLogged = true;
                     }
                 }
             }
