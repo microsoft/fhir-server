@@ -763,6 +763,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 bundleType: _bundleType,
                 request: resourceExecutionContext.Context,
                 httpVerb: resourceExecutionContext.HttpVerb,
+                persistedId: resourceExecutionContext.PersistedId,
                 httpContext: httpContext,
                 processingLogic: BundleProcessingLogic.Sequential, // Set to sequential because this is not running in the context of a parallel-bundle.
                 bundleOrchestratorOperation: null, // Set to null because this is not running in the context of a parallel-bundle.
@@ -785,6 +786,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleType? bundleType,
             RouteContext request,
             HTTPVerb httpVerb,
+            string persistedId,
             HttpContext httpContext,
             BundleProcessingLogic processingLogic,
             IBundleOrchestratorOperation bundleOrchestratorOperation,
@@ -850,8 +852,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 bundleType,
                 processingLogic,
                 httpVerb,
+                persistedId: persistedId,
                 bundleOperationId: processingLogic == BundleProcessingLogic.Sequential ? Guid.Empty : bundleOrchestratorOperation.Id);
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleRequestContext, JObject.FromObject(bundleResourceContext).ToString());
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestContext, JObject.FromObject(bundleResourceContext).ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
             bundleHttpContextAccessor.HttpContext = httpContext;

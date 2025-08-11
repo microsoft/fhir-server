@@ -7,8 +7,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public sealed class BundleOrchestratorNamingConventions
     {
+        // Public constants for HTTP headers used in bundle processing (parallel or sequential).
         public const string HttpHeaderBundleProcessingLogic = "x-bundle-processing-logic";
 
-        public const string HttpBundleRequestContext = "x-bundle-context";
+        // Internal constant for HTTP header used to pass the bundle context to internal components.
+        public const string HttpBundleInnerRequestContext = "x-bundle-internal-context";
     }
 }

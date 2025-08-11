@@ -279,16 +279,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
                     httpContext.RequestAborted = cancellationToken;
+
+                    // FIX: This part can be removed now.
+                    /*
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(resourceExecutionContext.PersistedId))
                     {
                         resourceIdProvider.Create = () => resourceExecutionContext.PersistedId;
                     }
+                    */
 
                     SetupContexts(
                         bundleType,
                         resourceExecutionContext.Context,
                         resourceExecutionContext.HttpVerb,
+                        resourceExecutionContext.PersistedId,
                         httpContext,
                         BundleProcessingLogic.Parallel,
                         bundleOperation,
@@ -326,7 +331,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
                     }
 
-                    resourceIdProvider.Create = originalResourceIdProvider;
+                    // FIX: This part can be removed now.
+                    // resourceIdProvider.Create = originalResourceIdProvider;
 
                     entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
 
@@ -396,7 +402,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
-                PersistedId = persistedId;
+                PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
             }
 
             public HTTPVerb HttpVerb { get; private set; }

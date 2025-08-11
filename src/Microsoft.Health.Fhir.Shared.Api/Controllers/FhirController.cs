@@ -697,7 +697,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (HttpContext?.Request?.Headers != null)
             {
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleRequestContext, out StringValues rawBundleRequestContext))
+                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestContext, out StringValues rawBundleRequestContext))
                 {
                     BundleResourceContext bundleResourceContext = JObject.Parse(rawBundleRequestContext.FirstOrDefault()).ToObject<BundleResourceContext>();
                     return bundleResourceContext;

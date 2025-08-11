@@ -54,12 +54,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             var resource = request.Resource.ToPoco<Resource>();
 
-            // BundleHandler defines the ID of resources being created using POST, and updates references with these IDs.
-            // If new IDs are created, they will leave references in an inconsistent state.
-            if (!(request.IsBundleInnerRequest &&
-                request.BundleResourceContext.BundleType.HasValue &&
-                request.BundleResourceContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction &&
-                request.BundleResourceContext.ProcessingLogic == BundleProcessingLogic.Parallel))
+            // In a POST request, a Transactional Bundle processing defines the ID of resources being created when a full url is provided (as part of the bundle entry).
+            // After defined, the IDs are used to update references between records in the same bundle.
+            // If the record (in the current request) is part of a transaction and had an ID assigned to it, then the ID should be preserved.
+            if (IsBundleParallelTransaction(request) && !string.IsNullOrWhiteSpace(request.BundleResourceContext?.PersistedId))
+            {
+                resource.Id = request.BundleResourceContext.PersistedId;
+            }
+            else
             {
                 resource.Id = null;
             }
@@ -74,6 +76,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             resource.VersionId = result.Wrapper.Version;
 
             return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
+        }
+
+        private static bool IsBundleParallelTransaction(CreateResourceRequest request)
+        {
+            return request.IsBundleInnerRequest &&
+                request.BundleResourceContext.BundleType.HasValue &&
+                request.BundleResourceContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction &&
+                request.BundleResourceContext.ProcessingLogic == BundleProcessingLogic.Parallel;
         }
     }
 }
