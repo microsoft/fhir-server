@@ -5,9 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Hl7.Fhir.Rest;
-using Microsoft.VisualBasic;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -25,7 +23,15 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// 4. Process any read, vread, search or history(GET or HEAD) interactions
         /// Reference: https://www.hl7.org/fhir/http.html#trules
         /// </summary>
-        private static HTTPVerb[] _verbExecutionSequence = new HTTPVerb[] { HTTPVerb.DELETE, HTTPVerb.POST, HTTPVerb.PUT, HTTPVerb.PATCH, HTTPVerb.GET, HTTPVerb.HEAD };
+        private static Bundle.HTTPVerb[] _verbExecutionSequence = new Bundle.HTTPVerb[]
+        {
+            Bundle.HTTPVerb.DELETE,
+            Bundle.HTTPVerb.POST,
+            Bundle.HTTPVerb.PUT,
+            Bundle.HTTPVerb.PATCH,
+            Bundle.HTTPVerb.GET,
+            Bundle.HTTPVerb.HEAD,
+        };
 
         public int Compare(BundleResourceContext x, BundleResourceContext y)
         {

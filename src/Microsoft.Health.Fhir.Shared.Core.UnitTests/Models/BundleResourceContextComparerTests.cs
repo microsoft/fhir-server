@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         [Fact]
         public void GivenASequenceOfResources_WhenSorting_ThenRespectTheSequenceExpected()
         {
+            // This test ensures that inner operations executed bundles are processed in the correct order.
+
             var resources = new BundleResourceContext[]
             {
                 new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.HEAD, _bundleOperationId),

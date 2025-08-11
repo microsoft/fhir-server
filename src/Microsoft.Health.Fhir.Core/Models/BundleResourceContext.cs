@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public sealed class BundleResourceContext
     {
-        public BundleResourceContext(BundleType bundleType, BundleProcessingLogic processingLogic, Bundle.HTTPVerb httpVerb, Guid bundleOperationId)
+        public BundleResourceContext(BundleType? bundleType, BundleProcessingLogic processingLogic, Bundle.HTTPVerb httpVerb, Guid bundleOperationId)
         {
             BundleType = bundleType;
             ProcessingLogic = processingLogic;
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             BundleOperationId = bundleOperationId;
         }
 
-        public BundleType BundleType { get; }
+        public BundleType? BundleType { get; }
 
         public BundleProcessingLogic ProcessingLogic { get; }
 
