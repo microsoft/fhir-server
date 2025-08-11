@@ -59,9 +59,9 @@ graph TB
     K --> L[Execute Operation with Optimal Threads]
     O --> L
     
-    classDef sqlMonitoring fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef systemMonitoring fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef threadingLogic fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef sqlMonitoring fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b
+    classDef systemMonitoring fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#4a148c
+    classDef threadingLogic fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px,color:#1b5e20
     
     class S,P,Q,T,U,V,W sqlMonitoring
     class R,F,G,H,I systemMonitoring
