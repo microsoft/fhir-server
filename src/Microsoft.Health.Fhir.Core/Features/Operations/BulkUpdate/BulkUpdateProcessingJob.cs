@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     }
                     else
                     {
-                        result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, isIncludesRequest: false, queryParametersList, null, cancellationToken);
+                        result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, isIncludesRequest: false, 75, queryParametersList, null, cancellationToken);
                     }
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)

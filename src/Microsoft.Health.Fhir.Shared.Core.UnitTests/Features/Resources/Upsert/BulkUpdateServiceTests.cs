@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 isIncludesRequest).Returns(new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>()));
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -200,16 +200,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 false,
                 isIncludesRequest).Returns((x) =>
                 {
-                    return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 } }, null));
+                    return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, null));
                 });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
+            Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
             Assert.True(result.ResourcesUpdated["Patient"] == 2); // Assuming all 2 resources were updated successfully
+            Assert.True(result.ResourcesUpdated["Organization"] == 2); // Assuming all 2 resources were updated successfully
             Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
@@ -224,6 +225,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
+
+            // Set up the BundleIssues to trigger AreIncludeResultsTruncated
+            var bundleIssues = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue("warning", "informational", "Included items are truncated. Use the related link in the response to retrieve all included items."),
+            };
+            var mockRequestContext = Substitute.For<IFhirRequestContext>();
+            mockRequestContext.BundleIssues.Returns(bundleIssues);
+            _contextAccessor.RequestContext.Returns(mockRequestContext);
+
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
@@ -242,7 +253,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -294,7 +305,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -305,12 +316,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenMultipleMatchAndZeroIncludePagesForReadNextPageAsFalse_ResourcesAreUpdated()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task UpdateMultipleAsync_WhenMultipleMatchAndZeroIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
         {
             // Arrange
             var resourceType = "Patient";
-            var readNextPage = false;
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
@@ -330,60 +342,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 2 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
-        }
+            Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenMultipleMatchAndZeroIncludePagesForReadNextPageAsTrue_ResourcesAreUpdated()
-        {
-            // Arrange
-            var resourceType = "Patient";
-            var readNextPage = true;
-            var isIncludesRequest = false;
-            var conditionalParameters = new List<Tuple<string, string>>();
-            var cancellationToken = CancellationToken.None;
-
-            var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
-
-            // Simulate a search result
-            int callCountForMatchedResults = 0;
-            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
+            if (readNextPage)
             {
-                callCountForMatchedResults++;
-                var continuationToken = callCountForMatchedResults <= 2 ? "continuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, continuationToken, null));
-            });
-
-            // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 15); // Assuming all 2 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 6); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 3); // Observations ignored as no applicable patch request
+                Assert.True(result.ResourcesUpdated["Patient"] == 15);
+                Assert.True(result.ResourcesUpdated["Organization"] == 6);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 6);
+                Assert.True(result.ResourcesIgnored["Observation"] == 3);
+            }
+            else
+            {
+                Assert.True(result.ResourcesUpdated["Patient"] == 5);
+                Assert.True(result.ResourcesUpdated["Organization"] == 2);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2);
+                Assert.True(result.ResourcesIgnored["Observation"] == 1);
+            }
         }
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenMultipleMatchAndSingleIncludePagesWithReadNextPageAsFalse_ResourcesAreUpdated()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task UpdateMultipleAsync_WhenMultipleMatchAndSingleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
         {
             // Arrange
             var resourceType = "Patient";
-            var readNextPage = false;
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
+
+            // Set up the BundleIssues to trigger AreIncludeResultsTruncated
+            var bundleIssues = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue("warning", "informational", "Included items are truncated. Use the related link in the response to retrieve all included items."),
+            };
+            var mockRequestContext = Substitute.For<IFhirRequestContext>();
+            mockRequestContext.BundleIssues.Returns(bundleIssues);
+            _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
@@ -406,65 +405,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 15); // Assuming all 2 resources were updated successfully
-            Assert.True(result.ResourcesIgnored["Organization"] == 6); // Observations ignored as no applicable patch request
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 6); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 3); // Observations ignored as no applicable patch request
+            Assert.True(result.ResourcesUpdated.Count == 2);
+            if (readNextPage)
+            {
+                Assert.True(result.ResourcesUpdated["Patient"] == 15);
+                Assert.True(result.ResourcesUpdated["Organization"] == 12);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 6);
+                Assert.True(result.ResourcesIgnored["Observation"] == 3);
+            }
+            else
+            {
+                Assert.True(result.ResourcesUpdated["Patient"] == 5);
+                Assert.True(result.ResourcesUpdated["Organization"] == 4);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2);
+                Assert.True(result.ResourcesIgnored["Observation"] == 1);
+            }
         }
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenMultipleMatchAndSingleIncludePagesWithReadNextPageAsTrue_ResourcesAreUpdated()
-        {
-            // Arrange
-            var resourceType = "Patient";
-            var readNextPage = true;
-            var isIncludesRequest = false;
-            var conditionalParameters = new List<Tuple<string, string>>();
-            var cancellationToken = CancellationToken.None;
-
-            var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
-
-            // Simulate a search result
-            int callCountForMatchedResults = 0;
-            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
-            {
-                callCountForMatchedResults++;
-                var continuationToken = callCountForMatchedResults <= 3 ? "continuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, continuationToken, "includesContinuationToken"));
-            });
-
-            // Simulate a include search result
-            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), !isIncludesRequest).Returns((x) =>
-            {
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, null, null));
-            });
-
-            // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 2); // Assuming all 2 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
-        }
-
-        [Fact]
-        public async Task UpdateMultipleAsync__WhenMultipleMatchAndMultipleIncludePagesWithReadNextPageAsFalse_ResourcesAreUpdated()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task UpdateMultipleAsync__WhenMultipleMatchAndMultipleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
         {
             // Arrange
             var resourceType = "Patient";
             var isIncludesRequest = false;
-            var readNextPage = false;
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
 
@@ -501,69 +470,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
-            Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
-            Assert.True(result.ResourcesUpdated["Organization"] == 8); // Assuming all 8 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
-        }
+            Assert.True(result.ResourcesUpdated.Count == 2);
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenMultipleMatchAndMultipleIncludePagesWithnReadNextPageAsTrue_ResourcesAreUpdated()
-        {
-            // Arrange
-            var resourceType = "Patient";
-            var isIncludesRequest = false;
-            var readNextPage = true;
-            var conditionalParameters = new List<Tuple<string, string>>();
-            var cancellationToken = CancellationToken.None;
-
-            // Set up the BundleIssues to trigger AreIncludeResultsTruncated
-            var bundleIssues = new List<OperationOutcomeIssue>
+            if (readNextPage)
             {
-                new OperationOutcomeIssue("warning", "informational", "Included items are truncated. Use the related link in the response to retrieve all included items."),
-            };
-            var mockRequestContext = Substitute.For<IFhirRequestContext>();
-            mockRequestContext.BundleIssues.Returns(bundleIssues);
-            _contextAccessor.RequestContext.Returns(mockRequestContext);
-
-            var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
-            scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
-
-            // Simulate a search result
-            int callCountForMatchedResults = 0;
-            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
+                Assert.True(result.ResourcesUpdated["Patient"] == 15);
+                Assert.True(result.ResourcesUpdated["Organization"] == 16);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 6);
+                Assert.True(result.ResourcesIgnored["Observation"] == 3);
+            }
+            else
             {
-                callCountForMatchedResults++;
-                var continuationToken = callCountForMatchedResults <= 2 ? "continuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, continuationToken, "includesContinuationToken"));
-            });
-
-            // Simulate a include search result
-            int callCountForIncludeResults = 0;
-            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), !isIncludesRequest).Returns((x) =>
-            {
-                callCountForIncludeResults++;
-                var includesContinuationToken = callCountForIncludeResults <= 2 ? "includesContinuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, "continuationToken", includesContinuationToken));
-            });
-
-            // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
-            Assert.True(result.ResourcesUpdated["Organization"] == 8); // Assuming all 8 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
+                Assert.True(result.ResourcesUpdated["Patient"] == 5);
+                Assert.True(result.ResourcesUpdated["Organization"] == 8);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2);
+                Assert.True(result.ResourcesIgnored["Observation"] == 1);
+            }
         }
 
         [Fact]
@@ -571,7 +497,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         {
             // Arrange
             var resourceType = "Patient";
-            var fhirPatchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Patient\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]},{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Organization\"},{\"name\":\"name\",\"valueString\":\"active\"},{\"name\":\"value\",\"valueBoolean\":\"true\"}]},{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Practitioner\"},{\"name\":\"name\",\"valueString\":\"id\"},{\"name\":\"value\",\"valueString\":\"test\"}]}]}";
             var readNextPage = false;
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
@@ -647,7 +572,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -723,7 +648,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
             });
 
             Assert.Equal(1, updateCount);
@@ -777,7 +702,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -845,7 +770,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
             });
 
             Assert.Equal(1, updateCount);
