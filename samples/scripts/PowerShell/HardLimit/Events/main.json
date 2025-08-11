@@ -1,0 +1,126 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "defaultValue": "[resourceGroup().location]",
+            "type": "String",
+            "metadata": {
+                "description": "Location for all resources."
+            }
+        },
+        "fhirServiceCount": {
+            "defaultValue": 80,
+            "type": "Int",
+            "metadata": {
+                "description": "Number of FHIR services to deploy in the workspace."
+            }
+        },
+        "existingWorkspaceName": {
+            "type": "String",
+            "metadata": {
+                "description": "Name of the existing FHIR workspace."
+            }
+        },
+        "eventHubNamespaceName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name for the Event Hub namespace."
+            }
+        },
+        "eventHubName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name for the Event Hub instance."
+            }
+        }
+    },
+    "variables": {
+        "tenantId": "[subscription().tenantId]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.HealthcareApis/workspaces/fhirservices",
+            "apiVersion": "2024-03-31",
+            "name": "[format('{0}/fhirserver{1}', parameters('existingWorkspaceName'), copyIndex(1))]",
+            "location": "[parameters('location')]",
+            "kind": "fhir-R4",
+            "identity": {
+                "type": "None"
+            },
+            "properties": {
+                "acrConfiguration": {
+                    "loginServers": []
+                },
+                "authenticationConfiguration": {
+                    "authority": "[concat('https://login.microsoftonline.com/', variables('tenantId'))]",
+                    "audience": "[concat('https://', parameters('existingWorkspaceName'), '-fhirserver', copyIndex(1), '.fhir.azurehealthcareapis.com')]",
+                    "smartProxyEnabled": false,
+                    "smartIdentityProviders": []
+                },
+                "corsConfiguration": {
+                    "origins": [],
+                    "headers": [],
+                    "methods": [],
+                    "allowCredentials": false
+                },
+                "exportConfiguration": {},
+                "importConfiguration": {
+                    "enabled": false,
+                    "initialImportMode": false
+                },
+                "resourceVersionPolicyConfiguration": {
+                    "default": "versioned",
+                    "resourceTypeOverrides": {}
+                },
+                "implementationGuidesConfiguration": {
+                    "usCoreMissingData": false
+                },
+                "encryption": {
+                    "customerManagedKeyEncryption": {}
+                },
+                "publicNetworkAccess": "Enabled"
+            },
+            "copy": {
+                "name": "fhirServiceCopy",
+                "count": "[parameters('fhirServiceCount')]"
+            }
+        },
+        {
+            "type": "Microsoft.EventHub/namespaces",
+            "apiVersion": "2024-01-01",
+            "name": "[parameters('eventHubNamespaceName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+            },
+            "properties": {
+                "isAutoInflateEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.EventHub/namespaces/eventhubs",
+            "apiVersion": "2024-01-01",
+            "name": "[format('{0}/{1}', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]"
+            ],
+            "properties": {
+                "messageRetentionInDays": 1,
+                "partitionCount": 2
+            }
+        }
+    ],
+    "outputs": {
+        "eventHubNamespaceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]"
+        },
+        "eventHubId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]"
+        }
+    }
+}
