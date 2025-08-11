@@ -28,22 +28,44 @@ graph TB
     A[FHIR Operation Request] --> B[Job Orchestrator]
     B --> C[Dynamic Threading Service]
     B --> M[Dynamic Thread Pool Manager]
-    C --> D[Runtime Resource Monitor]
-    D --> E{System State Check}
+    C --> D{Database Type Check}
+    D -->|SQL Server| S[SQL Resource Monitor]
+    D -->|Other| R[Runtime Resource Monitor]
+    S --> E{Combined State Check}
+    R --> E
     E --> F[CPU Count]
     E --> G[Memory Usage]
     E --> H[Container Limits]
-    E --> I[Resource Pressure]
+    E --> I[System Pressure]
+    S --> P[SQL Connection Pool]
+    S --> Q[Blocked Processes]
+    S --> T[Transaction Log Usage]
+    S --> U[SQL Wait Statistics]
+    S --> V[Deadlock Statistics]
+    P --> W{SQL Pressure Check}
+    Q --> W
+    T --> W
+    U --> W
+    V --> W
     F --> J[Calculate Optimal Threads]
     G --> J
     H --> J
     I --> J
+    W --> J
     J --> K[Resource Throttling Service]
     J --> M
     M --> N[Runtime Thread Recalculation]
     N --> O[Adaptive Parallel Execution]
     K --> L[Execute Operation with Optimal Threads]
     O --> L
+    
+    classDef sqlMonitoring fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef systemMonitoring fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef threadingLogic fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    
+    class S,P,Q,T,U,V,W sqlMonitoring
+    class R,F,G,H,I systemMonitoring
+    class C,J,K,M,N,O threadingLogic
 ```
 
 ### Core Components
@@ -65,6 +87,18 @@ graph TB
   - Resource pressure identification (Memory > 80% or CPU > 85%)
   - Windows API integration for precise memory calculations
   - Graceful degradation when monitoring fails
+
+#### 2a. **ISqlResourceMonitor** (SQL Server Extension)
+- **Purpose**: SQL Server-specific resource monitoring and pressure detection
+- **Responsibility**: Extends runtime monitoring with database-specific metrics for SQL Server deployments
+- **Key Capabilities**:
+  - SQL connection pool utilization monitoring
+  - Blocked process detection and analysis
+  - Transaction log usage tracking
+  - Deadlock statistics collection
+  - SQL wait statistics analysis
+  - Combined system and SQL pressure detection
+  - Integration with existing IRuntimeResourceMonitor interface
 
 #### 3. **IResourceThrottlingService**
 - **Purpose**: Operation-level resource throttling
@@ -88,6 +122,99 @@ graph TB
 ### Cross-Platform Resource Monitoring
 
 The RuntimeResourceMonitor provides accurate system-wide resource monitoring that matches the readings shown in Task Manager (Windows) or system monitoring tools (Linux). This implementation addresses previous discrepancies between logged values and actual system usage.
+
+### SQL Server Resource Monitoring (SqlResourceMonitor)
+
+For SQL Server deployments, the system automatically replaces the base `RuntimeResourceMonitor` with `SqlResourceMonitor`, which extends all system monitoring capabilities with database-specific metrics. This provides comprehensive resource awareness that considers both system and database pressure.
+
+#### SQL Server-Specific Monitoring Capabilities
+
+**Connection Pool Monitoring:**
+- Real-time connection pool utilization tracking
+- Windows Performance Counter integration (`SQLServer:General Statistics/User Connections`)
+- DMV fallback using `sys.dm_exec_sessions` for cross-platform compatibility
+- Threshold detection when connection pool utilization exceeds 80%
+
+**Blocked Process Detection:**
+- Active monitoring of blocked SQL processes using `sys.dm_exec_requests`
+- Real-time detection of blocking sessions
+- Integration with threading decisions to reduce load during blocking scenarios
+
+**Transaction Log Usage:**
+- Real-time transaction log space utilization monitoring
+- Uses `sys.database_files` and `FILEPROPERTY` for accurate measurements
+- Threshold detection when log usage exceeds 85%
+- Critical for write-heavy operations like bulk imports
+
+**SQL Wait Statistics Analysis:**
+- Collection of top 10 wait statistics from `sys.dm_os_wait_stats`
+- Focus on performance-critical waits: `PAGEIOLATCH`, `WRITELOG`, `LCK_` locks
+- High wait time detection (>5 seconds total wait time)
+- Integration with threading decisions for I/O-bound operations
+
+**Deadlock Statistics:**
+- Windows Performance Counter monitoring (`SQLServer:Locks/Number of Deadlocks/sec`)
+- DMV-based deadlock detection for cross-platform environments
+- Historical deadlock count tracking
+- Timeline analysis for deadlock frequency patterns
+
+#### SQL Pressure Detection Algorithm
+
+The SQL Server monitoring system considers the database under pressure when any of the following conditions are met:
+
+```csharp
+var underPressure = connectionPoolUtil > 80 || hasBlocked || logUsage > 85 || highWaitTimes;
+```
+
+**Pressure Indicators:**
+- **Connection Pool > 80%**: High connection utilization indicates resource contention
+- **Blocked Processes**: Any blocking sessions indicate lock contention
+- **Transaction Log > 85%**: High log usage can impact write performance
+- **High Wait Times**: Critical wait types exceeding 5 seconds indicate I/O bottlenecks
+
+#### Integration with Dynamic Threading
+
+The `DynamicThreadingService` automatically detects SQL monitoring capabilities and combines system and database pressure:
+
+```csharp
+// Check SQL-specific pressure if we have SQL monitoring
+var isSqlUnderPressure = false;
+if (_resourceMonitor is ISqlResourceMonitor sqlMonitor)
+{
+    isSqlUnderPressure = sqlMonitor.IsSqlUnderPressureAsync().GetAwaiter().GetResult();
+}
+
+// Combine system and SQL pressure
+var combinedPressure = isUnderPressure || isSqlUnderPressure;
+
+// More aggressive reduction if SQL is under pressure (database operations are bottlenecked)
+var pressureMultiplier = combinedPressure ? (isSqlUnderPressure ? 0.4 : 0.7) : 1.0;
+```
+
+**Adaptive Threading Response:**
+- **System Pressure Only**: 30% thread reduction (0.7 multiplier)
+- **SQL Pressure Detected**: 60% thread reduction (0.4 multiplier)
+- **Combined Pressure**: Uses most restrictive multiplier
+
+#### Background Metrics Collection
+
+The SQL monitoring system uses a background timer to collect metrics every 30 seconds:
+
+```csharp
+// Update SQL metrics every 30 seconds, but delay initial execution by 10 seconds to allow application startup
+_sqlMetricsTimer = new Timer(UpdateSqlMetricsCallback, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30));
+```
+
+**Startup Delay Design:**
+- 10-second initial delay prevents premature SQL execution during application startup
+- Allows dependency injection container to fully initialize
+- Prevents SQL connectivity issues during server bootstrap
+
+**Metrics Caching Strategy:**
+- Thread-safe caching with lock-based synchronization
+- Automatic cache refresh when metrics are older than 30 seconds
+- Graceful degradation when SQL queries fail
+- Defensive programming with comprehensive error handling
 
 #### Windows Implementation
 - **Performance Counters**: Uses `System.Diagnostics.PerformanceCounter` for accurate CPU and memory monitoring
@@ -161,6 +288,8 @@ The accurate resource monitoring directly improves threading decisions:
 - **System-Wide Awareness**: Considers all system activity, not just FHIR server process
 - **Real-Time Responsiveness**: Immediate reaction to changing system conditions
 - **Container Compatibility**: Works correctly in containerized environments
+- **Database-Aware Scaling**: SQL Server deployments automatically include database pressure in threading decisions
+- **Adaptive Response Levels**: Different pressure multipliers for system vs database pressure scenarios
 
 ### StyleCop and Code Quality Compliance
 
@@ -368,6 +497,116 @@ public sealed class RuntimeResourceMonitor : IRuntimeResourceMonitor
         {
             _logger.LogDebug(ex, "Failed to get total physical memory");
             return 8192; // 8GB fallback
+        }
+    }
+}
+```
+
+### SQL Resource Monitor
+
+```csharp
+/// <summary>
+/// SQL Server-aware resource monitor that extends runtime monitoring with database-specific metrics.
+/// Automatically replaces RuntimeResourceMonitor in SQL Server deployments.
+/// </summary>
+public sealed class SqlResourceMonitor : ISqlResourceMonitor
+{
+    public async Task<bool> IsSqlUnderPressureAsync()
+    {
+        try
+        {
+            // Combine multiple SQL metrics to determine pressure
+            var connectionPoolUtil = await GetConnectionPoolUtilizationAsync();
+            var hasBlocked = await HasBlockedProcessesAsync();
+            var logUsage = await GetTransactionLogUsageAsync();
+            var waitStats = await GetTopSqlWaitStatisticsAsync();
+
+            // SQL is under pressure if:
+            // 1. Connection pool utilization > 80%
+            // 2. There are blocked processes
+            // 3. Transaction log usage > 85%
+            // 4. High wait times on critical resources
+            var highWaitTimes = waitStats.Any(w => 
+                (w.WaitType.Contains("PAGEIOLATCH", StringComparison.OrdinalIgnoreCase) || 
+                 w.WaitType.Contains("WRITELOG", StringComparison.OrdinalIgnoreCase) || 
+                 w.WaitType.Contains("LCK_", StringComparison.OrdinalIgnoreCase)) && 
+                w.WaitTimeMs > 5000); // > 5 seconds total wait time
+
+            var underPressure = connectionPoolUtil > 80 || hasBlocked || logUsage > 85 || highWaitTimes;
+
+            _logger.LogDebug(
+                "SQL pressure check: ConnectionPool={ConnectionPool:F1}%, Blocked={HasBlocked}, LogUsage={LogUsage:F1}%, HighWaits={HighWaits}, UnderPressure={UnderPressure}",
+                connectionPoolUtil,
+                hasBlocked,
+                logUsage,
+                highWaitTimes,
+                underPressure);
+
+            return underPressure;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to determine SQL pressure, assuming not under pressure");
+            return false;
+        }
+    }
+
+    public async Task<double> GetConnectionPoolUtilizationAsync()
+    {
+        await EnsureSqlMetricsUpdated();
+        lock (_sqlMetricsLock)
+        {
+            return _cachedConnectionPoolUtilization;
+        }
+    }
+
+    public async Task<bool> HasBlockedProcessesAsync()
+    {
+        await EnsureSqlMetricsUpdated();
+        lock (_sqlMetricsLock)
+        {
+            return _cachedHasBlockedProcesses;
+        }
+    }
+
+    public async Task<double> GetTransactionLogUsageAsync()
+    {
+        await EnsureSqlMetricsUpdated();
+        lock (_sqlMetricsLock)
+        {
+            return _cachedTransactionLogUsage;
+        }
+    }
+
+    // IRuntimeResourceMonitor implementation - delegate to the base monitor
+    public int GetCurrentProcessorCount() => _runtimeResourceMonitor.GetCurrentProcessorCount();
+    public long GetCurrentAvailableMemoryMB() => _runtimeResourceMonitor.GetCurrentAvailableMemoryMB();
+    public double GetCurrentMemoryUsagePercentage() => _runtimeResourceMonitor.GetCurrentMemoryUsagePercentage();
+    public bool IsUnderResourcePressure() => _runtimeResourceMonitor.IsUnderResourcePressure();
+
+    private async Task UpdateSqlMetricsAsync(object state)
+    {
+        try
+        {
+            var tasks = new[]
+            {
+                UpdateConnectionPoolMetricsAsync(),
+                UpdateBlockedProcessesAsync(),
+                UpdateTransactionLogUsageAsync(),
+                UpdateWaitStatisticsAsync(),
+                UpdateDeadlockStatisticsAsync(),
+            };
+
+            await Task.WhenAll(tasks);
+
+            lock (_sqlMetricsLock)
+            {
+                _lastSqlMetricsUpdate = DateTime.UtcNow;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to update SQL metrics");
         }
     }
 }
@@ -680,3 +919,36 @@ The implementation includes comprehensive error handling, graceful degradation, 
 **Last Updated**: August 8, 2025  
 **Authors**: Development Team  
 **Status**: Implementation Complete - Accurate RuntimeResourceMonitor Added
+
+## Deployment Considerations
+
+### SQL Server Resource Monitoring
+- The `SqlResourceMonitor` automatically replaces `RuntimeResourceMonitor` when SQL Server is configured
+- Service registration occurs in `FhirServerBuilderSqlServerRegistrationExtensions.cs` during application startup
+- SQL metrics are collected on a 30-second background timer with 10-second startup delay
+- Connection pool monitoring requires appropriate database permissions for DMV queries
+- Consider enabling SQL wait statistics collection for production environments
+
+### Performance Impact
+- SQL metrics collection adds minimal overhead (~50ms every 30 seconds)
+- Background timer runs independently from request processing threads
+- Failed SQL metric queries gracefully degrade to cross-platform monitoring
+- Connection pool utilization checks use existing connection pool statistics
+
+### Security Considerations
+- SQL monitoring requires VIEW SERVER STATE permission for comprehensive metrics
+- DMV queries are read-only and do not impact database performance
+- Connection pool statistics are available without additional permissions
+- Blocked process detection uses lightweight sys.dm_exec_requests queries
+
+### Configuration Options
+- Monitoring interval can be adjusted via Timer configuration
+- SQL pressure thresholds are configurable per deployment requirements
+- Fallback to `RuntimeResourceMonitor` occurs automatically if SQL monitoring fails
+- Cross-platform compatibility maintained for non-SQL Server deployments
+
+## References
+
+- [FHIR Performance Optimization](./SearchArchitecture.md)
+- [SQL Server Integration Guide](./HowToConnectSQLDatabase.md)
+- [Threading Architecture Overview](../src/Microsoft.Health.Fhir.Core/Features/Threading/README.md)

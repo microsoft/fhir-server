@@ -32,41 +32,67 @@ namespace Microsoft.Health.Fhir.Core.Features.Threading
         /// </summary>
         public int GetOptimalThreadCount(OperationType operationType)
         {
-            // Get current system state
-            var currentProcessorCount = _resourceMonitor.GetCurrentProcessorCount();
-            var isUnderPressure = _resourceMonitor.IsUnderResourcePressure();
-
-            // Reduce threads if system is under pressure
-            var pressureMultiplier = isUnderPressure ? 0.7 : 1.0;
-
-            var baseThreads = operationType switch
+            try
             {
-                // Export operations are primarily I/O bound, can handle more threads
-                OperationType.Export => Math.Min(Math.Max(currentProcessorCount, 4), 8),
+                // Get current system state
+                var currentProcessorCount = _resourceMonitor.GetCurrentProcessorCount();
+                var isUnderPressure = _resourceMonitor.IsUnderResourcePressure();
 
-                // Import operations are more resource intensive, use fewer threads
-                OperationType.Import => Math.Min(Math.Max(currentProcessorCount / 2, 2), 6),
+                // Check SQL-specific pressure if we have SQL monitoring
+                var isSqlUnderPressure = false;
+                if (_resourceMonitor is ISqlResourceMonitor sqlMonitor)
+                {
+                    try
+                    {
+                        isSqlUnderPressure = sqlMonitor.IsSqlUnderPressureAsync().GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to check SQL pressure, continuing with system pressure only");
+                    }
+                }
 
-                // Bulk update operations balance between I/O and CPU
-                OperationType.BulkUpdate => Math.Min(Math.Max(currentProcessorCount, 3), 6),
+                // Combine system and SQL pressure
+                var combinedPressure = isUnderPressure || isSqlUnderPressure;
 
-                // Index rebuild is CPU intensive
-                OperationType.IndexRebuild => Math.Min(Math.Max(currentProcessorCount / 3, 1), 4),
+                // More aggressive reduction if SQL is under pressure (database operations are bottlenecked)
+                var pressureMultiplier = combinedPressure ? (isSqlUnderPressure ? 0.4 : 0.7) : 1.0;
 
-                _ => Math.Min(currentProcessorCount, 4),
-            };
+                var baseThreads = operationType switch
+                {
+                    // Export operations are primarily I/O bound, can handle more threads
+                    OperationType.Export => Math.Min(Math.Max(currentProcessorCount, 4), 8),
 
-            var adjustedThreads = Math.Max(1, (int)(baseThreads * pressureMultiplier));
+                    // Import operations are more resource intensive, use fewer threads
+                    OperationType.Import => Math.Min(Math.Max(currentProcessorCount / 2, 2), 6),
 
-            _logger.LogDebug(
-                "Calculated optimal threads for {OperationType}: Base={BaseThreads}, Pressure={IsUnderPressure}, Final={FinalThreads}, ProcessorCount={ProcessorCount}",
-                operationType,
-                baseThreads,
-                isUnderPressure,
-                adjustedThreads,
-                currentProcessorCount);
+                    // Bulk update operations balance between I/O and CPU
+                    OperationType.BulkUpdate => Math.Min(Math.Max(currentProcessorCount, 3), 6),
 
-            return adjustedThreads;
+                    // Index rebuild is CPU intensive
+                    OperationType.IndexRebuild => Math.Min(Math.Max(currentProcessorCount / 3, 1), 4),
+
+                    _ => Math.Min(currentProcessorCount, 4),
+                };
+
+                var adjustedThreads = Math.Max(1, (int)(baseThreads * pressureMultiplier));
+
+                _logger.LogDebug(
+                    "Calculated optimal threads for {OperationType}: Base={BaseThreads}, SystemPressure={SystemPressure}, SqlPressure={SqlPressure}, Final={FinalThreads}, ProcessorCount={ProcessorCount}",
+                    operationType,
+                    baseThreads,
+                    isUnderPressure,
+                    isSqlUnderPressure,
+                    adjustedThreads,
+                    currentProcessorCount);
+
+                return adjustedThreads;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to calculate optimal thread count for {OperationType}, using fallback", operationType);
+                return GetFallbackThreadCount(operationType);
+            }
         }
 
         /// <summary>
@@ -83,6 +109,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Threading
                 OperationType.BulkUpdate => Math.Max(baseCount / 2, 1),
                 OperationType.IndexRebuild => 1, // Keep conservative for index operations
                 _ => Math.Max(baseCount / 2, 1),
+            };
+        }
+
+        /// <summary>
+        /// Gets a fallback thread count when dynamic calculation fails.
+        /// </summary>
+        private static int GetFallbackThreadCount(OperationType operationType)
+        {
+            return operationType switch
+            {
+                OperationType.Export => 4,
+                OperationType.Import => 2,
+                OperationType.BulkUpdate => 3,
+                OperationType.IndexRebuild => 1,
+                _ => 2,
             };
         }
 

@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Threading;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
@@ -182,6 +184,20 @@ namespace Microsoft.Extensions.DependencyInjection
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
+
+            // For SQL Server deployments, replace the base IRuntimeResourceMonitor with SQL-aware monitoring
+            // Remove the existing IRuntimeResourceMonitor registration and replace with SqlResourceMonitor
+            // First ensure we remove any existing IRuntimeResourceMonitor registrations
+            var runtimeResourceMonitorService = services.FirstOrDefault(s => s.ServiceType == typeof(IRuntimeResourceMonitor));
+            if (runtimeResourceMonitorService != null)
+            {
+                services.Remove(runtimeResourceMonitorService);
+            }
+
+            // Register SqlResourceMonitor as singleton and map to both interfaces
+            services.AddSingleton<SqlResourceMonitor>()
+                    .AddSingleton<IRuntimeResourceMonitor>(provider => provider.GetRequiredService<SqlResourceMonitor>())
+                    .AddSingleton<ISqlResourceMonitor>(provider => provider.GetRequiredService<SqlResourceMonitor>());
 
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()
