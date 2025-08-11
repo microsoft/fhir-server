@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             BundleType = bundleType;
             ProcessingLogic = processingLogic;
             HttpVerb = httpVerb;
+            PersistedId = persistedId;
             BundleOperationId = bundleOperationId;
         }
 

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// 4. Process any read, vread, search or history(GET or HEAD) interactions
         /// Reference: https://www.hl7.org/fhir/http.html#trules
         /// </summary>
-        private static Bundle.HTTPVerb[] _verbExecutionSequence = new Bundle.HTTPVerb[]
+        private static readonly Bundle.HTTPVerb[] _verbExecutionSequence = new Bundle.HTTPVerb[]
         {
             Bundle.HTTPVerb.DELETE,
             Bundle.HTTPVerb.POST,

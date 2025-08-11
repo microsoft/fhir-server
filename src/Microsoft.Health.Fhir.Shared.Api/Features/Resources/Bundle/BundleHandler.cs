@@ -796,6 +796,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ILogger<BundleHandler> logger)
         {
+            Guid bundleOperationId = Guid.Empty;
+
+            // Validation to make sure that the Bundle Orchestrator Operation is not null for parallel bundles.
+            if (processingLogic == BundleProcessingLogic.Parallel)
+            {
+                if (bundleOrchestratorOperation == null)
+                {
+                    throw new InvalidOperationException("Bundle Orchestrator Operation should not be null for parallel-bundles.");
+                }
+
+                bundleOperationId = bundleOrchestratorOperation.Id;
+            }
+
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
             request.RouteData.Values.TryGetValue("action", out object actionName);
             request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
@@ -810,9 +823,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
-                AuditEventType = auditEventTypeMapping.GetAuditEventType(
-                    controllerName?.ToString(),
-                    actionName?.ToString()),
+                AuditEventType = auditEventTypeMapping.GetAuditEventType(controllerName?.ToString(), actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
                 AccessControlContext = requestContext.AccessControlContext.Clone() as AccessControlContext,
             };
@@ -838,22 +849,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Propagate Fine Grained Access Control to the new FHIR Request Context.
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
 
-            // Validation to make sure that the Bundle Orchestrator Operation is not null for parallel bundles.
-            if (processingLogic == BundleProcessingLogic.Parallel)
-            {
-                if (bundleOrchestratorOperation == null)
-                {
-                    throw new InvalidOperationException("Bundle Orchestrator Operation should not be null for parallel-bundles.");
-                }
-            }
-
             // Propagate bundle context information to inner requests.
             BundleResourceContext bundleResourceContext = new BundleResourceContext(
                 bundleType,
                 processingLogic,
                 httpVerb,
                 persistedId: persistedId,
-                bundleOperationId: processingLogic == BundleProcessingLogic.Sequential ? Guid.Empty : bundleOrchestratorOperation.Id);
+                bundleOperationId: bundleOperationId);
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestContext, JObject.FromObject(bundleResourceContext).ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
