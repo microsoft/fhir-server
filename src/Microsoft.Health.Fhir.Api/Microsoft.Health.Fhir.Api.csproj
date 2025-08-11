@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Api" />
+    <PackageReference Include="Microsoft.Health.Encryption" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
