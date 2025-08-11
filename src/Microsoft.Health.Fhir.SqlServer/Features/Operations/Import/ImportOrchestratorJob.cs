@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Features.Threading;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -45,6 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IQueueClient _queueClient;
+        private readonly IDynamicThreadingService _dynamicThreadingService;
+        private readonly IDynamicThreadPoolManager _dynamicThreadPoolManager;
         private ImportJobConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
@@ -59,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
+            IDynamicThreadingService dynamicThreadingService,
+            IDynamicThreadPoolManager dynamicThreadPoolManager,
             IOptions<ImportJobConfiguration> importConfiguration,
             ILoggerFactory loggerFactory,
             IAuditLogger auditLogger)
@@ -67,6 +72,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(dynamicThreadingService, nameof(dynamicThreadingService));
+            EnsureArg.IsNotNull(dynamicThreadPoolManager, nameof(dynamicThreadPoolManager));
             EnsureArg.IsNotNull(importConfiguration?.Value, nameof(importConfiguration));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
@@ -75,6 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _contextAccessor = contextAccessor;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
+            _dynamicThreadingService = dynamicThreadingService;
+            _dynamicThreadPoolManager = dynamicThreadPoolManager;
             _importConfiguration = importConfiguration.Value;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
             _auditLogger = auditLogger;
@@ -173,19 +182,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task ValidateResourcesAsync(ImportOrchestratorJobDefinition inputData, CancellationToken cancellationToken)
         {
-            await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
-            {
-                Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
-                if (!string.IsNullOrEmpty(input.Etag))
+            var optimalThreadCount = _dynamicThreadingService.GetOptimalThreadCount(OperationType.Import);
+            _logger.LogInformation(
+                "Import validation using adaptive threading: {ThreadCount} threads", optimalThreadCount);
+
+            await _dynamicThreadPoolManager.ExecuteAdaptiveParallelAsync(
+                inputData.Input,
+                async (input, cancel) =>
                 {
-                    if (!input.Etag.Equals(properties[IntegrationDataStoreClientConstants.BlobPropertyETag]))
+                    Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
+                    if (!string.IsNullOrEmpty(input.Etag))
                     {
-                        var errorMessage = string.Format("Input file Etag not match. {0}", input.Url);
-                        var errorResult = new ImportJobErrorResult { ErrorMessage = errorMessage, HttpStatusCode = HttpStatusCode.BadRequest };
-                        throw new JobExecutionException(errorMessage, errorResult, true);
+                        if (!input.Etag.Equals(properties[IntegrationDataStoreClientConstants.BlobPropertyETag]))
+                        {
+                            var errorMessage = string.Format("Input file Etag not match. {0}", input.Url);
+                            var errorResult = new ImportJobErrorResult { ErrorMessage = errorMessage, HttpStatusCode = HttpStatusCode.BadRequest };
+                            throw new JobExecutionException(errorMessage, errorResult, true);
+                        }
                     }
-                }
-            });
+                },
+                OperationType.Import,
+                null, // Use default 30-second recalculation interval
+                cancellationToken);
         }
 
         internal static async Task SendNotification<T>(JobStatus status, JobInfo info, long succeeded, long failed, long bytes, ImportMode importMode, FhirRequestContext context, ILogger<T> logger, IAuditLogger auditLogger, IMediator mediator)
@@ -233,24 +251,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             // split blobs by size
             var inputs = new List<InputResource>();
-            await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
-            {
-                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                result.TotalBytes += blobLength;
-                foreach (var offset in GetOffsets(blobLength, BytesToRead))
+            var totalBytes = 0L; // Local variable for thread-safe accumulation
+            var optimalThreadCount = _dynamicThreadingService.GetOptimalThreadCount(OperationType.Import);
+            _logger.LogInformation(
+                "Import blob processing using adaptive threading: {ThreadCount} threads", optimalThreadCount);
+
+            await _dynamicThreadPoolManager.ExecuteAdaptiveParallelAsync(
+                coordDefinition.Input,
+                async (input, cancel) =>
                 {
-                    var newInput = input.Clone();
-                    newInput.Offset = offset;
-                    newInput.BytesToRead = BytesToRead;
-                    lock (inputs)
+                    var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                    Interlocked.Add(ref totalBytes, blobLength);
+                    foreach (var offset in GetOffsets(blobLength, BytesToRead))
                     {
-                        inputs.Add(newInput);
+                        var newInput = input.Clone();
+                        newInput.Offset = offset;
+                        newInput.BytesToRead = BytesToRead;
+                        lock (inputs)
+                        {
+                            inputs.Add(newInput);
+                        }
                     }
-                }
-            });
+                },
+                OperationType.Import,
+                null, // Use default 30-second recalculation interval
+                cancellationToken);
 
             var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, cancellationToken);
 
+            // Assign the accumulated total to the result property
+            result.TotalBytes = totalBytes;
             result.CreatedJobs = jobIds.Count;
         }
 

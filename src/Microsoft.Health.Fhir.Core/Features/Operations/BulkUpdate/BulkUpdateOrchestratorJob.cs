@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IDynamicThreadingService _threadingService;
+        private readonly IDynamicThreadPoolManager _dynamicThreadPoolManager;
         private readonly ILogger<BulkUpdateOrchestratorJob> _logger;
         private const int NumberOfParallelRecordRanges = 100;
         private const string OperationCompleted = "Completed";
@@ -55,17 +56,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             Func<IScoped<ISearchService>> searchService,
             IDynamicThreadingService threadingService,
+            IDynamicThreadPoolManager dynamicThreadPoolManager,
             ILogger<BulkUpdateOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(threadingService, nameof(threadingService));
+            EnsureArg.IsNotNull(dynamicThreadPoolManager, nameof(dynamicThreadPoolManager));
 
             _queueClient = queueClient;
             _contextAccessor = contextAccessor;
             _searchService = searchService;
             _threadingService = threadingService;
+            _dynamicThreadPoolManager = dynamicThreadPoolManager;
             _logger = logger;
         }
 
@@ -117,44 +121,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     var coordinatorMaxDegreeOfParallelization = _threadingService.GetOptimalThreadCount(OperationType.BulkUpdate);
 
                     _logger.LogInformation(
-                        "BulkUpdate orchestrator using adaptive threading: {ThreadCount} threads",
+                        "BulkUpdate orchestrator using adaptive threading with runtime adaptation: {ThreadCount} threads",
                         coordinatorMaxDegreeOfParallelization);
 
-                    await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = coordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
-                    {
-                        var startId = globalStartId;
-                        if (enqueued.TryGetValue(type, out var max))
+                    await _dynamicThreadPoolManager.ExecuteAdaptiveParallelAsync(
+                        resourceTypes,
+                        async (type, cancel) =>
                         {
-                            startId = max + 1;
-                        }
-
-                        var rows = 1;
-                        while (rows > 0)
-                        {
-                            var definitions = new List<BulkUpdateDefinition>();
-                            var ranges = await searchService.Value.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfParallelRecordRanges, true, cancel);
-                            foreach (var range in ranges)
+                            var startId = globalStartId;
+                            if (enqueued.TryGetValue(type, out var max))
                             {
-                                if (range.EndId > startId)
+                                startId = max + 1;
+                            }
+
+                            var rows = 1;
+                            while (rows > 0)
+                            {
+                                var definitions = new List<BulkUpdateDefinition>();
+                                var ranges = await searchService.Value.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfParallelRecordRanges, true, cancel);
+                                foreach (var range in ranges)
                                 {
-                                    startId = range.EndId;
+                                    if (range.EndId > startId)
+                                    {
+                                        startId = range.EndId;
+                                    }
+
+                                    _logger.LogJobInformation(jobInfo, "Creating bulk update definition (1).");
+                                    var processingDefinition = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, type, continuationToken: null, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                                    definitions.Add(processingDefinition);
                                 }
 
-                                _logger.LogJobInformation(jobInfo, "Creating bulk update definition (1).");
-                                var processingDefinition = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, type, continuationToken: null, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                                definitions.Add(processingDefinition);
-                            }
+                                startId++; // make sure we do not intersect ranges
 
-                            startId++; // make sure we do not intersect ranges
-
-                            rows = definitions.Count;
-                            if (rows > 0)
-                            {
-                                _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (1).");
-                                await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
+                                rows = definitions.Count;
+                                if (rows > 0)
+                                {
+                                    _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (1).");
+                                    await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
+                                }
                             }
-                        }
-                    });
+                        },
+                        OperationType.BulkUpdate,
+                        null, // Use default 30-second recalculation interval
+                        cancellationToken);
                 }
                 else if (definition.IsParallel)
                 {

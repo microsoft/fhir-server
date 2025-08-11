@@ -803,12 +803,13 @@ Benefits:
 ```
 INFO: DynamicThreadingService initialized with runtime resource monitoring
 INFO: RuntimeResourceMonitor initialized with Windows Performance Counters
-INFO: RuntimeResourceMonitor initialized with cross-platform monitoring for Linux
+INFO: SqlResourceMonitor initialized with SQL Server resource monitoring
 INFO: ResourceThrottlingService initialized - Export: 6, Import: 3, BulkUpdate: 4
 INFO: DynamicThreadPoolManager initialized for runtime thread adaptation
 INFO: Export orchestrator using adaptive threading (configuration=0, adaptive=True)
 INFO: Runtime thread recalculation for Export: 6 threads
 DEBUG: Resource pressure check: Memory=45.2%, CPU=23.1%, UnderPressure=False
+DEBUG: SQL pressure check: ConnectionPool=65.2%, Blocked=False, LogUsage=42.1%, HighWaits=False, UnderPressure=False
 DEBUG: Calculated optimal threads for Export: Base=8, Pressure=False, Final=8, ProcessorCount=8
 DEBUG: Acquired throttling semaphore for Export. Available: 5
 DEBUG: ExecuteWithRuntimeAdaptationAsync: Starting adaptive execution for Export operation
@@ -818,10 +819,12 @@ DEBUG: ProcessResourceTypeAsync: Processing Patient resources with adaptive thre
 ### Monitoring Dashboard Metrics
 - **Thread Count Trends**: Track thread allocation over time
 - **Resource Pressure Events**: Monitor when system enters pressure state
+- **SQL Server Pressure Events**: Monitor database-specific pressure indicators (connection pool, blocked processes, transaction log)
 - **Container Limit Detection**: Verify container awareness
 - **Performance Correlation**: Compare thread counts with operation completion times
 - **Runtime Adaptation Events**: Track when thread counts change during operation execution
 - **Adaptive vs Static Performance**: Compare performance between adaptive and static threading modes
+- **SQL Monitoring Health**: Track SQL metrics collection success rates and fallback scenarios
 
 ## Configuration
 
@@ -906,19 +909,20 @@ The service's container-aware, cross-platform design makes it ideal for modern c
 **Key Innovations:**
 - **Runtime Thread Adaptation**: The DynamicThreadPoolManager enables thread count recalculation during operation execution, ensuring long-running operations maintain optimal performance as system conditions change.
 - **Accurate Resource Monitoring**: The RuntimeResourceMonitor provides Task Manager-level accuracy for system resource measurements, eliminating discrepancies between logged values and actual system usage.
+- **SQL Server Resource Integration**: The SqlResourceMonitor automatically extends system monitoring with database-specific metrics including connection pool utilization, blocked processes, transaction log usage, and deadlock statistics for comprehensive resource pressure detection.
 - **Hybrid Threading Modes**: Support for both static (configuration-driven) and adaptive (runtime-calculated) threading approaches provides flexibility for different deployment scenarios.
 - **Cross-Platform Precision**: Platform-specific implementations (Windows Performance Counters, Linux /proc filesystem) ensure accurate monitoring across all supported environments.
 - **Comprehensive Integration**: Seamless integration with existing FHIR operations including export, import, and bulk update operations.
 
 **Production Readiness:**
-The implementation includes comprehensive error handling, graceful degradation, detailed logging, and monitoring capabilities necessary for production deployments. The service maintains backward compatibility while providing enhanced performance characteristics for modern cloud environments. The RuntimeResourceMonitor has been fully optimized for accuracy and compliance with Microsoft coding standards, ensuring reliable resource pressure detection that matches system monitoring tools.
+The implementation includes comprehensive error handling, graceful degradation, detailed logging, and monitoring capabilities necessary for production deployments. The service maintains backward compatibility while providing enhanced performance characteristics for modern cloud environments. The RuntimeResourceMonitor has been fully optimized for accuracy and compliance with Microsoft coding standards, ensuring reliable resource pressure detection that matches system monitoring tools. For SQL Server deployments, the SqlResourceMonitor provides additional database-aware resource monitoring that considers connection pool utilization, blocking sessions, transaction log usage, and SQL wait statistics to make more informed threading decisions.
 
 ---
 
-**Document Version**: 2.1  
-**Last Updated**: August 8, 2025  
+**Document Version**: 2.2  
+**Last Updated**: August 11, 2025  
 **Authors**: Development Team  
-**Status**: Implementation Complete - Accurate RuntimeResourceMonitor Added
+**Status**: Implementation Complete - SQL Server Resource Monitoring Integrated
 
 ## Deployment Considerations
 

@@ -470,7 +470,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Threading
 
                 var results = await _sqlRetryService.ExecuteReaderAsync(
                     cmd,
-                    reader => reader.IsDBNull(0) ? 0L : (long)reader.GetInt32(0),
+                    reader => reader.IsDBNull(0) ? 0L : reader.GetInt32(0),
                     _logger,
                     "Getting deadlock statistics",
                     CancellationToken.None,
