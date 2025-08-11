@@ -79,9 +79,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string StorageAccountUri = "storageAccountUri";
 
-        public const string MaximumConcurrency = "maximumConcurrency";
-
         public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
+
+        public const string MaximumNumberOfResourcesPerWrite = "maximumNumberOfResourcesPerWrite";
 
         public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
 

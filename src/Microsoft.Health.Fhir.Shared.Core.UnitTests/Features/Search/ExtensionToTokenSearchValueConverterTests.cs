@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         protected override async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()
         {
-            FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
-            fhirTypedElementToSearchValueConverterManager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
+            var manager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
+            manager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
 
             return extensionConverter;
         }

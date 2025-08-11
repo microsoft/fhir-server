@@ -9,6 +9,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     public class ReindexJobException : Exception
     {
+        public ReindexJobException(string message)
+            : base(message, null)
+        {
+        }
+
         public ReindexJobException(string message, Exception inner)
             : base(message, inner)
         {
