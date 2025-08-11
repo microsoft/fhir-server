@@ -642,6 +642,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 inspectors.ToArray());
         }
 
+        [SkippableFact]
+        public async Task GivenAnUnsupportedHttpMethod_WhenRequested_ThenAuditLogEntriesShouldBeCreated()
+        {
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
+
+            const string pathSegment = "Patient/123";
+            var request = new HttpRequestMessage(HttpMethod.Patch, pathSegment);
+            
+            HttpResponseMessage response = await _client.HttpClient.SendAsync(request);
+
+            // Should return Method Not Allowed
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+            Assert.NotNull(correlationId);
+
+            var expectedUri = new Uri($"http://localhost/{pathSegment}");
+            string expectedAppId = TestApplications.GlobalAdminServicePrincipal.ClientId;
+
+            // Verify that audit log entries were created for the 405 response
+            var auditEntries = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
+            Assert.NotEmpty(auditEntries);
+            
+            // Should have at least one audit entry for the executed action
+            Assert.Contains(auditEntries, ae => 
+                ae.AuditAction == AuditAction.Executed && 
+                ae.StatusCode == HttpStatusCode.MethodNotAllowed);
+        }
+
         private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
             ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, expectedResourceType, expectedUri, null, expectedCorrelationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders);

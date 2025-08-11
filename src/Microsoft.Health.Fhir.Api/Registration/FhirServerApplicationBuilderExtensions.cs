@@ -52,6 +52,7 @@ namespace Microsoft.AspNetCore.Builder
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseAuditLoggingMiddleware();
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
 
