@@ -434,7 +434,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 });
             }
 
-            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
+            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
         }
 
         private async Task ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)

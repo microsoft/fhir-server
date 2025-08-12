@@ -11,11 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Bundle
 {
     public class BundleMetricsNotification : IMetricsNotification
     {
-        public BundleMetricsNotification(IDictionary<string, List<BundleSubCallMetricData>> apiCallResults, string bundleType)
+        public BundleMetricsNotification(IDictionary<string, List<BundleSubCallMetricData>> apiCallResults, string bundleType, string protocol = null)
         {
             FhirOperation = bundleType;
             ResourceType = KnownResourceTypes.Bundle;
             ApiCallResults = apiCallResults;
+            Protocol = protocol;
         }
 
         public string FhirOperation { get; }
@@ -23,5 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Bundle
         public string ResourceType { get; }
 
         public IDictionary<string, List<BundleSubCallMetricData>> ApiCallResults { get; }
+
+        /// <summary>
+        /// The protocol used to call the FHIR server.
+        /// </summary>
+        public string Protocol { get; }
     }
 }
