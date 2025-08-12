@@ -90,9 +90,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
 
+        // Total number of requests in the bundle.
         private int _requestCount;
+
+        // Bundle type being processed (batch, transaction).
         private BundleType? _bundleType;
+
+        // Indicates if any of the resources in the bundle require Profile refresh.
         private bool _forceProfilesRefresh = false;
+
+        // Total number of resolved references in the bundle.
+        private int _totalResolvedReferences = 0;
 
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
@@ -507,7 +515,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (_bundleType == BundleType.Transaction && entry.Resource != null)
             {
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
+                int totalResolvedReferences = await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
+                _totalResolvedReferences += totalResolvedReferences;
 
                 if (requestMethod == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
@@ -850,13 +859,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
 
             // Propagate bundle context information to inner requests.
-            BundleResourceContext bundleResourceContext = new BundleResourceContext(
+            BundleResourceContext bundleResourceExecutionContext = new BundleResourceContext(
                 bundleType,
                 processingLogic,
                 httpVerb,
                 persistedId: persistedId,
                 bundleOperationId: bundleOperationId);
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestContext, JObject.FromObject(bundleResourceContext).ToString());
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, JObject.FromObject(bundleResourceExecutionContext).ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
             bundleHttpContextAccessor.HttpContext = httpContext;
@@ -968,7 +977,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
         {
-            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _optimizedQuerySet, _requestCount);
+            BundleHandlerStatistics statistics = new BundleHandlerStatistics(
+                _bundleType,
+                processingLogic,
+                _optimizedQuerySet,
+                _requestCount,
+                _totalResolvedReferences);
 
             statistics.StartCollectingResults();
 

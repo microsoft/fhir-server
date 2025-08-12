@@ -280,15 +280,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
                     httpContext.RequestAborted = cancellationToken;
 
-                    // FIX: This part can be removed now.
-                    /*
-                    Func<string> originalResourceIdProvider = resourceIdProvider.Create;
-                    if (!string.IsNullOrWhiteSpace(resourceExecutionContext.PersistedId))
-                    {
-                        resourceIdProvider.Create = () => resourceExecutionContext.PersistedId;
-                    }
-                    */
-
                     SetupContexts(
                         bundleType,
                         resourceExecutionContext.Context,
@@ -330,9 +321,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // Attempt 2.
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
                     }
-
-                    // FIX: This part can be removed now.
-                    // resourceIdProvider.Create = originalResourceIdProvider;
 
                     entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
 

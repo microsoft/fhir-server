@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         public const string HttpHeaderBundleProcessingLogic = "x-bundle-processing-logic";
 
         // Internal constant for HTTP header used to pass the bundle context to internal components.
-        public const string HttpBundleInnerRequestContext = "x-bundle-internal-context";
+        public const string HttpBundleInnerRequestExecutionContext = "x-bundle-internal-request-execution-context";
     }
 }

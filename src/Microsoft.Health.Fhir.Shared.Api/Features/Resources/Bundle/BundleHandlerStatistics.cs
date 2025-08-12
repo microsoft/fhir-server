@@ -25,17 +25,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleType? bundleType,
             BundleProcessingLogic bundleProcessingLogic,
             bool optimizedQuerySet,
-            int numberOfResources)
+            int numberOfResources,
+            int resolvedReferences)
             : base()
         {
             BundleType = bundleType;
             BundleProcessingLogic = bundleProcessingLogic;
             OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
+            ResolvedReferences = resolvedReferences;
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
         }
 
         public int NumberOfResources { get; }
+
+        public int ResolvedReferences { get; set; }
 
         public int RegisteredEntries => _entries.Count;
 
@@ -72,6 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 processingLogic = BundleProcessingLogic.ToString(),
                 optimizedQuerySet = OptimizedQueryProcessing.ToString(),
                 numberOfResources = NumberOfResources,
+                resolvedReferences = ResolvedReferences,
                 registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
                 clientError = FailedDueClientError,

@@ -23,7 +23,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             const int numberOfResources = 100;
 
-            var bundleStatistics = new BundleHandlerStatistics(Hl7.Fhir.Model.Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, true, 100);
+            var bundleStatistics = new BundleHandlerStatistics(
+                Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                BundleProcessingLogic.Parallel,
+                optimizedQuerySet: true,
+                numberOfResources: numberOfResources,
+                resolvedReferences: 50);
 
             Parallel.For(0, numberOfResources - 2, i =>
             {
@@ -38,6 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, "500", TimeSpan.Zero);
 
             Assert.Equal(numberOfResources, bundleStatistics.NumberOfResources);
+            Assert.Equal(50, bundleStatistics.ResolvedReferences);
             Assert.Equal(numberOfResources, bundleStatistics.RegisteredEntries);
             Assert.Equal(BundleProcessingLogic.Parallel, bundleStatistics.BundleProcessingLogic);
 
@@ -48,6 +54,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             long customerErrors = statisticsAsJson["customerErrors"].Value<long>();
 
             Assert.Equal(bundleStatistics.RegisteredEntries, success + errors + customerErrors);
+
+            // Resolved references.
+            int resolvedReferences = statisticsAsJson["resolvedReferences"].Value<int>();
+            Assert.Equal(bundleStatistics.ResolvedReferences, resolvedReferences);
         }
     }
 }

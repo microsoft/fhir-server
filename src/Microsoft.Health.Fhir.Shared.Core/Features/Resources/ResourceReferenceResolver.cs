@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
@@ -39,10 +38,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ResolveReferencesAsync(Resource resource, IDictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
+        public async Task<int> ResolveReferencesAsync(Resource resource, IDictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
 
+            int totalResolvedReferences = 0;
             foreach (ResourceReference reference in references)
             {
                 if (string.IsNullOrWhiteSpace(reference.Reference))
@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
                     reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
+                    totalResolvedReferences++;
                 }
                 else
                 {
@@ -80,9 +81,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                         referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 
                         reference.Reference = $"{resourceType}/{resourceId}";
+                        totalResolvedReferences++;
                     }
                 }
             }
+
+            return totalResolvedReferences;
         }
 
         public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
