@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Guidance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
     public class ClinicalReferenceDuplicatorTests
     {
         private readonly ClinicalReferenceDuplicator _duplicator;
-        private readonly IMediator _mediator;
+        private readonly IFhirDataStore _dataStore;
         private readonly ISearchService _searchService;
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
@@ -41,20 +42,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 
         public ClinicalReferenceDuplicatorTests()
         {
-            _mediator = Substitute.For<IMediator>();
+            _dataStore = Substitute.For<IFhirDataStore>();
             _searchService = Substitute.For<ISearchService>();
             _logger = Substitute.For<ILogger<ClinicalReferenceDuplicator>>();
-
-            _duplicator = new ClinicalReferenceDuplicator(
-                _mediator,
-                _searchService,
-                _logger);
 
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
                 .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
+
+            _duplicator = new ClinicalReferenceDuplicator(
+                _dataStore,
+                _searchService,
+                _resourceWrapperFactory,
+                _logger);
         }
 
         [Theory]
@@ -68,20 +70,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 
             // Set up a validation on a request for creating the original resource.
             var resourceElement = resource.ToResourceElement();
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<CreateResourceRequest>(x => string.Equals(x.Resource.InstanceType, resourceType, StringComparison.OrdinalIgnoreCase)),
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Throws(new Exception($"Shouldn't be called to create a {resourceType} resource."));
 
             // Set up a validation on a request for creating a duplicate resource.
             Resource duplicateResource = null;
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<CreateResourceRequest>(x => string.Equals(x.Resource.InstanceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
-                        var re = ((CreateResourceRequest)x[0]).Resource;
+                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
+                            .ToITypedElement(ModelInfoProvider.Instance)?
+                            .ToResourceElement();
                         Assert.NotNull(re);
                         Assert.Equal(duplicateResourceType, re.InstanceType, true);
 
@@ -135,18 +139,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         }
 
                         return Task.FromResult(
-                            new UpsertResourceResponse(
-                                new SaveOutcome(new RawResourceElement(CreateResourceWrapper(r.ToResourceElement())), SaveOutcomeType.Created)));
+                            new UpsertOutcome(
+                                CreateResourceWrapper(r.ToResourceElement()),
+                                SaveOutcomeType.Created));
                     });
 
             // Set up a validation on a request for updating the original resource with the id of the duplicate resource.
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<UpsertResourceRequest>(x => string.Equals(x.Resource.InstanceType, resourceType, StringComparison.OrdinalIgnoreCase)),
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
-                        var re = ((UpsertResourceRequest)x[0]).Resource;
+                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
+                            .ToITypedElement(ModelInfoProvider.Instance)?
+                            .ToResourceElement();
                         Assert.NotNull(re);
                         Assert.Equal(resourceType, re.InstanceType, true);
 
@@ -158,8 +165,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 && string.Equals(t.Code, duplicateResource.Id, StringComparison.OrdinalIgnoreCase));
 
                         return Task.FromResult(
-                            new UpsertResourceResponse(
-                                new SaveOutcome(new RawResourceElement(CreateResourceWrapper(r.ToResourceElement())), SaveOutcomeType.Updated)));
+                            new UpsertOutcome(
+                                CreateResourceWrapper(r.ToResourceElement()),
+                                SaveOutcomeType.Updated));
                     });
 
             await _duplicator.CreateResourceAsync(
@@ -167,11 +175,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 CancellationToken.None);
 
             // Check how many times create/update was invoked.
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
-                Arg.Any<CreateResourceRequest>(),
+            await _dataStore.Received(1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
-                Arg.Any<UpsertResourceRequest>(),
+            await _dataStore.Received(1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
         }
 
@@ -224,15 +232,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         return Task.FromResult(searchResult);
                     });
 
-            // Set up a validation on a request for creating a duplicate resource.
+            // Set up a validation on a request for creating/updating a duplicate resource.
             Resource duplicateResource = null;
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<CreateResourceRequest>(x => string.Equals(x.Resource.InstanceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
-                        var re = ((CreateResourceRequest)x[0]).Resource;
+                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
+                            .ToITypedElement(ModelInfoProvider.Instance)?
+                            .ToResourceElement();
                         Assert.NotNull(re);
                         Assert.Equal(duplicateResourceType, re.InstanceType, true);
 
@@ -286,18 +296,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         }
 
                         return Task.FromResult(
-                            new UpsertResourceResponse(
-                                new SaveOutcome(new RawResourceElement(CreateResourceWrapper(r.ToResourceElement())), SaveOutcomeType.Created)));
+                            new UpsertOutcome(
+                                CreateResourceWrapper(r.ToResourceElement()),
+                                SaveOutcomeType.Created));
                     });
 
             // Set up a validation on a request for updating the original resource with the id of the duplicate resource.
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<UpsertResourceRequest>(x => string.Equals(x.Resource.InstanceType, resourceType, StringComparison.OrdinalIgnoreCase)),
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
-                        var re = ((UpsertResourceRequest)x[0]).Resource;
+                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
+                            .ToITypedElement(ModelInfoProvider.Instance)?
+                            .ToResourceElement();
                         Assert.NotNull(re);
                         Assert.Equal(resourceType, re.InstanceType, true);
 
@@ -309,80 +322,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 && string.Equals(t.Code, duplicateResource.Id, StringComparison.OrdinalIgnoreCase));
 
                         return Task.FromResult(
-                            new UpsertResourceResponse(
-                                new SaveOutcome(new RawResourceElement(CreateResourceWrapper(r.ToResourceElement())), SaveOutcomeType.Updated)));
-                    });
-
-            // Set up a validation on a request for updating the duplicate resource.
-            _mediator.Send<UpsertResourceResponse>(
-                Arg.Is<UpsertResourceRequest>(x => string.Equals(x.Resource.InstanceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
-                Arg.Any<CancellationToken>())
-                .Returns(
-                    x =>
-                    {
-                        var re = ((UpsertResourceRequest)x[0]).Resource;
-                        Assert.NotNull(re);
-                        Assert.Equal(duplicateResourceType, re.InstanceType, true);
-
-                        var r = re.ToPoco();
-                        Assert.NotNull(r.Meta?.Tag);
-                        Assert.Contains(
-                            r.Meta.Tag,
-                            t => string.Equals(t.System, ClinicalReferenceDuplicator.TagDuplicateOf, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(t.Code, resource.Id, StringComparison.OrdinalIgnoreCase));
-
-                        if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var original = (DocumentReference)resource;
-                            var duplicate = (DiagnosticReport)r;
-
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.PresentedForm);
-
-                            if (original.Content?.Any(x => !string.IsNullOrEmpty(x.Attachment?.Url)) ?? false)
-                            {
-                                foreach (var a in original.Content.Select(x => x.Attachment))
-                                {
-                                    Assert.Contains(
-                                        duplicate.PresentedForm,
-                                        x => string.Equals(x.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                                }
-                            }
-                            else
-                            {
-                                Assert.Equal(0, duplicate.PresentedForm.Count(x => !string.IsNullOrEmpty(x.Url)));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-                        else
-                        {
-                            var original = (DiagnosticReport)resource;
-                            var duplicate = (DocumentReference)r;
-
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.Content);
-
-                            if (original.PresentedForm?.Any(x => !string.IsNullOrEmpty(x.Url)) ?? false)
-                            {
-                                foreach (var a in original.PresentedForm)
-                                {
-                                    Assert.Contains(
-                                        duplicate.Content,
-                                        x => string.Equals(x.Attachment?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                                }
-                            }
-                            else
-                            {
-                                Assert.Equal(0, duplicate.Content.Count(x => !string.IsNullOrEmpty(x.Attachment?.Url)));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-
-                        return Task.FromResult(
-                            new UpsertResourceResponse(
-                                new SaveOutcome(new RawResourceElement(CreateResourceWrapper(r.ToResourceElement())), SaveOutcomeType.Updated)));
+                            new UpsertOutcome(
+                                CreateResourceWrapper(r.ToResourceElement()),
+                                SaveOutcomeType.Updated));
                     });
 
             await _duplicator.UpdateResourceAsync(
@@ -394,14 +336,115 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(duplicateResources.Any() ? 0 : 1).Send<UpsertResourceResponse>(
-                Arg.Any<CreateResourceRequest>(),
+            await _dataStore.Received(duplicateResources.Any() ? 0 : 1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(duplicateResources.Any() ? 0 : 1).Send<UpsertResourceResponse>(
-                Arg.Is<UpsertResourceRequest>(x => string.Equals(x.Resource.InstanceType, resourceType, StringComparison.OrdinalIgnoreCase)),
+            await _dataStore.Received(duplicateResources.Any() ? duplicateResources.Count : 1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(duplicateResources.Any() ? duplicateResources.Count : 0).Send<UpsertResourceResponse>(
-                Arg.Is<UpsertResourceRequest>(x => string.Equals(x.Resource.InstanceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+        }
+
+        [Theory]
+        [MemberData(nameof(GetDeleteResourceData))]
+        public async Task GivenResource_WhenDeleting_ThenDuplicateResourceShouldBeDeleted(
+            Resource resource,
+            DeleteOperation deleteOperation,
+            List<Resource> duplicateResources)
+        {
+            var resourceType = resource.TypeName;
+            var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
+                ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
+            var duplicateResourceIds = duplicateResources.Select(x => x.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Set up a validation on a request for searching duplicate resources.
+            var entries = new List<SearchResultEntry>();
+            if (duplicateResources?.Any() ?? false)
+            {
+                foreach (var r in duplicateResources)
+                {
+                    var wrapper = new ResourceWrapper(
+                        r.ToResourceElement(),
+                        new RawResource(r.ToJson(), FhirResourceFormat.Json, false),
+                        null,
+                        false,
+                        null,
+                        null,
+                        null);
+                    entries.Add(new SearchResultEntry(wrapper));
+                }
+            }
+
+            _searchService.SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(
+                    x =>
+                    {
+                        var parameters = (IReadOnlyList<Tuple<string, string>>)x[1];
+                        Assert.Contains(
+                            parameters,
+                            x => string.Equals(x.Item1, "_tag", StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(x.Item2, $"{ClinicalReferenceDuplicator.TagDuplicateOf}|{resource.Id}", StringComparison.OrdinalIgnoreCase));
+
+                        var searchResult = new SearchResult(
+                            entries,
+                            null,
+                            null,
+                            new List<Tuple<string, string>>());
+                        return Task.FromResult(searchResult);
+                    });
+
+            // Set up a validation on a request for soft-deleting the duplicate resource.
+            _dataStore.UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<CancellationToken>())
+                .Returns(
+                    x =>
+                    {
+                        var r = ((ResourceWrapperOperation)x[0])?.Wrapper;
+                        Assert.NotNull(r);
+                        Assert.Equal(duplicateResourceType, r.ResourceTypeName, true);
+                        Assert.Contains(r.ResourceId, duplicateResourceIds);
+
+                        return Task.FromResult(
+                            new UpsertOutcome(r, SaveOutcomeType.Updated));
+                    });
+
+            // Set up a validation on a request for hard-deleting the duplicate resource.
+            _dataStore.HardDeleteAsync(
+                Arg.Is<ResourceKey>(x => string.Equals(x.ResourceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+                .Returns(
+                    x =>
+                    {
+                        var k = (ResourceKey)x[0];
+                        Assert.NotNull(k);
+                        Assert.Equal(duplicateResourceType, k.ResourceType, true);
+                        Assert.Contains(k.Id, duplicateResourceIds);
+
+                        return Task.CompletedTask;
+                    });
+
+            await _duplicator.DeleteResourceAsync(
+                new ResourceKey(resource.TypeName, resource.Id),
+                deleteOperation,
+                CancellationToken.None);
+
+            // Check how many times create/update was invoked.
+            await _searchService.Received(1).SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>());
+            await _dataStore.Received(deleteOperation == DeleteOperation.SoftDelete && duplicateResources.Any() ? duplicateResources.Count : 0).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<CancellationToken>());
+            await _dataStore.Received(deleteOperation == DeleteOperation.HardDelete && duplicateResources.Any() ? duplicateResources.Count : 0).HardDeleteAsync(
+                Arg.Is<ResourceKey>(x => string.Equals(x.ResourceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -669,6 +712,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -684,11 +728,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 },
                             },
                             Subject = new ResourceReference(Guid.NewGuid().ToString()),
-        #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                             Status = DocumentReferenceStatus.Current,
-        #else
+#else
                             Status = DocumentReference.DocumentReferenceStatus.Current,
-        #endif
+#endif
                         },
                     },
                 },
@@ -749,6 +793,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -764,11 +809,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 },
                             },
                             Subject = new ResourceReference(Guid.NewGuid().ToString()),
-        #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                             Status = DocumentReferenceStatus.Current,
-        #else
+#else
                             Status = DocumentReference.DocumentReferenceStatus.Current,
-        #endif
+#endif
                         },
                     },
                 },
@@ -809,6 +854,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -824,11 +870,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 },
                             },
                             Subject = new ResourceReference(Guid.NewGuid().ToString()),
-        #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                             Status = DocumentReferenceStatus.Current,
-        #else
+#else
                             Status = DocumentReference.DocumentReferenceStatus.Current,
-        #endif
+#endif
                         },
                     },
                 },
@@ -876,6 +922,135 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 },
                 new object[]
                 {
+                    // Update a DiagnosticReport resource with multiple duplicates.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original",
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate1",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate1",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate2",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate2",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                },
+                new object[]
+                {
                     // Update a DocumentReference resource with one attachment.
                     new DocumentReference
                     {
@@ -916,6 +1091,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Status = DiagnosticReport.DiagnosticReportStatus.Registered,
@@ -1002,6 +1178,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Status = DiagnosticReport.DiagnosticReportStatus.Registered,
@@ -1059,6 +1236,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Status = DiagnosticReport.DiagnosticReportStatus.Registered,
@@ -1129,6 +1307,939 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 #endif
                     },
                     new List<Resource>(),
+                },
+                new object[]
+                {
+                    // Update a DocumentReference resource with multiple duplicates.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate1",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate1",
+                                },
+                            },
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate2",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate2",
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetDeleteResourceData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    // Delete a DiagnosticReport resource with one attachment.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original",
+                            },
+                        },
+                    },
+                    DeleteOperation.SoftDelete,
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a  DiagnosticReport resource with multiple attachments.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                            },
+                        },
+                    },
+                    DeleteOperation.SoftDelete,
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DiagnosticReport resource without any attachment.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>(),
+                    },
+                    DeleteOperation.SoftDelete,
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DiagnosticReport resource with attachments when no duplicates.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                            },
+                        },
+                    },
+                    DeleteOperation.SoftDelete,
+                    new List<Resource>(),
+                },
+                new object[]
+                {
+                    // Delete a DiagnosticReport resource with multiple duplicates.
+                    new DiagnosticReport
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-original",
+                            },
+                        },
+                    },
+                    DeleteOperation.SoftDelete,
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate1",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate2",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DocumentReference resource with one attachment.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    DeleteOperation.HardDelete,
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DocumentReference resource with multiple attachment.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    DeleteOperation.HardDelete,
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DocumentReference resource without any attachment.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Content = new List<DocumentReference.ContentComponent>(),
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    DeleteOperation.HardDelete,
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Delete a DocumentReference resource with attachments when no duplicates.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    DeleteOperation.HardDelete,
+                    new List<Resource>(),
+                },
+                new object[]
+                {
+                    // Delete a DocumentReference resource with multiple duplicates.
+                    new DocumentReference
+                    {
+                        Id = "original",
+                        Meta = new Meta()
+                        {
+                            Tag = new List<Coding>
+                            {
+                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
+                            },
+                        },
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    DeleteOperation.HardDelete,
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate1",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate2",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                },
+                            },
+                        },
+                    },
                 },
             };
 

@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddTransient<IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>, DuplicateClinicalReferenceBehavior>();
             services.AddTransient<IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>, DuplicateClinicalReferenceBehavior>();
             services.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>, DuplicateClinicalReferenceBehavior>();
-            services.AddSingleton<IClinicalReferenceDuplicator, ClinicalReferenceDuplicator>();
+            services.AddTransient<IClinicalReferenceDuplicator, ClinicalReferenceDuplicator>();
         }
     }
 }
