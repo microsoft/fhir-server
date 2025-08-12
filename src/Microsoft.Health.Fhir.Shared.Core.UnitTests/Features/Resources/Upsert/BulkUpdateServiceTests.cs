@@ -319,6 +319,58 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        public async Task UpdateMultipleAsync_WhenSingleMatchAndMoreThanMaxParallelThreadsIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+
+            // Set up the BundleIssues to trigger AreIncludeResultsTruncated
+            var bundleIssues = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue("warning", "informational", "Included items are truncated. Use the related link in the response to retrieve all included items."),
+            };
+            var mockRequestContext = Substitute.For<IFhirRequestContext>();
+            mockRequestContext.BundleIssues.Returns(bundleIssues);
+            _contextAccessor.RequestContext.Returns(mockRequestContext);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            // Simulate a search result
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
+            {
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, null, "includesContinuationToken"));
+            });
+
+            // Simulate a include search result
+            int callCountForIncludeResults = 0;
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), !isIncludesRequest).Returns((x) =>
+            {
+                callCountForIncludeResults++;
+                var includesContinuationToken = callCountForIncludeResults <= 80 ? "includesContinuationToken" : null;
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, null, includesContinuationToken));
+            });
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.ResourcesUpdated.Count == 2);
+            Assert.True(result.ResourcesUpdated["Patient"] == 5);
+            Assert.True(result.ResourcesUpdated["Organization"] == 164);
+            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2);
+            Assert.True(result.ResourcesIgnored["Observation"] == 1);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         public async Task UpdateMultipleAsync_WhenMultipleMatchAndZeroIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
         {
             // Arrange
@@ -488,6 +540,73 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 Assert.True(result.ResourcesUpdated["Patient"] == 5);
                 Assert.True(result.ResourcesUpdated["Organization"] == 8);
                 Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2);
+                Assert.True(result.ResourcesIgnored["Observation"] == 1);
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task UpdateMultipleAsync__WhenMoreThanMaxParallelThreadsMatchAndIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+
+            // Set up the BundleIssues to trigger AreIncludeResultsTruncated
+            var bundleIssues = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue("warning", "informational", "Included items are truncated. Use the related link in the response to retrieve all included items."),
+            };
+            var mockRequestContext = Substitute.For<IFhirRequestContext>();
+            mockRequestContext.BundleIssues.Returns(bundleIssues);
+            _contextAccessor.RequestContext.Returns(mockRequestContext);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            // Simulate a search result
+            int callCountForMatchedResults = 0;
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
+            {
+                callCountForMatchedResults++;
+                var continuationToken = callCountForMatchedResults <= 80 ? "continuationToken" : null;
+                var includesContinuationToken = callCountForMatchedResults <= 2 ? "includesContinuationToken" : null;
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 }, { "Observation", 1 }, { "Practitioner", 1 }, { "Organization", 2 } }, continuationToken, includesContinuationToken));
+            });
+
+            // Simulate a include search result
+            int callCountForIncludeResults = 0;
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), !isIncludesRequest).Returns((x) =>
+            {
+                callCountForIncludeResults++;
+                var includesContinuationToken = callCountForIncludeResults <= 80 ? "includesContinuationToken" : null;
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, null, includesContinuationToken));
+            });
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, 21, conditionalParameters, bundleResourceContext: null, cancellationToken);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.ResourcesUpdated.Count == 2);
+
+            if (readNextPage)
+            {
+                Assert.True(result.ResourcesUpdated["Patient"] == 81);
+                Assert.True(result.ResourcesUpdated["Organization"] == 326);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 81);
+                Assert.True(result.ResourcesIgnored["Observation"] == 81);
+            }
+            else
+            {
+                Assert.True(result.ResourcesUpdated["Patient"] == 1);
+                Assert.True(result.ResourcesUpdated["Organization"] == 164);
+                Assert.True(result.ResourcesPatchFailed["Practitioner"] == 1);
                 Assert.True(result.ResourcesIgnored["Observation"] == 1);
             }
         }

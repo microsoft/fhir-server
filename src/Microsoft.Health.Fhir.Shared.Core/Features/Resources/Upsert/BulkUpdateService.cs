@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
             ict = searchResult.IncludesContinuationToken;
             searchResults = searchResult.Results.ToList();
-            if (!isIncludesRequest && AreIncludeResultsTruncated())
+            if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated())
             {
                 try
                 {
@@ -163,27 +163,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (patchedResources.Any())
                     {
                         updateTaskDelegates.Add(() => UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, cancellationTokenSource.Token));
-                        updateTasks.Add(UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, cancellationTokenSource.Token));
-                        if (!updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
-                        {
-                            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-
-                            updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
-                        }
-                    }
-
-                    if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
-                    {
-                        break;
-                    }
-
-                    resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-
-                    updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
-
-                    if (updateTasks.Count >= parallelThreads)
-                    {
-                        await updateTasks[0];
                     }
 
                     // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
@@ -205,9 +184,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         searchResult = await Search(resourceType, isIncludesRequest, cloneList, cancellationToken);
                         ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
                         ict = searchResult.IncludesContinuationToken;
+                        searchResults = searchResult.Results.ToList();
 
                         // If the next page of results has more than one page of included results, update all pages of included results before updating the primary results.
-                        if (!isIncludesRequest && AreIncludeResultsTruncated())
+                        if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated())
                         {
                             try
                             {
@@ -238,8 +218,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             try
             {
+                // We are here, means we have reached to the last page of results and all the matched/included resources have been processed.
+                // Check the count of updateTaskDelegates and start processing the update tasks in parallel.
                 // We need to wait until all running tasks are cancelled or completed to get a count of resources updated.
-                await Task.WhenAll(updateTasks);
+                if (updateTaskDelegates.Count > 0)
+                {
+                    int processed = 0;
+                    int total = updateTaskDelegates.Count;
+                    updateTasks = updateTaskDelegates.Select(d => d()).ToList();
+                    while (processed < total)
+                    {
+                        var batch = updateTasks.Skip(processed).Take(MaxParallelThreads).ToList();
+                        await Task.WhenAll(batch);
+                        AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, batch.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+                        processed += MaxParallelThreads;
+                    }
+                }
             }
             catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
             {
@@ -254,9 +248,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 _logger.LogError(ex, "Generic exception during bulk update operation while waiting for all update tasks");
             }
 
-            resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
-
             if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
             {
                 var exceptions = new List<Exception>();
@@ -269,7 +260,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             var resourcesUpdated = result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<BulkUpdateResult>)
                                     .Select(ex => ((IncompleteOperationException<BulkUpdateResult>)ex).PartialResults.ResourcesUpdated as Dictionary<string, long>);
-                            AppendUpdateResults(resourceTypesUpdated, resourcesUpdated);
                             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, resourcesUpdated);
                         }
 
@@ -596,7 +586,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             // Use ResourcesIgnored keys that were found in last page and count the numbers for this page and remove it from resourcesPerPage
             foreach (var key in resourcesIgnored.Keys.Intersect(resourcesPerPage.Keys).ToList())
             {
-                // Store the count of resources that would fail to patch in commonPatchFailures
+                // Store the count of resources that should be ignored
                 resourcesIgnored[key] = resourcesIgnored[key] + resourcesPerPage[key];
                 resourcesPerPage.Remove(key);
             }
