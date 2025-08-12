@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
@@ -27,14 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
-        private readonly CleanupEventLogWatchdogOptions _options;
 
-        public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger, IOptions<CleanupEventLogWatchdogOptions> options)
+        public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
             _compressedRawResourceConverter = new CompressedRawResourceConverter();
         }
 
@@ -53,12 +50,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             await using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            if (_options.LogRawResourceStatsEnabled)
-            {
-                await LogRawResourceStats(cancellationToken);
-            }
-
             await LogSearchParamStats(cancellationToken);
         }
 
@@ -117,160 +108,6 @@ SELECT object_name = object_name(object_id)
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetString(0), _logger, cancellationToken);
         }
 
-        // TODO: This is temporary code to get some stats (including raw resource length). We should determine what pieces are needed later and find permanent home for them.
-        //
-        // Critical Issues Found in Watchdog Code:
-        // 1. Does this job ever complete? Is there a way for us to know the scanning of the dbo.Resource table is completed and the job can be skipped?
-        // 2. Excessive Database Connection Creation: The LogRawResourceStats creates an enormous number of database connections (300,000+ operations in 10 hours).
-        // 3. Batch size may need to be configurable as currently 10,000 resources takes a lot of CPU and memory.
-        // 4. Potential Memory Issues: The LogRawResourceStats loads raw resource data and decompresses it in memory without proper disposal patterns.
-        private async Task LogRawResourceStats(CancellationToken cancellationToken)
-        {
-            try
-            {
-                var st = DateTime.UtcNow;
-
-                await CreateTmpProceduresAsync(cancellationToken);
-
-                var maxSurrogateId = await GetMaxSurrogateId(cancellationToken);
-                _logger.LogInformation($"DatabaseStats.MaxSurrogateId={maxSurrogateId}");
-
-                var types = await GetUsedResourceTypesAsync(cancellationToken);
-                _logger.LogInformation($"DatabaseStats.UsedResourceTypes.Count={types.Count}");
-
-                foreach (var type in types)
-                {
-                    var totalCompressedBytes = 0L;
-                    var totalDecompressedBytes = 0L;
-                    var totalResources = 0L;
-                    var surrogateId = 0L;
-                    IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)> rawResources;
-                    do
-                    {
-                        rawResources = await GetRawResourcesAsync(type, surrogateId, maxSurrogateId, cancellationToken);
-                        foreach (var rawResource in rawResources)
-                        {
-                            surrogateId = rawResource.SurrogateId;
-                            var rawResourceBytes = rawResource.RawResourceBytes;
-                            var isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
-                            if (!isInvisible)
-                            {
-                                totalCompressedBytes += rawResourceBytes.Length;
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                totalDecompressedBytes += UTF8Encoding.UTF8.GetBytes(_compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream)).Length;
-                                totalResources++;
-                            }
-                        }
-                    }
-                    while (rawResources.Count > 0);
-
-                    var totals = new ResourceTypeTotals { ResourceTypeId = type, Resources = totalResources, CompressedBytes = totalCompressedBytes, DecompressedBytes = totalDecompressedBytes };
-                    var totalsStr = JsonSerializer.Serialize(totals);
-                    _logger.LogInformation($"DatabaseStats.ResourceTypeTotals={totalsStr}");
-                    await _sqlRetryService.TryLogEvent("DatabaseStats.ResourceTypeTotals", "Warn", totalsStr, st, cancellationToken);
-                }
-
-                await DropTmpProceduresAsync(cancellationToken);
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, "LogRawResourceStats failed.");
-            }
-        }
-
-        private async Task<long> GetMaxSurrogateId(CancellationToken cancellationToken)
-        {
-            await using var cmd = new SqlCommand("dbo.tmp_GetMaxSurrogateId") { CommandType = CommandType.StoredProcedure };
-            var maxSurrogateId = cmd.Parameters.Add("@MaxSurrogateId", SqlDbType.BigInt);
-            maxSurrogateId.Direction = ParameterDirection.Output;
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            return (long)maxSurrogateId.Value;
-        }
-
-        private async Task<IReadOnlyList<short>> GetUsedResourceTypesAsync(CancellationToken cancellationToken)
-        {
-            using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
-            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => reader.GetInt16(0), _logger, cancellationToken);
-        }
-
-        private async Task<IReadOnlyList<(long SurrogateId, byte[] RawResourceBytes)>> GetRawResourcesAsync(short resourceTypeId, long surrogateId, long maxSurrogateId, CancellationToken cancellationToken)
-        {
-            using var sqlCommand = new SqlCommand("dbo.tmp_GetRawResources") { CommandType = CommandType.StoredProcedure };
-            sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-            sqlCommand.Parameters.AddWithValue("@SurrogateId", surrogateId);
-            sqlCommand.Parameters.AddWithValue("@MaxSurrogateId", maxSurrogateId);
-            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => (reader.GetInt64(0), reader.GetSqlBytes(1).Value), _logger, cancellationToken);
-        }
-
-        private async Task CreateTmpProceduresAsync(CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand(@"
-CREATE OR ALTER PROCEDURE dbo.tmp_GetMaxSurrogateId @MaxSurrogateId bigint = 0 OUT
-AS
-set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@ResourceTypeId smallint
-       ,@MaxSurrogateIdTmp bigint
-       ,@st datetime = getUTCdate()
-
-SET @MaxSurrogateId = 0
-
-DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
-
-INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
-WHILE EXISTS (SELECT * FROM @Types)
-BEGIN
-  SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @Types)
-  SET @MaxSurrogateIdTmp = (SELECT max(ResourceSurrogateId) FROM Resource WHERE ResourceTypeId = @ResourceTypeId)
-  IF @MaxSurrogateIdTmp > @MaxSurrogateId SET @MaxSurrogateId = @MaxSurrogateIdTmp
-  DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
-END
-
-EXECUTE dbo.LogEvent @Process=@SP,@Status='End',@Target='@MaxSurrogateId',@Action='Select',@Text=@MaxSurrogateId,@Start=@st
-            ");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            using var cmd2 = new SqlCommand("INSERT INTO dbo.Parameters (Id, Char) SELECT 'tmp_GetMaxSurrogateId', 'LogEvent'");
-            await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            using var cmd3 = new SqlCommand($@"
-CREATE OR ALTER PROCEDURE dbo.tmp_GetRawResources @ResourceTypeId smallint, @SurrogateId bigint, @MaxSurrogateId bigint
-AS
-set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(100) = 'RC='+convert(varchar,@ResourceTypeId)+' S='+convert(varchar,@SurrogateId)+' M='+convert(varchar,@MaxSurrogateId)
-       ,@st datetime = getUTCdate()
-
-SELECT TOP {_options.LogRawResourceStatsBatchSize}
-       ResourceSurrogateId, RawResource
-  FROM dbo.Resource
-  WHERE ResourceTypeId = @ResourceTypeId
-    AND ResourceSurrogateId > @SurrogateId
-    AND ResourceSurrogateId <= @MaxSurrogateId
-  ORDER BY
-       ResourceSurrogateId
-
-EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@Action='Select',@Rows=@@rowcount,@Start=@st
-            ");
-            await cmd3.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            using var cmd4 = new SqlCommand("INSERT INTO dbo.Parameters (Id, Char) SELECT 'tmp_GetRawResources', 'LogEvent'");
-            await cmd4.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            _logger.LogInformation("CreateTmpProceduresAsync completed.");
-        }
-
-        private async Task DropTmpProceduresAsync(CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand("DROP PROCEDURE dbo.tmp_GetMaxSurrogateId");
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            using var cmd2 = new SqlCommand("DROP PROCEDURE dbo.tmp_GetRawResources");
-            await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            _logger.LogInformation("DropTmpProceduresAsync completed.");
-        }
-
         private class SearchParamCount
         {
             public string SearchParamTable { get; set; }
@@ -278,17 +115,6 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Target='Resource',@
             public short SearchParamId { get; set; }
 
             public long RowCount { get; set; }
-        }
-
-        private class ResourceTypeTotals
-        {
-            public short ResourceTypeId { get; set; }
-
-            public long Resources { get; set; }
-
-            public long CompressedBytes { get; set; }
-
-            public long DecompressedBytes { get; set; }
         }
     }
 }
