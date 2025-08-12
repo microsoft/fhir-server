@@ -167,17 +167,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (inputParams == null)
             {
                 _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource.");
-                throw new RequestNotValidException(Resources.ReindexParametersNotValid);
             }
 
             var supportedParams = _supportedParams[Request.Method];
 
-            foreach (var param in inputParams.Parameter)
+            foreach (var param in inputParams?.Parameter)
             {
                 var paramName = param.Name;
+                _logger.LogInformation(string.Format("Reindex job received parameter {0} for method {1}", paramName, Request.Method));
+
                 if (!supportedParams.Contains(paramName))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
+                    _logger.LogInformation(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
                 }
             }
         }
