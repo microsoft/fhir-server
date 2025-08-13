@@ -25,113 +25,238 @@ parameters:
 steps:
 - ${{ if ne(parameters.testProjects, '') }}:
   # For unit tests using projects parameter
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: '${{ parameters.displayName }} (Attempt 1)'
-    continueOnError: true
     name: 'TestAttempt1_Unit'
     inputs:
-      command: test
-      projects: '${{ parameters.testProjects }}'
-      arguments: '${{ parameters.testArguments }}'
-      testRunTitle: '${{ parameters.testRunTitle }}'
+      targetType: 'inline'
       workingDirectory: ${{ parameters.workingDirectory }}
+      script: |
+        try {
+          Write-Host "##[section]Running unit tests..."
+          dotnet test '${{ parameters.testProjects }}' ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+          $exitCode = $LASTEXITCODE
+          Write-Host "##[section]Test completed with exit code: $exitCode"
+          Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]$exitCode"
+          if ($exitCode -ne 0) {
+            Write-Host "##[warning]Tests failed with exit code $exitCode"
+            exit $exitCode
+          }
+        } catch {
+          Write-Host "##[error]Exception during test execution: $_"
+          Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]1"
+          throw
+        }
     env: ${{ parameters.environmentVariables }}
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results (Attempt 1)'
+    condition: always()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+      testRunTitle: '${{ parameters.testRunTitle }} (Attempt 1)'
 
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests'
-      condition: eq(variables['TestAttempt1_Unit.exitcode'], '1')
+      condition: eq(variables['TestAttempt1_Unit.TestExitCode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1_Unit.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1_Unit.TestExitCode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: eq(variables['TestAttempt1_Unit.exitcode'], '1')
-      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      condition: eq(variables['TestAttempt1_Unit.TestExitCode'], '1')
       name: 'TestAttempt2_Unit'
       inputs:
-        command: test
-        projects: '${{ parameters.testProjects }}'
-        arguments: '${{ parameters.testArguments }}'
-        testRunTitle: '${{ parameters.testRunTitle }}'
+        targetType: 'inline'
         workingDirectory: ${{ parameters.workingDirectory }}
+        script: |
+          try {
+            Write-Host "##[section]Running unit tests (retry)..."
+            dotnet test '${{ parameters.testProjects }}' ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+            $exitCode = $LASTEXITCODE
+            Write-Host "##[section]Test completed with exit code: $exitCode"
+            Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]$exitCode"
+            if ($exitCode -ne 0) {
+              Write-Host "##[warning]Tests failed with exit code $exitCode"
+              exit $exitCode
+            }
+          } catch {
+            Write-Host "##[error]Exception during test execution: $_"
+            Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]1"
+            throw
+          }
       env: ${{ parameters.environmentVariables }}
+      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results (Attempt 2)'
+      condition: eq(variables['TestAttempt1_Unit.TestExitCode'], '1')
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+        testRunTitle: '${{ parameters.testRunTitle }} (Attempt 2)'
 
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests (Final)'
-      condition: eq(variables['TestAttempt2_Unit.exitcode'], '1')
+      condition: eq(variables['TestAttempt2_Unit.TestExitCode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2_Unit.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2_Unit.TestExitCode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: eq(variables['TestAttempt2_Unit.exitcode'], '1')
+      condition: eq(variables['TestAttempt2_Unit.TestExitCode'], '1')
       inputs:
-        command: test
-        projects: '${{ parameters.testProjects }}'
-        arguments: '${{ parameters.testArguments }}'
-        testRunTitle: '${{ parameters.testRunTitle }}'
+        targetType: 'inline'
         workingDirectory: ${{ parameters.workingDirectory }}
+        script: |
+          try {
+            Write-Host "##[section]Running unit tests (final retry)..."
+            dotnet test '${{ parameters.testProjects }}' ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+            $exitCode = $LASTEXITCODE
+            Write-Host "##[section]Test completed with exit code: $exitCode"
+            if ($exitCode -ne 0) {
+              Write-Host "##[error]Final attempt failed with exit code $exitCode"
+              exit $exitCode
+            }
+          } catch {
+            Write-Host "##[error]Exception during final test execution: $_"
+            throw
+          }
       env: ${{ parameters.environmentVariables }}
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results (Attempt 3)'
+      condition: eq(variables['TestAttempt2_Unit.TestExitCode'], '1')
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+        testRunTitle: '${{ parameters.testRunTitle }} (Attempt 3)'
 
 - ${{ if eq(parameters.testProjects, '') }}:
   # For integration/E2E tests using arguments parameter
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: '${{ parameters.displayName }} (Attempt 1)'
-    continueOnError: true
     name: 'TestAttempt1'
     inputs:
-      command: test
-      arguments: '${{ parameters.testArguments }}'
-      testRunTitle: '${{ parameters.testRunTitle }}'
+      targetType: 'inline'
       workingDirectory: ${{ parameters.workingDirectory }}
+      script: |
+        try {
+          Write-Host "##[section]Running integration/E2E tests..."
+          dotnet test ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+          $exitCode = $LASTEXITCODE
+          Write-Host "##[section]Test completed with exit code: $exitCode"
+          Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]$exitCode"
+          if ($exitCode -ne 0) {
+            Write-Host "##[warning]Tests failed with exit code $exitCode"
+            exit $exitCode
+          }
+        } catch {
+          Write-Host "##[error]Exception during test execution: $_"
+          Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]1"
+          throw
+        }
     env: ${{ parameters.environmentVariables }}
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results (Attempt 1)'
+    condition: always()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+      testRunTitle: '${{ parameters.testRunTitle }} (Attempt 1)'
 
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic'
-      condition: eq(variables['TestAttempt1.exitcode'], '1')
+      condition: eq(variables['TestAttempt1.TestExitCode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1.TestExitCode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: eq(variables['TestAttempt1.exitcode'], '1')
-      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      condition: eq(variables['TestAttempt1.TestExitCode'], '1')
       name: 'TestAttempt2'
       inputs:
-        command: test
-        arguments: '${{ parameters.testArguments }}'
-        testRunTitle: '${{ parameters.testRunTitle }}'
+        targetType: 'inline'
         workingDirectory: ${{ parameters.workingDirectory }}
+        script: |
+          try {
+            Write-Host "##[section]Running integration/E2E tests (retry)..."
+            dotnet test ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+            $exitCode = $LASTEXITCODE
+            Write-Host "##[section]Test completed with exit code: $exitCode"
+            Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]$exitCode"
+            if ($exitCode -ne 0) {
+              Write-Host "##[warning]Tests failed with exit code $exitCode"
+              exit $exitCode
+            }
+          } catch {
+            Write-Host "##[error]Exception during test execution: $_"
+            Write-Host "##vso[task.setvariable variable=TestExitCode;isOutput=true]1"
+            throw
+          }
       env: ${{ parameters.environmentVariables }}
+      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results (Attempt 2)'
+      condition: eq(variables['TestAttempt1.TestExitCode'], '1')
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+        testRunTitle: '${{ parameters.testRunTitle }} (Attempt 2)'
 
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic (Final)'
-      condition: eq(variables['TestAttempt2.exitcode'], '1')
+      condition: eq(variables['TestAttempt2.TestExitCode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2.TestExitCode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
-    - task: DotNetCoreCLI@2
+    - task: PowerShell@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: eq(variables['TestAttempt2.exitcode'], '1')
+      condition: eq(variables['TestAttempt2.TestExitCode'], '1')
       inputs:
-        command: test
-        arguments: '${{ parameters.testArguments }}'
-        testRunTitle: '${{ parameters.testRunTitle }}'
+        targetType: 'inline'
         workingDirectory: ${{ parameters.workingDirectory }}
+        script: |
+          try {
+            Write-Host "##[section]Running integration/E2E tests (final retry)..."
+            dotnet test ${{ parameters.testArguments }} --logger trx --results-directory "$(Agent.TempDirectory)"
+            $exitCode = $LASTEXITCODE
+            Write-Host "##[section]Test completed with exit code: $exitCode"
+            if ($exitCode -ne 0) {
+              Write-Host "##[error]Final attempt failed with exit code $exitCode"
+              exit $exitCode
+            }
+          } catch {
+            Write-Host "##[error]Exception during final test execution: $_"
+            throw
+          }
       env: ${{ parameters.environmentVariables }}
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results (Attempt 3)'
+      condition: eq(variables['TestAttempt2.TestExitCode'], '1')
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+        testRunTitle: '${{ parameters.testRunTitle }} (Attempt 3)'
