@@ -26,6 +26,7 @@ steps:
   displayName: '${{ parameters.displayName }}'
   inputs:
     targetType: 'inline'
+    workingDirectory: ${{ parameters.workingDirectory }}
     script: |
       $maxAttempts = ${{ parameters.maxAttempts }}
       $attempt = 1
@@ -69,5 +70,4 @@ steps:
       }
       
       Write-Host "##vso[task.setvariable variable=TestRunTitle]${{ parameters.testRunTitle }} (Completed after $($attempt-1) attempts)"
-  workingDirectory: ${{ parameters.workingDirectory }}
   env: ${{ parameters.environmentVariables }}
