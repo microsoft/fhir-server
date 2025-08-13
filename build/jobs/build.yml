@@ -33,7 +33,8 @@ steps:
   - template: run-tests-with-retry.yml
     parameters:
       displayName: 'Unit Tests with Retry'
-      testCommand: 'dotnet test **/*UnitTests/*.csproj --configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
+      testProjects: '**/*UnitTests/*.csproj'
+      testArguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
       maxAttempts: 2
       retryDelaySeconds: 10
@@ -43,7 +44,8 @@ steps:
   - template: run-tests-with-retry.yml
     parameters:
       displayName: 'Unit Tests with Coverage and Retry'
-      testCommand: 'dotnet test **/*UnitTests/*.csproj --configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
+      testProjects: '**/*UnitTests/*.csproj'
+      testArguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
       maxAttempts: 2
       retryDelaySeconds: 10

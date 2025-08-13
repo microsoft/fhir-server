@@ -59,7 +59,7 @@ jobs:
   - template: run-tests-with-retry.yml
     parameters:
       displayName: 'Run Cosmos Integration Tests with Retry'
-      testCommand: 'dotnet test "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~SqlServer" -v normal'
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~SqlServer" -v normal'
       testRunTitle: '${{ parameters.version }} Integration'
       maxAttempts: 3
       retryDelaySeconds: 30
@@ -114,7 +114,7 @@ jobs:
   - template: run-tests-with-retry.yml
     parameters:
       displayName: 'Run SQL Integration Tests with Retry'
-      testCommand: 'dotnet test "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~Cosmos" -v normal'
+      testArguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DisplayName!~Cosmos" -v normal'
       testRunTitle: '${{ parameters.version }} Integration'
       maxAttempts: 3
       retryDelaySeconds: 30

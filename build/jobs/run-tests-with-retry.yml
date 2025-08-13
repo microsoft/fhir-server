@@ -1,8 +1,12 @@
 parameters:
 - name: displayName
   type: string
-- name: testCommand
+- name: testArguments  
   type: string
+  default: ""
+- name: testProjects
+  type: string
+  default: ""
 - name: workingDirectory
   type: string
   default: "$(System.ArtifactsDirectory)"
@@ -17,72 +21,113 @@ parameters:
 - name: environmentVariables
   type: object
   default: {}
-- name: additionalArguments
-  type: string
-  default: ""
 
 steps:
-- task: PowerShell@2
-  displayName: '${{ parameters.displayName }}'
-  inputs:
-    targetType: 'inline'
-    workingDirectory: ${{ parameters.workingDirectory }}
-    script: |
-      $maxAttempts = ${{ parameters.maxAttempts }}
-      $attempt = 1
-      $success = $false
-      $retryDelay = ${{ parameters.retryDelaySeconds }}
-      
-      while ($attempt -le $maxAttempts -and -not $success) {
-          Write-Host "##[section]Starting attempt $attempt of $maxAttempts for: ${{ parameters.displayName }}"
-          
-          try {
-              $testCommand = '${{ parameters.testCommand }}'
-              if ('${{ parameters.additionalArguments }}' -ne '') {
-                  $testCommand += ' ${{ parameters.additionalArguments }}'
-              }
-              
-              Write-Host "##[command]Executing: $testCommand"
-              
-              # Parse the command properly for cross-platform execution
-              # Use regex to properly split command while preserving quoted arguments
-              $regex = '(?:[^\s"]+|"[^"]*")+'
-              $parts = [regex]::Matches($testCommand, $regex) | ForEach-Object { $_.Value.Trim('"') }
-              
-              if ($parts.Count -gt 0) {
-                  $executable = $parts[0]
-                  $arguments = $parts[1..($parts.Count-1)]
-                  
-                  # Execute using & operator with splatting for proper argument handling
-                  & $executable @arguments
-                  $exitCode = $LASTEXITCODE
-              } else {
-                  throw "Unable to parse command: $testCommand"
-              }
-              
-              if ($exitCode -eq 0) {
-                  $success = $true
-                  Write-Host "##[section]✅ Tests passed on attempt $attempt"
-              } else {
-                  Write-Host "##[warning]❌ Tests failed on attempt $attempt with exit code $exitCode"
-                  if ($attempt -eq $maxAttempts) {
-                      Write-Host "##[error]💥 All $maxAttempts attempts failed"
-                      exit $exitCode
-                  }
-              }
-          } catch {
-              Write-Host "##[error]💥 Exception on attempt $attempt`: $_"
-              if ($attempt -eq $maxAttempts) {
-                  throw
-              }
-          }
-          
-          $attempt++
-          if (-not $success -and $attempt -le $maxAttempts) {
-              Write-Host "##[warning]⏳ Waiting $retryDelay seconds before retry..."
-              Start-Sleep -Seconds $retryDelay
-          }
-      }
-      
-      Write-Host "##vso[task.setvariable variable=TestRunTitle]${{ parameters.testRunTitle }} (Completed after $($attempt-1) attempts)"
-  env: ${{ parameters.environmentVariables }}
+- ${{ if ne(parameters.testProjects, '') }}:
+  # For unit tests using projects parameter
+  - task: DotNetCoreCLI@2
+    displayName: '${{ parameters.displayName }} (Attempt 1)'
+    continueOnError: true
+    inputs:
+      command: test
+      projects: '${{ parameters.testProjects }}'
+      arguments: '${{ parameters.testArguments }}'
+      testRunTitle: '${{ parameters.testRunTitle }}'
+      workingDirectory: ${{ parameters.workingDirectory }}
+    env: ${{ parameters.environmentVariables }}
+
+  - ${{ if gt(parameters.maxAttempts, 1) }}:
+    - task: PowerShell@2
+      displayName: 'Retry Logic for Unit Tests'
+      condition: failed()
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "##[warning]First attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
+
+    - task: DotNetCoreCLI@2
+      displayName: '${{ parameters.displayName }} (Attempt 2)'
+      condition: failed()
+      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      inputs:
+        command: test
+        projects: '${{ parameters.testProjects }}'
+        arguments: '${{ parameters.testArguments }}'
+        testRunTitle: '${{ parameters.testRunTitle }}'
+        workingDirectory: ${{ parameters.workingDirectory }}
+      env: ${{ parameters.environmentVariables }}
+
+  - ${{ if gt(parameters.maxAttempts, 2) }}:
+    - task: PowerShell@2
+      displayName: 'Retry Logic for Unit Tests (Final)'
+      condition: failed()
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "##[warning]Second attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
+
+    - task: DotNetCoreCLI@2
+      displayName: '${{ parameters.displayName }} (Attempt 3)'
+      condition: failed()
+      inputs:
+        command: test
+        projects: '${{ parameters.testProjects }}'
+        arguments: '${{ parameters.testArguments }}'
+        testRunTitle: '${{ parameters.testRunTitle }}'
+        workingDirectory: ${{ parameters.workingDirectory }}
+      env: ${{ parameters.environmentVariables }}
+
+- ${{ if eq(parameters.testProjects, '') }}:
+  # For integration/E2E tests using arguments parameter
+  - task: DotNetCoreCLI@2
+    displayName: '${{ parameters.displayName }} (Attempt 1)'
+    continueOnError: true
+    inputs:
+      command: test
+      arguments: '${{ parameters.testArguments }}'
+      testRunTitle: '${{ parameters.testRunTitle }}'
+      workingDirectory: ${{ parameters.workingDirectory }}
+    env: ${{ parameters.environmentVariables }}
+
+  - ${{ if gt(parameters.maxAttempts, 1) }}:
+    - task: PowerShell@2
+      displayName: 'Retry Logic'
+      condition: failed()
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "##[warning]First attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
+
+    - task: DotNetCoreCLI@2
+      displayName: '${{ parameters.displayName }} (Attempt 2)'
+      condition: failed()
+      continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      inputs:
+        command: test
+        arguments: '${{ parameters.testArguments }}'
+        testRunTitle: '${{ parameters.testRunTitle }}'
+        workingDirectory: ${{ parameters.workingDirectory }}
+      env: ${{ parameters.environmentVariables }}
+
+  - ${{ if gt(parameters.maxAttempts, 2) }}:
+    - task: PowerShell@2
+      displayName: 'Retry Logic (Final)'
+      condition: failed()
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "##[warning]Second attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
+
+    - task: DotNetCoreCLI@2
+      displayName: '${{ parameters.displayName }} (Attempt 3)'
+      condition: failed()
+      inputs:
+        command: test
+        arguments: '${{ parameters.testArguments }}'
+        testRunTitle: '${{ parameters.testRunTitle }}'
+        workingDirectory: ${{ parameters.workingDirectory }}
+      env: ${{ parameters.environmentVariables }}

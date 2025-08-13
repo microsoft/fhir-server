@@ -87,7 +87,7 @@ steps:
   - template: run-tests-with-retry.yml
     parameters:
       displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}} with Retry'
-      testCommand: 'dotnet test "$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
+      testArguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
       maxAttempts: 3
       retryDelaySeconds: 45
