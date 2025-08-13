@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleProcessingLogic bundleProcessingLogic,
             bool optimizedQuerySet,
             int numberOfResources,
+            int generatedIdentifiers,
             int resolvedReferences)
             : base()
         {
@@ -33,12 +34,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleProcessingLogic = bundleProcessingLogic;
             OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
+            GeneratedIdentifiers = generatedIdentifiers;
             ResolvedReferences = resolvedReferences;
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
         }
 
         public int NumberOfResources { get; }
 
+        /// <summary>
+        /// Total number of resource identifiers that were generated during the processing of a transactional bundle.
+        /// </summary>
+        public int GeneratedIdentifiers { get; set; }
+
+        /// <summary>
+        /// Total number of references that were successfully resolved during the processing of a transactional bundle.
+        /// </summary>
         public int ResolvedReferences { get; set; }
 
         public int RegisteredEntries => _entries.Count;
@@ -76,7 +86,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 processingLogic = BundleProcessingLogic.ToString(),
                 optimizedQuerySet = OptimizedQueryProcessing.ToString(),
                 numberOfResources = NumberOfResources,
-                resolvedReferences = ResolvedReferences,
                 registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
                 clientError = FailedDueClientError,
@@ -85,6 +94,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 customerErrors = customerFailedRequests,
                 statistics = finalStatistics,
                 resourceTypes = resourceTypesStatistics,
+                references = new
+                {
+                    identifiers = GeneratedIdentifiers,
+                    references = ResolvedReferences,
+                },
             });
 
             return serializableEntity.ToString();

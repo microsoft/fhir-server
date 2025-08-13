@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 BundleProcessingLogic.Parallel,
                 optimizedQuerySet: true,
                 numberOfResources: numberOfResources,
+                generatedIdentifiers: 5,
                 resolvedReferences: 50);
 
             Parallel.For(0, numberOfResources - 2, i =>
@@ -55,8 +56,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             Assert.Equal(bundleStatistics.RegisteredEntries, success + errors + customerErrors);
 
+            // Generated identifiers.
+            int generatedIdentifiers = statisticsAsJson["references"]["identifiers"].Value<int>();
+            Assert.Equal(5, generatedIdentifiers);
+            Assert.Equal(bundleStatistics.GeneratedIdentifiers, generatedIdentifiers);
+
             // Resolved references.
-            int resolvedReferences = statisticsAsJson["resolvedReferences"].Value<int>();
+            int resolvedReferences = statisticsAsJson["references"]["references"].Value<int>();
+            Assert.Equal(50, resolvedReferences);
             Assert.Equal(bundleStatistics.ResolvedReferences, resolvedReferences);
         }
     }

@@ -99,6 +99,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Indicates if any of the resources in the bundle require Profile refresh.
         private bool _forceProfilesRefresh = false;
 
+        // Total number of generated IDs in the bundle.
+        private int _totalGeneratedIdentifiers = 0;
+
         // Total number of resolved references in the bundle.
         private int _totalResolvedReferences = 0;
 
@@ -903,6 +906,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             entry.Resource.Id = insertId;
 
                             idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
+
+                            _totalGeneratedIdentifiers++;
                         }
 
                         break;
@@ -982,6 +987,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 processingLogic,
                 _optimizedQuerySet,
                 _requestCount,
+                _totalGeneratedIdentifiers,
                 _totalResolvedReferences);
 
             statistics.StartCollectingResults();
