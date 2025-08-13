@@ -48,22 +48,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             _logger = logger;
         }
 
-        public async Task<Resource> CreateResourceAsync(
-            Resource resource,
+        public async Task<(ResourceWrapper source, ResourceWrapper duplicate)> CreateResourceAsync(
+            RawResourceElement rawResourceElement,
             CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+            EnsureArg.IsNotNull(rawResourceElement.RawResource, nameof(rawResourceElement.RawResource));
 
             try
             {
-                var duplicateResource = await CreateDuplicateResourceInternalAsync(
+                var resource = ConvertToResource(rawResourceElement);
+                if (!ShouldDuplicate(resource))
+                {
+                    _logger.LogWarning("A resource doesn't have any attachment with clinical reference.");
+                    return (default, default);
+                }
+
+                var duplicateResourceWrapper = await CreateDuplicateResourceInternalAsync(
                     resource,
                     cancellationToken);
-                await UpdateResourceInternalAsync(
+                var sourceResourceWrapper = await UpdateResourceInternalAsync(
                     resource,
-                    duplicateResource,
+                    duplicateResourceWrapper,
                     cancellationToken);
-                return duplicateResource;
+                return (sourceResourceWrapper, duplicateResourceWrapper);
             }
             catch (Exception ex)
             {
@@ -85,31 +93,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                     GetDuplicateResourceType(resourceKey.ResourceType),
                     resourceKey.Id,
                     cancellationToken);
-                var duplicateResources = duplicateResourceWrappers
-                    .Select(x => x.RawResource?.ToITypedElement(ModelInfoProvider.Instance)?.ToResourceElement()?.ToPoco())
-                    .Where(x => x != null)
-                    .ToList();
-                _logger.LogInformation("Deleting {Count} duplicate resources...", duplicateResources.Count);
-                if (duplicateResources.Count > 1)
-                {
-                    _logger.LogWarning("More than one duplicate resource found.");
-                }
+                _logger.LogInformation("Deleting {Count} duplicate resources...", duplicateResourceWrappers.Count);
 
                 var duplicateResourceKeysDeleted = new List<ResourceKey>();
-                foreach (var duplicate in duplicateResources)
+                if (duplicateResourceWrappers.Any())
                 {
-                    try
+                    if (duplicateResourceWrappers.Count > 1)
                     {
-                        var key = await DeleteDuplicateResourceInternalAsync(
-                            duplicate,
-                            deleteOperation,
-                            cancellationToken);
-                        duplicateResourceKeysDeleted.Add(key);
+                        _logger.LogWarning("More than one duplicate resource found.");
                     }
-                    catch (Exception ex)
+
+                    foreach (var wrapper in duplicateResourceWrappers)
                     {
-                        _logger.LogError(ex, "Failed to delete a duplicate resource: {Id}...", duplicate.Id);
-                        throw;
+                        try
+                        {
+                            var key = await DeleteDuplicateResourceInternalAsync(
+                                wrapper,
+                                deleteOperation,
+                                cancellationToken);
+                            duplicateResourceKeysDeleted.Add(key);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to delete a duplicate resource: {Id}...", wrapper.ResourceId);
+                            throw;
+                        }
                     }
                 }
 
@@ -171,57 +179,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        public async Task<IReadOnlyList<Resource>> UpdateResourceAsync(
-            Resource resource,
+        public async Task<IReadOnlyList<ResourceWrapper>> UpdateResourceAsync(
+            RawResourceElement rawResourceElement,
             CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+            EnsureArg.IsNotNull(rawResourceElement.RawResource, nameof(rawResourceElement.RawResource));
 
             try
             {
-                var duplicateResourceWrappers = await SearchResourceAsync(
-                    GetDuplicateResourceType(resource.TypeName),
-                    resource.Id,
-                    cancellationToken);
-                var duplicateResources = duplicateResourceWrappers
-                    .Select(x => x.RawResource?.ToITypedElement(ModelInfoProvider.Instance)?.ToResourceElement()?.ToPoco())
-                    .Where(x => x != null)
-                    .ToList();
-                _logger.LogInformation("Updating {Count} duplicate resources...", duplicateResources.Count);
-                if (duplicateResources.Any())
+                var resource = ConvertToResource(rawResourceElement);
+                if (ShouldDuplicate(resource))
                 {
-                    if (duplicateResources.Count > 1)
+                    var duplicateResourceWrappers = await SearchResourceAsync(
+                        GetDuplicateResourceType(rawResourceElement.InstanceType),
+                        rawResourceElement.Id,
+                        cancellationToken);
+                    _logger.LogInformation("Updating {Count} duplicate resources...", duplicateResourceWrappers.Count);
+
+                    if (duplicateResourceWrappers.Any())
                     {
-                        _logger.LogWarning("More than one duplicate resource found.");
+                        if (duplicateResourceWrappers.Count > 1)
+                        {
+                            _logger.LogWarning("More than one duplicate resource found.");
+                        }
+
+                        var duplicateResourcesUpdated = new List<ResourceWrapper>();
+                        foreach (var wrapper in duplicateResourceWrappers)
+                        {
+                            try
+                            {
+                                var duplicate = ConvertToResource(wrapper.RawResource);
+                                var duplicateUpdated = await UpdateDuplicateResourceInternalAsync(
+                                    resource,
+                                    duplicate,
+                                    cancellationToken);
+                                duplicateResourcesUpdated.Add(duplicateUpdated);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to update a duplicate resource: {Id}...", wrapper.ResourceId);
+                                throw;
+                            }
+                        }
+
+                        return duplicateResourcesUpdated;
                     }
 
-                    var duplicateResourcesUpdated = new List<Resource>();
-                    foreach (var duplicate in duplicateResources)
-                    {
-                        try
-                        {
-                            var duplicateUpdated = await UpdateDuplicateResourceInternalAsync(
-                                resource,
-                                duplicate,
-                                cancellationToken);
-                            duplicateResourcesUpdated.Add(duplicateUpdated);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to update a duplicate resource: {Id}...", duplicate.Id);
-                            throw;
-                        }
-                    }
-
-                    return duplicateResourcesUpdated;
+                    _logger.LogWarning("No duplicate resources found.");
+                    (var sourceWrapper, var duplicateWrapper) = await CreateResourceAsync(
+                        rawResourceElement,
+                        cancellationToken);
+                    return new List<ResourceWrapper> { duplicateWrapper };
                 }
-
-                _logger.LogWarning("No duplicate resource found.");
-                var duplicateResourceCreated = await CreateResourceAsync(
-                    resource,
-                    cancellationToken);
-
-                return new List<Resource> { duplicateResourceCreated };
+                else
+                {
+                    _logger.LogWarning("A resource doesn't have any attachment with clinical reference.");
+                    await DeleteResourceAsync(
+                        new ResourceKey(resource.TypeName, resource.Id),
+                        DeleteOperation.HardDelete,
+                        cancellationToken);
+                    return new List<ResourceWrapper>();
+                }
             }
             catch (Exception ex)
             {
@@ -230,36 +249,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        public bool CheckDuplicate(ResourceKey resourceKey)
+        public bool IsDuplicatableResourceType(string resourceType)
         {
-            return string.Equals(resourceKey?.ResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(resourceKey?.ResourceType, KnownResourceTypes.DocumentReference, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(resourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(resourceType, KnownResourceTypes.DocumentReference, StringComparison.OrdinalIgnoreCase);
         }
 
-        public bool ShouldDuplicate(Resource resource)
-        {
-            if (resource == null)
-            {
-                return false;
-            }
-
-            if (resource is DiagnosticReport)
-            {
-                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                return ((DiagnosticReport)resource).PresentedForm?.Any(x => x.Url != null) ?? false;
-            }
-            else if (resource is DocumentReference)
-            {
-                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                return ((DocumentReference)resource).Content?.Any(x => x.Attachment?.Url != null) ?? false;
-            }
-
-            return false;
-        }
-
-        private async Task<Resource> CreateDuplicateResourceInternalAsync(
+        private async Task<ResourceWrapper> CreateDuplicateResourceInternalAsync(
             Resource resource,
             CancellationToken cancellationToken)
         {
@@ -289,28 +285,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                         false,
                         null),
                     cancellationToken);
-                Resource resourceCreated = null;
-                if (outcome?.Wrapper?.RawResource != null)
-                {
-                    _logger.LogInformation(
-                        "A '{DuplicateResourceType}' resource {Outcome}.",
-                        duplicateResource.TypeName,
-                        outcome.OutcomeType.ToString().ToLowerInvariant());
 
-                    resourceCreated = outcome.Wrapper?.RawResource?
-                        .ToITypedElement(ModelInfoProvider.Instance)?
-                        .ToResourceElement()?
-                        .ToPoco();
-                }
-                else
-                {
-                    // TODO: throws an exception here.
-                    _logger.LogError(
-                        "Failed to create a '{DuplicateResourceType}' resource.",
-                        duplicateResource.TypeName);
-                }
-
-                return resourceCreated;
+                _logger.LogInformation(
+                    "A '{DuplicateResourceType}' resource {Outcome}.",
+                    duplicateResource.TypeName,
+                    outcome.OutcomeType.ToString().ToLowerInvariant());
+                return outcome.Wrapper;
             }
             catch (Exception ex)
             {
@@ -320,33 +300,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
         }
 
         private async Task<ResourceKey> DeleteDuplicateResourceInternalAsync(
-            Resource duplicateResource,
+            ResourceWrapper duplicateResourceWrapper,
             DeleteOperation deleteOperation,
             CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(duplicateResource, nameof(duplicateResource));
+            EnsureArg.IsNotNull(duplicateResourceWrapper, nameof(duplicateResourceWrapper));
 
             try
             {
                 _logger.LogInformation(
                     "Deleting a duplicate resource '{DuplicateResourceType}': {Id}...",
-                    duplicateResource.TypeName,
-                    duplicateResource.Id);
+                    duplicateResourceWrapper.ResourceTypeName,
+                    duplicateResourceWrapper.ResourceId);
                 if (deleteOperation == DeleteOperation.HardDelete)
                 {
                     await _dataStore.HardDeleteAsync(
-                        new ResourceKey(duplicateResource.TypeName, duplicateResource.Id),
+                        new ResourceKey(duplicateResourceWrapper.ResourceTypeName, duplicateResourceWrapper.ResourceId),
                         false,
                         false,
                         cancellationToken);
                 }
                 else
                 {
-                    var duplicateResourceWrapper = _resourceWrapperFactory.CreateResourceWrapper(
-                        duplicateResource,
-                        _resourceIdProvider,
-                        true,
-                        false);
                     await _dataStore.UpsertAsync(
                         new ResourceWrapperOperation(
                             duplicateResourceWrapper,
@@ -359,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                         cancellationToken);
                 }
 
-                return new ResourceKey(duplicateResource.TypeName, duplicateResource.Id);
+                return new ResourceKey(duplicateResourceWrapper.ResourceTypeName, duplicateResourceWrapper.ResourceId);
             }
             catch (Exception ex)
             {
@@ -368,7 +343,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        private async Task<Resource> UpdateDuplicateResourceInternalAsync(
+        private async Task<ResourceWrapper> UpdateDuplicateResourceInternalAsync(
             Resource resource,
             Resource duplicateResource,
             CancellationToken cancellationToken)
@@ -399,29 +374,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                         false,
                         null),
                     cancellationToken);
-                Resource resourceUpdated = null;
-                if (outcome?.Wrapper?.RawResource != null)
-                {
-                    _logger.LogInformation(
-                        "A '{DuplicateResourceType}' resource {Outcome}.",
-                        duplicateResource.TypeName,
-                        outcome.OutcomeType.ToString().ToLowerInvariant());
 
-                    resourceUpdated = outcome.Wrapper?.RawResource?
-                        .ToITypedElement(ModelInfoProvider.Instance)?
-                        .ToResourceElement()?
-                        .ToPoco();
-                }
-                else
-                {
-                    // TODO: throws an exception here.
-                    _logger.LogError(
-                        "Failed to update a '{DuplicateResourceType}' resource: {Id}.",
-                        duplicateResource.TypeName,
-                        duplicateResource.Id);
-                }
-
-                return resourceUpdated;
+                _logger.LogInformation(
+                    "A '{DuplicateResourceType}' resource {Outcome}.",
+                    duplicateResource.TypeName,
+                    outcome.OutcomeType.ToString().ToLowerInvariant());
+                return outcome.Wrapper;
             }
             catch (Exception ex)
             {
@@ -430,13 +388,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        private async Task<Resource> UpdateResourceInternalAsync(
+        private async Task<ResourceWrapper> UpdateResourceInternalAsync(
             Resource resource,
-            Resource duplicateResource,
+            ResourceWrapper duplicateResourceWrapper,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
-            EnsureArg.IsNotNull(duplicateResource, nameof(duplicateResource));
+            EnsureArg.IsNotNull(duplicateResourceWrapper, nameof(duplicateResourceWrapper));
 
             try
             {
@@ -452,7 +410,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                         resource.Meta.Tag.Where(x => !string.Equals(x.System, TagDuplicateOf, StringComparison.OrdinalIgnoreCase)));
                 }
 
-                tags.Add(new Coding(TagDuplicateOf, duplicateResource.Id));
+                tags.Add(new Coding(TagDuplicateOf, duplicateResourceWrapper.ResourceId));
                 resource.Meta.Tag = tags;
 
                 var resourceWrapper = _resourceWrapperFactory.Create(
@@ -463,7 +421,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                 _logger.LogInformation(
                     "Updating a '{ResourceType}' resource with a duplicate resource '{Id}'...",
                     resource.TypeName,
-                    duplicateResource.Id);
+                    duplicateResourceWrapper.ResourceId);
                 var outcome = await _dataStore.UpsertAsync(
                     new ResourceWrapperOperation(
                         resourceWrapper,
@@ -474,29 +432,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                         false,
                         null),
                     cancellationToken);
-                Resource resourceUpdated = null;
-                if (outcome?.Wrapper?.RawResource != null)
-                {
-                    _logger.LogInformation(
-                        "A '{ResourceType}' resource {Outcome}.",
-                        resource.TypeName,
-                        outcome.OutcomeType.ToString().ToLowerInvariant());
 
-                    resourceUpdated = outcome.Wrapper?.RawResource?
-                        .ToITypedElement(ModelInfoProvider.Instance)?
-                        .ToResourceElement()?
-                        .ToPoco();
-                }
-                else
-                {
-                    // TODO: throws an exception here.
-                    _logger.LogError(
-                        "Failed to update a '{ResourceType}' resource: {Id}.",
-                        resource.TypeName,
-                        resource.Id);
-                }
-
-                return resourceUpdated;
+                _logger.LogInformation(
+                    "A '{ResourceType}' resource {Outcome}.",
+                    resource.TypeName,
+                    outcome.OutcomeType.ToString().ToLowerInvariant());
+                return outcome.Wrapper;
             }
             catch (Exception ex)
             {
@@ -587,6 +528,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             return diagnosticReport;
         }
 
+        private static Resource ConvertToResource(RawResource rawResource)
+        {
+            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
+
+            return rawResource
+                .ToITypedElement(ModelInfoProvider.Instance)
+                .ToResourceElement()
+                .ToPoco();
+        }
+
+        private static Resource ConvertToResource(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            return ConvertToResource(rawResourceElement.RawResource);
+        }
+
         private static string GetDuplicateResourceId(Resource resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
@@ -600,6 +558,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
 
             return string.Equals(resourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase)
                 ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
+        }
+
+        private static bool ShouldDuplicate(Resource resource)
+        {
+            if (resource == null)
+            {
+                return false;
+            }
+
+            if (resource.Meta?.Tag?.Any(x => string.Equals(x.System, TagDuplicateOf, StringComparison.OrdinalIgnoreCase)) ?? false)
+            {
+                return true;
+            }
+
+            if (resource is DiagnosticReport)
+            {
+                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
+                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
+                return ((DiagnosticReport)resource).PresentedForm?.Any(x => x.Url != null) ?? false;
+            }
+            else if (resource is DocumentReference)
+            {
+                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
+                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
+                return ((DocumentReference)resource).Content?.Any(x => x.Attachment?.Url != null) ?? false;
+            }
+
+            return false;
         }
 
         private static void UpdateDuplicateResource(

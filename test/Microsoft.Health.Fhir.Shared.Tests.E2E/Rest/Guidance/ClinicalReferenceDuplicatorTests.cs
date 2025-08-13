@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text;
+using System.Threading.Tasks;
 using DotLiquid.Util;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -43,21 +45,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
         public async Task GivenResource_WhenCreating_ThenDuplicateResourceShouldBeCreated(
             Resource resource)
         {
-            var supportsClinicalReferenceDuplicate = _fixture.TestFhirServer.Metadata.SupportsOperation(
-                OperationsConstants.ClinicalReferenceDuplicate);
             await CreateResourceAsync(resource);
         }
 
-        private async Task CreateResourceAsync(Resource resource)
+        [Theory]
+        [MemberData(nameof(GetCreateResourceData))]
+        public async Task GivenResource_WhenDeleting_ThenDuplicateResourceShouldBeDeleted(
+            Resource resource)
+        {
+            (var source, var duplicate) = await CreateResourceAsync(resource);
+            await DeleteResourceAsync(source);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetUpdateResourceData))]
+        public async Task GivenResource_WhenUpdating_ThenDuplicateResourceShouldBeUpdated(
+            Resource resource,
+            string subject,
+            List<Attachment> attachments)
+        {
+            (var source, var duplicate) = await CreateResourceAsync(resource);
+            await UpdateResourceAsync(source, subject, attachments);
+        }
+
+        private async Task<(Resource source, Resource duplicate)> CreateResourceAsync(Resource resource)
         {
             var resourceType = resource.TypeName;
-            var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
+            var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase)
                 ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
 
             // Create a resource.
             TagResource(resource);
             var response = await Client.CreateAsync(
-                resourceType,
+                resource.TypeName,
                 resource);
             Assert.Equal(HttpStatusCode.Created, response.Response.StatusCode);
             Assert.NotNull(response.Resource);
@@ -66,51 +86,125 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
             var searchResponse = await Client.SearchAsync(
                 $"{duplicateResourceType}?_tag={ClinicalReferenceDuplicator.TagDuplicateOf}|{response.Resource?.Id}");
             Assert.NotNull(searchResponse.Resource?.Entry);
-            Assert.Single(searchResponse.Resource.Entry);
 
             // Check if a duplicate resource has the subject and attachments that match ones from a resource created.
-            if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            var source = response.Resource;
+            var duplicate = searchResponse.Resource?.Entry?.FirstOrDefault()?.Resource;
+            if (duplicate != null)
             {
-                var original = (DocumentReference)resource;
-                var duplicate = (DiagnosticReport)searchResponse.Resource.Entry[0].Resource;
+                ValidateResourceProperties(source, duplicate);
+            }
 
-                Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
-                Assert.NotNull(duplicate.PresentedForm);
+            return (source, duplicate);
+        }
 
-                if (original.Content?.Any(x => !string.IsNullOrEmpty(x.Attachment?.Url)) ?? false)
+        private async Task DeleteResourceAsync(Resource resource)
+        {
+            // Delete a resource.
+            var response = await Client.DeleteAsync(resource);
+            Assert.Equal(HttpStatusCode.NoContent, response.Response.StatusCode);
+
+            // Look for a duplicate resource.
+            var searchResponse = await Client.SearchAsync(
+                $"{resource.TypeName}?_tag={ClinicalReferenceDuplicator.TagDuplicateOf}|{resource.Id}");
+            Assert.Equal(0, searchResponse.Resource?.Entry?.Count ?? 0);
+        }
+
+        private async Task<(Resource source, Resource duplicate)> UpdateResourceAsync(
+            Resource resource,
+            string subject,
+            List<Attachment> attachments)
+        {
+            var resourceType = resource.TypeName;
+            var duplicateResourceType = KnownResourceTypes.DocumentReference;
+
+            if (string.Equals(resourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+                diagnosticReport.Subject = new ResourceReference(subject);
+                diagnosticReport.PresentedForm = attachments;
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+                documentReference.Subject = new ResourceReference(subject);
+
+                var contents = new List<DocumentReference.ContentComponent>();
+                foreach (var attachment in attachments)
                 {
-                    foreach (var a in original.Content.Select(x => x.Attachment))
+                    contents.Add(
+                        new DocumentReference.ContentComponent()
+                        {
+                            Attachment = attachment,
+                        });
+                }
+
+                documentReference.Content = contents;
+                duplicateResourceType = KnownResourceTypes.DiagnosticReport;
+            }
+
+            // Update a resource.
+            var response = await Client.UpdateAsync(resource);
+            Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
+            Assert.NotNull(response.Resource);
+
+            // Look for a duplicate resource.
+            var searchResponse = await Client.SearchAsync(
+                $"{duplicateResourceType}?_tag={ClinicalReferenceDuplicator.TagDuplicateOf}|{response.Resource?.Id}");
+            Assert.NotNull(searchResponse.Resource?.Entry);
+
+            // Check if a duplicate resource has the subject and attachments that match ones from a resource created.
+            var source = response.Resource;
+            var duplicate = searchResponse.Resource?.Entry?.FirstOrDefault()?.Resource;
+            if (duplicate != null)
+            {
+                ValidateResourceProperties(source, duplicate);
+            }
+
+            return (source, duplicate);
+        }
+
+        private static void ValidateResourceProperties(Resource source, Resource duplicate)
+        {
+            EnsureArg.IsNotNull(source, nameof(source));
+            EnsureArg.IsNotNull(duplicate, nameof(duplicate));
+
+            if (string.Equals(source.TypeName, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            {
+                var diagnosticReport = (DiagnosticReport)source;
+                var documentReference = (DocumentReference)duplicate;
+                Assert.Equal(diagnosticReport.Subject?.Reference, documentReference.Subject?.Reference);
+                Assert.Equal(
+                    diagnosticReport.PresentedForm?.Count(x => !string.IsNullOrEmpty(x.Url)),
+                    documentReference.Content?.Count(x => !string.IsNullOrEmpty(x.Attachment?.Url)));
+
+                if (diagnosticReport.PresentedForm?.Any(x => !string.IsNullOrEmpty(x.Url)) ?? false)
+                {
+                    foreach (var a in diagnosticReport.PresentedForm.Where(x => !string.IsNullOrEmpty(x.Url)))
                     {
                         Assert.Contains(
-                            duplicate.PresentedForm,
-                            x => string.Equals(x.Url, a.Url, StringComparison.OrdinalIgnoreCase));
+                            documentReference.Content,
+                            x => string.Equals(x.Attachment?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
                     }
-                }
-                else
-                {
-                    Assert.Equal(0, duplicate.PresentedForm.Count(x => !string.IsNullOrEmpty(x.Url)));
                 }
             }
             else
             {
-                var original = (DiagnosticReport)resource;
-                var duplicate = (DocumentReference)searchResponse.Resource.Entry[0].Resource;
+                var documentReference = (DocumentReference)source;
+                var diagnosticReport = (DiagnosticReport)duplicate;
+                Assert.Equal(documentReference.Subject?.Reference, diagnosticReport.Subject?.Reference);
+                Assert.Equal(
+                    documentReference.Content?.Count(x => !string.IsNullOrEmpty(x.Attachment?.Url)),
+                    diagnosticReport.PresentedForm?.Count(x => !string.IsNullOrEmpty(x.Url)));
 
-                Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
-                Assert.NotNull(duplicate.Content);
-
-                if (original.PresentedForm?.Any(x => !string.IsNullOrEmpty(x.Url)) ?? false)
+                if (documentReference.Content?.Any(x => !string.IsNullOrEmpty(x.Attachment?.Url)) ?? false)
                 {
-                    foreach (var a in original.PresentedForm)
+                    foreach (var a in documentReference.Content.Where(x => !string.IsNullOrEmpty(x?.Attachment?.Url)).Select(x => x.Attachment))
                     {
                         Assert.Contains(
-                            duplicate.Content,
-                            x => string.Equals(x.Attachment?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
+                            diagnosticReport.PresentedForm,
+                            x => string.Equals(x?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
                     }
-                }
-                else
-                {
-                    Assert.Equal(0, duplicate.Content.Count(x => !string.IsNullOrEmpty(x.Attachment?.Url)));
                 }
             }
         }
@@ -252,11 +346,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
                             },
                         },
                         Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
                     },
                 },
                 new object[]
@@ -305,11 +399,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
                             },
                         },
                         Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
                     },
                 },
                 new object[]
@@ -318,12 +412,370 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
                     new DocumentReference
                     {
                         Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    Data = Encoding.UTF8.GetBytes(Convert.ToBase64String(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString()))),
+                                },
+                            },
+                        },
                         Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
+                    },
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetUpdateResourceData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    // Create a new DiagnosticReport resource with one attachment. Update with multiple attachments.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                        },
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>
+                    {
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2005-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment",
+                        },
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2006-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment1",
+                        },
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2007-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment2",
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Create a new DiagnosticReport resource with multiple attachments. Update with one attachment.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment2",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2008-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment3",
+                            },
+                        },
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>
+                    {
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2009-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment4",
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Create a new DiagnosticReport resource with multiple attachments. Update without any attachment.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment2",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment3",
+                            },
+                        },
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>(),
+                },
+                new object[]
+                {
+                    // Create a new DocumentReference resource with one attachment. Update with multiple attachments.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>
+                    {
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2005-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment",
+                        },
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2006-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment1",
+                        },
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2007-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment2",
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Create a new DocumentReference resource with multiple attachments. Update with one attachment.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2008-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment3",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>
+                    {
+                        new Attachment()
+                        {
+                            ContentType = "application/xhtml",
+                            Creation = "2009-12-24",
+                            Url = "http://example.org/fhir/Binary/attachment4",
+                        },
+                    },
+                },
+                new object[]
+                {
+                    // Create a new DocumentReference resource with multiple attachments. Update without any attachment.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment3",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    Data = Encoding.UTF8.GetBytes(Convert.ToBase64String(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString()))),
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    Guid.NewGuid().ToString(),
+                    new List<Attachment>()
+                    {
+                        new Attachment()
+                        {
+                            Data = Encoding.UTF8.GetBytes(Convert.ToBase64String(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString()))),
+                        },
                     },
                 },
             };

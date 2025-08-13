@@ -41,8 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
         public DuplicateClinicalReferenceBehaviorTests()
         {
             _duplicator = Substitute.For<IClinicalReferenceDuplicator>();
-            _duplicator.CheckDuplicate(Arg.Any<ResourceKey>()).Returns(true);
-            _duplicator.ShouldDuplicate(Arg.Any<Resource>()).Returns(true);
+            _duplicator.IsDuplicatableResourceType(Arg.Any<string>()).Returns(true);
 
             _logger = Substitute.For<ILogger<DuplicateClinicalReferenceBehavior>>();
             _coreFeatureConfiguration = new CoreFeatureConfiguration
@@ -78,27 +77,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
             _coreFeatureConfiguration.EnableClinicalReferenceDuplication = enabled;
             var behavior = new DuplicateClinicalReferenceBehavior(
                 Options.Create(_coreFeatureConfiguration),
-                _duplicator,
-                _logger);
+                _duplicator);
 
             await behavior.Handle(
                 request,
                 async (ct) => await Task.Run(() => response),
                 CancellationToken.None);
 
-            _duplicator.Received(enabled ? 1 : 0).ShouldDuplicate(Arg.Any<Resource>());
+            _duplicator.Received(enabled ? 1 : 0).IsDuplicatableResourceType(Arg.Any<string>());
             await _duplicator.Received(enabled ? 1 : 0).CreateResourceAsync(
-                Arg.Any<Resource>(),
+                Arg.Any<RawResourceElement>(),
                 Arg.Any<CancellationToken>());
         }
 
         [Theory]
-        [InlineData(true, true)]
-        [InlineData(true, false)]
-        [InlineData(false, false)]
+        [InlineData(true)]
+        [InlineData(false)]
         public async Task GivenUpsertRequest_WhenDuplicateClinicalReferenceIsEnabled_ThenThenDuplicateResourceShouldBeUpdated(
-            bool enabled,
-            bool duplicateFound)
+            bool enabled)
         {
             var resource = new DiagnosticReport()
             {
@@ -112,38 +108,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
             var response = new UpsertResourceResponse(
                 new SaveOutcome(new RawResourceElement(resourceWrapper), SaveOutcomeType.Created));
 
-            var duplicateResources = new List<Resource>();
-            if (duplicateFound)
-            {
-                duplicateResources.Add(resource);
-            }
-
             _duplicator.UpdateResourceAsync(
-                Arg.Any<Resource>(),
+                Arg.Any<RawResourceElement>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
-                        return Task.FromResult<IReadOnlyList<Resource>>(duplicateResources);
+                        return Task.FromResult<IReadOnlyList<ResourceWrapper>>(new List<ResourceWrapper> { resourceWrapper });
                     });
 
             _coreFeatureConfiguration.EnableClinicalReferenceDuplication = enabled;
             var behavior = new DuplicateClinicalReferenceBehavior(
                 Options.Create(_coreFeatureConfiguration),
-                _duplicator,
-                _logger);
+                _duplicator);
 
             await behavior.Handle(
                 request,
                 async (ct) => await Task.Run(() => response),
                 CancellationToken.None);
 
-            _duplicator.Received(enabled ? 1 : 0).ShouldDuplicate(Arg.Any<Resource>());
+            _duplicator.Received(enabled ? 1 : 0).IsDuplicatableResourceType(Arg.Any<string>());
             await _duplicator.Received(enabled ? 1 : 0).UpdateResourceAsync(
-                Arg.Any<Resource>(),
-                Arg.Any<CancellationToken>());
-            await _duplicator.Received(enabled && !duplicateFound ? 1 : 0).CreateResourceAsync(
-                Arg.Any<Resource>(),
+                Arg.Any<RawResourceElement>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -170,15 +156,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
             _coreFeatureConfiguration.EnableClinicalReferenceDuplication = enabled;
             var behavior = new DuplicateClinicalReferenceBehavior(
                 Options.Create(_coreFeatureConfiguration),
-                _duplicator,
-                _logger);
+                _duplicator);
 
             await behavior.Handle(
                 request,
                 async (ct) => await Task.Run(() => response),
                 CancellationToken.None);
 
-            _duplicator.Received(enabled ? 1 : 0).CheckDuplicate(Arg.Any<ResourceKey>());
+            _duplicator.Received(enabled ? 1 : 0).IsDuplicatableResourceType(Arg.Any<string>());
             await _duplicator.Received(enabled ? 1 : 0).DeleteResourceAsync(
                 Arg.Any<ResourceKey>(),
                 Arg.Any<DeleteOperation>(),

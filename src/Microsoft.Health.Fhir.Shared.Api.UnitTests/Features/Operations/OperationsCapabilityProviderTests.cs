@@ -78,20 +78,5 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             builder.Received(support && dataStore == KnownDataStores.SqlServer ? 1 : 0)
                 .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddIncludesDetails)));
         }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void GivenAConformanceBuilder_WhenCallingOperationsCapabilityForClinicalReferenceDuplicate_ThenClinicalReferenceDuplicateIsAddedWhenEnabled(bool added)
-        {
-            _coreFeatureConfiguration.EnableClinicalReferenceDuplication = added;
-
-            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver, _fhirRuntimeConfiguration);
-            ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
-            provider.Build(builder);
-
-            builder.Received(added ? 1 : 0)
-                .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddClinicalReferenceDuplicateDetails)));
-        }
     }
 }

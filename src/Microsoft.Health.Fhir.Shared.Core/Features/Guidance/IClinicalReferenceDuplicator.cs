@@ -6,17 +6,16 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Guidance
 {
     public interface IClinicalReferenceDuplicator
     {
-        Task<Resource> CreateResourceAsync(
-            Resource resource,
+        Task<(ResourceWrapper source, ResourceWrapper duplicate)> CreateResourceAsync(
+            RawResourceElement rawResourceElement,
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<ResourceKey>> DeleteResourceAsync(
@@ -29,12 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             string resourceId,
             CancellationToken cancellationToken);
 
-        Task<IReadOnlyList<Resource>> UpdateResourceAsync(
-            Resource resource,
+        Task<IReadOnlyList<ResourceWrapper>> UpdateResourceAsync(
+            RawResourceElement rawResourceElement,
             CancellationToken cancellationToken);
 
-        bool CheckDuplicate(ResourceKey resourceKey);
-
-        bool ShouldDuplicate(Resource resource);
+        bool IsDuplicatableResourceType(string resourceType);
     }
 }

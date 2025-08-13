@@ -3,16 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Guidance;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -26,20 +24,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
     {
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly IClinicalReferenceDuplicator _clinicalReferenceDuplicator;
-        private readonly ILogger<DuplicateClinicalReferenceBehavior> _logger;
 
         public DuplicateClinicalReferenceBehavior(
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            IClinicalReferenceDuplicator clinicalReferenceDuplicator,
-            ILogger<DuplicateClinicalReferenceBehavior> logger)
+            IClinicalReferenceDuplicator clinicalReferenceDuplicator)
         {
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(clinicalReferenceDuplicator, nameof(clinicalReferenceDuplicator));
-            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _clinicalReferenceDuplicator = clinicalReferenceDuplicator;
-            _logger = logger;
         }
 
         public async Task<UpsertResourceResponse> Handle(
@@ -51,15 +45,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
             EnsureArg.IsNotNull(next, nameof(next));
 
             var response = await next(cancellationToken);
-            var resource = response?.Outcome?.RawResourceElement?.RawResource?
-                .ToITypedElement(ModelInfoProvider.Instance)?
-                .ToResourceElement()?
-                .ToPoco();
-            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication && _clinicalReferenceDuplicator.ShouldDuplicate(resource))
+            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication
+                && response?.Outcome?.RawResourceElement?.InstanceType != null
+                && response?.Outcome?.RawResourceElement?.RawResource != null
+                && _clinicalReferenceDuplicator.IsDuplicatableResourceType(response.Outcome.RawResourceElement.InstanceType))
             {
-                await _clinicalReferenceDuplicator.CreateResourceAsync(
-                    resource,
+                (var source, var duplicate) = await _clinicalReferenceDuplicator.CreateResourceAsync(
+                    response.Outcome.RawResourceElement,
                     cancellationToken);
+                if (source != null)
+                {
+                    return new UpsertResourceResponse(
+                        new SaveOutcome(new RawResourceElement(source), response.Outcome.Outcome));
+                }
             }
 
             return response;
@@ -74,23 +72,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
             EnsureArg.IsNotNull(next, nameof(next));
 
             var response = await next(cancellationToken);
-            var resource = response?.Outcome?.RawResourceElement?.RawResource?
-                .ToITypedElement(ModelInfoProvider.Instance)?
-                .ToResourceElement()?
-                .ToPoco();
-            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication && _clinicalReferenceDuplicator.ShouldDuplicate(resource))
+            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication
+                && response?.Outcome?.RawResourceElement?.InstanceType != null
+                && response?.Outcome?.RawResourceElement?.RawResource != null
+                && _clinicalReferenceDuplicator.IsDuplicatableResourceType(response.Outcome.RawResourceElement.InstanceType))
             {
-                var duplicateResources = await _clinicalReferenceDuplicator.UpdateResourceAsync(
-                    resource,
-                    cancellationToken);
-                if (duplicateResources.Any())
-                {
-                    return response;
-                }
-
-                _logger.LogWarning("No duplicate resource found.");
-                await _clinicalReferenceDuplicator.CreateResourceAsync(
-                    resource,
+                await _clinicalReferenceDuplicator.UpdateResourceAsync(
+                    response.Outcome.RawResourceElement,
                     cancellationToken);
             }
 
@@ -106,11 +94,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
             EnsureArg.IsNotNull(next, nameof(next));
 
             var response = await next(cancellationToken);
-            var resourceKey = request?.ResourceKey;
-            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication && _clinicalReferenceDuplicator.CheckDuplicate(resourceKey))
+            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication
+                && response?.ResourceKey?.Id != null
+                && response?.ResourceKey?.ResourceType != null
+                && _clinicalReferenceDuplicator.IsDuplicatableResourceType(response.ResourceKey.ResourceType))
             {
                 await _clinicalReferenceDuplicator.DeleteResourceAsync(
-                    resourceKey,
+                    response.ResourceKey,
                     request.DeleteOperation,
                     cancellationToken);
             }

@@ -56,8 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ResourceTypeBulkUpdate = "resource-type-bulk-update";
 
-        public const string ClinicalReferenceDuplicate = "clinical-reference-duplicate";
-
         public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter", "StructureDefinition" });
     }
 }

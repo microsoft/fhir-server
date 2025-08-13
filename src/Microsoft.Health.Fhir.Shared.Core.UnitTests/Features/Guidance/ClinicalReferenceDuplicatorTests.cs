@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
             var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
                 ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
 
-            // Set up a validation on a request for creating the original resource.
+            // Set up a validation on a request for creating the source resource.
             var resourceElement = resource.ToResourceElement();
             _dataStore.UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
@@ -102,12 +102,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 
                         if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
                         {
-                            var original = (DocumentReference)resource;
+                            var source = (DocumentReference)resource;
                             var duplicate = (DiagnosticReport)r;
 
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
+                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
                             Assert.NotNull(duplicate.PresentedForm);
-                            foreach (var a in original.Content.Select(x => x.Attachment))
+                            foreach (var a in source.Content.Select(x => x.Attachment))
                             {
                                 Assert.Contains(
                                     duplicate.PresentedForm,
@@ -118,12 +118,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         }
                         else
                         {
-                            var original = (DiagnosticReport)resource;
+                            var source = (DiagnosticReport)resource;
                             var duplicate = (DocumentReference)r;
 
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
+                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
                             Assert.NotNull(duplicate.Content);
-                            foreach (var a in original.PresentedForm)
+                            foreach (var a in source.PresentedForm)
                             {
                                 Assert.Contains(
                                     duplicate.Content,
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 SaveOutcomeType.Created));
                     });
 
-            // Set up a validation on a request for updating the original resource with the id of the duplicate resource.
+            // Set up a validation on a request for updating the source resource with the id of the duplicate resource.
             _dataStore.UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     });
 
             await _duplicator.CreateResourceAsync(
-                resource,
+                new RawResourceElement(CreateResourceWrapper(resourceElement)),
                 CancellationToken.None);
 
             // Check how many times create/update was invoked.
@@ -259,12 +259,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 
                         if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
                         {
-                            var original = (DocumentReference)resource;
+                            var source = (DocumentReference)resource;
                             var duplicate = (DiagnosticReport)r;
 
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
+                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
                             Assert.NotNull(duplicate.PresentedForm);
-                            foreach (var a in original.Content.Select(x => x.Attachment))
+                            foreach (var a in source.Content.Select(x => x.Attachment))
                             {
                                 Assert.Contains(
                                     duplicate.PresentedForm,
@@ -275,12 +275,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         }
                         else
                         {
-                            var original = (DiagnosticReport)resource;
+                            var source = (DiagnosticReport)resource;
                             var duplicate = (DocumentReference)r;
 
-                            Assert.Equal(original.Subject?.Reference, duplicate.Subject?.Reference);
+                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
                             Assert.NotNull(duplicate.Content);
-                            foreach (var a in original.PresentedForm)
+                            foreach (var a in source.PresentedForm)
                             {
                                 Assert.Contains(
                                     duplicate.Content,
@@ -301,7 +301,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 SaveOutcomeType.Created));
                     });
 
-            // Set up a validation on a request for updating the original resource with the id of the duplicate resource.
+            // Set up a validation on a request for updating the source resource with the id of the duplicate resource.
             _dataStore.UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     });
 
             await _duplicator.UpdateResourceAsync(
-                resource,
+                new RawResourceElement(CreateResourceWrapper(resource.ToResourceElement())),
                 CancellationToken.None);
 
             // Check how many times create/update was invoked.
@@ -672,7 +672,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DiagnosticReport resource with one attachment.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -698,7 +698,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                         },
                     },
@@ -711,7 +711,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -741,7 +741,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a  DiagnosticReport resource with multiple attachments.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -767,19 +767,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                                Url = "http://example.org/fhir/Binary/attachment-source1",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                                Url = "http://example.org/fhir/Binary/attachment-source2",
                             },
                         },
                     },
@@ -792,7 +792,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -822,7 +822,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DiagnosticReport resource without any attachment.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -853,7 +853,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -883,7 +883,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DiagnosticReport resource with attachments when a duplicate resource doesn't exist.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Status = DiagnosticReport.DiagnosticReportStatus.Registered,
                         Code = new CodeableConcept()
                         {
@@ -902,19 +902,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                                Url = "http://example.org/fhir/Binary/attachment-source1",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2007-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                                Url = "http://example.org/fhir/Binary/attachment-source2",
                             },
                         },
                     },
@@ -925,7 +925,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DiagnosticReport resource with multiple duplicates.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -951,7 +951,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                         },
                     },
@@ -964,7 +964,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -994,7 +994,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1024,7 +1024,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1054,7 +1054,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DocumentReference resource with one attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1070,7 +1070,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                         },
@@ -1090,7 +1090,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1123,7 +1123,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DocumentReference resource with multiple attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1139,7 +1139,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1148,7 +1148,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                    Url = "http://example.org/fhir/Binary/attachment-source1",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1157,7 +1157,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                    Url = "http://example.org/fhir/Binary/attachment-source2",
                                 },
                             },
                         },
@@ -1177,7 +1177,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1210,7 +1210,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DocumentReference resource without any attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1235,7 +1235,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1268,7 +1268,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DocumentReference resource with attachments when a duplicate resource doesn't exist.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Content = new List<DocumentReference.ContentComponent>
                         {
                             new DocumentReference.ContentComponent()
@@ -1277,7 +1277,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1286,7 +1286,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                    Url = "http://example.org/fhir/Binary/attachment-source1",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1295,7 +1295,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                    Url = "http://example.org/fhir/Binary/attachment-source2",
                                 },
                             },
                         },
@@ -1313,7 +1313,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Update a DocumentReference resource with multiple duplicates.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1329,7 +1329,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                         },
@@ -1349,7 +1349,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1382,7 +1382,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1415,7 +1415,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1460,7 +1460,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DiagnosticReport resource with one attachment.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1486,7 +1486,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                         },
                     },
@@ -1500,7 +1500,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1530,7 +1530,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a  DiagnosticReport resource with multiple attachments.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1556,19 +1556,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                                Url = "http://example.org/fhir/Binary/attachment-source1",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                                Url = "http://example.org/fhir/Binary/attachment-source2",
                             },
                         },
                     },
@@ -1583,7 +1583,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -1612,7 +1612,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DiagnosticReport resource without any attachment.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1644,7 +1644,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1674,7 +1674,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DiagnosticReport resource with attachments when no duplicates.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Status = DiagnosticReport.DiagnosticReportStatus.Registered,
                         Code = new CodeableConcept()
                         {
@@ -1693,19 +1693,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original1",
+                                Url = "http://example.org/fhir/Binary/attachment-source1",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2007-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original2",
+                                Url = "http://example.org/fhir/Binary/attachment-source2",
                             },
                         },
                     },
@@ -1717,7 +1717,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DiagnosticReport resource with multiple duplicates.
                     new DiagnosticReport
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1743,7 +1743,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-original",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                         },
                     },
@@ -1757,7 +1757,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1787,7 +1787,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1817,7 +1817,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1847,7 +1847,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DocumentReference resource with one attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1863,7 +1863,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                         },
@@ -1884,7 +1884,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -1917,7 +1917,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DocumentReference resource with multiple attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -1933,7 +1933,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1942,7 +1942,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                    Url = "http://example.org/fhir/Binary/attachment-source1",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -1951,7 +1951,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                    Url = "http://example.org/fhir/Binary/attachment-source2",
                                 },
                             },
                         },
@@ -1972,7 +1972,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -2005,7 +2005,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DocumentReference resource without any attachment.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -2031,7 +2031,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -2064,7 +2064,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DocumentReference resource with attachments when no duplicates.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Content = new List<DocumentReference.ContentComponent>
                         {
                             new DocumentReference.ContentComponent()
@@ -2073,7 +2073,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -2082,7 +2082,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original1",
+                                    Url = "http://example.org/fhir/Binary/attachment-source1",
                                 },
                             },
                             new DocumentReference.ContentComponent()
@@ -2091,7 +2091,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original2",
+                                    Url = "http://example.org/fhir/Binary/attachment-source2",
                                 },
                             },
                         },
@@ -2110,7 +2110,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                     // Delete a DocumentReference resource with multiple duplicates.
                     new DocumentReference
                     {
-                        Id = "original",
+                        Id = "source",
                         Meta = new Meta()
                         {
                             Tag = new List<Coding>
@@ -2126,7 +2126,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 {
                                     ContentType = "application/xhtml",
                                     Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-original",
+                                    Url = "http://example.org/fhir/Binary/attachment-source",
                                 },
                             },
                         },
@@ -2147,7 +2147,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -2180,7 +2180,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
@@ -2213,7 +2213,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "original"),
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                     new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
