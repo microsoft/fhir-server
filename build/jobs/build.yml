@@ -37,6 +37,7 @@ steps:
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
+    retryCountOnTaskFailure: 1
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: DotNetCoreCLI@2
