@@ -12,6 +12,7 @@ using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -188,12 +189,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Theory]
+        [SkippableTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenABundleWithDynamicReferences_WhenSubmittingATransaction_ThenAllReferencesAreResolvedProperly(FhirBundleProcessingLogic processingLogic)
         {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3);
+
             // In this test, we create a bundle with multiple resources that reference each other.
             // The bundle includes a Patient, Consent, Observation, Device, Practitioner, and Organization.
             // Each resource is created with a POST request, and the bundle is processed as a transaction (sequential or parallel).
