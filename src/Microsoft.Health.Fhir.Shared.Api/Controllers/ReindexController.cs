@@ -175,11 +175,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             foreach (var param in inputParams.Parameter)
             {
                 var paramName = param.Name;
-                _logger.LogInformation(string.Format("Reindex job received parameter {0} for method {1}", paramName, Request.Method));
+                _logger.LogInformation(string.Format("Reindex job received parameter {0} for method {1}", SanitizeStringForLogging(paramName), SanitizeStringForLogging(Request.Method)));
 
                 if (!supportedParams.Contains(paramName))
                 {
-                    _logger.LogInformation(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
+                    _logger.LogInformation(string.Format(Resources.ReindexParameterNotValid, SanitizeStringForLogging(paramName), SanitizeStringForLogging(Request.Method)));
                 }
             }
         }
@@ -237,6 +237,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             supportedParams.Add(HttpMethods.Patch, patchParams);
 
             return supportedParams;
+        }
+
+        /// <summary>
+        /// Sanitizes a string for safe logging by removing newlines, carriage returns, tabs, and other control characters
+        /// that could be used for log injection attacks (CRLF injection, log forging).
+        /// </summary>
+        private static string SanitizeStringForLogging(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
+
+            return input
+                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("\r", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove carriage return
+                .Replace("\n", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove line feed
+                .Replace("\t", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove tab
+                .Replace("\f", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove form feed
+                .Replace("\v", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove vertical tab
+                .Replace("\b", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove backspace
+                .Replace("\a", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove bell character
+                .Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase); // Remove bell character
         }
     }
 }
