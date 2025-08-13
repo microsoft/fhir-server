@@ -44,9 +44,21 @@ steps:
               
               Write-Host "##[command]Executing: $testCommand"
               
-              # Use cmd.exe to execute the command to avoid PowerShell quote parsing issues
-              $result = cmd.exe /c $testCommand
-              $exitCode = $LASTEXITCODE
+              # Parse the command properly for cross-platform execution
+              # Use regex to properly split command while preserving quoted arguments
+              $regex = '(?:[^\s"]+|"[^"]*")+'
+              $parts = [regex]::Matches($testCommand, $regex) | ForEach-Object { $_.Value.Trim('"') }
+              
+              if ($parts.Count -gt 0) {
+                  $executable = $parts[0]
+                  $arguments = $parts[1..($parts.Count-1)]
+                  
+                  # Execute using & operator with splatting for proper argument handling
+                  & $executable @arguments
+                  $exitCode = $LASTEXITCODE
+              } else {
+                  throw "Unable to parse command: $testCommand"
+              }
               
               if ($exitCode -eq 0) {
                   $success = $true
