@@ -28,6 +28,7 @@ steps:
   - task: DotNetCoreCLI@2
     displayName: '${{ parameters.displayName }} (Attempt 1)'
     continueOnError: true
+    name: 'TestAttempt1_Unit'
     inputs:
       command: test
       projects: '${{ parameters.testProjects }}'
@@ -39,17 +40,18 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests'
-      condition: failed()
+      condition: eq(variables['TestAttempt1_Unit.exitcode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1_Unit.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: failed()
+      condition: eq(variables['TestAttempt1_Unit.exitcode'], '1')
       continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      name: 'TestAttempt2_Unit'
       inputs:
         command: test
         projects: '${{ parameters.testProjects }}'
@@ -61,16 +63,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests (Final)'
-      condition: failed()
+      condition: eq(variables['TestAttempt2_Unit.exitcode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2_Unit.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: failed()
+      condition: eq(variables['TestAttempt2_Unit.exitcode'], '1')
       inputs:
         command: test
         projects: '${{ parameters.testProjects }}'
@@ -84,6 +86,7 @@ steps:
   - task: DotNetCoreCLI@2
     displayName: '${{ parameters.displayName }} (Attempt 1)'
     continueOnError: true
+    name: 'TestAttempt1'
     inputs:
       command: test
       arguments: '${{ parameters.testArguments }}'
@@ -94,17 +97,18 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic'
-      condition: failed()
+      condition: eq(variables['TestAttempt1.exitcode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed (exit code: $(TestAttempt1.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: failed()
+      condition: eq(variables['TestAttempt1.exitcode'], '1')
       continueOnError: ${{ lt(2, parameters.maxAttempts) }}
+      name: 'TestAttempt2'
       inputs:
         command: test
         arguments: '${{ parameters.testArguments }}'
@@ -115,16 +119,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic (Final)'
-      condition: failed()
+      condition: eq(variables['TestAttempt2.exitcode'], '1')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt failed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed (exit code: $(TestAttempt2.exitcode)), waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: failed()
+      condition: eq(variables['TestAttempt2.exitcode'], '1')
       inputs:
         command: test
         arguments: '${{ parameters.testArguments }}'
