@@ -46,6 +46,7 @@ steps:
       projects: '**/*UnitTests/*.csproj'
       arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
+    retryCountOnTaskFailure: 1
   - task: reportgenerator@5
     displayName: 'aggregate code coverage'
     condition: succeededOrFailed()

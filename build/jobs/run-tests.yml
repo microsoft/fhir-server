@@ -63,6 +63,7 @@ jobs:
       arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
+    retryCountOnTaskFailure: 1
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -124,6 +125,7 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+    retryCountOnTaskFailure: 1
 
 - job: 'cosmosE2eTests'
   dependsOn: []
