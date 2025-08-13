@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal($"Patient/{patientId}", consentPatientReference);
         }
 
-        [SkippableTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
