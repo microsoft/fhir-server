@@ -245,21 +245,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         private static string SanitizeStringForLogging(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (input == null)
             {
-                return input;
+                return "[null]";
             }
 
-            return input
-                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\r", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove carriage return
-                .Replace("\n", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove line feed
-                .Replace("\t", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove tab
-                .Replace("\f", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove form feed
-                .Replace("\v", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove vertical tab
-                .Replace("\b", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove backspace
-                .Replace("\a", string.Empty, StringComparison.OrdinalIgnoreCase) // Remove bell character
-                .Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase); // Remove bell character
+            if (input.Length == 0)
+            {
+                return "[empty]";
+            }
+
+            // Remove all control characters (ASCII < 32 or == 127), but preserve spaces and printable characters
+            var sanitized = new System.Text.StringBuilder(input.Length);
+            foreach (char c in input)
+            {
+                if (!char.IsControl(c))
+                {
+                    sanitized.Append(c);
+                }
+            }
+
+            return sanitized.ToString();
         }
     }
 }
