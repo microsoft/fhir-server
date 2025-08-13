@@ -96,6 +96,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 builder.Apply(AddIncludesDetails);
             }
+
+            if (_coreFeatureConfiguration.EnableClinicalReferenceDuplication)
+            {
+                builder.Apply(AddClinicalReferenceDuplicateDetails);
+            }
         }
 
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
@@ -174,6 +179,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddIncludesDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Includes);
+        }
+
+        public void AddClinicalReferenceDuplicateDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ClinicalReferenceDuplicate);
         }
     }
 }
