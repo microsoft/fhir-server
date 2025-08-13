@@ -1,0 +1,73 @@
+parameters:
+- name: displayName
+  type: string
+- name: testCommand
+  type: string
+- name: workingDirectory
+  type: string
+  default: "$(System.ArtifactsDirectory)"
+- name: testRunTitle
+  type: string
+- name: maxAttempts
+  type: number
+  default: 3
+- name: retryDelaySeconds
+  type: number
+  default: 30
+- name: environmentVariables
+  type: object
+  default: {}
+- name: additionalArguments
+  type: string
+  default: ""
+
+steps:
+- task: PowerShell@2
+  displayName: '${{ parameters.displayName }}'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $maxAttempts = ${{ parameters.maxAttempts }}
+      $attempt = 1
+      $success = $false
+      $retryDelay = ${{ parameters.retryDelaySeconds }}
+      
+      while ($attempt -le $maxAttempts -and -not $success) {
+          Write-Host "##[section]Starting attempt $attempt of $maxAttempts for: ${{ parameters.displayName }}"
+          
+          try {
+              $testCommand = "${{ parameters.testCommand }}"
+              if ("${{ parameters.additionalArguments }}" -ne "") {
+                  $testCommand += " ${{ parameters.additionalArguments }}"
+              }
+              
+              Write-Host "##[command]Executing: $testCommand"
+              Invoke-Expression $testCommand
+              
+              if ($LASTEXITCODE -eq 0) {
+                  $success = $true
+                  Write-Host "##[section]✅ Tests passed on attempt $attempt"
+              } else {
+                  Write-Host "##[warning]❌ Tests failed on attempt $attempt with exit code $LASTEXITCODE"
+                  if ($attempt -eq $maxAttempts) {
+                      Write-Host "##[error]💥 All $maxAttempts attempts failed"
+                      exit $LASTEXITCODE
+                  }
+              }
+          } catch {
+              Write-Host "##[error]💥 Exception on attempt $attempt`: $_"
+              if ($attempt -eq $maxAttempts) {
+                  throw
+              }
+          }
+          
+          $attempt++
+          if (-not $success -and $attempt -le $maxAttempts) {
+              Write-Host "##[warning]⏳ Waiting $retryDelay seconds before retry..."
+              Start-Sleep -Seconds $retryDelay
+          }
+      }
+      
+      Write-Host "##vso[task.setvariable variable=TestRunTitle]${{ parameters.testRunTitle }} (Completed after $($attempt-1) attempts)"
+  workingDirectory: ${{ parameters.workingDirectory }}
+  env: ${{ parameters.environmentVariables }}

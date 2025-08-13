@@ -30,24 +30,24 @@ steps:
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.unitTest, 'true') }}:
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test'
-    inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
+  - template: run-tests-with-retry.yml
+    parameters:
+      displayName: 'Unit Tests with Retry'
+      testCommand: 'dotnet test **/*UnitTests/*.csproj --configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
-    retryCountOnTaskFailure: 1
+      maxAttempts: 2
+      retryDelaySeconds: 10
+      workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test with coverage'
-    inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
+  - template: run-tests-with-retry.yml
+    parameters:
+      displayName: 'Unit Tests with Coverage and Retry'
+      testCommand: 'dotnet test **/*UnitTests/*.csproj --configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
-    retryCountOnTaskFailure: 1
+      maxAttempts: 2
+      retryDelaySeconds: 10
+      workingDirectory: $(System.DefaultWorkingDirectory)
   - task: reportgenerator@5
     displayName: 'aggregate code coverage'
     condition: succeededOrFailed()
