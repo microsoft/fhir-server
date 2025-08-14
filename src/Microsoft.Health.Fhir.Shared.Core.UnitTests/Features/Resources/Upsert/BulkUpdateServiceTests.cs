@@ -722,7 +722,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var readNextPage = false;
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
@@ -752,7 +752,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 .Returns(callInfo =>
                 {
                     updateCount++;
-                    var token = callInfo.Arg<CancellationToken>();
                     if (updateCount == 1)
                     {
                         throw new TimeoutException();
@@ -839,7 +838,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var readNextPage = false;
             var isIncludesRequest = false;
             var conditionalParameters = new List<Tuple<string, string>>();
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
