@@ -40,16 +40,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt1_Unit.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt did not succeed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed or partially succeeded, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt1_Unit.result'], 'Failed', 'PartiallySucceeded')
       name: 'TestAttempt2_Unit'
       inputs:
         command: test
@@ -63,16 +63,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic for Unit Tests (Final)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt2_Unit.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt did not succeed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed or partially succeeded, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt2_Unit.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         command: test
         projects: '${{ parameters.testProjects }}'
@@ -97,16 +97,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 1) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt1.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]First attempt did not succeed, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
+          Write-Host "##[warning]First attempt failed or partially succeeded, waiting ${{ parameters.retryDelaySeconds }} seconds before retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 2)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt1.result'], 'Failed', 'PartiallySucceeded')
       name: 'TestAttempt2'
       inputs:
         command: test
@@ -119,16 +119,16 @@ steps:
   - ${{ if gt(parameters.maxAttempts, 2) }}:
     - task: PowerShell@2
       displayName: 'Retry Logic (Final)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt2.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "##[warning]Second attempt did not succeed, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
+          Write-Host "##[warning]Second attempt failed or partially succeeded, waiting ${{ parameters.retryDelaySeconds }} seconds before final retry..."
           Start-Sleep -Seconds ${{ parameters.retryDelaySeconds }}
 
     - task: DotNetCoreCLI@2
       displayName: '${{ parameters.displayName }} (Attempt 3)'
-      condition: not(succeeded())
+      condition: in(variables['TestAttempt2.result'], 'Failed', 'PartiallySucceeded')
       inputs:
         command: test
         arguments: '${{ parameters.testArguments }}'
