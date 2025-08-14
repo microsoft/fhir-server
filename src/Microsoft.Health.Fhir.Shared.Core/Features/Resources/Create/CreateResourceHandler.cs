@@ -59,7 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             // If the record (in the current request) is part of a transaction and had an ID assigned to it, then the ID should be preserved.
             if (IsBundleParallelTransaction(request) && !string.IsNullOrWhiteSpace(request.BundleResourceContext?.PersistedId))
             {
-                resource.Id = request.BundleResourceContext.PersistedId;
+                if (!string.Equals(resource.Id, request.BundleResourceContext.PersistedId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"Resource ID mismatch: Expected '{request.BundleResourceContext.PersistedId}', but got '{resource.Id}'.");
+                }
             }
             else
             {
