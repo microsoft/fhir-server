@@ -10,7 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Rest;
+using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// List of known HTTP Verbs in the operation.
         /// </summary>
-        private readonly ConcurrentDictionary<HTTPVerb, byte> _knownHttpVerbsInOperation;
+        private readonly ConcurrentDictionary<Bundle.HTTPVerb, byte> _knownHttpVerbsInOperation;
 
         /// <summary>
         /// Thread safe locking object reference.
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _logger = logger;
 
             _resources = new ConcurrentDictionary<DataStoreOperationIdentifier, ResourceWrapperOperation>();
-            _knownHttpVerbsInOperation = new ConcurrentDictionary<HTTPVerb, byte>();
+            _knownHttpVerbsInOperation = new ConcurrentDictionary<Bundle.HTTPVerb, byte>();
 
             _lock = new object();
 
