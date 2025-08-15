@@ -17,7 +17,11 @@
                 "editProfileDefinitions",
                 "smart",
                 "searchParameter",
-                "bulkOperator"
+                "bulkOperator",
+                "search",
+                "readV2",
+                "create",
+                "update"
             ]
         }
     },
