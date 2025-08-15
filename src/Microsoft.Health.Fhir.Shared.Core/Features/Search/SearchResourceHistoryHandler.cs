@@ -39,7 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
+            // Check for either legacy Read permission or new SMART v2 Search permission
+            var grantedAccess = await _authorizationService.CheckAccess(DataActions.Read | DataActions.Search, cancellationToken);
+            if ((grantedAccess & (DataActions.Read | DataActions.Search)) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }
