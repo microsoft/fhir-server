@@ -21,10 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            bool allowNegativeVersions = false,
-            string errorContainerName = null,
-            bool eventualConsistency = false,
-            int processingJobBytesToRead = 1000 * 10000) // each job should handle about 10000 resources, with about 1000 bytes per resource.
+            bool allowNegativeVersions,
+            string errorContainerName,
+            bool eventualConsistency,
+            int processingJobBytesToRead)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 

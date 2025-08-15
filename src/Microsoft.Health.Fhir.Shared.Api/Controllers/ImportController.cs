@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -113,11 +114,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.Input,
                  importRequest.StorageDetail,
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
-                 HttpContext.RequestAborted,
                  importRequest.AllowNegativeVersions,
                  importRequest.ErrorContainerName,
                  importRequest.EventualConsistency,
-                 importRequest.ProcessingJobBytesToRead);
+                 importRequest.ProcessingJobBytesToRead,
+                 HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);

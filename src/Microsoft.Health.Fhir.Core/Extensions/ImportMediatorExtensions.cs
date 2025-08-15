@@ -25,11 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            CancellationToken cancellationToken,
-            bool allowNegativeVersions = false,
-            string errorContainerName = null,
-            bool eventualConsistency = false,
-            int processingJobBytesToRead = 1000 * 10000)
+            bool allowNegativeVersions,
+            string errorContainerName,
+            bool eventualConsistency,
+            int processingJobBytesToRead,
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
