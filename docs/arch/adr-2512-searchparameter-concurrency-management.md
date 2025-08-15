@@ -42,9 +42,6 @@ The FHIR server operates in distributed environments with:
 - **Blue/Green Deployments**: Multiple versions running simultaneously during updates
 - **High Concurrency**: Systems often batch SearchParameter updates
 
-### FHIR Specification Compliance
-SearchParameters are critical FHIR infrastructure resources that define how clinical data can be queried. The FHIR specification requires that SearchParameter changes be atomic and consistent across all server instances to maintain query reliability.
-
 ## Decision
 
 We will implement a **two-layer concurrency control strategy** combining application-level pessimistic locking with database-level optimistic concurrency:
