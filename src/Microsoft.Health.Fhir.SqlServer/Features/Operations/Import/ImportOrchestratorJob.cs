@@ -40,8 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob
     {
-        public const int BytesToRead = 10000 * 1000; // each job should handle about 10000 resources. with about 1000 bytes per resource
-
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IQueueClient _queueClient;
@@ -237,11 +235,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 result.TotalBytes += blobLength;
-                foreach (var offset in GetOffsets(blobLength, BytesToRead))
+                foreach (var offset in GetOffsets(blobLength, coordDefinition.ProcessingJobBytesToRead))
                 {
                     var newInput = input.Clone();
                     newInput.Offset = offset;
-                    newInput.BytesToRead = BytesToRead;
+                    newInput.BytesToRead = coordDefinition.ProcessingJobBytesToRead;
                     lock (inputs)
                     {
                         inputs.Add(newInput);

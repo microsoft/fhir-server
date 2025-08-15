@@ -28,12 +28,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             CancellationToken cancellationToken,
             bool allowNegativeVersions = false,
             string errorContainerName = null,
-            bool eventualConsistency = false)
+            bool eventualConsistency = false,
+            int processingJobBytesToRead = 1000 * 10000)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency);
+            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency, processingJobBytesToRead);
 
             CreateImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

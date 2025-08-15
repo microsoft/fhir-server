@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             ImportMode importMode,
             bool allowNegativeVersions = false,
             string errorContainerName = null,
-            bool eventualConsistency = false)
+            bool eventualConsistency = false,
+            int processingJobBytesToRead = 1000 * 10000) // each job should handle about 10000 resources, with about 1000 bytes per resource.
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             AllowNegativeVersions = allowNegativeVersions;
             ErrorContainerName = errorContainerName;
             EventualConsistency = eventualConsistency;
+            ProcessingJobBytesToRead = processingJobBytesToRead;
         }
 
         /// <summary>
@@ -86,5 +88,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Flag is relevant only for resource creates. Default value is false.
         /// </summary>
         public bool EventualConsistency { get; set; }
+
+        /// <summary>
+        /// Number of bytes to be read by processing job.
+        /// </summary>
+        public int ProcessingJobBytesToRead { get; set; }
     }
 }
