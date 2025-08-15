@@ -1,22 +1,19 @@
-﻿/*************************************************************
-    Stored procedures - UpsertSearchParams
+/*************************************************************
+    Add optimistic concurrency support for SearchParam updates
 **************************************************************/
---
--- STORED PROCEDURE
---     UpsertSearchParams
---
--- DESCRIPTION
---     Given a set of search parameters, creates or updates the parameters.
---     Implements optimistic concurrency control using RowVersion.
---
--- PARAMETERS
---     @searchParams
---         * The updated existing search parameters or the new search parameters
---
--- RETURN VALUE
---     The IDs and URIs of the search parameters that were inserted (not updated).
---
-CREATE PROCEDURE dbo.UpsertSearchParams
+
+-- Create new table type with RowVersion support
+CREATE TYPE dbo.SearchParamTableType_3 AS TABLE
+(
+    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status varchar(20) NOT NULL,
+    IsPartiallySupported bit NOT NULL,
+    RowVersion varbinary(8) NULL
+);
+GO
+
+-- Update the UpsertSearchParams stored procedure to use the new table type with optimistic concurrency
+ALTER PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_3 READONLY
 AS
 SET NOCOUNT ON;
@@ -76,3 +73,12 @@ WHERE  upsertedSearchParam.Action = 'INSERT';
 
 COMMIT TRANSACTION;
 GO
+
+-- Update GetSearchParamStatuses to include RowVersion for optimistic concurrency
+ALTER PROCEDURE dbo.GetSearchParamStatuses
+AS
+    SET NOCOUNT ON
+
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported, RowVersion FROM dbo.SearchParam
+GO
+
