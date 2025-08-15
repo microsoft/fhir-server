@@ -397,8 +397,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
-                var collection = new SearchParameterStatusCollection();
+                // Use the appropriate collection based on schema version
+                bool includeRowVersion = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
+                var collection = new SearchParameterStatusCollection(includeRowVersion);
                 collection.AddRange(statuses);
+
+                // Use the appropriate table type based on schema version
+                string tableTypeName = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency
+                    ? "dbo.SearchParamTableType_3"
+                    : "dbo.SearchParamTableType_2";
 
                 var tableValuedParameter = new SqlParameter
                     {
@@ -406,7 +413,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SqlDbType = SqlDbType.Structured,
                         Value = collection,
                         Direction = ParameterDirection.Input,
-                        TypeName = "dbo.SearchParamTableType_2",
+                        TypeName = tableTypeName,
                     };
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);

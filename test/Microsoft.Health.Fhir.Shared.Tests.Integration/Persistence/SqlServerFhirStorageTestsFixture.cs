@@ -220,7 +220,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 sqlSortingValidator,
                 sqlServerFhirModel,
-                _searchParameterDefinitionManager);
+                _searchParameterDefinitionManager,
+                NullLogger<SqlServerSearchParameterStatusDataStore>.Instance);
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -346,21 +347,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirStorageTestHelper))
             {
                 return _testHelper;
-            }
-
-            if (serviceType == typeof(ISqlServerFhirStorageTestHelper))
-            {
-                return _testHelper;
-            }
-
-            if (serviceType.IsInstanceOfType(this))
-            {
-                return this;
-            }
-
-            if (serviceType == typeof(ITransactionHandler))
-            {
-                return SqlTransactionHandler;
             }
 
             if (serviceType == typeof(ISearchParameterStatusDataStore))

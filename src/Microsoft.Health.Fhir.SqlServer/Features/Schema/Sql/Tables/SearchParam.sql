@@ -7,5 +7,6 @@
     WITH (DATA_COMPRESSION = PAGE),
     Status                  varchar(20)                 NULL,
     LastUpdated             datetimeoffset(7)           NULL,
-    IsPartiallySupported    bit                         NULL
+    IsPartiallySupported    bit                         NULL,
+    RowVersion              rowversion                  NOT NULL
 )

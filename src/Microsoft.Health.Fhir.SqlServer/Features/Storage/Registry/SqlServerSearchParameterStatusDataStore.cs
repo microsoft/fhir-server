@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISqlServerFhirModel _fhirModel;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ILogger<SqlServerSearchParameterStatusDataStore> _logger;
 
         public SqlServerSearchParameterStatusDataStore(
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
@@ -43,7 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             SchemaInformation schemaInformation,
             SqlServerSortingValidator sortingValidator,
             ISqlServerFhirModel fhirModel,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ILogger<SqlServerSearchParameterStatusDataStore> logger)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
@@ -52,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
@@ -60,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _logger = logger;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
@@ -88,15 +94,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         string stringStatus;
                         DateTimeOffset? lastUpdated;
                         bool? isPartiallySupported;
+                        byte[] rowVersion = null;
 
                         ResourceSearchParameterStatus resourceSearchParameterStatus;
 
-                        (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                            VLatest.SearchParam.SearchParamId,
-                            VLatest.SearchParam.Uri,
-                            VLatest.SearchParam.Status,
-                            VLatest.SearchParam.LastUpdated,
-                            VLatest.SearchParam.IsPartiallySupported);
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                        {
+                            // Read RowVersion if available in current schema - will need to be updated once generated model includes RowVersion
+                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                                VLatest.SearchParam.SearchParamId,
+                                VLatest.SearchParam.Uri,
+                                VLatest.SearchParam.Status,
+                                VLatest.SearchParam.LastUpdated,
+                                VLatest.SearchParam.IsPartiallySupported);
+
+                            // Read RowVersion manually for now, but only if the column exists
+                            try
+                            {
+                                if (sqlDataReader.FieldCount > 5 && !await sqlDataReader.IsDBNullAsync("RowVersion", cancellationToken))
+                                {
+                                    rowVersion = (byte[])sqlDataReader["RowVersion"];
+                                }
+                            }
+                            catch (IndexOutOfRangeException)
+                            {
+                                // RowVersion column doesn't exist yet - this can happen during schema migration
+                                // Log a warning but continue without the RowVersion
+                                _logger.LogWarning("RowVersion column not found in SearchParam table. This may indicate the database schema is not fully migrated to V94 yet.");
+                                rowVersion = null;
+                            }
+                        }
+                        else
+                        {
+                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                                VLatest.SearchParam.SearchParamId,
+                                VLatest.SearchParam.Uri,
+                                VLatest.SearchParam.Status,
+                                VLatest.SearchParam.LastUpdated,
+                                VLatest.SearchParam.IsPartiallySupported);
+                        }
 
                         if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
                         {
@@ -114,6 +150,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             Status = status,
                             IsPartiallySupported = (bool)isPartiallySupported,
                             LastUpdated = (DateTimeOffset)lastUpdated,
+                            RowVersion = rowVersion,
                         };
 
                         // Check whether the corresponding type of the search parameter is supported.
@@ -164,6 +201,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 }
             }
 
+            await UpsertStatusesWithRetry(statuses, 3, cancellationToken);
+        }
+
+        private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken)
+        {
+            var currentStatuses = statuses.ToList();
+            int retryCount = 0;
+
+            while (retryCount <= maxRetries)
+            {
+                try
+                {
+                    await UpsertStatusesInternal(currentStatuses, cancellationToken);
+                    return; // Success
+                }
+                catch (SqlException sqlEx) when (sqlEx.Number == 50001 && retryCount < maxRetries) // Our custom concurrency error
+                {
+                    // Optimistic concurrency conflict detected - refresh and retry
+                    retryCount++;
+                    _logger.LogWarning("Optimistic concurrency conflict detected on attempt {RetryCount}. Retrying...", retryCount);
+
+                    // Refresh the statuses with current RowVersion values
+                    var refreshedStatuses = await GetSearchParameterStatuses(cancellationToken);
+                    var refreshedDict = refreshedStatuses.ToDictionary(s => s.Uri.OriginalString, s => s);
+
+                    // Update our statuses with fresh RowVersion values
+                    foreach (var status in currentStatuses)
+                    {
+                        if (refreshedDict.TryGetValue(status.Uri.OriginalString, out var refreshed))
+                        {
+                            status.RowVersion = refreshed.RowVersion;
+                        }
+                    }
+
+                    // Wait before retry to reduce contention
+                    await Task.Delay(TimeSpan.FromMilliseconds(100 * retryCount), cancellationToken);
+                }
+                catch (SqlException sqlEx) when (sqlEx.Number == 50001)
+                {
+                    // Max retries exceeded
+                    throw new SearchParameterConcurrencyException("Maximum retry attempts exceeded due to concurrency conflicts", sqlEx);
+                }
+            }
+        }
+
+        private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
@@ -175,10 +259,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         // The upsert procedure returns the search parameters that were new.
-                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                        {
+                            (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(
+                                VLatest.SearchParam.SearchParamId,
+                                VLatest.SearchParam.Uri);
 
-                        // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                            // Read RowVersion manually for now, but only if the column exists
+                            byte[] rowVersion = null;
+                            try
+                            {
+                                if (sqlDataReader.FieldCount > 2 && !await sqlDataReader.IsDBNullAsync("RowVersion", cancellationToken))
+                                {
+                                    rowVersion = (byte[])sqlDataReader["RowVersion"];
+                                }
+                            }
+                            catch (IndexOutOfRangeException)
+                            {
+                                // RowVersion column doesn't exist yet - this can happen during schema migration
+                                _logger.LogWarning("RowVersion column not found in UpsertSearchParams result. This may indicate the database schema is not fully migrated to V94 yet.");
+                                rowVersion = null;
+                            }
+
+                            // Add the new search parameters to the FHIR model dictionary.
+                            _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+
+                            // Update the RowVersion in our original collection for future operations
+                            var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
+                            if (matchingStatus != null)
+                            {
+                                matchingStatus.RowVersion = rowVersion;
+                            }
+                        }
+                        else
+                        {
+                            (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+
+                            // Add the new search parameters to the FHIR model dictionary.
+                            _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                        }
                     }
                 }
             }
