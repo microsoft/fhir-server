@@ -50,6 +50,9 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
 
+            services.AddHealthChecks()
+                .AddCheck<SqlHealthCheck>(name: "SqlDataStoreHealthCheck");
+
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
                 .Singleton()
                 .AsSelf()
@@ -193,11 +196,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
-
-            services.Add<SqlHealthCheck>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IHealthCheck>();
 
             foreach (TypeRegistrationBuilder job in jobs)
             {
