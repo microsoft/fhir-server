@@ -54,7 +54,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         "permission-user",
                     };
 
-                    return new GetSmartConfigurationResponse(authorizationEndpoint, tokenEndpoint, capabilities);
+                    // Add SMART v2 scope support - these are the core scopes supported natively by the FHIR service
+                    ICollection<string> scopesSupported = new List<string>
+                    {
+                        // Standard OAuth/OIDC scopes
+                        "openid",
+                        "fhirUser",
+                        "launch",
+                        "launch/patient",
+                        "offline_access",
+                        "online_access",
+                    };
+
+                    return new GetSmartConfigurationResponse(authorizationEndpoint, tokenEndpoint, capabilities, scopesSupported);
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {

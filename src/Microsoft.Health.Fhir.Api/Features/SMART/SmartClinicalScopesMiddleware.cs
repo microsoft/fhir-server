@@ -28,11 +28,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     public class SmartClinicalScopesMiddleware
     {
         private readonly RequestDelegate _next;
-        private const string AllDataActions = "all";
         private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
 
-        // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
-        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
+        // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
+        // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
+        // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
+        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all|[cruds]+)", RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -41,6 +42,66 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             _logger = logger;
             _next = next;
+        }
+
+        /// <summary>
+        /// Parse SMART scope permissions supporting both v1 and v2 formats.
+        /// v1: read, write, *, all
+        /// v2: c (create), r (read), u (update), d (delete), s (search)
+        /// </summary>
+        /// <param name="accessLevel">The access level from the scope (e.g., "read", "rs", "cruds")</param>
+        /// <returns>DataActions representing the permissions</returns>
+        private static DataActions ParseScopePermissions(string accessLevel)
+        {
+            if (string.IsNullOrEmpty(accessLevel))
+            {
+                return DataActions.None;
+            }
+
+            // Handle v1 scope formats first for backward compatibility
+            switch (accessLevel.ToLowerInvariant())
+            {
+                case "read":
+                    // v1 read includes both read and search permissions
+                    return DataActions.Read | DataActions.Export | DataActions.Search;
+                case "write":
+                    // v1 write includes create, update, delete, and legacy write permissions
+                    return DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete;
+                case "*":
+                case "all":
+                    // Full access includes all permissions
+                    return DataActions.Read | DataActions.Write | DataActions.Export | DataActions.Search |
+                           DataActions.Create | DataActions.Update | DataActions.Delete;
+            }
+
+            // Handle v2 scope format (e.g., "rs", "cruds")
+            var permissions = DataActions.None;
+            foreach (char permission in accessLevel.ToLowerInvariant())
+            {
+                switch (permission)
+                {
+                    case 'c':
+                        permissions |= DataActions.Create; // SMART v2 granular create permission
+                        break;
+                    case 'r':
+                        permissions |= DataActions.ReadV2 | DataActions.Export; // SMART v2 read-only (no search)
+                        break;
+                    case 'u':
+                        permissions |= DataActions.Update; // SMART v2 granular update permission
+                        break;
+                    case 'd':
+                        permissions |= DataActions.Delete; // SMART v2 granular delete permission
+                        break;
+                    case 's':
+                        permissions |= DataActions.Search; // Search is a separate permission in v2
+                        break;
+                    default:
+                        // Unknown permission character - log warning but continue
+                        break;
+                }
+            }
+
+            return permissions;
         }
 
         public async Task Invoke(
@@ -96,19 +157,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         var resource = match.Groups["resource"]?.Value;
                         var accessLevel = match.Groups["accessLevel"]?.Value;
 
-                        switch (accessLevel)
-                        {
-                            case "read":
-                                permittedDataActions = DataActions.Read | DataActions.Export;
-                                break;
-                            case "write":
-                                permittedDataActions = DataActions.Write;
-                                break;
-                            case "*":
-                            case AllDataActions:
-                                permittedDataActions = DataActions.Read | DataActions.Write | DataActions.Export;
-                                break;
-                        }
+                        permittedDataActions = ParseScopePermissions(accessLevel);
 
                         if (!string.IsNullOrEmpty(resource)
                             && !string.IsNullOrEmpty(id))
