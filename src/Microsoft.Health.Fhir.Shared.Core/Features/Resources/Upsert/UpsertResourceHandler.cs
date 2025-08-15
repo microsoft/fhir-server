@@ -10,11 +10,14 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using MediatR;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -30,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public UpsertResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -37,15 +41,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             ResourceReferenceResolver referenceResolver,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IAuthorizationService<DataActions> authorizationService,
             IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _referenceResolver = referenceResolver;
             _modelInfoProvider = modelInfoProvider;
+            _contextAccessor = contextAccessor;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
@@ -53,14 +60,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Check for create and update permissions, maintaining legacy Write support
-            var requiredAccess = DataActions.Create | DataActions.Update | DataActions.Write;
-            var grantedAccess = await AuthorizationService.CheckAccess(requiredAccess, cancellationToken);
+            // Determine HTTP method, preferring Bundle context over request context
+            HTTPVerb? method = request.BundleResourceContext?.HttpVerb ??
+                               (_contextAccessor?.RequestContext?.Method != null ?
+                                Enum.TryParse<HTTPVerb>(_contextAccessor.RequestContext.Method, true, out var parsedMethod) ? parsedMethod : null :
+                                null);
 
-            // Need either specific granular permission or legacy Write permission
-            if ((grantedAccess & (DataActions.Create | DataActions.Update | DataActions.Write)) == 0)
+            if (method == HTTPVerb.POST)
             {
-                throw new UnauthorizedFhirActionException();
+                // Explicit create via POST
+                var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
+                if ((granted & (DataActions.Create | DataActions.Write)) == DataActions.None)
+                {
+                    throw new UnauthorizedFhirActionException();
+                }
+            }
+            else if (method == HTTPVerb.PUT)
+            {
+                // Explicit update via PUT
+                var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Write, cancellationToken);
+                if ((granted & (DataActions.Update | DataActions.Write)) == DataActions.None)
+                {
+                    throw new UnauthorizedFhirActionException();
+                }
+            }
+            else
+            {
+                // Fallback when method is unavailable: infer from ETag/Id
+                Resource tmp = request.Resource.ToPoco<Resource>();
+                if (string.IsNullOrEmpty(tmp?.Id))
+                {
+                    var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
+                    if ((granted & (DataActions.Create | DataActions.Write)) == DataActions.None)
+                    {
+                        throw new UnauthorizedFhirActionException();
+                    }
+                }
+                else if (request.WeakETag != null)
+                {
+                    var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Write, cancellationToken);
+                    if ((granted & (DataActions.Update | DataActions.Write)) == DataActions.None)
+                    {
+                        throw new UnauthorizedFhirActionException();
+                    }
+                }
+                else
+                {
+                    var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Update | DataActions.Write, cancellationToken);
+                    if ((granted & (DataActions.Create | DataActions.Update | DataActions.Write)) == DataActions.None)
+                    {
+                        throw new UnauthorizedFhirActionException();
+                    }
+                }
             }
 
             Resource resource = request.Resource.ToPoco<Resource>();
