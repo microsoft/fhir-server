@@ -46,7 +46,7 @@
                         "examples": [
                             "globalReader"
                         ],
-                        "pattern": "^([a-zA-Z-_]+)$"
+                        "pattern": "^([a-zA-Z0-9-_]+)$"
                     },
                     "dataActions": {
                         "type": "array",
