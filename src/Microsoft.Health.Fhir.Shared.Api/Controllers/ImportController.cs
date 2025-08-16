@@ -141,9 +141,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> GetImportStatusById(long idParameter)
         {
+            return await GetImportStatusByIdInternal(idParameter, false);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ImportJobLocationWithDetails, Name = RouteNames.GetImportStatusByIdWithDetails)]
+        [AuditEventType(AuditEventSubType.Import)]
+        public async Task<IActionResult> GetImportStatusByIdWithDetails(long idParameter)
+        {
+            return await GetImportStatusByIdInternal(idParameter, true);
+        }
+
+        private async Task<IActionResult> GetImportStatusByIdInternal(long idParameter, bool returnDetails)
+        {
             var getBulkImportResult = await _mediator.GetImportStatusAsync(
                 idParameter,
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                returnDetails);
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202 - Accepted.

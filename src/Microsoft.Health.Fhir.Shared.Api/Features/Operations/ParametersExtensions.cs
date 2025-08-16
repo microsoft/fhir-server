@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public static bool TryGetIntValue(this Parameters parameters, string name, out int value)
         {
             Parameters.ParameterComponent param = parameters.GetSingle(name);
-            return int.TryParse(param?.ToString(), out value);
+            return int.TryParse(param?.Value?.ToString(), out value);
         }
 
         public static bool TryGetBooleanValue(this Parameters parameters, string name, out bool booleanValue)

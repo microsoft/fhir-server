@@ -40,11 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
+        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken, bool returnDetails = false)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new GetImportRequest(jobId);
+            var request = new GetImportRequest(jobId, returnDetails);
 
             GetImportResponse response = await mediator.Send(request, cancellationToken);
             return response;
