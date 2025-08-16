@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string Import = "$import";
         public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
         public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+        public const string ImportJobLocationWithDetails = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment + "/true";
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 

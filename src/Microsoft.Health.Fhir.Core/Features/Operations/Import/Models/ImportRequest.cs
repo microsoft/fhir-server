@@ -59,5 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         /// Custom container name for error logs. If not specified, the default container will be used.
         /// </summary>
         public string ErrorContainerName { get; set; }
+
+        /// <summary>
+        /// Number of bytes to be read by processing job.
+        /// </summary>
+        public int ProcessingJobBytesToRead { get; set; }
     }
 }

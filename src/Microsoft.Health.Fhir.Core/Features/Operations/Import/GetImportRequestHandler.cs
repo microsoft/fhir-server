@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var start = Stopwatch.StartNew();
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
-                var results = GetProcessingResultAsync(jobs);
+                var results = GetProcessingResultAsync(jobs, request.ReturnDetails);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
             }
 
-            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed) GetProcessingResultAsync(IList<JobInfo> jobs)
+            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails)
             {
                 var completed = new List<ImportOperationOutcome>();
                 var failed = new List<ImportFailedOperationOutcome>();
@@ -126,6 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     {
                         failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                     }
+                }
+
+                if (returnDetails)
+                {
+                    return (completed, failed);
                 }
 
                 // group success results by url
