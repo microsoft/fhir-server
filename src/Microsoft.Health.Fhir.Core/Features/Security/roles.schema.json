@@ -19,7 +19,7 @@
                 "searchParameter",
                 "bulkOperator",
                 "search",
-                "readV2",
+                "readInstance",
                 "create",
                 "update"
             ]
@@ -46,7 +46,7 @@
                         "examples": [
                             "globalReader"
                         ],
-                        "pattern": "^([a-zA-Z0-9-_]+)$"
+                        "pattern": "^([a-zA-Z-_]+)$"
                     },
                     "dataActions": {
                         "type": "array",
