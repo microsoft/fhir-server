@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             ILogger logger = null,
             CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrEmpty(searchParameterUri))
+            if (string.IsNullOrWhiteSpace(searchParameterUri))
             {
                 throw new ArgumentException("Search parameter URI cannot be null or empty", nameof(searchParameterUri));
             }
@@ -64,20 +64,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 semaphore.Release();
                 logger?.LogDebug("Lock released for search parameter: {SearchParameterUri}", searchParameterUri);
 
-                // Clean up semaphore if no one is waiting - use a lock to prevent race conditions during cleanup
+                // Clean up semaphore if no one is waiting and it's available for immediate use
+                // Use a lock to prevent race conditions during cleanup
                 lock (_cleanupLock)
                 {
+                    // Only clean up if the semaphore is available (CurrentCount == 1) and we can successfully remove it
                     if (semaphore.CurrentCount == 1 &&
                         _semaphores.TryRemove(searchParameterUri, out var removedSemaphore))
                     {
-                        if (removedSemaphore == semaphore)
+                        if (ReferenceEquals(removedSemaphore, semaphore))
                         {
-                            removedSemaphore.Dispose();
-                            logger?.LogDebug("Cleaned up semaphore for search parameter: {SearchParameterUri}", searchParameterUri);
+                            // Double-check that no other thread acquired the semaphore between our check and removal
+                            if (semaphore.CurrentCount == 1)
+                            {
+                                removedSemaphore.Dispose();
+                                logger?.LogDebug("Cleaned up semaphore for search parameter: {SearchParameterUri}", searchParameterUri);
+                            }
+                            else
+                            {
+                                // Put it back if someone acquired it in the meantime
+                                _semaphores.TryAdd(searchParameterUri, removedSemaphore);
+                            }
                         }
                         else
                         {
-                            // Put it back if it's not the same semaphore
+                            // Put it back if it's a different semaphore instance
                             _semaphores.TryAdd(searchParameterUri, removedSemaphore);
                         }
                     }
@@ -99,6 +110,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             ILogger logger = null,
             CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(searchParameterUri))
+            {
+                throw new ArgumentException("Search parameter URI cannot be null or empty", nameof(searchParameterUri));
+            }
+
+            ArgumentNullException.ThrowIfNull(action);
+
             await ExecuteWithLockAsync(
                 searchParameterUri,
                 async () =>
