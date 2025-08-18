@@ -314,6 +314,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
             result = await ImportCheckAsync(request, null, 0, false);
             Assert.Single(result.Output);
+
+            //// default bytes to read
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            result = await ImportCheckAsync(request, null, 0, true);
+            Assert.Single(result.Output);
         }
 
         [Fact]
