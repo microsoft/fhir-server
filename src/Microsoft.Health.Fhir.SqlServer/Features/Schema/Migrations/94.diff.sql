@@ -2,14 +2,24 @@
     Add optimistic concurrency support for SearchParam updates
 **************************************************************/
 
+-- Add RowVersion column to SearchParam table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'RowVersion')
+BEGIN
+    ALTER TABLE dbo.SearchParam ADD RowVersion rowversion NOT NULL;
+END
+GO
+
 -- Create new table type with RowVersion support
-CREATE TYPE dbo.SearchParamTableType_3 AS TABLE
-(
-    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status varchar(20) NOT NULL,
-    IsPartiallySupported bit NOT NULL,
-    RowVersion varbinary(8) NULL
-);
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'SearchParamTableType_3' AND is_user_defined = 1)
+BEGIN
+    CREATE TYPE dbo.SearchParamTableType_3 AS TABLE
+    (
+        Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        Status varchar(20) NOT NULL,
+        IsPartiallySupported bit NOT NULL,
+        RowVersion varbinary(8) NULL
+    );
+END
 GO
 
 -- Update the UpsertSearchParams stored procedure to use the new table type with optimistic concurrency
