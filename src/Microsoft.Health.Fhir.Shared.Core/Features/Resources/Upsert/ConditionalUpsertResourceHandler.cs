@@ -78,5 +78,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new BadRequestException(string.Format(Core.Resources.ConditionalUpdateMismatchedIds, resourceWrapper.ResourceId, resource.Id));
             }
         }
+
+        /// <summary>
+        /// Conditional update requires search permissions (to find existing resources) and update permissions (for modifications).
+        /// Legacy: Read + Write, SMART v2: Search + Update
+        /// </summary>
+        protected override (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(ConditionalUpsertResourceRequest request)
+        {
+            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Update);
+        }
     }
 }
