@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
     /// <summary>
     /// Provides functionality to report the status of customer-managed keys.
     /// </summary>
-    public interface IHealthCheckStatusReporter
+    public interface IStorageHealthCheckStatusReporter
     {
         /// <summary>
         /// Gets the current status of the customer-managed key.

@@ -13,23 +13,22 @@ using Microsoft.Health.Fhir.Core.Features;
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
-    /// Default implementation of <see cref="IHealthCheckStatusReporter"/>.
-    /// Checks the health status of health checks.
+    /// Default implementation of <see cref="IStorageHealthCheckStatusReporter"/>.
+    /// Always returns healthy status without performing any checks.
     /// </summary>
-    public class HealthCheckStatusReporter : IHealthCheckStatusReporter
+    public class DefaultStorageHealthCheckStatusReporter : IStorageHealthCheckStatusReporter
     {
-        private readonly SqlStatusReporter _sqlStatusReporter;
-
-        public HealthCheckStatusReporter(SqlStatusReporter sqlCustomerManagedKeyStatusReporter)
+        public DefaultStorageHealthCheckStatusReporter()
         {
-            _sqlStatusReporter = sqlCustomerManagedKeyStatusReporter;
         }
 
         /// <inheritdoc />
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
-            // TODO: Check both Cosmos  as well
-            return await _sqlStatusReporter.IsHealthyAsync(cancellationToken).ConfigureAwait(false);
+            // Fake delay to simulate an async operation
+            await Task.Delay(10, cancellationToken);
+
+            return HealthCheckResult.Healthy();
         }
     }
 }

@@ -6,6 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid.Util;
+using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
@@ -13,15 +14,15 @@ using Microsoft.Health.Encryption.Customer.Health;
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
-    /// SQL implementation of <see cref="IHealthCheckStatusReporter"/> using a ValueCache of CustomerKeyHealth.
+    /// SQL implementation of <see cref="IStorageHealthCheckStatusReporter"/> using a ValueCache of CustomerKeyHealth.
     /// </summary>
-    public class SqlStatusReporter
+    public class SqlStatusReporter : IStorageHealthCheckStatusReporter
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
 
         public SqlStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
         {
-            _customerKeyHealthCache = customerKeyHealthCache;
+            _customerKeyHealthCache = EnsureArg.IsNotNull(customerKeyHealthCache, nameof(customerKeyHealthCache));
         }
 
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             var customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
             if (!customerKeyHealth.IsHealthy)
             {
-                return HealthCheckResult.Degraded($"Customer managed key is unhealthy. Reason: {customerKeyHealth.Reason}");
+                return HealthCheckResult.Degraded($"Customer managed key is unhealthy, returning degraded health check. Reason: {customerKeyHealth.Reason}");
             }
 
             // Add more cases as needed

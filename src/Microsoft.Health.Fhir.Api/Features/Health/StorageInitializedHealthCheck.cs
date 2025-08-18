@@ -17,17 +17,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     public class StorageInitializedHealthCheck : IHealthCheck, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly IHealthCheckStatusReporter _healthCheckStatusReporter;
+        private readonly IStorageHealthCheckStatusReporter _storageHealthCheckStatusReporter;
         private const string SuccessfullyInitializedMessage = "Successfully initialized.";
         private bool _storageReady;
         private readonly DateTimeOffset _started = Clock.UtcNow;
 
         public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {
-            var customerManagedKeyHealth = _healthCheckStatusReporter.IsHealthyAsync(cancellationToken).GetAwaiter().GetResult();
-            if (customerManagedKeyHealth.Status != HealthStatus.Healthy)
+            // Check if Storage is healthy - this includes checking the customer-managed key health.
+            var storageHealthCheckStatusReporter = _storageHealthCheckStatusReporter.IsHealthyAsync(cancellationToken).GetAwaiter().GetResult();
+            if (storageHealthCheckStatusReporter.Status != HealthStatus.Healthy)
             {
-                return Task.FromResult(customerManagedKeyHealth);
+                return Task.FromResult(storageHealthCheckStatusReporter);
             }
 
             if (_storageReady)
