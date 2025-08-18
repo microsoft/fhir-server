@@ -304,10 +304,16 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task ProcessingJobBytesToReadHonored()
         {
             var ndJson = CreateTestPatient(Guid.NewGuid().ToString("N"));
-            //// set small bytes to read so there are multiple processing jobs
+
+            //// set small bytes to read, so there are multiple processing jobs
             var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
             var result = await ImportCheckAsync(request, null, 0, true);
             Assert.Equal(7, result.Output.Count); // 7 processing jobs
+
+            //// no details
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
+            result = await ImportCheckAsync(request, null, 0, false);
+            Assert.Single(result.Output);
         }
 
         [Fact]

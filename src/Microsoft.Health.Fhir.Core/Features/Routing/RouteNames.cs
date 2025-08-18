@@ -41,8 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         internal const string GetImportStatusById = nameof(GetImportStatusById);
 
-        internal const string GetImportStatusByIdWithDetails = nameof(GetImportStatusByIdWithDetails);
-
         internal const string CancelImport = nameof(CancelImport);
 
         internal const string PostBundle = nameof(PostBundle);

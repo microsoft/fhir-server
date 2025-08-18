@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -139,20 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.GetImportStatusById)]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> GetImportStatusById(long idParameter)
-        {
-            return await GetImportStatusByIdInternal(idParameter, false);
-        }
-
-        [HttpGet]
-        [Route(KnownRoutes.ImportJobLocationWithDetails, Name = RouteNames.GetImportStatusByIdWithDetails)]
-        [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> GetImportStatusByIdWithDetails(long idParameter)
-        {
-            return await GetImportStatusByIdInternal(idParameter, true);
-        }
-
-        private async Task<IActionResult> GetImportStatusByIdInternal(long idParameter, bool returnDetails)
+        public async Task<IActionResult> GetImportStatusById(long idParameter, [FromQuery(Name = KnownQueryParameterNames.ReturnDetails)] bool returnDetails)
         {
             var getBulkImportResult = await _mediator.GetImportStatusAsync(
                 idParameter,

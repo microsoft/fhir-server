@@ -496,7 +496,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, bool returnDetails = false, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation + (returnDetails ? "/true" : string.Empty));
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation + (returnDetails ? "?_details=true" : string.Empty));
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
