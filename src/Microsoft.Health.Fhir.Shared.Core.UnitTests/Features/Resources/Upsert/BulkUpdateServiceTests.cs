@@ -178,6 +178,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenResultsReturnedWithHistoricalRecords_OnlyLatestResourcesAreUpdated()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var readNextPage = false;
+            var isIncludesRequest = false;
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var cancellationToken = CancellationToken.None;
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                cancellationToken,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                isIncludesRequest).Returns((x) =>
+                {
+                    return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 } }, null, null, null, new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 1 } }));
+                });
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
+            Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
+            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
+            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -905,48 +941,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Dictionary<string, int> resourceTypeCounts,
             string continuationToken = null,
             string includesContinuationToken = null,
-            IReadOnlyCollection<SearchIndexEntry> searchIndices = null)
+            IReadOnlyCollection<SearchIndexEntry> searchIndices = null,
+            Dictionary<string, int> historicalRecords = null)
         {
             var entries = new List<SearchResultEntry>();
 
-            foreach (var kvp in resourceTypeCounts)
-            {
-                var resourceType = kvp.Key;
-                var count = kvp.Value;
-
-                for (int i = 0; i < count; i++)
-                {
-                    Resource resource;
-                    switch (resourceType)
-                    {
-                        case "Patient":
-                            resource = Samples.GetDefaultPatient().ToPoco<Patient>();
-                            break;
-                        case "Observation":
-                            resource = Samples.GetDefaultObservation().ToPoco<Observation>();
-                            break;
-                        case "Practitioner":
-                            resource = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
-                            break;
-                        case "Organization":
-                            resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
-                            break;
-                        default:
-                            throw new ArgumentException($"Unsupported resource type: {resourceType}");
-                    }
-
-                    resource.Id = Guid.NewGuid().ToString();
-                    resource.VersionId = "1";
-
-                    var resourceElement = resource.ToResourceElement();
-                    var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
-                    var resourceRequest = Substitute.For<ResourceRequest>();
-                    var compartmentIndices = Substitute.For<CompartmentIndices>();
-                    var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
-                    var entry = new SearchResultEntry(wrapper, resourceType == "Organization" ? SearchEntryMode.Include : SearchEntryMode.Match);
-                    entries.Add(entry);
-                }
-            }
+            CreateSearchResults(searchIndices, resourceTypeCounts, entries, false);
+            CreateSearchResults(searchIndices, historicalRecords, entries, true);
 
             var searchResult = new SearchResult(
                 entries,
@@ -957,6 +958,51 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 includesContinuationToken);
 
             return searchResult;
+        }
+
+        private static void CreateSearchResults(IReadOnlyCollection<SearchIndexEntry> searchIndices, Dictionary<string, int> resourceCounts, List<SearchResultEntry> entries, bool markHistorical = false)
+        {
+            if (resourceCounts is not null && resourceCounts.Count > 0)
+            {
+                foreach (var kvp in resourceCounts)
+                {
+                    var resourceType = kvp.Key;
+                    var count = kvp.Value;
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        Resource resource;
+                        switch (resourceType)
+                        {
+                            case "Patient":
+                                resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                                break;
+                            case "Observation":
+                                resource = Samples.GetDefaultObservation().ToPoco<Observation>();
+                                break;
+                            case "Practitioner":
+                                resource = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
+                                break;
+                            case "Organization":
+                                resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
+                                break;
+                            default:
+                                throw new ArgumentException($"Unsupported resource type: {resourceType}");
+                        }
+
+                        resource.Id = Guid.NewGuid().ToString();
+                        resource.VersionId = "1";
+
+                        var resourceElement = resource.ToResourceElement();
+                        var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+                        var resourceRequest = Substitute.For<ResourceRequest>();
+                        var compartmentIndices = Substitute.For<CompartmentIndices>();
+                        var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash") { IsHistory = markHistorical };
+                        var entry = new SearchResultEntry(wrapper, resourceType == "Organization" ? SearchEntryMode.Include : SearchEntryMode.Match);
+                        entries.Add(entry);
+                    }
+                }
+            }
         }
     }
 }

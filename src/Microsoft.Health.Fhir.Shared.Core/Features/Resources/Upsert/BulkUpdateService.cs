@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using System.Security.Policy;
 using System.Text.RegularExpressions;
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             using (var searchService = _searchServiceFactory.Invoke())
             {
-                return await searchService.Value.SearchAsync(
+                var searchResults = await searchService.Value.SearchAsync(
                     resourceType,
                     conditionalParameters,
                     cancellationToken,
@@ -328,6 +329,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     resourceVersionTypes: ResourceVersionType.Latest,
                     onlyIds: false,
                     isIncludesOperation: isIncludesRequest);
+
+                if (searchResults != null && searchResults.Results.Any())
+                {
+                    // When running the search with surrogate IDs, and if resource becomes historical after the job is started then
+                    // the search returns historical record, we need to filter out the history resources
+                    searchResults = new SearchResult(
+                        searchResults.Results.Where(r => r.Resource.IsHistory == false),
+                        searchResults.ContinuationToken,
+                        searchResults.SortOrder,
+                        searchResults.UnsupportedSearchParameters,
+                        searchResults.SearchIssues,
+                        searchResults.IncludesContinuationToken);
+                }
+
+                return searchResults;
             }
         }
 
