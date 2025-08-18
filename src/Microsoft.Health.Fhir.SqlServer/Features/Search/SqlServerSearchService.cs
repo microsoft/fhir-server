@@ -461,6 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     ReadWrapper(
                                         reader,
+                                        exportTimeTravel,
                                         out short resourceTypeId,
                                         out string resourceId,
                                         out int version,
@@ -740,6 +741,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         ReadWrapper(
                             reader,
+                            true,
                             out short _,
                             out string resourceId,
                             out int version,
@@ -787,7 +789,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null,
                                 searchParameterHash,
-                                resourceSurrogateId),
+                                resourceSurrogateId)
+                            {
+                                IsHistory = isHistory,
+                            },
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
@@ -928,6 +933,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void ReadWrapper(
             SqlDataReader reader,
+            bool readIsHistory,
             out short resourceTypeId,
             out string resourceId,
             out int version,
@@ -954,14 +960,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceBytes = reader.GetSqlBytes(10).Value;
             isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
-            if (reader.FieldCount > 11)
-            {
-                isHistory = reader.Read(VLatest.Resource.IsHistory, 11);
-            }
-            else
-            {
-                isHistory = false; // Default to false if the field is not present in the reader.
-            }
+            isHistory = readIsHistory && reader.FieldCount > 11 ? reader.Read(VLatest.Resource.IsHistory, 11) : false;
         }
 
         [Conditional("DEBUG")]
@@ -1407,6 +1406,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             {
                                 ReadWrapper(
                                     reader,
+                                    exportTimeTravel,
                                     out short resourceTypeId,
                                     out string resourceId,
                                     out int version,

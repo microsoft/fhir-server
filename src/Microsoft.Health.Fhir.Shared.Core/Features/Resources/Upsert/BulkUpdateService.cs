@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     // When running the search with surrogate IDs, and if resource becomes historical after the job is started then
                     // the search returns historical record, we need to filter out the history resources
                     searchResults = new SearchResult(
-                        searchResults.Results.Where(r => r.Resource.IsHistory == false),
+                        searchResults.Results.Where(r => !r.Resource.IsHistory),
                         searchResults.ContinuationToken,
                         searchResults.SortOrder,
                         searchResults.UnsupportedSearchParameters,
