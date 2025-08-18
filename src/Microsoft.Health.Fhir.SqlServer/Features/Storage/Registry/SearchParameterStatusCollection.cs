@@ -21,25 +21,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         IEnumerator<SqlDataRecord> IEnumerable<SqlDataRecord>.GetEnumerator()
         {
-            SqlDataRecord sqlRow;
-
-            if (_includeRowVersion)
-            {
-                // 4-column version for SearchParamTableType_3
-                sqlRow = new SqlDataRecord(
+            // Use ternary operator to choose the appropriate SqlDataRecord initialization
+            SqlDataRecord sqlRow = _includeRowVersion
+                ? new SqlDataRecord(
                     new SqlMetaData("Uri", SqlDbType.VarChar, 128),
                     new SqlMetaData("Status", SqlDbType.VarChar, 20),
                     new SqlMetaData("IsPartiallySupported", SqlDbType.Bit),
-                    new SqlMetaData("RowVersion", SqlDbType.VarBinary, 8));
-            }
-            else
-            {
-                // 3-column version for SearchParamTableType_2
-                sqlRow = new SqlDataRecord(
+                    new SqlMetaData("RowVersion", SqlDbType.VarBinary, 8))
+                : new SqlDataRecord(
                     new SqlMetaData("Uri", SqlDbType.VarChar, 128),
                     new SqlMetaData("Status", SqlDbType.VarChar, 20),
                     new SqlMetaData("IsPartiallySupported", SqlDbType.Bit));
-            }
 
             foreach (ResourceSearchParameterStatus status in this)
             {

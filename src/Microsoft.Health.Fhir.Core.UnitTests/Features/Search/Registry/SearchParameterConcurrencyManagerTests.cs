@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             // Arrange
             var executionCount = 0;
-            var barrier = new Barrier(3); // 3 threads will hit this barrier
+            using var barrier = new Barrier(3); // 3 threads will hit this barrier
             const int threadCount = 3;
 
             // Act

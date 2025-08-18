@@ -113,9 +113,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         throw;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (!(ex is FhirException))
                     {
-                        _logger.LogError(ex, "Error adding search parameter.");
+                        _logger.LogError(ex, "Unexpected error adding search parameter.");
                         var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);
                         customSearchException.Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
@@ -170,9 +170,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         throw;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (!(ex is FhirException))
                     {
-                        _logger.LogError(ex, "Error deleting search parameter.");
+                        _logger.LogError(ex, "Unexpected error deleting search parameter.");
                         var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
                         customSearchException.Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
@@ -245,9 +245,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         throw;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (!(ex is FhirException))
                     {
-                        _logger.LogError(ex, "Error updating search parameter.");
+                        _logger.LogError(ex, "Unexpected error updating search parameter.");
                         var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchUpdateError);
                         customSearchException.Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,

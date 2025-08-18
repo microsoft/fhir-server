@@ -192,12 +192,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             // If the search parameter table in SQL does not yet contain the larger status column we reset back to disabled status
             if (_schemaInformation.Current < (int)SchemaVersion.V52)
             {
-                foreach (var status in statuses)
+                foreach (var status in statuses.Where(s => s.Status == SearchParameterStatus.Unsupported))
                 {
-                    if (status.Status == SearchParameterStatus.Unsupported)
-                    {
-                        status.Status = SearchParameterStatus.Disabled;
-                    }
+                    status.Status = SearchParameterStatus.Disabled;
                 }
             }
 
@@ -236,7 +233,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     }
 
                     // Wait before retry to reduce contention
-                    await Task.Delay(TimeSpan.FromMilliseconds(100 * retryCount), cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(100.0 * retryCount), cancellationToken);
                 }
                 catch (SqlException sqlEx) when (sqlEx.Number == 50001)
                 {
