@@ -133,7 +133,6 @@ namespace Microsoft.Health.Fhir.Web
             else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
                 runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
-                fhirServerBuilder.Services.AddSingleton<ValueCache<CustomerKeyHealth>>();
             }
             else
             {
