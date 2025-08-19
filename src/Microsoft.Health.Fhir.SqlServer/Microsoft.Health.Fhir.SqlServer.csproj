@@ -39,7 +39,7 @@
       <MutableClassVersion Condition="'%(Filename)' != '$(LatestSchemaVersion)'">%(Filename)</MutableClassVersion>
       <MutableClassVersion Condition="'%(Filename)' == '$(LatestSchemaVersion)'">Latest</MutableClassVersion>
     </EmbeddedResource>
-  </ItemGroup>src/Microsoft.Health.Fhir.Shared.Web/Startup.cs
+  </ItemGroup>
   <!-- If this sql needs to be in a transaction, tag it TSqlScript otherwise use SqlScript -->
   <ItemGroup>
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
