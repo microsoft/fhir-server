@@ -97,10 +97,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(ReindexControllerTests))]
-        public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
+        public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenJobIsCreatedSuccessfully(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _reindexEnabledController.CreateReindexJob(body));
+            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+
+            // Should NOT throw an exception - invalid parameters are now logged but don't cause failures
+            var result = await _reindexEnabledController.CreateReindexJob(body);
+
+            // Verify that the job was created successfully despite invalid parameters
+            Assert.NotNull(result);
+            var fhirResult = Assert.IsType<FhirResult>(result);
+            Assert.NotNull(fhirResult.Result);
         }
 
         [Theory]

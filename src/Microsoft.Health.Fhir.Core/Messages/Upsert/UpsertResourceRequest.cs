@@ -13,20 +13,18 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
-    public class UpsertResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability, IBundleInnerRequest
+    public class UpsertResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
         public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
-            BundleResourceContext = bundleResourceContext;
             WeakETag = weakETag;
         }
 
         public ResourceElement Resource { get; }
-
-        public BundleResourceContext BundleResourceContext { get; }
 
         public WeakETag WeakETag { get; }
 
