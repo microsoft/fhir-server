@@ -16,11 +16,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
     /// <summary>
     /// SQL implementation of <see cref="IStorageHealthCheckStatusReporter"/> using a ValueCache of CustomerKeyHealth.
     /// </summary>
-    public class SqlStatusReporter : IStorageHealthCheckStatusReporter
+    public class SqlStorageStatusReporter : IStorageHealthCheckStatusReporter
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
 
-        public SqlStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
+        public SqlStorageStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
         {
             _customerKeyHealthCache = EnsureArg.IsNotNull(customerKeyHealthCache, nameof(customerKeyHealthCache));
         }
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
                 return HealthCheckResult.Degraded($"Customer managed key is unhealthy, returning degraded health check. Reason: {customerKeyHealth.Reason}");
             }
 
-            // Add more cases as needed
+            // Add more specific Storage cases as needed
 
             return HealthCheckResult.Healthy();
         }

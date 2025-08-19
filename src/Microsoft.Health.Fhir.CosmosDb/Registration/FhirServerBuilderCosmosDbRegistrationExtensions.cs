@@ -14,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -308,6 +309,11 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             fhirServerBuilder.Services.AddHealthChecks()
                 .AddCheck<CosmosHealthCheck>(name: "DataStoreHealthCheck");
+
+            fhirServerBuilder.Services.Add<CosmosStorageStatusReporter>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

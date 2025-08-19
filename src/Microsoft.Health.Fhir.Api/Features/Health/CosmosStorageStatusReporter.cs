@@ -13,18 +13,19 @@ using Microsoft.Health.Fhir.Core.Features;
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
-    /// Default implementation of <see cref="IStorageHealthCheckStatusReporter"/>.
+    /// Cosmos DB implementation of <see cref="IStorageHealthCheckStatusReporter"/>.
     /// Always returns healthy status without performing any checks.
     /// </summary>
-    public class DefaultStorageHealthCheckStatusReporter : IStorageHealthCheckStatusReporter
+    public class CosmosStorageStatusReporter : IStorageHealthCheckStatusReporter
     {
-        public DefaultStorageHealthCheckStatusReporter()
+        public CosmosStorageStatusReporter()
         {
         }
 
         /// <inheritdoc />
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
+            // [WI] to implement: https://microsofthealth.visualstudio.com/Health/_workitems/edit/166817
             // Fake delay to simulate an async operation
             await Task.Delay(10, cancellationToken);
 

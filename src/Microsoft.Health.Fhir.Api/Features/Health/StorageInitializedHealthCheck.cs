@@ -24,13 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
 
         public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {
-            // Check if Storage is healthy - this includes checking the customer-managed key health.
-            var storageHealthCheckStatusReporter = _storageHealthCheckStatusReporter.IsHealthyAsync(cancellationToken).GetAwaiter().GetResult();
-            if (storageHealthCheckStatusReporter.Status != HealthStatus.Healthy)
-            {
-                return Task.FromResult(storageHealthCheckStatusReporter);
-            }
-
+            // If the storage is ready, we can return a healthy status immediately.
             if (_storageReady)
             {
                 return Task.FromResult(HealthCheckResult.Healthy(SuccessfullyInitializedMessage));
@@ -40,6 +34,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             if (waited < TimeSpan.FromMinutes(5))
             {
                 return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, $"Storage is initializing. Waited: {(int)waited.TotalSeconds}s."));
+            }
+
+            // Check if Storage is healthy - this includes checking the customer-managed key health.
+            var storageHealthCheckStatusReporter = _storageHealthCheckStatusReporter.IsHealthyAsync(cancellationToken).GetAwaiter().GetResult();
+            if (storageHealthCheckStatusReporter.Status != HealthStatus.Healthy)
+            {
+                return Task.FromResult(storageHealthCheckStatusReporter);
             }
 
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, $"Storage has not been initialized. Waited: {(int)waited.TotalSeconds}s."));
