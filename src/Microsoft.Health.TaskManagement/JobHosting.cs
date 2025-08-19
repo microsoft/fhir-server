@@ -56,6 +56,7 @@ namespace Microsoft.Health.JobManagement
                     _logger.LogInformation("Queue={QueueType}: job hosting is running...", queueType);
                 }
 
+                var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
                 while (workers.Count < runningJobCount)
                 {
                     workers.Add(Task.Run(async () =>
@@ -65,25 +66,36 @@ namespace Microsoft.Health.JobManagement
                             await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds)); // random delay to avoid convoys
                         }
 
-                        var checkTimeoutJobStopwatch = Stopwatch.StartNew();
                         JobInfo nextJob = null;
                         //// dequeue
                         if (_queueClient.IsInitialized())
                         {
                             try
                             {
-                                _logger.LogDebug("Dequeuing next job for {QueueType}.", queueType);
-                                if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                                _logger.LogDebug("Queue={QueueType}: dequeuing next job...", queueType);
+                                var dequeueTimeoutJobs = false;
+                                if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
-                                    checkTimeoutJobStopwatch.Restart();
-                                    nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                    lock (dequeueTimeoutJobStopwatch)
+                                    {
+                                        if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                                        {
+                                            dequeueTimeoutJobs = true;
+                                            dequeueTimeoutJobStopwatch.Restart();
+                                        }
+                                    }
+
+                                    if (dequeueTimeoutJobs)
+                                    {
+                                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                    }
                                 }
 
                                 nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "Failed to dequeue new job for {QueueType}.", queueType);
+                                _logger.LogError(ex, "Queue={QueueType}: failed to dequeue new job.", queueType);
                             }
                         }
 
@@ -111,7 +123,7 @@ namespace Microsoft.Health.JobManagement
                         }
                         else
                         {
-                            if (await worker == null)
+                            if (await worker == null) // no job info == queue was empty
                             {
                                 wait = true;
                             }
