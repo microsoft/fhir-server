@@ -483,7 +483,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     return _fixture.SearchParameterStatusDataStore is SqlServerSearchParameterStatusDataStore;
                 }
-                catch
+                catch (InvalidCastException)
+                {
+                    return false;
+                }
+                catch (NullReferenceException)
                 {
                     return false;
                 }

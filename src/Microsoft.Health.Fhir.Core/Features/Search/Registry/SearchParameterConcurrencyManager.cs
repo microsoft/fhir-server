@@ -72,24 +72,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (semaphore.CurrentCount == 1 &&
                         _semaphores.TryRemove(searchParameterUri, out var removedSemaphore))
                     {
-                        if (ReferenceEquals(removedSemaphore, semaphore))
+                        // Properly dispose of the removed semaphore to avoid resource leaks
+                        using (removedSemaphore)
                         {
-                            // Double-check that no other thread acquired the semaphore between our check and removal
-                            if (semaphore.CurrentCount == 1)
+                            if (ReferenceEquals(removedSemaphore, semaphore))
                             {
-                                removedSemaphore.Dispose();
-                                logger?.LogDebug("Cleaned up semaphore for search parameter: {SearchParameterUri}", searchParameterUri);
+                                // Double-check that no other thread acquired the semaphore between our check and removal
+                                if (semaphore.CurrentCount == 1)
+                                {
+                                    logger?.LogDebug("Cleaned up semaphore for search parameter: {SearchParameterUri}", searchParameterUri);
+                                }
+                                else
+                                {
+                                    // Put it back if someone acquired it in the meantime
+                                    // Note: We need to recreate since we're in a using block
+                                    _semaphores.TryAdd(searchParameterUri, new SemaphoreSlim(1, 1));
+                                }
                             }
                             else
                             {
-                                // Put it back if someone acquired it in the meantime
-                                _semaphores.TryAdd(searchParameterUri, removedSemaphore);
+                                // Put it back if it's a different semaphore instance
+                                // Note: We need to recreate since we're in a using block
+                                _semaphores.TryAdd(searchParameterUri, new SemaphoreSlim(1, 1));
                             }
-                        }
-                        else
-                        {
-                            // Put it back if it's a different semaphore instance
-                            _semaphores.TryAdd(searchParameterUri, removedSemaphore);
                         }
                     }
                 }
