@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine(serializer.SerializeToString(response.Resource));
 
                 var floatParse = float.TryParse(
-                    response.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.ResourcesSuccessfullyReindexed).Value.ToString(),
+                    response.Resource.Parameter.FirstOrDefault(p => p.Name.Equals(JobRecordProperties.ResourcesSuccessfullyReindexed, StringComparison.OrdinalIgnoreCase))?.Value.ToString(),
                     out float resourcesReindexed);
 
                 Assert.True(floatParse);

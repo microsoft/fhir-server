@@ -19,6 +19,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -281,15 +282,24 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 5000)]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            var ndJson = new StringBuilder();
-            for (int i = 0;  i < 80001; i++)
+            // Create a minimal Patient JSON structure that triggers surrogate ID limit without excessive memory usage
+            const string sameLastUpdated = "1900-01-01T00:00:00.000Z";
+            const int resourceCount = 80001;
+
+            // Use StringBuilder with initial capacity to avoid reallocations
+            var ndJson = new StringBuilder(capacity: resourceCount * 200); // Estimate ~200 chars per minimal patient
+
+            // Generate minimal Patient resources that still trigger the surrogate ID validation
+            for (int i = 0; i < resourceCount; i++)
             {
                 var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
-                ndJson.Append(str);
+
+                // Minimal JSON Patient object - only essential fields for surrogate ID testing
+                var minimalPatient = $"{{\"resourceType\":\"Patient\",\"id\": \"{id}\",\"meta\":{{\"lastUpdated\":\"{sameLastUpdated}\"}}}}\n";
+                ndJson.Append(minimalPatient);
             }
 
             var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;

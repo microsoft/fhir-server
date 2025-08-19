@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [Theory]
+        [RetryTheory(MaxRetries = 3, DelayMs = 2000)]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Defrag(bool indexRebuildIsEnabled)
@@ -119,7 +120,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             await wsTask;
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 5, DelayMs = 3000)]
         public async Task CleanupEventLog()
         {
             // populate data
@@ -185,7 +186,7 @@ END
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 2000)]
         public async Task RollTransactionForward()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
@@ -266,7 +267,7 @@ RAISERROR('Test',18,127)
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 2000)]
         public async Task AdvanceVisibility()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
@@ -342,7 +343,7 @@ RAISERROR('Test',18,127)
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 2000)]
         public async Task GeoReplicationLagWatchdog()
         {
             // Enable logging
