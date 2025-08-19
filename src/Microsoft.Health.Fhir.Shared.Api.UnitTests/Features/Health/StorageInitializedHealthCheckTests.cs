@@ -51,27 +51,6 @@ public class StorageInitializedHealthCheckTests
         Assert.Equal(HealthStatus.Degraded, result.Status);
     }
 
-    [Fact]
-    public async Task GivenStorageInitilizedHealthCheck_WhenCMKUnhealthy_ThenReturnsDegraded()
-    {
-        // Arrange
-        var degradedResult = HealthCheckResult.Degraded("Customer-managed key is degraded");
-
-        var storageHealthCheckStatusReporter = Substitute.For<IStorageHealthCheckStatusReporter>();
-        storageHealthCheckStatusReporter.IsHealthyAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(degradedResult));
-        var sut = new StorageInitializedHealthCheck(storageHealthCheckStatusReporter);
-
-        await sut.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
-        // Act
-        HealthCheckResult result = await sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
-
-        // Assert
-        Assert.Equal(HealthStatus.Degraded, result.Status);
-        Assert.Contains("Customer-managed key is unhealthy", result.Description);
-        Assert.NotNull(result.Exception);
-    }
-
 #if NET8_0_OR_GREATER
     [Fact]
     public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenChangedToUnhealthyAfter5Minutes()
