@@ -9,11 +9,15 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     [Trait("Category", "Unit")]
     public class SqlStorageStatusReporterTest
     {

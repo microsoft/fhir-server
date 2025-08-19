@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
         /// <summary>
         /// Message for degraded health when customer managed key is unhealthy.
         /// </summary>
-        public const string CustomerManagedKeyUnhealthyMessage = "Customer managed key is unhealthy, returning degraded health check";
+        public const string CustomerManagedKeyUnhealthyMessage = "Customer managed key is unhealthy. The health of the store has degraded.";
     }
 }
