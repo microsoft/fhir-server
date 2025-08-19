@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid.Util;
@@ -10,8 +11,9 @@ using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
+using Microsoft.Health.Fhir.Api.Features.Health;
 
-namespace Microsoft.Health.Fhir.Api.Features.Health
+namespace Microsoft.Health.Fhir.SqlServer.Features.Health
 {
     /// <summary>
     /// SQL implementation of <see cref="IStorageHealthCheckStatusReporter"/> using a ValueCache of CustomerKeyHealth.
@@ -27,15 +29,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
 
         public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
-            // Check Customer Key Health - CMK
-            var customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
+            // Check Customer-Managed Key Health - CMK
+            CustomerKeyHealth customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
+
             if (!customerKeyHealth.IsHealthy)
             {
-                return HealthCheckResult.Degraded($"Customer managed key is unhealthy, returning degraded health check. Reason: {customerKeyHealth.Reason}");
+                // If the customer-managed key is inaccessible, storage will also be inaccessible
+                // When customer-managed key is unhealthy, we return a degraded health check result as it is a customer error.
+                return new HealthCheckResult(
+                    HealthStatus.Degraded,
+                    SqlStorageStatusReporterConstants.CustomerManagedKeyUnhealthyMessage,
+                    customerKeyHealth.Exception,
+                    new Dictionary<string, object> { { "Reason", customerKeyHealth.Reason.ToString() } });
             }
 
             // Add more specific Storage cases as needed
 
+            // If no specific issues, return healthy status
             return HealthCheckResult.Healthy();
         }
 

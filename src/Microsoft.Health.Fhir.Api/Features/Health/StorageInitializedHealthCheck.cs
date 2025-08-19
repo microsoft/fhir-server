@@ -6,6 +6,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core;
@@ -21,6 +22,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         private const string SuccessfullyInitializedMessage = "Successfully initialized.";
         private bool _storageReady;
         private readonly DateTimeOffset _started = Clock.UtcNow;
+
+        public StorageInitializedHealthCheck(IStorageHealthCheckStatusReporter storageHealthCheckStatusReporter)
+        {
+            _storageHealthCheckStatusReporter = EnsureArg.IsNotNull(storageHealthCheckStatusReporter, nameof(storageHealthCheckStatusReporter));
+        }
 
         public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {

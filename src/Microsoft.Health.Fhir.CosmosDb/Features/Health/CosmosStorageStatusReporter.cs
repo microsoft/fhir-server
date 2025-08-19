@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Features;
 
-namespace Microsoft.Health.Fhir.Api.Features.Health
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
     /// <summary>
     /// Cosmos DB implementation of <see cref="IStorageHealthCheckStatusReporter"/>.
