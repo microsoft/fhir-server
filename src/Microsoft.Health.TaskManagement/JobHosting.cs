@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,36 +44,35 @@ namespace Microsoft.Health.JobManagement
 
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
-            var workers = new List<Task>();
+            _logger.LogInformation("Queue={QueueType}: job hosting is starting...", queueType);
             _lastHeartbeatLog = DateTime.UtcNow;
-
-            _logger.LogInformation("Queue {QueueType} is starting.", queueType);
-
-            // parallel dequeue
-            for (var thread = 0; thread < runningJobCount; thread++)
+            var workers = new List<Task<JobInfo>>();
+            var startup = true;
+            while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
-                workers.Add(Task.Run(async () =>
+                if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
                 {
-                    // random delay to avoid convoys
-                    await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
+                    _lastHeartbeatLog = DateTime.UtcNow;
+                    _logger.LogInformation("Queue={QueueType}: job hosting is running...", queueType);
+                }
 
-                    var checkTimeoutJobStopwatch = Stopwatch.StartNew();
-
-                    while (!cancellationTokenSource.Token.IsCancellationRequested)
+                while (workers.Count < runningJobCount)
+                {
+                    workers.Add(Task.Run(async () =>
                     {
-                        if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
+                        if (startup)
                         {
-                            _lastHeartbeatLog = DateTime.UtcNow;
-                            _logger.LogInformation("{QueueType} working is running.", queueType);
+                            await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds)); // random delay to avoid convoys
                         }
 
+                        var checkTimeoutJobStopwatch = Stopwatch.StartNew();
                         JobInfo nextJob = null;
+                        //// dequeue
                         if (_queueClient.IsInitialized())
                         {
                             try
                             {
                                 _logger.LogDebug("Dequeuing next job for {QueueType}.", queueType);
-
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
                                     checkTimeoutJobStopwatch.Restart();
@@ -87,58 +87,91 @@ namespace Microsoft.Health.JobManagement
                             }
                         }
 
+                        //// execute
                         if (nextJob != null)
                         {
-                            using (Activity activity = JobHostingActivitySource.StartActivity(
-                                JobHostingActivitySource.Name,
-                                ActivityKind.Server))
-                            {
-                                if (activity == null)
-                                {
-                                    _logger.LogWarning("Failed to start an activity.");
-                                }
+                            await ExecuteJobWithActivityAsync(nextJob);
+                        }
 
-                                activity?.SetTag("CreateDate", nextJob.CreateDate);
-                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
-                                activity?.SetTag("Id", nextJob.Id);
-                                activity?.SetTag("QueueType", nextJob.QueueType);
-                                activity?.SetTag("Version", nextJob.Version);
+                        return nextJob;
+                    }));
+                }
 
-                                _logger.LogJobInformation(nextJob, "Job dequeued.");
-                                await ExecuteJobAsync(nextJob);
-                            }
+                startup = false;
+
+                var wait = false;
+                try
+                {
+                    await Task.WhenAny(workers.ToArray());
+                    foreach (var worker in workers.ToList())
+                    {
+                        if (worker.Status == TaskStatus.Running)
+                        {
+                            continue;
                         }
                         else
                         {
-                            try
+                            if (await worker == null)
                             {
-                                _logger.LogDebug("Empty queue {QueueType}. Delaying until next iteration.", queueType);
-                                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                                wait = true;
                             }
-                            catch (TaskCanceledException)
-                            {
-                                _logger.LogInformation("Queue {QueueType} is stopping, worker is shutting down.", queueType);
-                            }
+
+                            workers.Remove(worker);
                         }
                     }
-                }));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Queue={QueueType}: job hosting task failed.", queueType);
+#if NET6_0
+                    cancellationTokenSource.Cancel();
+#else
+                    await cancellationTokenSource.CancelAsync();
+#endif
+                }
+
+                //// wait
+                if (wait)
+                {
+                    try
+                    {
+                        _logger.LogDebug("Queue={QueueType}: is empty, delaying for {PollingFrequencyInSeconds} until next iteration.", queueType, PollingFrequencyInSeconds);
+                        await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        _logger.LogInformation("Queue={QueueType}: is stopping, worker is shutting down.", queueType);
+                    }
+                }
             }
 
             try
             {
-                // If any worker crashes or complete after cancellation due to shutdown,
-                // cancel all workers and wait for completion so they don't crash unnecessarily.
-                await Task.WhenAny(workers.ToArray());
-#if NET6_0
-                cancellationTokenSource.Cancel();
-#else
-                await cancellationTokenSource.CancelAsync();
-#endif
                 await Task.WhenAll(workers.ToArray());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job failed to execute. Queue type: {QueueType}", queueType);
+                _logger.LogError(ex, "Queue={QueueType}: job hosting task failed.", queueType);
+            }
+        }
+
+        private async Task ExecuteJobWithActivityAsync(JobInfo nextJob)
+        {
+            using (Activity activity = JobHostingActivitySource.StartActivity(JobHostingActivitySource.Name, ActivityKind.Server))
+            {
+                if (activity == null)
+                {
+                    _logger.LogWarning("Failed to start an activity.");
+                }
+
+                activity?.SetTag("CreateDate", nextJob.CreateDate);
+                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                activity?.SetTag("Id", nextJob.Id);
+                activity?.SetTag("QueueType", nextJob.QueueType);
+                activity?.SetTag("Version", nextJob.Version);
+
+                _logger.LogJobInformation(nextJob, "Job dequeued.");
+                await ExecuteJobAsync(nextJob);
             }
         }
 
