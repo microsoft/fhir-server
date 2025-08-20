@@ -193,27 +193,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenCosmosAccessIsForbidden_IsCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
-        {
-            foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
-            {
-                var cmkException = new CustomerManagedKeyException($"CMK issue: {cmkIssue}");
-                _testProvider.ClearSubstitute();
-                _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(cmkException);
-
-                HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
-
-                Assert.Equal(HealthStatus.Degraded, result.Status);
-                Assert.NotNull(result.Data);
-                Assert.True(result.Data.Any());
-
-                VerifyErrorInResult(result.Data, "Reason", cmkException.Message);
-
-                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
-            }
-        }
-
-        [Fact]
         public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             const int SomeNonClientErrorSubstatusCode = 12345;
@@ -232,6 +211,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.NotNull(result.Data);
             Assert.True(result.Data.Any());
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error500.ToString());
+        }
+
+        [Fact]
+        public async Task GivenCustomerManagedKeyException_IsCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
+        {
+            foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
+            {
+                var cmkException = new CustomerManagedKeyException($"CMK issue: {cmkIssue}");
+                _testProvider.ClearSubstitute();
+                _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(cmkException);
+
+                HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+                Assert.Equal(HealthStatus.Degraded, result.Status);
+                Assert.NotNull(result.Data);
+                Assert.True(result.Data.Any());
+
+                VerifyErrorInResult(result.Data, "Reason", cmkException.Message);
+
+                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
+            }
         }
 
         [Fact]
