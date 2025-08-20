@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
             GlobalEndSurrogateId = globalEndSurrogateId;
-            MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
+            MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery > 0 ? maximumNumberOfResourcesPerQuery : 10000;
         }
 
         [JsonConstructor]

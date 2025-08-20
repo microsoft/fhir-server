@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,10 +18,12 @@ using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
@@ -39,26 +42,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
         private object _lockSummaries = new object();
+        private ILogger<ServerProvideProfileValidation> _logger;
 
         public ServerProvideProfileValidation(
             Func<IScoped<ISearchService>> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
-            IMediator mediator)
+            IMediator mediator,
+            ILogger<ServerProvideProfileValidation> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
             _expirationTime = DateTime.UtcNow;
             _validateOperationConfig = options.Value;
             _mediator = mediator;
+            _logger = logger;
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
         public void Refresh()
         {
+            _logger.LogInformation("Refreshing profiles");
             _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
             ListSummaries();
         }
@@ -74,6 +82,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 if (_expirationTime < DateTime.UtcNow)
                 {
+                    _logger.LogDebug("Profile cache expired, updating.");
+
                     var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
                     var result = System.Threading.Tasks.Task.Run(() => GetSummaries()).GetAwaiter().GetResult();
                     _summaries = result;
@@ -82,8 +92,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                     if (newHash != oldHash)
                     {
+                        _logger.LogDebug("New Profiles found.");
                         System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles))).GetAwaiter().GetResult();
                     }
+
+                    _logger.LogDebug("Profiles updated.");
                 }
 
                 return _summaries;

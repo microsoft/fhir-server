@@ -42,17 +42,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
-        private readonly CoreFeatureConfiguration _coreFeaturesConfig;
+        private readonly OperationsConfiguration _operationConfiguration;
 
         public BulkUpdateController(
             IMediator mediator,
             IUrlResolver urlResolver,
-            IOptions<CoreFeatureConfiguration> coreFeatures,
+            IOptions<OperationsConfiguration> operationConfiguration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            _coreFeaturesConfig = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures));
+            _operationConfiguration = EnsureArg.IsNotNull(operationConfiguration.Value, nameof(operationConfiguration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
         }
 
@@ -60,20 +60,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkUpdate)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null)
+        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(null, paramsResource, isParallel);
+            return await SendUpdateRequest(null, paramsResource, isParallel, maxCount);
         }
 
         [HttpPatch]
         [Route(KnownRoutes.BulkUpdateResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null)
+        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(typeParameter, paramsResource, isParallel);
+            return await SendUpdateRequest(typeParameter, paramsResource, isParallel, maxCount);
         }
 
         [HttpGet]
@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel)
+        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel, uint maxCount = 0)
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
-            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, HttpContext.RequestAborted);
+            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, maxCount, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkUpdate, result.Id.ToString());
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfOperationIsSupported()
         {
-            if (!_coreFeaturesConfig.SupportsBulkUpdate || !string.Equals(_fhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            if (!_operationConfiguration.BulkUpdate.Enabled || !string.Equals(_fhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(Fhir.Core.Resources.UnsupportedBulkUpdateOperation);
             }

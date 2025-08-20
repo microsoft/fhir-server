@@ -120,37 +120,47 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         public async Task DatabaseMergeThrottling(bool useDefaultMergeOptions)
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
-
-            // set optimal threashold to low value to see waits.
             await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 1");
-
-            // make merge calls longer
             await _fixture.SqlHelper.ExecuteSqlCmd(@"
-CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE -- This should make commit in MergeResources to run longer
-AS
-WAITFOR DELAY '00:00:01'
-                    ");
-            var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
-            await Parallel.ForAsync(0, 8, async (i, cancell) =>
-            {
-                var iInt = i;
-                Thread.Sleep(100 * iInt); // do not start all merges at once
-                if (useDefaultMergeOptions)
-                {
-                    patient.Id = Guid.NewGuid().ToString();
-                    await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // try enlist in tran w/o tran scope
-                }
-                else
-                {
-                    var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
-                    await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None); // do not enlist in tran
-                }
-            });
-            await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
-            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
+        CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+        AS
+        WAITFOR DELAY '00:00:01'
+    ");
 
-            // make sure waits were recorded
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF NOT EXISTS (SELECT * FROM EventLog WHERE Process = 'MergeResourcesBeginTransaction' AND Status = 'Error') RAISERROR('Waits were not recorded', 18, 127)");
+            try
+            {
+                var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
+                var exceptionThrown = false;
+
+                try
+                {
+                    await Parallel.ForAsync(0, 8, async (i, cancell) =>
+                    {
+                        Thread.Sleep(100 * i);
+                        if (useDefaultMergeOptions)
+                        {
+                            patient.Id = Guid.NewGuid().ToString();
+                            await Mediator.UpsertResourceAsync(patient.ToResourceElement());
+                        }
+                        else
+                        {
+                            var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
+                            await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None);
+                        }
+                    });
+                }
+                catch (RequestRateExceededException)
+                {
+                    exceptionThrown = true;
+                }
+
+                Assert.True(exceptionThrown, "Expected RequestRateExceededException was not thrown.");
+            }
+            finally
+            {
+                await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
+                await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
+            }
         }
 
         [Fact]

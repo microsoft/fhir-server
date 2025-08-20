@@ -23,12 +23,12 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -57,7 +57,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
 
-            var builder = services.AddControllers(options =>
+            var builder = services
+                .AddControllers(options =>
                 {
                     options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;
@@ -88,12 +89,27 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {
                 var throttlingOptions = Options.Options.Create(fhirServerConfiguration.Throttling);
                 throttlingOptions.Value.DataStore = dataStore;
                 return throttlingOptions;
             });
+
+            if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                services.Configure<ForwardedHeadersOptions>(options =>
+                {
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
+
+                    // Only loopback proxies are allowed by default.
+                    // Clear that restriction because forwarders are enabled by explicit
+                    // configuration.
+                    options.KnownNetworks.Clear();
+                    options.KnownProxies.Clear();
+                });
+            }
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
@@ -124,24 +140,6 @@ namespace Microsoft.Extensions.DependencyInjection
             AddMetricEmitter(services);
 
             return new FhirServerBuilder(services);
-        }
-
-        /// <summary>
-        /// Adds background worker services.
-        /// </summary>
-        /// <param name="fhirServerBuilder">FHIR server builder.</param>
-        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
-        /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddBackgroundWorkers(
-            this IFhirServerBuilder fhirServerBuilder,
-            IFhirRuntimeConfiguration runtimeConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            return fhirServerBuilder;
         }
 
         public static IFhirServerBuilder AddBundleOrchestrator(
@@ -189,8 +187,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
+                    IConfiguration config = app.ApplicationServices.GetRequiredService<IConfiguration>();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
+
+                    if (string.Equals(config["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        app.UseForwardedHeaders();
+                    }
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.

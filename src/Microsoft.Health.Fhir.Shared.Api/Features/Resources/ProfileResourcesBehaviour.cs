@@ -38,23 +38,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         }
 
         public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.Resource.InstanceType, request.BundleResourceContext, next, cancellationToken);
+            => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
-            => await GenericHandle(request.ResourceKey.ResourceType, request.BundleResourceContext, next, cancellationToken);
+            => await GenericHandle(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         private async Task<TResponse> GenericHandle<TResponse>(
             string resourceType,
-            BundleResourceContext bundleResourceContext,
+            bool isBundleInnerRequest,
             RequestHandlerDelegate<TResponse> next,
             CancellationToken cancellationToken)
         {
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
                 // If the requests is part of a bundle, as an inner request, then profiles are not refreshed.
                 // This is because the bundle can contain multiple profile changes and the refresh should only happen once, at the end of the bundle, to avoid performance degradation.
-                if (bundleResourceContext == null)
+                if (!isBundleInnerRequest)
                 {
                     _profilesResolver.Refresh();
                 }
