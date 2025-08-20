@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 int? subStatusValue = headers.GetSubStatusValue();
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
-                    exception = new Microsoft.Health.Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    exception = new Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
                 }
             }
 
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
+        public static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
         {
             string errorMessage = Resources.CmkDefaultError;
 

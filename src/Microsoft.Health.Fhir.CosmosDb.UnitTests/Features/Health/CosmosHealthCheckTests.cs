@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
@@ -186,6 +187,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 Assert.True(result.Data.Any());
 
                 VerifyErrorInResult(result.Data, "Reason", HealthStatusReason.CustomerManagedKeyAccessLost.ToString());
+
+                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
+            }
+        }
+
+        [Fact]
+        public async Task GivenCosmosAccessIsForbidden_IsCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
+        {
+            foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
+            {
+                var cmkException = new CustomerManagedKeyException($"CMK issue: {cmkIssue}");
+                _testProvider.ClearSubstitute();
+                _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(cmkException);
+
+                HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+                Assert.Equal(HealthStatus.Degraded, result.Status);
+                Assert.NotNull(result.Data);
+                Assert.True(result.Data.Any());
+
+                VerifyErrorInResult(result.Data, "Reason", cmkException.Message);
 
                 VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
             }
