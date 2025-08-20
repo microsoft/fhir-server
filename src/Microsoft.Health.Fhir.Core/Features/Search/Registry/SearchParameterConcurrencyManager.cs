@@ -72,8 +72,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (semaphore.CurrentCount == 1 &&
                         _semaphores.TryRemove(searchParameterUri, out var removedSemaphore))
                     {
-                        // Properly dispose of the removed semaphore to avoid resource leaks
-                        using (removedSemaphore)
+                        bool shouldPutBack = false;
+
+                        try
                         {
                             if (ReferenceEquals(removedSemaphore, semaphore))
                             {
@@ -81,20 +82,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                                 if (semaphore.CurrentCount == 1)
                                 {
                                     logger?.LogDebug("Cleaned up semaphore for search parameter: {SearchParameterUri}", searchParameterUri);
+
+                                    // Don't put back - will dispose in finally
                                 }
                                 else
                                 {
                                     // Put it back if someone acquired it in the meantime
-                                    // Note: We need to recreate since we're in a using block
-                                    _semaphores.TryAdd(searchParameterUri, new SemaphoreSlim(1, 1));
+                                    shouldPutBack = true;
                                 }
                             }
                             else
                             {
                                 // Put it back if it's a different semaphore instance
-                                // Note: We need to recreate since we're in a using block
-                                _semaphores.TryAdd(searchParameterUri, new SemaphoreSlim(1, 1));
+                                shouldPutBack = true;
                             }
+
+                            if (shouldPutBack)
+                            {
+                                _semaphores.TryAdd(searchParameterUri, removedSemaphore);
+                                removedSemaphore = null; // Prevent dispose in finally since we put it back
+                            }
+                        }
+                        finally
+                        {
+                            // Only dispose if we didn't put it back into the dictionary
+                            removedSemaphore?.Dispose();
                         }
                     }
                 }
