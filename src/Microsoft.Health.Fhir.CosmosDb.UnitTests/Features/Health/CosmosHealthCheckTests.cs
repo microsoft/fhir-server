@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
         {
             foreach (int clientCmkIssue in new List<int>(Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValueClientIssue)).Cast<int>()))
             {
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenCosmosAccessIsForbidden_IsCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
+        public async Task GivenCosmosAccessIsForbidden_IsCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
         {
             foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
             {
