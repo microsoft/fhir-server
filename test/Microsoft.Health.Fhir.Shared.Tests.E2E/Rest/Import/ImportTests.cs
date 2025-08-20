@@ -285,24 +285,10 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [RetryFact(MaxRetries = 3, DelayMs = 5000)]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            // Create a minimal Patient JSON structure that triggers surrogate ID limit without excessive memory usage
-            const string sameLastUpdated = "1900-01-01T00:00:00.000Z";
-            const int resourceCount = 80001;
+            // Use pre-generated file with 80,001 patients to avoid memory issues
+            string largePatientFile = Samples.GetNdJson("Import-80KPatients");
 
-            // Use StringBuilder with initial capacity to avoid reallocations
-            var ndJson = new StringBuilder(capacity: resourceCount * 200); // Estimate ~200 chars per minimal patient
-
-            // Generate minimal Patient resources that still trigger the surrogate ID validation
-            for (int i = 0; i < resourceCount; i++)
-            {
-                var id = Guid.NewGuid().ToString("N");
-
-                // Minimal JSON Patient object - only essential fields for surrogate ID testing
-                var minimalPatient = $"{{\"resourceType\":\"Patient\",\"id\": \"{id}\",\"meta\":{{\"lastUpdated\":\"{sameLastUpdated}\"}}}}\n";
-                ndJson.Append(minimalPatient);
-            }
-
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
+            var location = (await ImportTestHelper.UploadFileAsync(largePatientFile, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var message = await ImportWaitAsync(checkLocation, false);

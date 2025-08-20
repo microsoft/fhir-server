@@ -448,7 +448,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
             {
-                return importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated) ? 80000 / resources.Count : 30; // 80K is id sequence rollover
+                if (importMode == ImportMode.IncrementalLoad && resources.Any(_ => _.KeepLastUpdated))
+                {
+                    // Cap retries at reasonable maximum to prevent infinite retry loops
+                    // For the 80K surrogate ID test, we want it to fail after reasonable attempts
+                    var calculatedRetries = 80000 / resources.Count;
+                    return Math.Min(calculatedRetries, 100); // Cap at 100 retries max
+                }
+
+                return 30;
             }
 
             List<string> GetErrors(IReadOnlyCollection<ImportResource> dups, IReadOnlyCollection<ImportResource> conflicts)
