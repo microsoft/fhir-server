@@ -21,6 +21,7 @@ namespace Microsoft.Health.Extensions.Xunit
     {
         private int _maxRetries;
         private int _delayMs;
+        private int _timeoutMs;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Called by the de-serializer; should only be called by deriving classes for de-serialization purposes")]
@@ -35,11 +36,13 @@ namespace Microsoft.Health.Extensions.Xunit
             ITestMethod testMethod,
             int maxRetries = 3,
             int delayMs = 1000,
+            int timeoutMs = 0,
             object[] testMethodArguments = null)
             : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
         {
             _maxRetries = maxRetries;
             _delayMs = delayMs;
+            _timeoutMs = timeoutMs;
         }
 
         public override void Serialize(IXunitSerializationInfo data)
@@ -47,6 +50,7 @@ namespace Microsoft.Health.Extensions.Xunit
             base.Serialize(data);
             data.AddValue(nameof(_maxRetries), _maxRetries);
             data.AddValue(nameof(_delayMs), _delayMs);
+            data.AddValue(nameof(_timeoutMs), _timeoutMs);
         }
 
         public override void Deserialize(IXunitSerializationInfo data)
@@ -54,6 +58,7 @@ namespace Microsoft.Health.Extensions.Xunit
             base.Deserialize(data);
             _maxRetries = data.GetValue<int>(nameof(_maxRetries));
             _delayMs = data.GetValue<int>(nameof(_delayMs));
+            _timeoutMs = data.GetValue<int>(nameof(_timeoutMs));
         }
 
         public override async Task<RunSummary> RunAsync(
@@ -69,20 +74,50 @@ namespace Microsoft.Health.Extensions.Xunit
 
             while (attempt <= maxAttempts)
             {
-                summary = await base.RunAsync(
-                    diagnosticMessageSink,
-                    messageBus,
-                    constructorArguments,
-                    aggregator,
-                    cancellationTokenSource);
-
-                if (summary.Failed == 0 || attempt >= maxAttempts)
+                try
                 {
-                    return summary;
-                }
+                    // Create a timeout token source if timeout is specified
+                    using var timeoutCts = _timeoutMs > 0
+                        ? CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token)
+                        : null;
 
-                diagnosticMessageSink.OnMessage(new DiagnosticMessage(
-                    $"Test {DisplayName} failed on attempt {attempt}/{maxAttempts}. Retrying in {_delayMs}ms..."));
+                    var tokenToUse = timeoutCts ?? cancellationTokenSource;
+
+                    if (_timeoutMs > 0 && timeoutCts != null)
+                    {
+                        timeoutCts.CancelAfter(_timeoutMs);
+                    }
+
+                    summary = await base.RunAsync(
+                        diagnosticMessageSink,
+                        messageBus,
+                        constructorArguments,
+                        aggregator,
+                        tokenToUse);
+
+                    if (summary.Failed == 0 || attempt >= maxAttempts)
+                    {
+                        return summary;
+                    }
+
+                    diagnosticMessageSink.OnMessage(new DiagnosticMessage(
+                        $"Test {DisplayName} failed on attempt {attempt}/{maxAttempts}. Retrying in {_delayMs}ms..."));
+                }
+                catch (OperationCanceledException ex) when (_timeoutMs > 0 && ex.CancellationToken.IsCancellationRequested && !cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    // This was a timeout, not a user cancellation
+                    if (attempt >= maxAttempts)
+                    {
+                        // Last attempt - let the timeout exception bubble up
+                        throw new TimeoutException($"Test {DisplayName} timed out after {_timeoutMs}ms on final attempt {attempt}/{maxAttempts}");
+                    }
+
+                    diagnosticMessageSink.OnMessage(new DiagnosticMessage(
+                        $"Test {DisplayName} timed out after {_timeoutMs}ms on attempt {attempt}/{maxAttempts}. Retrying in {_delayMs}ms..."));
+
+                    // Create a failed summary for timeout
+                    summary = new RunSummary { Total = 1, Failed = 1 };
+                }
 
                 if (_delayMs > 0)
                 {

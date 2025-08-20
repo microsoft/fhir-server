@@ -282,7 +282,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
-        [RetryFact(MaxRetries = 3, DelayMs = 5000)]
+        [RetryFact(MaxRetries = 3, DelayMs = 5000, TimeoutMs = 300000)] // 5 minutes timeout
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             // Use pre-generated file with 80,001 patients to avoid memory issues

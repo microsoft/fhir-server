@@ -30,6 +30,13 @@ namespace Microsoft.Health.Extensions.Xunit
         public int DelayMs { get; set; } = 1000;
 
         /// <summary>
+        /// Gets or sets the timeout for each test attempt in milliseconds.
+        /// If a test attempt takes longer than this, it will be cancelled and retried.
+        /// Default is 0 (no timeout).
+        /// </summary>
+        public int TimeoutMs { get; set; } = 0;
+
+        /// <summary>
         /// Gets or sets whether to use exponential backoff for retry delays.
         /// When true, delays will be DelayMs, DelayMs*2, DelayMs*4, etc.
         /// Default is false.

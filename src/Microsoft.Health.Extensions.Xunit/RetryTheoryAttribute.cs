@@ -12,8 +12,8 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// Attribute that retries a parameterized test method on failure.
     /// Use this instead of [Theory] for flaky parameterized tests that need retry capability.
+    /// Note: This attribute is currently not implemented. Use RetryFact for simple test retry functionality.
     /// </summary>
-    [XunitTestCaseDiscoverer("Microsoft.Health.Extensions.Xunit.RetryTheoryDiscoverer", "Microsoft.Health.Extensions.Xunit")]
     public sealed class RetryTheoryAttribute : TheoryAttribute
     {
         /// <summary>
@@ -27,6 +27,13 @@ namespace Microsoft.Health.Extensions.Xunit
         /// Default is 1000ms (1 second).
         /// </summary>
         public int DelayMs { get; set; } = 1000;
+
+        /// <summary>
+        /// Gets or sets the timeout for each test attempt in milliseconds.
+        /// If a test attempt takes longer than this, it will be cancelled and retried.
+        /// Default is 0 (no timeout).
+        /// </summary>
+        public int TimeoutMs { get; set; } = 0;
 
         /// <summary>
         /// Gets or sets whether to use exponential backoff for retry delays.
