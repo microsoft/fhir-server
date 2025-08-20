@@ -117,7 +117,7 @@ namespace Microsoft.Health.JobManagement
                     await Task.WhenAny(workers.ToArray());
                     foreach (var worker in workers.ToList())
                     {
-                        if (worker.Status == TaskStatus.Running)
+                        if (worker.Status == TaskStatus.Running || worker.Status == TaskStatus.WaitingForActivation)
                         {
                             continue;
                         }
