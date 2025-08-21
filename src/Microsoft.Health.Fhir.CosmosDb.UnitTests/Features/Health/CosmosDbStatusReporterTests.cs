@@ -4,12 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
