@@ -27,9 +27,7 @@ public class StorageInitializedHealthCheckTests
     public StorageInitializedHealthCheckTests()
     {
         _databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
-
         _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
-
         _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
     }
 
