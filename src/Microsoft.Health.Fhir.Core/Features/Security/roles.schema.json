@@ -19,7 +19,7 @@
                 "searchParameter",
                 "bulkOperator",
                 "search",
-                "readInstance",
+                "readById",
                 "create",
                 "update"
             ]
