@@ -5,11 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Health.Core.Features.Health;
-using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Fhir.Api.Features.Health;
-using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
@@ -17,20 +13,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
     /// Cosmos DB implementation of <see cref="IDatabaseStatusReporter"/>.
     /// Always returns healthy status without performing any checks.
     /// </summary>
-    public class CosmosStatusReporter : IDatabaseStatusReporter
+    public class CosmosDbStatusReporter : IDatabaseStatusReporter
     {
-        public CosmosStatusReporter()
-        {
-        }
-
         /// <inheritdoc />
-        public async Task<HealthCheckResult> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
+        public Task<bool> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
         {
             // [WI] to implement: https://microsofthealth.visualstudio.com/Health/_workitems/edit/166817
-            // Fake delay to simulate an async operation
-            await Task.Delay(10, cancellationToken);
-
-            return HealthCheckResult.Healthy();
+            return Task.FromResult(true);
         }
     }
 }

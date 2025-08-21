@@ -5,8 +5,6 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Health.Encryption.Customer.Health;
 
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
@@ -20,6 +18,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
         /// </summary>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
         /// <returns>A task that returns true if the key is healthy; otherwise, false.</returns>
-        Task<HealthCheckResult> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken);
+        Task<bool> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken);
     }
 }

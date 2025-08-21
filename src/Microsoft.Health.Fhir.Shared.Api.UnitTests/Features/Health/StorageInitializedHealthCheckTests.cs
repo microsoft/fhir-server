@@ -28,8 +28,7 @@ public class StorageInitializedHealthCheckTests
     {
         _databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
 
-        var healthyResult = HealthCheckResult.Healthy();
-        _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(healthyResult));
+        _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
         _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
     }
@@ -71,7 +70,7 @@ public class StorageInitializedHealthCheckTests
         {
             // Arrange
             var degradedResult = HealthCheckResult.Degraded("Customer-managed key is degraded");
-            _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(degradedResult));
+            _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
 
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
             Assert.Equal(HealthStatus.Degraded, result.Status);

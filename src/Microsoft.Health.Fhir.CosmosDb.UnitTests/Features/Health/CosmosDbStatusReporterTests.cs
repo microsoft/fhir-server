@@ -20,19 +20,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     [Trait("Category", "Unit")]
-    public class CosmosStatusReporterTests
+    public class CosmosDbStatusReporterTests
     {
         [Fact]
         public async Task GivenHealthyCustomerKeyHealth_WhenIsCustomerManagerKeyProperlySetAsync_ThenReturnsHealthy()
         {
             // Arrange
-            var reporter = new CosmosStatusReporter();
+            var reporter = new CosmosDbStatusReporter();
 
             // Act
-            HealthCheckResult result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
+            bool result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
-            Assert.Equal(HealthStatus.Healthy, result.Status);
+            Assert.True(result);
         }
     }
 }

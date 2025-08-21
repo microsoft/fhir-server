@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
                 return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, $"Storage is initializing. Waited: {(int)waited.TotalSeconds}s."));
             }
 
-            // Check if Storage customer-managed key (CMK) is properly set.
-            var databaseStatusReporter = _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(cancellationToken).GetAwaiter().GetResult();
-            if (databaseStatusReporter.Status != HealthStatus.Healthy)
+            // Check if customer-managed key (CMK) is properly set.
+            var isCMKProperlySet = _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(cancellationToken).GetAwaiter().GetResult();
+            if (!isCMKProperlySet)
             {
                 return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, DegradedCMKMessage));
             }
