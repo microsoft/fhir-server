@@ -310,7 +310,7 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddHealthChecks()
                 .AddCheck<CosmosHealthCheck>(name: "DataStoreHealthCheck");
 
-            fhirServerBuilder.Services.Add<CosmosStorageStatusReporter>()
+            fhirServerBuilder.Services.Add<CosmosStatusReporter>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

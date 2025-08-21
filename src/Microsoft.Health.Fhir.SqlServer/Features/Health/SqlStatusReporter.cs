@@ -16,18 +16,18 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Health
 {
     /// <summary>
-    /// SQL implementation of <see cref="IStorageHealthCheckStatusReporter"/> using a ValueCache of CustomerKeyHealth.
+    /// SQL implementation of <see cref="IDatabaseStatusReporter"/> using a ValueCache of CustomerKeyHealth.
     /// </summary>
-    public class SqlStorageStatusReporter : IStorageHealthCheckStatusReporter
+    public class SqlStatusReporter : IDatabaseStatusReporter
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache;
 
-        public SqlStorageStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
+        public SqlStatusReporter(ValueCache<CustomerKeyHealth> customerKeyHealthCache)
         {
             _customerKeyHealthCache = EnsureArg.IsNotNull(customerKeyHealthCache, nameof(customerKeyHealthCache));
         }
 
-        public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
+        public async Task<HealthCheckResult> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
         {
             // Check Customer-Managed Key Health - CMK
             CustomerKeyHealth customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
@@ -38,18 +38,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
                 // When customer-managed key is unhealthy, we return a degraded health check result as it is a customer error.
                 return new HealthCheckResult(
                     HealthStatus.Degraded,
-                    SqlStorageStatusReporterConstants.CustomerManagedKeyUnhealthyMessage,
+                    SqlStatusReporterConstants.DegradedDescription,
                     customerKeyHealth.Exception,
                     new Dictionary<string, object> { { "Reason", customerKeyHealth.Reason.ToString() } });
             }
-
-            // Add more specific Storage cases as needed
 
             // If no specific issues, return healthy status
             return HealthCheckResult.Healthy();
         }
 
-        public async Task<CustomerKeyHealth> IsCustomerManagedKeyHealthyAsync(CancellationToken cancellationToken = default)
+        private async Task<CustomerKeyHealth> IsCustomerManagedKeyHealthyAsync(CancellationToken cancellationToken = default)
         {
             return await _customerKeyHealthCache.GetAsync(cancellationToken).ConfigureAwait(false);
         }

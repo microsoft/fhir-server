@@ -170,7 +170,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddSingleton<ValueCache<CustomerKeyHealth>>();
 
-            services.Add<SqlStorageStatusReporter>()
+            services.Add<SqlStatusReporter>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

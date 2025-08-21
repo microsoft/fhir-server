@@ -11,15 +11,15 @@ using Microsoft.Health.Encryption.Customer.Health;
 namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     /// <summary>
-    /// Provides functionality to report the status of customer-managed keys.
+    /// Provides functionality to report the status of Data Store.
     /// </summary>
-    public interface IStorageHealthCheckStatusReporter
+    public interface IDatabaseStatusReporter
     {
         /// <summary>
         /// Gets the current status of the customer-managed key.
         /// </summary>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
         /// <returns>A task that returns true if the key is healthy; otherwise, false.</returns>
-        Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken);
+        Task<HealthCheckResult> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken);
     }
 }

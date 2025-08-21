@@ -22,16 +22,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Health;
 public class StorageInitializedHealthCheckTests
 {
     private readonly StorageInitializedHealthCheck _sut;
-    private readonly IStorageHealthCheckStatusReporter _storageHealthStatusReporter;
+    private readonly IDatabaseStatusReporter _databaseStatusReporter;
 
     public StorageInitializedHealthCheckTests()
     {
-        _storageHealthStatusReporter = Substitute.For<IStorageHealthCheckStatusReporter>();
+        _databaseStatusReporter = Substitute.For<IDatabaseStatusReporter>();
 
         var healthyResult = HealthCheckResult.Healthy();
-        _storageHealthStatusReporter.IsHealthyAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(healthyResult));
+        _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(healthyResult));
 
-        _sut = new StorageInitializedHealthCheck(_storageHealthStatusReporter);
+        _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
     }
 
     [Fact]
@@ -71,11 +71,11 @@ public class StorageInitializedHealthCheckTests
         {
             // Arrange
             var degradedResult = HealthCheckResult.Degraded("Customer-managed key is degraded");
-            _storageHealthStatusReporter.IsHealthyAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(degradedResult));
+            _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(degradedResult));
 
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
             Assert.Equal(HealthStatus.Degraded, result.Status);
-            Assert.Contains("Customer-managed key is degraded", result.Description);
+            Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
         }
     }
 #endif

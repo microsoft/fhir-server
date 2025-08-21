@@ -14,17 +14,17 @@ using Microsoft.Health.Fhir.Core.Features;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
     /// <summary>
-    /// Cosmos DB implementation of <see cref="IStorageHealthCheckStatusReporter"/>.
+    /// Cosmos DB implementation of <see cref="IDatabaseStatusReporter"/>.
     /// Always returns healthy status without performing any checks.
     /// </summary>
-    public class CosmosStorageStatusReporter : IStorageHealthCheckStatusReporter
+    public class CosmosStatusReporter : IDatabaseStatusReporter
     {
-        public CosmosStorageStatusReporter()
+        public CosmosStatusReporter()
         {
         }
 
         /// <inheritdoc />
-        public async Task<HealthCheckResult> IsHealthyAsync(CancellationToken cancellationToken = default)
+        public async Task<HealthCheckResult> IsCustomerManagerKeyProperlySetAsync(CancellationToken cancellationToken = default)
         {
             // [WI] to implement: https://microsofthealth.visualstudio.com/Health/_workitems/edit/166817
             // Fake delay to simulate an async operation

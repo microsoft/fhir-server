@@ -8,11 +8,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
     /// <summary>
     /// Contains constants used by SqlStorageStatusReporter.
     /// </summary>
-    public static class SqlStorageStatusReporterConstants
+    public static class SqlStatusReporterConstants
     {
         /// <summary>
         /// Message for degraded health when customer managed key is unhealthy.
         /// </summary>
-        public const string CustomerManagedKeyUnhealthyMessage = "Customer managed key is unhealthy. The health of the store has degraded.";
+        public const string DegradedDescription = "The health of the store has degraded.";
     }
 }

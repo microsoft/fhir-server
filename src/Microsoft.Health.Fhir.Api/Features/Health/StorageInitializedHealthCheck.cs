@@ -18,14 +18,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
 {
     public class StorageInitializedHealthCheck : IHealthCheck, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly IStorageHealthCheckStatusReporter _storageHealthCheckStatusReporter;
-        private const string SuccessfullyInitializedMessage = "Successfully initialized.";
+        private readonly IDatabaseStatusReporter _databaseStatusReporter;
         private bool _storageReady;
         private readonly DateTimeOffset _started = Clock.UtcNow;
 
-        public StorageInitializedHealthCheck(IStorageHealthCheckStatusReporter storageHealthCheckStatusReporter)
+        private const string SuccessfullyInitializedMessage = "Successfully initialized.";
+        private const string DegradedCMKMessage = "The health of the store has degraded. Customer-managed key is not properly set.";
+
+        public StorageInitializedHealthCheck(IDatabaseStatusReporter databaseStatusReporter)
         {
-            _storageHealthCheckStatusReporter = EnsureArg.IsNotNull(storageHealthCheckStatusReporter, nameof(storageHealthCheckStatusReporter));
+            _databaseStatusReporter = EnsureArg.IsNotNull(databaseStatusReporter, nameof(databaseStatusReporter));
         }
 
         public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
@@ -42,11 +44,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
                 return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, $"Storage is initializing. Waited: {(int)waited.TotalSeconds}s."));
             }
 
-            // Check if Storage is healthy - this includes checking the customer-managed key health.
-            var storageHealthCheckStatusReporter = _storageHealthCheckStatusReporter.IsHealthyAsync(cancellationToken).GetAwaiter().GetResult();
-            if (storageHealthCheckStatusReporter.Status != HealthStatus.Healthy)
+            // Check if Storage customer-managed key (CMK) is properly set.
+            var databaseStatusReporter = _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(cancellationToken).GetAwaiter().GetResult();
+            if (databaseStatusReporter.Status != HealthStatus.Healthy)
             {
-                return Task.FromResult(storageHealthCheckStatusReporter);
+                return Task.FromResult(new HealthCheckResult(HealthStatus.Degraded, DegradedCMKMessage));
             }
 
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, $"Storage has not been initialized. Waited: {(int)waited.TotalSeconds}s."));
