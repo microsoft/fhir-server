@@ -47,7 +47,7 @@ namespace Microsoft.Health.JobManagement
             _logger.LogInformation("Queue={QueueType}: job hosting is starting...", queueType);
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
-            var startup = true;
+            var dequeueDelay = true;
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
                 if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
@@ -57,13 +57,16 @@ namespace Microsoft.Health.JobManagement
                 }
 
                 var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
-                while (workers.Count < runningJobCount)
+                while (workers.Count < runningJobCount && !cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     workers.Add(Task.Run(async () =>
                     {
-                        if (startup)
+                        //// includes empty queue wait
+                        if (dequeueDelay)
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds)); // random delay to avoid convoys
+                            var secs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds);
+                            _logger.LogDebug("Queue={QueueType}: might be empty, delaying for {DequeueDelay}.", queueType, secs);
+                            await Task.Delay(secs); // random delay to avoid convoys
                         }
 
                         JobInfo nextJob = null;
@@ -109,9 +112,8 @@ namespace Microsoft.Health.JobManagement
                     }));
                 }
 
-                startup = false;
+                dequeueDelay = false;
 
-                var wait = false;
                 try
                 {
                     await Task.WhenAny(workers.ToArray());
@@ -121,15 +123,13 @@ namespace Microsoft.Health.JobManagement
                         {
                             continue;
                         }
-                        else
-                        {
-                            if (await worker == null) // no job info == queue was empty
-                            {
-                                wait = true;
-                            }
 
-                            workers.Remove(worker);
+                        if (await worker == null) // no job info == queue was empty
+                        {
+                            dequeueDelay = true;
                         }
+
+                        workers.Remove(worker);
                     }
                 }
                 catch (Exception ex)
@@ -140,20 +140,6 @@ namespace Microsoft.Health.JobManagement
 #else
                     await cancellationTokenSource.CancelAsync();
 #endif
-                }
-
-                //// wait
-                if (wait)
-                {
-                    try
-                    {
-                        _logger.LogDebug("Queue={QueueType}: is empty, delaying for {PollingFrequencyInSeconds} until next iteration.", queueType, PollingFrequencyInSeconds);
-                        await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        _logger.LogInformation("Queue={QueueType}: is stopping, worker is shutting down.", queueType);
-                    }
                 }
             }
 
