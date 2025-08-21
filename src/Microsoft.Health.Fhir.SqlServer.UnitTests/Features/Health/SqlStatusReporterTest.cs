@@ -19,11 +19,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     [Trait("Category", "Unit")]
-    public class SqlStorageStatusReporterTest
+    public class SqlStatusReporterTest
     {
         private readonly ValueCache<CustomerKeyHealth> _customerKeyHealthCache = new ValueCache<CustomerKeyHealth>();
 
-        public SqlStorageStatusReporterTest()
+        public SqlStatusReporterTest()
         {
             _customerKeyHealthCache.Set(new CustomerKeyHealth
             {
@@ -32,20 +32,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenHealthyCustomerKeyHealth_WhenIsHealthyAsync_ThenReturnsHealthy()
+        public async Task GivenHealthyCustomerKeyHealth_WhenIsCustomerManagerKeyProperlySetAsync_ThenReturnsHealthy()
         {
             // Check SQL storage status reporter
-            var reporter = new SqlStorageStatusReporter(_customerKeyHealthCache);
+            var reporter = new SqlStatusReporter(_customerKeyHealthCache);
 
             // Act
-            HealthCheckResult result = await reporter.IsHealthyAsync(CancellationToken.None);
+            HealthCheckResult result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
             Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
         [Fact]
-        public async Task GivenUnhealthyCustomerKeyHealth_WhenIsHealthyAsync_ThenReturnsDegraded()
+        public async Task GivenUnhealthyCustomerKeyHealth_WhenIsCustomerManagerKeyProperlySetAsync_ThenReturnsDegraded()
         {
             // Set Customer-Managed Key as unhealthy
             _customerKeyHealthCache.Set(new CustomerKeyHealth
@@ -55,14 +55,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             });
 
             // Check SQL storage status reporter
-            var reporter = new SqlStorageStatusReporter(_customerKeyHealthCache);
+            var reporter = new SqlStatusReporter(_customerKeyHealthCache);
 
             // Act
-            HealthCheckResult result = await reporter.IsHealthyAsync(CancellationToken.None);
+            HealthCheckResult result = await reporter.IsCustomerManagerKeyProperlySetAsync(CancellationToken.None);
 
             // Assert
             Assert.Equal(HealthStatus.Degraded, result.Status);
-            Assert.Contains(SqlStorageStatusReporterConstants.CustomerManagedKeyUnhealthyMessage, result.Description);
+            Assert.Contains(SqlStatusReporterConstants.DegradedDescription, result.Description);
         }
     }
 }
