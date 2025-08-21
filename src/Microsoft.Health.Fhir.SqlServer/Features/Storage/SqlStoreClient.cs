@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -245,8 +246,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
-            var delayOnOverloadMilliseconds = 100;
-            var totaldelayOnOverloadMilliseconds = 0;
             while (true)
             {
                 try
@@ -259,18 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var sqlEx = e as SqlException;
                     if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: MergeResources concurrent calls is above optimal. Delay={delayOnOverloadMilliseconds} milliseconds.");
-
-                        // TODO: Prepare to throw 429 instead of wait/delay when bundle code is ready
-                        await Task.Delay(delayOnOverloadMilliseconds, cancellationToken);
-                        totaldelayOnOverloadMilliseconds += delayOnOverloadMilliseconds;
-                        delayOnOverloadMilliseconds = (int)(delayOnOverloadMilliseconds * (2 + (RandomNumberGenerator.GetInt32(1000) / 1000.0)));
-                        if (totaldelayOnOverloadMilliseconds > 60000)
-                        {
-                            cmd.Parameters.Remove(enableThrottling); // default for @EnableThrottling is false
-                        }
-
-                        continue;
+                        throw new RequestRateExceededException(null); // Let the retryAfter header be set to default
                     }
 
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
