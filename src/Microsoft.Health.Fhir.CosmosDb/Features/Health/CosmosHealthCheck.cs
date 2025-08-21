@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
     {
         private const string UnhealthyDescription = "The store is unhealthy.";
         private const string DegradedDescription = "The health of the store has degraded.";
+        private const string CMKErrorDescription = "Connection to the data store was unsuccesful because the client's customer-managed key is not available.";
 
         private readonly IScoped<Container> _container;
         private readonly CosmosDataStoreConfiguration _configuration;
@@ -152,17 +154,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
                     // Handling CMK errors.
-
                     LogWithDetails(
                         LogLevel.Warning,
                         ex,
-                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.");
+                        CMKErrorDescription);
 
                     return HealthCheckResult.Degraded(
                         description: DegradedDescription,
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.CustomerManagedKeyAccessLost },
+                            { "Error", FhirHealthErrorCode.Error412.ToString() },
+                        });
+                }
+                catch (CustomerManagedKeyException ex)
+                {
+                    LogWithDetails(
+                        LogLevel.Warning,
+                        ex,
+                        CMKErrorDescription);
+
+                    return HealthCheckResult.Degraded(
+                        description: DegradedDescription,
+                        data: new Dictionary<string, object>
+                        {
+                            { "Reason", ex.Message },
                             { "Error", FhirHealthErrorCode.Error412.ToString() },
                         });
                 }
