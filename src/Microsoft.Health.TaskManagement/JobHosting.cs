@@ -47,6 +47,7 @@ namespace Microsoft.Health.JobManagement
             _logger.LogInformation("Queue={QueueType}: job hosting is starting...", queueType);
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
+            var firstrun = true;
             var dequeueDelay = true;
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -61,12 +62,16 @@ namespace Microsoft.Health.JobManagement
                 {
                     workers.Add(Task.Run(async () =>
                     {
-                        //// includes empty queue wait
-                        if (dequeueDelay)
+                        //// wait
+                        if (firstrun || dequeueDelay)
                         {
-                            var secs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds);
-                            _logger.LogDebug("Queue={QueueType}: might be empty, delaying for {DequeueDelay}.", queueType, secs);
-                            await Task.Delay(secs); // random delay to avoid convoys
+                            var delaySecs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds); // random delay to avoid convoys
+                            if (!firstrun)
+                            {
+                                _logger.LogDebug("Queue={QueueType}: is empty, delaying for {DelaySecs}.", queueType, delaySecs);
+                            }
+
+                            await Task.Delay(delaySecs);
                         }
 
                         JobInfo nextJob = null;
@@ -107,6 +112,8 @@ namespace Microsoft.Health.JobManagement
                         {
                             await ExecuteJobWithActivityAsync(nextJob);
                         }
+
+                        firstrun = false;
 
                         return nextJob;
                     }));
