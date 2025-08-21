@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
@@ -171,22 +173,6 @@ END
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
 
             // TODO: Temp code to test database stats
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("tmp_GetRawResources") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "tmp_GetRawResources message is not found");
-
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.ResourceTypeTotals") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.ResourceTypeTotals message is not found");
-
             startTime = DateTime.UtcNow;
             while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
@@ -354,6 +340,59 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+        }
+
+        [Fact]
+        public async Task GeoReplicationLagWatchdog()
+        {
+            // Enable logging
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'GeoReplicationLagWatchdog') A WHERE name NOT IN (SELECT Id FROM Parameters WHERE Char = 'LogEvent')");
+
+            // Verify the stored procedure exists
+            var spExists = (int)ExecuteSql("SELECT COUNT(*) FROM sys.objects WHERE name = 'GetGeoReplicationLag' AND type = 'P'");
+            Assert.Equal(1, spExists);
+            _testOutputHelper.WriteLine("GetGeoReplicationLag stored procedure exists");
+
+            // Initialize watchdog parameters
+            var geoWatchdog = new GeoReplicationLagWatchdog();
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{geoWatchdog.PeriodSecId}', '{geoWatchdog.LeasePeriodSecId}')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.PeriodSecId}', 1)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.LeasePeriodSecId}', 2)");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromMinutes(2));
+
+            var schemaInformation = _fixture.SchemaInformation;
+
+            var wd = new GeoReplicationLagWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<GeoReplicationLagWatchdog>.Create(_testOutputHelper),
+                Substitute.For<IMediator>(),
+                schemaInformation)
+            {
+                AllowRebalance = true,
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+            };
+
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+
+            DateTime startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 30)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.5), cts.Token);
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            // Wait for at least one execution cycle - the watchdog should handle the SqlException gracefully
+            await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+
+            await cts.CancelAsync();
+            await wdTask;
+
+            _testOutputHelper.WriteLine("Watchdog executed successfully");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()

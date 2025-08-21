@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // If the job is already completed for any reason, return conflict status.
                     if (outcome.JobRecord.Status.IsFinished())
                     {
-                        return new CancelExportResponse(HttpStatusCode.Conflict);
+                        throw new OperationFailedException(Core.Resources.BulkUpdateOperationCompleted, HttpStatusCode.Conflict);
                     }
 
                     // Try to cancel the job.

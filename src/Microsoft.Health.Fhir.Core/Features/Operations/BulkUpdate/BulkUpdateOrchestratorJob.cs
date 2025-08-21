@@ -84,25 +84,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
                 var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
 
-                // Check if definition.SearchParameters is not null and only have one SearchParameter which is LastUpdated
-                bool noOtherSearchParameters = definition.SearchParameters == null;
-                if (!noOtherSearchParameters && definition.SearchParameters.Count == 1 &&
-                    string.Equals(definition.SearchParameters[0].Item1, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                // Check if definition.SearchParameters is not null
+                bool noOtherSearchParameters = definition.SearchParameters == null || definition.SearchParameters.Count == 0;
+                if (!noOtherSearchParameters)
                 {
-                    noOtherSearchParameters = true;
+                    // Collect allowed parameter names (case-insensitive)
+                    var allowedParams = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        KnownQueryParameterNames.LastUpdated,
+                        KnownQueryParameterNames.MaxCount,
+                    };
+
+                    // Check if all parameters are allowed
+                    noOtherSearchParameters = definition.SearchParameters.All(p => allowedParams.Contains(p.Item1));
                 }
 
                 // For Parallel bulk update, when there are no SearchParameters then create sub jobs by resourceType-surrogateId ranges
                 using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && noOtherSearchParameters)
                 {
-                    _logger.LogInformation("Creating bulk update subjobs by resourceType-surrogateId ranges.");
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
                     resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
-                    var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
+                    var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1;
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges with Global start surrogate ID: {GlobalStartId}, Global end surrogate ID: {GlobalEndId}", globalStartId, globalEndId);
 
                     var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
                                             .Select(x => JsonConvert.DeserializeObject<BulkUpdateDefinition>(x.Definition))
@@ -149,6 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 else if (definition.IsParallel)
                 {
                     // For Parallel bulk update, when there are SearchParameters then create sub jobs at continuation token level for matched and included resources.
+                    _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs at page level.");
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
                     var definitions = new List<BulkUpdateDefinition>();
@@ -156,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
 
                     // Run a search to get the first page of results
-                    SearchResult searchResult = await BulkUpdateOrchestratorJob.Search(definition, searchService, searchParams, cancellationToken);
+                    SearchResult searchResult = await Search(definition, searchService, searchParams, cancellationToken);
 
                     // If the search result is empty, we can skip the rest of the processing
                     while ((searchResult?.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(prevContinuationToken))
@@ -226,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 definition.Type,
                 searchParams,
                 cancellationToken,
-                false,
+                true,
                 resourceVersionTypes: ResourceVersionType.Latest,
                 onlyIds: true,
                 isIncludesOperation: false);

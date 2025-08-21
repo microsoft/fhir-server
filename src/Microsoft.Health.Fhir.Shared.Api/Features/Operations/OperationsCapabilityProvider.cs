@@ -77,12 +77,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
 
-            if (_coreFeatureConfiguration.SupportsBulkDelete)
+            if (_operationConfiguration.BulkDelete.Enabled)
             {
                 builder.Apply(AddBulkDeleteDetails);
             }
 
-            if (_coreFeatureConfiguration.SupportsBulkUpdate)
+            if (_operationConfiguration.BulkUpdate.Enabled)
             {
                 builder.Apply(AddBulkUpdateDetails);
             }

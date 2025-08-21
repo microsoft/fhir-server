@@ -1,11 +1,12 @@
 ﻿--DROP PROCEDURE dbo.GetActiveJobs
 GO
-CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL
+CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL, @ReturnParentOnly BIT = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           + ' R='+CONVERT(VARCHAR, @ReturnParentOnly)
        ,@st datetime = getUTCdate()
        ,@JobIds BigintList
        ,@PartitionId tinyint
@@ -30,8 +31,17 @@ BEGIN TRY
   END
 
   IF @Rows > 0
-    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+    BEGIN
+      IF @ReturnParentOnly = 1
+      BEGIN
+        DECLARE @TopGroupId BIGINT;
 
+        SELECT TOP 1 @TopGroupId = GroupId FROM dbo.JobQueue WHERE JobId IN (SELECT Id FROM @JobIds) ORDER BY GroupId DESC;
+
+        DELETE FROM @JobIds	WHERE Id NOT IN (SELECT JobId FROM dbo.JobQueue	WHERE JobId = @TopGroupId);
+      END
+      EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+    END
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH

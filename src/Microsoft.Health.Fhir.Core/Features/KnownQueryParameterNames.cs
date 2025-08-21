@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string IncludeAssociatedData = "includeAssociatedData";
 
         /// <summary>
-        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// Used by export and bulk-update to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
 
@@ -146,5 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ExcludedResourceTypes = "excludedResourceTypes";
 
         public const string ReverseInclude = "_revinclude";
+
+        public const string ReturnDetails = "_details";
     }
 }

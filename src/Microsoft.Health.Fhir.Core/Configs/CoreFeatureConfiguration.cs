@@ -83,16 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsSelectableSearchParameters { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the server supports the $bulk-delete.
-        /// </summary>
-        public bool SupportsBulkDelete { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the server supports the $bulk-update.
-        /// </summary>
-        public bool SupportsBulkUpdate { get; set; }
-
-        /// <summary>
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
@@ -101,5 +91,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the server supports the includes.
         /// </summary>
         public bool SupportsIncludes { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether geo-redundancy monitoring is enabled.
+        /// When enabled, the system will monitor geo-replication lag and status through
+        /// the GeoReplicationLagWatchdog. This feature is only applicable when using
+        /// Azure SQL Database with geo-replication configured.
+        /// </summary>
+        public bool EnableGeoRedundancy { get; set; }
     }
 }

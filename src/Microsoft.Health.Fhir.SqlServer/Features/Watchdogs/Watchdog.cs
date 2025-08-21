@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private readonly FhirTimer _fhirTimer;
+        private DateTime _lastLog;
 
         protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -56,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"{Name}.ExecuteAsync: starting...");
+            _logger.LogDebug($"{Name}.ExecuteAsync: starting...");
 
             await InitParamsAsync();
 
@@ -64,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken),
                 _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, cancellationToken));
 
-            _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
+            _logger.LogDebug($"{Name}.ExecuteAsync: completed.");
         }
 
         protected abstract Task RunWorkAsync(CancellationToken cancellationToken);
@@ -77,9 +79,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            using (_logger.BeginTimedScope($"{Name}.OnNextTickAsync"))
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            await RunWorkAsync(cancellationToken);
+
+            if (DateTime.UtcNow - _lastLog > TimeSpan.FromHours(1))
             {
-                await RunWorkAsync(cancellationToken);
+                _lastLog = DateTime.UtcNow;
+                _logger.LogInformation($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
+            }
+            else
+            {
+                _logger.LogDebug($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
             }
         }
 
@@ -89,6 +101,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 // Offset for other instances running init
                 await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
+
+                _lastLog = DateTime.UtcNow;
 
                 await using var cmd = new SqlCommand(
                     @"
