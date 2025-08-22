@@ -67,7 +67,6 @@ public class StorageInitializedHealthCheckTests
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
         {
             // Arrange
-            var degradedResult = HealthCheckResult.Degraded("Customer-managed key is degraded");
             _databaseStatusReporter.IsCustomerManagerKeyProperlySetAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
 
             HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
