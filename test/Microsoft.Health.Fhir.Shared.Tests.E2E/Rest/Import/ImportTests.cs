@@ -319,6 +319,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
             result = await ImportCheckAsync(request, null, 0, true);
             Assert.Single(result.Output);
+
+            //// 0 should be ovewritten by default in orchestrator job
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 0);
+            result = await ImportCheckAsync(request, null, 0, true);
+            Assert.Single(result.Output);
         }
 
         [Fact]
