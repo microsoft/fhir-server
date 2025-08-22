@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IAuditLogger _auditLogger;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        private const int BytesToReadDefault = 1000 * 10000;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -235,11 +236,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 result.TotalBytes += blobLength;
-                foreach (var offset in GetOffsets(blobLength, coordDefinition.ProcessingJobBytesToRead))
+                var bytesToRead = coordDefinition.ProcessingJobBytesToRead == 0
+                                ? BytesToReadDefault
+                                : coordDefinition.ProcessingJobBytesToRead;
+                foreach (var offset in GetOffsets(blobLength, bytesToRead))
                 {
                     var newInput = input.Clone();
                     newInput.Offset = offset;
-                    newInput.BytesToRead = coordDefinition.ProcessingJobBytesToRead;
+                    newInput.BytesToRead = bytesToRead;
                     lock (inputs)
                     {
                         inputs.Add(newInput);

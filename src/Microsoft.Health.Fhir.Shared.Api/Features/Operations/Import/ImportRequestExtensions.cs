@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string ProcessingJobBytesToReadParameterName = "processingJobBytesToRead";
         public const string ErrorContainerNameParameterName = "errorContainerName";
         public const string DefaultStorageDetailType = "azure-blob";
-        public const int ProcessingJobBytesToReadDefault = 1000 * 10000;
 
         public static Parameters ToParameters(this ImportRequest importRequest)
         {
@@ -194,8 +193,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 importRequest.ErrorContainerName = errorContainerName;
             }
 
-            // set default
-            importRequest.ProcessingJobBytesToRead = ProcessingJobBytesToReadDefault;
             if (parameters.TryGetIntValue(ProcessingJobBytesToReadParameterName, out int bytesToRead))
             {
                 importRequest.ProcessingJobBytesToRead = bytesToRead;
