@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.JobManagement
 {
     public class JobHosting
     {
-        private static readonly ActivitySource JobHostingActivitySource = new ActivitySource(nameof(JobHosting));
+        private static readonly ActivitySource _jobHostingActivitySource = new ActivitySource(nameof(JobHosting));
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.JobManagement
             _queueClient = queueClient;
             _jobFactory = jobFactory;
             _logger = logger;
+            RunningJobsTarget = new ConcurrentDictionary<byte, int>();
         }
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
@@ -42,13 +44,19 @@ namespace Microsoft.Health.JobManagement
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
+        public ConcurrentDictionary<byte, int> RunningJobsTarget { get; private set; }
+
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             _logger.LogInformation("Queue={QueueType}: job hosting is starting...", queueType);
+
+            SetRunningJobsTarget(queueType, runningJobCount); // this happens only once according to our current logic
+
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
-            var firstrun = true;
+            var firstRun = true;
             var dequeueDelay = true;
+            var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
                 if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
@@ -57,16 +65,16 @@ namespace Microsoft.Health.JobManagement
                     _logger.LogInformation("Queue={QueueType}: job hosting is running...", queueType);
                 }
 
-                var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
-                while (workers.Count < runningJobCount && !cancellationTokenSource.Token.IsCancellationRequested)
+                RunningJobsTarget.TryGetValue(queueType, out var runningJobsTarget);
+                while (workers.Count < runningJobsTarget && !cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     workers.Add(Task.Run(async () =>
                     {
                         //// wait
-                        if (firstrun || dequeueDelay)
+                        if (firstRun || dequeueDelay)
                         {
                             var delaySecs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds); // random delay to avoid convoys
-                            if (!firstrun)
+                            if (!firstRun)
                             {
                                 _logger.LogDebug("Queue={QueueType}: is empty, delaying for {DelaySecs}.", queueType, delaySecs);
                             }
@@ -113,7 +121,7 @@ namespace Microsoft.Health.JobManagement
                             await ExecuteJobWithActivityAsync(nextJob);
                         }
 
-                        firstrun = false;
+                        firstRun = false;
 
                         return nextJob;
                     }));
@@ -160,9 +168,23 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
+        public void SetRunningJobsTarget(byte queueType, int target)
+        {
+            if (!RunningJobsTarget.ContainsKey(queueType))
+            {
+                RunningJobsTarget.TryAdd(queueType, target);
+            }
+            else
+            {
+                RunningJobsTarget[queueType] = target;
+            }
+
+            _logger.LogInformation("Queue={QueueType}: running jobs target is set to {RunningJobsTarget}.", queueType, target);
+        }
+
         private async Task ExecuteJobWithActivityAsync(JobInfo nextJob)
         {
-            using (Activity activity = JobHostingActivitySource.StartActivity(JobHostingActivitySource.Name, ActivityKind.Server))
+            using (Activity activity = _jobHostingActivitySource.StartActivity(_jobHostingActivitySource.Name, ActivityKind.Server))
             {
                 if (activity == null)
                 {
