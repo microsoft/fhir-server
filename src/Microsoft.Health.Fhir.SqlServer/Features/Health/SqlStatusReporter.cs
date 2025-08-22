@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
             CustomerKeyHealth customerKeyHealth = await IsCustomerManagedKeyHealthyAsync(cancellationToken);
 
             // If no specific issues, return true
-            return customerKeyHealth.IsHealthy ? true : false;
+            return customerKeyHealth.IsHealthy;
         }
 
         private async Task<CustomerKeyHealth> IsCustomerManagedKeyHealthyAsync(CancellationToken cancellationToken = default)
