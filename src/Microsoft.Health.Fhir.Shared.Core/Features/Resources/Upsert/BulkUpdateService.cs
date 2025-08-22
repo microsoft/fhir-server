@@ -165,6 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                         var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
                         finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
+                        _logger.LogInformation("Bulk updated total {Count} resources for the page.", subResult.ResourcesUpdated.Sum(resource => resource.Value));
                     }
 
                     // Group the results based on the resource type and prepare the conditional patch requests
