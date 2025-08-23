@@ -197,6 +197,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
                         await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                     }
+                    else
+                    {
+                        _logger.LogJobInformation(jobInfo, "Bulk update orchestration completed: No processing jobs were enqueued.");
+                    }
                 }
                 else if (groupJobs.Count == 1)
                 {

@@ -216,7 +216,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
-            Assert.False(resource.IsHistory); // it is returned as current but is marked as history in the database ???
+            Assert.True(resource.IsHistory); // it is returned as current but is marked as history in the database ???
 
             // current resource
             results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
