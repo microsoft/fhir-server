@@ -55,7 +55,7 @@ namespace Microsoft.Health.JobManagement
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
             var firstRun = true;
-            var dequeueDelay = true;
+            var dequeueDelays = 0;
             var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -71,7 +71,7 @@ namespace Microsoft.Health.JobManagement
                     workers.Add(Task.Run(async () =>
                     {
                         //// wait
-                        if (firstRun || dequeueDelay)
+                        if (firstRun || dequeueDelays > 0)
                         {
                             var delaySecs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds); // random delay to avoid convoys
                             if (!firstRun)
@@ -80,6 +80,7 @@ namespace Microsoft.Health.JobManagement
                             }
 
                             await Task.Delay(delaySecs);
+                            dequeueDelays--;
                         }
 
                         JobInfo nextJob = null;
@@ -127,7 +128,7 @@ namespace Microsoft.Health.JobManagement
                     }));
                 }
 
-                dequeueDelay = false;
+                dequeueDelays = 0;
 
                 try
                 {
@@ -141,7 +142,7 @@ namespace Microsoft.Health.JobManagement
 
                         if (await worker == null) // no job info == queue was empty
                         {
-                            dequeueDelay = true;
+                            dequeueDelays++;
                         }
 
                         workers.Remove(worker);
