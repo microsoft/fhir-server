@@ -389,10 +389,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
+                // Bulk operations will not enlist to C# transactions.
+                // The database will be responsible for handling it internally.
+                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
+
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
                 if (softDeleteIncludes.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
+                    await fhirDataStore.Value.MergeAsync(softDeleteIncludes, mergeOptions, cancellationToken);
                     partialResults.AddRange(softDeleteIncludes.Select(item => (
                         item.Wrapper.ResourceTypeName,
                         item.Wrapper.ResourceId,
@@ -405,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
                     cancellationToken);
 
-                await fhirDataStore.Value.MergeAsync(softDeleteMatches, cancellationToken);
+                await fhirDataStore.Value.MergeAsync(softDeleteMatches, mergeOptions, cancellationToken);
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {
@@ -574,7 +578,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
-                    await fhirDataStore.Value.MergeAsync(modifiedResources, cancellationToken);
+                    // Bulk operations will not enlist to C# transactions.
+                    // The database will be responsible for handling it internally.
+                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
+                    await fhirDataStore.Value.MergeAsync(modifiedResources, mergeOptions, cancellationToken);
 
                     if (includesContinuationToken != null)
                     {

@@ -583,15 +583,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
+                // Bulk operations will not enlist to C# transactions.
+                // The database will be responsible for handling it internally.
+                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
+
                 // Update includes first so that the reference for match result remains intact for next pages
                 if (wrapperOperationsIncludes.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, cancellationToken);
+                    await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, mergeOptions, cancellationToken);
                 }
 
                 if (wrapperOperationsMatches.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken);
+                    await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, mergeOptions, cancellationToken);
                 }
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
