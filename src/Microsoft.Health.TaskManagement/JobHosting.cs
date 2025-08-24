@@ -72,7 +72,7 @@ namespace Microsoft.Health.JobManagement
                         if (dequeueDelay)
                         {
                             var delaySecs = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
-                            _logger.LogDebug("Queue={QueueType}: delaying for {DelaySecs} sec.", queueType, delaySecs);
+                            _logger.LogDebug("Queue={QueueType}: delaying job execution for {DelaySecs} sec.", queueType, delaySecs);
 
                             await Task.Delay(delaySecs);
                         }
