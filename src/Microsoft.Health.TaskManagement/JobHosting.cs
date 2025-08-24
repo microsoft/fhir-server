@@ -57,12 +57,6 @@ namespace Microsoft.Health.JobManagement
             var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
-                if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
-                {
-                    _lastHeartbeatLog = DateTime.UtcNow;
-                    _logger.LogInformation("Queue={QueueType}: job hosting is running...", queueType);
-                }
-
                 RunningJobsTarget.TryGetValue(queueType, out var runningJobsTarget);
                 while (workers.Count < runningJobsTarget && !cancellationTokenSource.Token.IsCancellationRequested)
                 {
@@ -71,9 +65,9 @@ namespace Microsoft.Health.JobManagement
                         //// wait
                         if (dequeueDelay)
                         {
-                            var delaySecs = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
-                            _logger.LogDebug("Queue={QueueType}: delaying job execution for {DelaySecs} sec.", queueType, delaySecs);
-                            await Task.Delay(delaySecs);
+                            var delay = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
+                            _logger.LogDebug("Queue={QueueType}: delaying job execution for {DequeueDelay}.", queueType, delay);
+                            await Task.Delay(delay);
                         }
 
                         JobInfo job = null;
@@ -135,6 +129,12 @@ namespace Microsoft.Health.JobManagement
 #else
                     await cancellationTokenSource.CancelAsync();
 #endif
+                }
+
+                if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
+                {
+                    _lastHeartbeatLog = DateTime.UtcNow;
+                    _logger.LogInformation("Queue={QueueType}: job hosting is running, total workers = {Workers}.", queueType, workers.Count);
                 }
             }
 
