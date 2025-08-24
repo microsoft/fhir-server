@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Client
                 }
 
                 reindexJobResult = await CheckJobAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name.Equals(ReindexParametersStatus, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
                 checkReindexCount++;
             }
             while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);

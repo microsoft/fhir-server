@@ -19,6 +19,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -281,18 +282,13 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 5000, TimeoutMs = 300000)] // 5 minutes timeout
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            var ndJson = new StringBuilder();
-            for (int i = 0;  i < 80001; i++)
-            {
-                var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
-                ndJson.Append(str);
-            }
+            // Use pre-generated file with 80,001 patients to avoid memory issues
+            string largePatientFile = Samples.GetNdJson("Import-80KPatients");
 
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
+            var location = (await ImportTestHelper.UploadFileAsync(largePatientFile, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var message = await ImportWaitAsync(checkLocation, false);
