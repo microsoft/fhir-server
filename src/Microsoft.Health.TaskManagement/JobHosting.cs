@@ -49,9 +49,7 @@ namespace Microsoft.Health.JobManagement
         public async Task ExecuteAsync(byte queueType, short runningJobCount, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             _logger.LogInformation("Queue={QueueType}: job hosting is starting...", queueType);
-
             SetRunningJobsTarget(queueType, runningJobCount); // this happens only once according to our current logic
-
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
             var firstRun = true;
@@ -73,7 +71,7 @@ namespace Microsoft.Health.JobManagement
                         //// wait
                         if (firstRun || dequeueDelays > 0)
                         {
-                            var delaySecs = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds); // random delay to avoid convoys
+                            var delaySecs = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
                             if (!firstRun)
                             {
                                 _logger.LogDebug("Queue={QueueType}: is empty, delaying for {DelaySecs}.", queueType, delaySecs);
@@ -152,7 +150,7 @@ namespace Microsoft.Health.JobManagement
                 {
                     _logger.LogError(ex, "Queue={QueueType}: job hosting task failed.", queueType);
 #if NET6_0
-                    cancellationTokenSource.Cancel();
+                                cancellationTokenSource.Cancel();
 #else
                     await cancellationTokenSource.CancelAsync();
 #endif
