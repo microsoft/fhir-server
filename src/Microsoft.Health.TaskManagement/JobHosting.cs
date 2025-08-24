@@ -73,11 +73,10 @@ namespace Microsoft.Health.JobManagement
                         {
                             var delaySecs = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
                             _logger.LogDebug("Queue={QueueType}: delaying job execution for {DelaySecs} sec.", queueType, delaySecs);
-
                             await Task.Delay(delaySecs);
                         }
 
-                        JobInfo nextJob = null;
+                        JobInfo job = null;
                         //// dequeue
                         if (_queueClient.IsInitialized())
                         {
@@ -98,11 +97,11 @@ namespace Microsoft.Health.JobManagement
 
                                     if (dequeueTimeoutJobs)
                                     {
-                                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                        job = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
                                     }
                                 }
 
-                                nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
+                                job ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
                             }
                             catch (Exception ex)
                             {
@@ -111,12 +110,12 @@ namespace Microsoft.Health.JobManagement
                         }
 
                         //// execute
-                        if (nextJob != null)
+                        if (job != null)
                         {
-                            await ExecuteJobWithActivityAsync(nextJob);
+                            await ExecuteJobWithActivityAsync(job);
                         }
 
-                        return nextJob;
+                        return job;
                     }));
 
                     _logger.LogDebug("Queue={QueueType}: total workers = {Workers}.", queueType, workers.Count);
