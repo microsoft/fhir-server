@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("connection is closed", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("severe error occurred", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection timeout expired", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("Execution Timeout Expired", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("existing connection was forcibly closed by the remote host", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection was recovered and rowcount in the first query is not available", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection was successfully established with the server, but then an error occurred during the login process", StringComparison.OrdinalIgnoreCase)
