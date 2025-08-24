@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -52,8 +53,7 @@ namespace Microsoft.Health.JobManagement
             SetRunningJobsTarget(queueType, runningJobCount); // this happens only once according to our current logic
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
-            var firstRun = true;
-            var dequeueDelays = 0;
+            var dequeueDelay = true;
             var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -69,16 +69,12 @@ namespace Microsoft.Health.JobManagement
                     workers.Add(Task.Run(async () =>
                     {
                         //// wait
-                        if (firstRun || dequeueDelays > 0)
+                        if (dequeueDelay)
                         {
                             var delaySecs = TimeSpan.FromSeconds(((RandomNumberGenerator.GetInt32(20) / 100.0) + 0.9) * PollingFrequencyInSeconds); // random delay to avoid convoys
-                            if (!firstRun)
-                            {
-                                _logger.LogDebug("Queue={QueueType}: is empty, delaying for {DelaySecs}.", queueType, delaySecs);
-                            }
+                            _logger.LogDebug("Queue={QueueType}: delaying for {DelaySecs} sec.", queueType, delaySecs);
 
                             await Task.Delay(delaySecs);
-                            dequeueDelays--;
                         }
 
                         JobInfo nextJob = null;
@@ -120,37 +116,29 @@ namespace Microsoft.Health.JobManagement
                             await ExecuteJobWithActivityAsync(nextJob);
                         }
 
-                        firstRun = false;
-
                         return nextJob;
                     }));
+
+                    _logger.LogDebug("Queue={QueueType}: total workers = {Workers}.", queueType, workers.Count);
                 }
 
-                dequeueDelays = 0;
+                dequeueDelay = false;
 
                 try
                 {
-                    await Task.WhenAny(workers.ToArray());
-                    foreach (var worker in workers.ToList())
+                    var completed = await Task.WhenAny(workers);
+                    if (await completed == null) // no job info == queue was empty
                     {
-                        if (!worker.IsCompleted)
-                        {
-                            continue;
-                        }
-
-                        if (await worker == null) // no job info == queue was empty
-                        {
-                            dequeueDelays++;
-                        }
-
-                        workers.Remove(worker);
+                        dequeueDelay = true;
                     }
+
+                    workers.Remove(completed);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Queue={QueueType}: job hosting task failed.", queueType);
 #if NET6_0
-                                cancellationTokenSource.Cancel();
+                    cancellationTokenSource.Cancel();
 #else
                     await cancellationTokenSource.CancelAsync();
 #endif
