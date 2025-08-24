@@ -121,17 +121,11 @@ namespace Microsoft.Health.JobManagement
                     _logger.LogDebug("Queue={QueueType}: total workers = {Workers}.", queueType, workers.Count);
                 }
 
-                dequeueDelay = false;
-
                 try
                 {
                     var completed = await Task.WhenAny(workers);
-                    if (await completed == null) // no job info == queue was empty
-                    {
-                        dequeueDelay = true;
-                    }
-
                     workers.Remove(completed);
+                    dequeueDelay = await completed == null; // no job info == queue was empty
                 }
                 catch (Exception ex)
                 {
