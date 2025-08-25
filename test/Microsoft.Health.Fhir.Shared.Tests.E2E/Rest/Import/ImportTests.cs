@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -55,6 +56,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+        }
+
+        [Fact]
+        public async Task CheckNumberOfDequeues()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("INSERT INTO dbo.Parameters(Id, Char) SELECT 'DequeueJob', 'LogEvent'");
+
+            await Task.Delay(TimeSpan.FromSeconds(12));
+
+            var dequeues = (int)ExecuteSql(@$"
+SELECT count(*)
+  FROM dbo.EventLog 
+  WHERE EventDate > dateadd(second,-10,getUTCdate())
+    AND Process = 'DequeueJob'
+    AND Mode LIKE 'Q=2 %' -- import
+                ");
+
+            // polling interval is set to 1 second. 2 jobs. expected 20.
+            Assert.True(dequeues > 16 && dequeues < 24, $"not expected dequeues={dequeues}");
         }
 
         [Theory]
