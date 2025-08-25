@@ -1,22 +1,22 @@
-﻿/*************************************************************
-    Stored procedures - UpsertSearchParams
+/*************************************************************
+    Add optimistic concurrency support for SearchParam updates using LastUpdated
 **************************************************************/
---
--- STORED PROCEDURE
---     UpsertSearchParams
---
--- DESCRIPTION
---     Given a set of search parameters, creates or updates the parameters.
---     Implements optimistic concurrency control using LastUpdated.
---
--- PARAMETERS
---     @searchParams
---         * The updated existing search parameters or the new search parameters
---
--- RETURN VALUE
---     The IDs and URIs of the search parameters that were inserted (not updated).
---
-CREATE PROCEDURE dbo.UpsertSearchParams
+
+-- Create new table type with LastUpdated support for optimistic concurrency
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'SearchParamTableType_3' AND is_user_defined = 1)
+BEGIN
+    CREATE TYPE dbo.SearchParamTableType_3 AS TABLE
+    (
+        Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        Status varchar(20) NOT NULL,
+        IsPartiallySupported bit NOT NULL,
+        LastUpdated datetimeoffset(7) NULL
+    );
+END
+GO
+
+-- Update the UpsertSearchParams stored procedure to use LastUpdated-based optimistic concurrency
+ALTER PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_3 READONLY
 AS
 SET NOCOUNT ON;
