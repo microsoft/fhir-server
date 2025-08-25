@@ -8,17 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Guidance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -62,11 +60,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
         [Theory]
         [MemberData(nameof(GetCreateResourceData))]
         public async Task GivenResource_WhenCreating_ThenDuplicateResourceShouldBeCreated(
-            Resource resource)
+            Resource resource,
+            Resource duplicateResource,
+            int searchCalls,
+            int upsertCalls)
         {
             var resourceType = resource.TypeName;
             var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
                 ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
+            var codes = new List<Coding>();
+            var subject = string.Empty;
+            if (string.Equals(resourceType, KnownResourceTypes.DiagnosticReport))
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+                subject = diagnosticReport.Subject?.Reference;
+                codes.AddRange(diagnosticReport.Code.Coding
+                    .Where(x => ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(x.System)
+                        && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(x.Code)));
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+                subject = documentReference.Subject?.Reference;
+#if R4 || R4B || Stu3
+                codes.AddRange(documentReference.Content
+                    .Where(x => ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(x.Format?.System)
+                        && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(x.Format?.Code))
+                    .Select(x => x.Format));
+#else
+                codes.AddRange(documentReference.Content
+                    .SelectMany(x => x?.Profile?
+                        .Where(y => y?.Value?.GetType() == typeof(Coding)
+                            && ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(((Coding)y.Value)?.System)
+                            && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(((Coding)y.Value)?.Code))
+                        .Select(y => (Coding)y.Value)));
+#endif
+            }
 
             // Set up a validation on a request for creating the source resource.
             var resourceElement = resource.ToResourceElement();
@@ -75,14 +104,61 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 Arg.Any<CancellationToken>())
                 .Throws(new Exception($"Shouldn't be called to create a {resourceType} resource."));
 
+            // Set up a search result (no results for create).
+            _searchService.SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(
+                    x =>
+                    {
+                        Assert.True(searchCalls > 0, "SearchAsync shouldn't be called.");
+
+                        var parameters = (IReadOnlyList<Tuple<string, string>>)x[1];
+                        Assert.Contains(
+                            parameters,
+                            x => string.Equals(x.Item1, "subject", StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(x.Item2, subject, StringComparison.OrdinalIgnoreCase));
+
+                        if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "code", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+                        }
+                        else
+                        {
+#if R4 || R4B || Stu3
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "format", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+#else
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "format-code", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+#endif
+                        }
+
+                        var searchResult = new SearchResult(
+                            new List<SearchResultEntry>(),
+                            null,
+                            null,
+                            new List<Tuple<string, string>>());
+                        return Task.FromResult(searchResult);
+                    });
+
             // Set up a validation on a request for creating a duplicate resource.
-            Resource duplicateResource = null;
             _dataStore.UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
+                        Assert.True(upsertCalls > 0, "UpsertAsync shouldn't be called.");
+
                         var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
                             .ToITypedElement(ModelInfoProvider.Instance)?
                             .ToResourceElement();
@@ -97,42 +173,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 && string.Equals(x.Code, resource.Id, StringComparison.OrdinalIgnoreCase));
                         Assert.Contains(
                             r.Meta.Tag,
-                            x => string.Equals(x.System, ClinicalReferenceDuplicator.TagIsDuplicate, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(x.Code, bool.TrueString, StringComparison.OrdinalIgnoreCase));
+                            x => string.Equals(x.System, ClinicalReferenceDuplicator.TagDuplicateCreatedOn, StringComparison.OrdinalIgnoreCase)
+                                && DateTime.TryParse(x.Code, out _));
 
-                        if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var source = (DocumentReference)resource;
-                            var duplicate = (DiagnosticReport)r;
-
-                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.PresentedForm);
-                            foreach (var a in source.Content.Select(x => x.Attachment))
-                            {
-                                Assert.Contains(
-                                    duplicate.PresentedForm,
-                                    x => string.Equals(x.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-                        else
-                        {
-                            var source = (DiagnosticReport)resource;
-                            var duplicate = (DocumentReference)r;
-
-                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.Content);
-                            foreach (var a in source.PresentedForm)
-                            {
-                                Assert.Contains(
-                                    duplicate.Content,
-                                    x => string.Equals(x.Attachment?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-
+                        ValidateDuplicateResource(duplicateResource, r, true);
                         if (string.IsNullOrEmpty(r.Id))
                         {
                             r.Id = Guid.NewGuid().ToString();
@@ -144,41 +188,23 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 SaveOutcomeType.Created));
                     });
 
-            // Set up a validation on a request for updating the source resource with the id of the duplicate resource.
-            _dataStore.UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
-                Arg.Any<CancellationToken>())
-                .Returns(
-                    x =>
-                    {
-                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
-                            .ToITypedElement(ModelInfoProvider.Instance)?
-                            .ToResourceElement();
-                        Assert.NotNull(re);
-                        Assert.Equal(resourceType, re.InstanceType, true);
-
-                        var r = re.ToPoco();
-                        Assert.NotNull(r.Meta?.Tag);
-                        Assert.Contains(
-                            r.Meta.Tag,
-                            t => string.Equals(t.System, ClinicalReferenceDuplicator.TagDuplicateOf, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(t.Code, duplicateResource.Id, StringComparison.OrdinalIgnoreCase));
-
-                        return Task.FromResult(
-                            new UpsertOutcome(
-                                CreateResourceWrapper(r.ToResourceElement()),
-                                SaveOutcomeType.Updated));
-                    });
-
             await _duplicator.CreateResourceAsync(
                 new RawResourceElement(CreateResourceWrapper(resourceElement)),
                 CancellationToken.None);
 
-            // Check how many times create/update was invoked.
-            await _dataStore.Received(1).UpsertAsync(
+            // Check how many times these methods were called.
+            await _searchService.Received(searchCalls).SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>());
+            await _searchService.Received(0).SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, resourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>());
+            await _dataStore.Received(upsertCalls).UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
-            await _dataStore.Received(1).UpsertAsync(
+            await _dataStore.Received(0).UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
         }
@@ -187,28 +213,56 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
         [MemberData(nameof(GetUpdateResourceData))]
         public async Task GivenResource_WhenUpdating_ThenDuplicateResourceShouldBeUpdated(
             Resource resource,
-            List<Resource> duplicateResources)
+            List<Resource> duplicateResources,
+            List<Resource> searchResults,
+            int searchCalls,
+            int upsertCalls)
         {
             var resourceType = resource.TypeName;
             var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
                 ? KnownResourceTypes.DocumentReference : KnownResourceTypes.DiagnosticReport;
+            var codes = new List<Coding>();
+            var subject = string.Empty;
+            if (string.Equals(resourceType, KnownResourceTypes.DiagnosticReport))
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+                subject = diagnosticReport.Subject?.Reference;
+                codes.AddRange(diagnosticReport.Code.Coding
+                    .Where(x => ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(x.System)
+                        && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(x.Code)));
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+                subject = documentReference.Subject?.Reference;
+#if R4 || R4B || Stu3
+                codes.AddRange(documentReference.Content
+                    .Where(x => ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(x.Format?.System)
+                        && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(x.Format?.Code))
+                    .Select(x => x.Format));
+#else
+                codes.AddRange(documentReference.Content
+                    .SelectMany(x => x?.Profile?
+                        .Where(y => y?.Value?.GetType() == typeof(Coding)
+                            && ClinicalReferenceDuplicator.ClinicalReferenceSystems.Contains(((Coding)y.Value)?.System)
+                            && ClinicalReferenceDuplicator.ClinicalReferenceCodes.Contains(((Coding)y.Value)?.Code))
+                        .Select(y => (Coding)y.Value)));
+#endif
+            }
 
             // Set up a validation on a request for searching duplicate resources.
             var entries = new List<SearchResultEntry>();
-            if (duplicateResources?.Any() ?? false)
+            foreach (var r in searchResults)
             {
-                foreach (var r in duplicateResources)
-                {
-                    var wrapper = new ResourceWrapper(
-                        r.ToResourceElement(),
-                        new RawResource(r.ToJson(), FhirResourceFormat.Json, false),
-                        null,
-                        false,
-                        null,
-                        null,
-                        null);
-                    entries.Add(new SearchResultEntry(wrapper));
-                }
+                var wrapper = new ResourceWrapper(
+                    r.ToResourceElement(),
+                    new RawResource(r.ToJson(), FhirResourceFormat.Json, false),
+                    null,
+                    false,
+                    null,
+                    null,
+                    null);
+                entries.Add(new SearchResultEntry(wrapper));
             }
 
             _searchService.SearchAsync(
@@ -218,28 +272,53 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 .Returns(
                     x =>
                     {
+                        Assert.True(searchCalls > 0, "SearchAsync shouldn't be called.");
+
                         var parameters = (IReadOnlyList<Tuple<string, string>>)x[1];
                         Assert.Contains(
                             parameters,
-                            x => string.Equals(x.Item1, "_tag", StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(x.Item2, $"{ClinicalReferenceDuplicator.TagDuplicateOf}|{resource.Id}", StringComparison.OrdinalIgnoreCase));
+                            x => string.Equals(x.Item1, "subject", StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(x.Item2, subject, StringComparison.OrdinalIgnoreCase));
 
-                        var searchResult = new SearchResult(
-                            entries,
-                            null,
-                            null,
-                            new List<Tuple<string, string>>());
-                        return Task.FromResult(searchResult);
+                        if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "code", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+                        }
+                        else
+                        {
+#if R4 || R4B || Stu3
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "format", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+#else
+                            Assert.Contains(
+                                parameters,
+                                x => string.Equals(x.Item1, "format-code", StringComparison.OrdinalIgnoreCase)
+                                    && string.Equals(x.Item2, string.Join(",", codes.Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))), StringComparison.OrdinalIgnoreCase));
+#endif
+                        }
+
+                        return Task.FromResult(
+                            new SearchResult(
+                                entries,
+                                null,
+                                null,
+                                new List<Tuple<string, string>>()));
                     });
 
-            // Set up a validation on a request for creating/updating a duplicate resource.
-            Resource duplicateResource = null;
+            // Set up a validation on a request for creating a duplicate resource.
             _dataStore.UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
+                        Assert.True(upsertCalls > 0, "UpsertAsync shouldn't be called.");
+
                         var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
                             .ToITypedElement(ModelInfoProvider.Instance)?
                             .ToResourceElement();
@@ -247,49 +326,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         Assert.Equal(duplicateResourceType, re.InstanceType, true);
 
                         var r = re.ToPoco();
-                        Assert.NotNull(r.Meta?.Tag);
-                        Assert.Contains(
-                            r.Meta.Tag,
-                            x => string.Equals(x.System, ClinicalReferenceDuplicator.TagDuplicateOf, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(x.Code, resource.Id, StringComparison.OrdinalIgnoreCase));
-                        Assert.Contains(
-                            r.Meta.Tag,
-                            x => string.Equals(x.System, ClinicalReferenceDuplicator.TagIsDuplicate, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(x.Code, bool.TrueString, StringComparison.OrdinalIgnoreCase));
+                        Assert.NotNull(r);
 
-                        if (string.Equals(duplicateResourceType, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var source = (DocumentReference)resource;
-                            var duplicate = (DiagnosticReport)r;
-
-                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.PresentedForm);
-                            foreach (var a in source.Content.Select(x => x.Attachment))
-                            {
-                                Assert.Contains(
-                                    duplicate.PresentedForm,
-                                    x => string.Equals(x.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-                        else
-                        {
-                            var source = (DiagnosticReport)resource;
-                            var duplicate = (DocumentReference)r;
-
-                            Assert.Equal(source.Subject?.Reference, duplicate.Subject?.Reference);
-                            Assert.NotNull(duplicate.Content);
-                            foreach (var a in source.PresentedForm)
-                            {
-                                Assert.Contains(
-                                    duplicate.Content,
-                                    x => string.Equals(x.Attachment?.Url, a.Url, StringComparison.OrdinalIgnoreCase));
-                            }
-
-                            duplicateResource = duplicate;
-                        }
-
+                        ValidateDuplicateResource(
+                            duplicateResources.Where(x => string.Equals(x.Id, r.Id, StringComparison.OrdinalIgnoreCase)).First(),
+                            r);
                         if (string.IsNullOrEmpty(r.Id))
                         {
                             r.Id = Guid.NewGuid().ToString();
@@ -301,46 +342,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 SaveOutcomeType.Created));
                     });
 
-            // Set up a validation on a request for updating the source resource with the id of the duplicate resource.
-            _dataStore.UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
-                Arg.Any<CancellationToken>())
-                .Returns(
-                    x =>
-                    {
-                        var re = ((ResourceWrapperOperation)x[0])?.Wrapper?.RawResource?
-                            .ToITypedElement(ModelInfoProvider.Instance)?
-                            .ToResourceElement();
-                        Assert.NotNull(re);
-                        Assert.Equal(resourceType, re.InstanceType, true);
-
-                        var r = re.ToPoco();
-                        Assert.NotNull(r.Meta?.Tag);
-                        Assert.Contains(
-                            r.Meta.Tag,
-                            t => string.Equals(t.System, ClinicalReferenceDuplicator.TagDuplicateOf, StringComparison.OrdinalIgnoreCase)
-                                && string.Equals(t.Code, duplicateResource.Id, StringComparison.OrdinalIgnoreCase));
-
-                        return Task.FromResult(
-                            new UpsertOutcome(
-                                CreateResourceWrapper(r.ToResourceElement()),
-                                SaveOutcomeType.Updated));
-                    });
-
             await _duplicator.UpdateResourceAsync(
                 new RawResourceElement(CreateResourceWrapper(resource.ToResourceElement())),
                 CancellationToken.None);
 
-            // Check how many times create/update was invoked.
-            await _searchService.Received(1).SearchAsync(
+            // Check how many times these methods were called.
+            await _searchService.Received(searchCalls).SearchAsync(
                 Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
-            await _dataStore.Received(duplicateResources.Any() ? 0 : 1).UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
+            await _searchService.Received(0).SearchAsync(
+                Arg.Is<string>(x => string.Equals(x, resourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
-            await _dataStore.Received(duplicateResources.Any() ? duplicateResources.Count : 1).UpsertAsync(
+            await _dataStore.Received(upsertCalls).UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
+                Arg.Any<CancellationToken>());
+            await _dataStore.Received(0).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, resourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
         }
 
@@ -348,8 +367,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
         [MemberData(nameof(GetDeleteResourceData))]
         public async Task GivenResource_WhenDeleting_ThenDuplicateResourceShouldBeDeleted(
             Resource resource,
+            List<Resource> duplicateResources,
             DeleteOperation deleteOperation,
-            List<Resource> duplicateResources)
+            int searchCalls,
+            int deleteCalls)
         {
             var resourceType = resource.TypeName;
             var duplicateResourceType = string.Equals(resourceType, KnownResourceTypes.DiagnosticReport)
@@ -381,6 +402,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 .Returns(
                     x =>
                     {
+                        Assert.True(searchCalls > 0, "SearchAsync shouldn't be called.");
+
                         var parameters = (IReadOnlyList<Tuple<string, string>>)x[1];
                         Assert.Contains(
                             parameters,
@@ -402,6 +425,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 .Returns(
                     x =>
                     {
+                        Assert.True(deleteCalls > 0, "Upsert shouldn't be called.");
+
                         var r = ((ResourceWrapperOperation)x[0])?.Wrapper;
                         Assert.NotNull(r);
                         Assert.Equal(duplicateResourceType, r.ResourceTypeName, true);
@@ -420,6 +445,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 .Returns(
                     x =>
                     {
+                        Assert.True(deleteCalls > 0, "HardDelete shouldn't be called.");
+
                         var k = (ResourceKey)x[0];
                         Assert.NotNull(k);
                         Assert.Equal(duplicateResourceType, k.ResourceType, true);
@@ -434,14 +461,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 CancellationToken.None);
 
             // Check how many times create/update was invoked.
-            await _searchService.Received(1).SearchAsync(
+            await _searchService.Received(searchCalls).SearchAsync(
                 Arg.Is<string>(x => string.Equals(x, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
-            await _dataStore.Received(deleteOperation == DeleteOperation.SoftDelete && duplicateResources.Any() ? duplicateResources.Count : 0).UpsertAsync(
+            await _dataStore.Received(deleteOperation == DeleteOperation.SoftDelete ? deleteCalls : 0).UpsertAsync(
                 Arg.Is<ResourceWrapperOperation>(x => string.Equals(x.Wrapper.ResourceTypeName, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<CancellationToken>());
-            await _dataStore.Received(deleteOperation == DeleteOperation.HardDelete && duplicateResources.Any() ? duplicateResources.Count : 0).HardDeleteAsync(
+            await _dataStore.Received(deleteOperation == DeleteOperation.HardDelete ? deleteCalls : 0).HardDeleteAsync(
                 Arg.Is<ResourceKey>(x => string.Equals(x.ResourceType, duplicateResourceType, StringComparison.OrdinalIgnoreCase)),
                 Arg.Any<bool>(),
                 Arg.Any<bool>(),
@@ -462,6 +489,36 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                 0);
         }
 
+        private static void ValidateDuplicateResource(Resource expected, Resource actual, bool ignoreId = false)
+        {
+            EnsureArg.IsNotNull(expected, nameof(expected));
+            EnsureArg.IsNotNull(actual, nameof(actual));
+
+            if (!ignoreId)
+            {
+                Assert.Equal(expected.Id, actual.Id);
+            }
+
+            Assert.Equal(expected.TypeName, actual.TypeName);
+            if (string.Equals(expected.TypeName, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            {
+                var expectedResource = (DiagnosticReport)expected;
+                var actualResource = (DiagnosticReport)actual;
+
+                Assert.Equal(expectedResource.Subject?.Reference, actualResource.Subject?.Reference);
+                Assert.True(ClinicalReferenceDuplicatorHelper.CompareCodings(expectedResource.Code?.Coding, actualResource.Code?.Coding));
+                Assert.True(ClinicalReferenceDuplicatorHelper.CompareAttachments(expectedResource.PresentedForm, actualResource.PresentedForm));
+            }
+            else
+            {
+                var expectedResource = (DocumentReference)expected;
+                var actualResource = (DocumentReference)actual;
+
+                Assert.Equal(expectedResource.Subject?.Reference, actualResource.Subject?.Reference);
+                Assert.True(ClinicalReferenceDuplicatorHelper.CompareContents(expectedResource.Content, actualResource.Content));
+            }
+        }
+
         public static IEnumerable<object[]> GetCreateResourceData()
         {
             var data = new[]
@@ -479,11 +536,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 new Coding()
                                 {
-                                    Code = "12345",
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
                                 },
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        Subject = new ResourceReference("patient"),
                         PresentedForm = new List<Attachment>
                         {
                             new Attachment()
@@ -494,10 +552,53 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             },
                         },
                     },
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    1,
+                    1,
                 },
                 new object[]
                 {
-                    // Create a new DiagnosticReport resource with multiple attachments.
+                    // Create a new DiagnosticReport resource with multiple codes and attachments.
                     new DiagnosticReport
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -508,11 +609,341 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 new Coding()
                                 {
-                                    Code = "12345",
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "11502-2",
+                                    System = "https://loinc.org",
                                 },
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment2",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2008-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment3",
+                            },
+                        },
+                    },
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+#if R4 || R4B || Stu3
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2008-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment3",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11502-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11502-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11502-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2008-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment3",
+                                },
+                                Format = new Coding()
+                                {
+                                    Code = "11502-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+#else
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11502-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11502-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11502-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2008-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment3",
+                                },
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11502-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+                            },
+#endif
+                        },
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    1,
+                    1,
+                },
+                new object[]
+                {
+                    // Create a new DiagnosticReport resource without any attachment.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                    },
+                    null,
+                    0,
+                    0,
+                },
+                new object[]
+                {
+                    // Create a new DiagnosticReport resource without clinical reference codes.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
                         PresentedForm = new List<Attachment>
                         {
                             new Attachment()
@@ -541,26 +972,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             },
                         },
                     },
-                },
-                new object[]
-                {
-                    // Create a new DiagnosticReport resource without any attachment.
-                    new DiagnosticReport
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                    },
+                    null,
+                    0,
+                    0,
                 },
                 new object[]
                 {
@@ -578,15 +992,62 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     Creation = "2005-12-24",
                                     Url = "http://example.org/fhir/Binary/attachment",
                                 },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
                     },
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                        },
+                    },
+                    1,
+                    1,
                 },
                 new object[]
                 {
@@ -604,6 +1065,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     Creation = "2005-12-24",
                                     Url = "http://example.org/fhir/Binary/attachment",
                                 },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
                             },
                             new DocumentReference.ContentComponent()
                             {
@@ -613,6 +1093,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     Creation = "2006-12-24",
                                     Url = "http://example.org/fhir/Binary/attachment1",
                                 },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-1",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
                             },
                             new DocumentReference.ContentComponent()
                             {
@@ -622,6 +1121,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     Creation = "2007-12-24",
                                     Url = "http://example.org/fhir/Binary/attachment2",
                                 },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "18748-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "18748-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
                             },
                             new DocumentReference.ContentComponent()
                             {
@@ -631,29 +1149,177 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     Creation = "2005-12-24",
                                     Url = "http://example.org/fhir/Binary/attachment3",
                                 },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
                     },
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "18748-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment2",
+                            },
+                        },
+                    },
+                    1,
+                    1,
                 },
                 new object[]
                 {
-                    // Create a new DocumentReference resource without any attachment.
+                    // Create a new DocumentReference resource without any attachment with clinical reference.
                     new DocumentReference
                     {
                         Id = Guid.NewGuid().ToString(),
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-    #if R4 || R4B || Stu3
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-1",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment1",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/Binary/attachment2",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-3",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-3",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
                         Status = DocumentReferenceStatus.Current,
-    #else
+#else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
-    #endif
+#endif
                     },
+                    null,
+                    0,
+                    0,
                 },
             };
 
@@ -669,17 +1335,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
             {
                 new object[]
                 {
-                    // Update a DiagnosticReport resource with one attachment.
+                    // Update a new DiagnosticReport resource with one attachment.
                     new DiagnosticReport
                     {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
+                        Id = Guid.NewGuid().ToString(),
                         Status = DiagnosticReport.DiagnosticReportStatus.Registered,
                         Code = new CodeableConcept()
                         {
@@ -687,18 +1346,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 new Coding()
                                 {
-                                    Code = "12345",
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
                                 },
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        Subject = new ResourceReference("patient"),
                         PresentedForm = new List<Attachment>
                         {
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
+                                Url = "http://example.org/fhir/source/attachment",
                             },
                         },
                     },
@@ -707,14 +1367,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         new DocumentReference
                         {
                             Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
                             Content = new List<DocumentReference.ContentComponent>
                             {
                                 new DocumentReference.ContentComponent()
@@ -723,64 +1375,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     {
                                         ContentType = "application/xhtml",
                                         Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
                                     },
+#if R4 || R4B || Stu3
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+#else
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+#endif
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+#if R4 || R4B || Stu3
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+#else
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+#endif
                                 },
                             },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            Subject = new ResourceReference("patient"),
 #if R4 || R4B || Stu3
                             Status = DocumentReferenceStatus.Current,
 #else
                             Status = DocumentReference.DocumentReferenceStatus.Current,
 #endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Update a  DiagnosticReport resource with multiple attachments.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>
-                        {
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source1",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source2",
-                            },
                         },
                     },
                     new List<Resource>
@@ -788,14 +1439,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                         new DocumentReference
                         {
                             Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
                             Content = new List<DocumentReference.ContentComponent>
                             {
                                 new DocumentReference.ContentComponent()
@@ -804,72 +1447,30 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                     {
                                         ContentType = "application/xhtml",
                                         Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
                                     },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
 #if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Update a DiagnosticReport resource without any attachment.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>(),
-                    },
-                    new List<Resource>
-                    {
-                        new DocumentReference
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
+                                    Format = new Coding()
                                     {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
                                     },
+#else
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+#endif
                                 },
                             },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                            Subject = new ResourceReference("patient"),
 #if R4 || R4B || Stu3
                             Status = DocumentReferenceStatus.Current,
 #else
@@ -877,13 +1478,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 #endif
                         },
                     },
+                    1,
+                    1,
                 },
                 new object[]
                 {
-                    // Update a DiagnosticReport resource with attachments when a duplicate resource doesn't exist.
+                    // Update a new DiagnosticReport resource with multiple codes and attachments.
                     new DiagnosticReport
                     {
-                        Id = "source",
+                        Id = Guid.NewGuid().ToString(),
                         Status = DiagnosticReport.DiagnosticReportStatus.Registered,
                         Code = new CodeableConcept()
                         {
@@ -891,48 +1494,2206 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 new Coding()
                                 {
-                                    Code = "12345",
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-3",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "34117-2",
+                                    System = "https://loinc.org",
                                 },
                             },
                         },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        Subject = new ResourceReference("patient"),
                         PresentedForm = new List<Attachment>
                         {
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
+                                Url = "http://example.org/fhir/source/attachment",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source1",
+                                Url = "http://example.org/fhir/source/attachment1",
                             },
                             new Attachment()
                             {
                                 ContentType = "application/xhtml",
                                 Creation = "2007-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source2",
+                                Url = "http://example.org/fhir/source/attachment2",
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
+                                    },
+#if R4 || R4B || Stu3
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+#else
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+#endif
+                                },
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
+                                    },
+#if R4 || R4B || Stu3
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+#else
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+#endif
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    1,
+                    1,
+                },
+                new object[]
+                {
+                    // Update a new DiagnosticReport resource without any attachment.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                    },
+                    new List<Resource>(),
+                    new List<Resource>(),
+                    0,
+                    0,
+                },
+                new object[]
+                {
+                    // Update a new DiagnosticReport resource without any clinical reference code.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-3",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/source/attachment",
                             },
                         },
                     },
                     new List<Resource>(),
+                    new List<Resource>(),
+                    0,
+                    0,
                 },
                 new object[]
                 {
-                    // Update a DiagnosticReport resource with multiple duplicates.
+                    // Update a new DiagnosticReport resource with attachments already existing.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-3",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "34117-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/source/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/source/attachment1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/source/attachment2",
+                            },
+                        },
+                    },
+                    new List<Resource>(),
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    1,
+                    0,
+                },
+                new object[]
+                {
+                    // Update a new DiagnosticReport resource with multiple duplicate resources found.
+                    new DiagnosticReport
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "12345-3",
+                                    System = "https://loinc.org",
+                                },
+                                new Coding()
+                                {
+                                    Code = "34117-2",
+                                    System = "https://loinc.org",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/source/attachment",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/source/attachment1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2007-12-24",
+                                Url = "http://example.org/fhir/source/attachment2",
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "54321-0",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/dupliate/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "54321-0",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate1",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/duplicate1/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "54321-1",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/dupliate1/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "54321-1",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/duplicate/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "54321-0",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "34117-2",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/dupliate/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "54321-0",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2006-12-24",
+                                        Url = "http://example.org/fhir/source/attachment1",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2007-12-24",
+                                        Url = "http://example.org/fhir/source/attachment2",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "34117-2",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                        new DocumentReference
+                        {
+                            Id = "duplicate1",
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+#if R4 || R4B || Stu3
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/duplicate1/attachment",
+                                    },
+                                    Format = new Coding()
+                                    {
+                                        Code = "54321-1",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+#else
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/source/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "11488-4",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2008-12-24",
+                                        Url = "http://example.org/fhir/dupliate1/attachment",
+                                    },
+                                    Profile = new List<DocumentReference.ProfileComponent>
+                                    {
+                                        new DocumentReference.ProfileComponent()
+                                        {
+                                            Value = new Coding()
+                                            {
+                                                Code = "54321-1",
+                                                System = "https://loinc.org",
+                                            },
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    1,
+                    2,
+                },
+                new object[]
+                {
+                    // Update a new DocumentReference resource with one attachment.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment",
+                                },
+                            },
+                        },
+                    },
+                    1,
+                    1,
+                },
+                new object[]
+                {
+                    // Update a new DocumentReference resource with multiple codes and attachments.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/source/attachment1",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-1",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "18748-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "18748-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment3",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment1",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment1",
+                                },
+                            },
+                        },
+                    },
+                    1,
+                    1,
+                },
+                new object[]
+                {
+                    // Update a new DocumentReference resource without any clinical reference code.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "54321-0",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "54321-0",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference("patient"),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>(),
+                    new List<Resource>(),
+                    0,
+                    0,
+                },
+                new object[]
+                {
+                    // Update a new DocumentReference resource with codes and attachments already existing.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/source/attachment1",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-1",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "18748-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "18748-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment3",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>(),
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment1",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+                            },
+                        },
+                    },
+                    1,
+                    0,
+                },
+                new object[]
+                {
+                    // Update a new DocumentReference resource with multiple duplicate resources found.
+                    new DocumentReference
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Content = new List<DocumentReference.ContentComponent>
+                        {
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "11488-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "11488-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/source/attachment1",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-1",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-1",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "18748-4",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "18748-4",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment3",
+                                },
+#if R4 || R4B || Stu3
+                                Format = new Coding()
+                                {
+                                    Code = "12345-2",
+                                    System = "https://loinc.org",
+                                },
+#else
+                                Profile = new List<DocumentReference.ProfileComponent>
+                                {
+                                    new DocumentReference.ProfileComponent()
+                                    {
+                                        Value = new Coding()
+                                        {
+                                            Code = "12345-2",
+                                            System = "https://loinc.org",
+                                        },
+                                    },
+                                },
+#endif
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                        Status = DocumentReferenceStatus.Current,
+#else
+                        Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+                            },
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate1",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2005-12-24",
+                                    Url = "http://example.org/fhir/source/attachment",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment1",
+                                },
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2007-12-24",
+                                    Url = "http://example.org/fhir/source/attachment2",
+                                },
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>(),
+                        },
+                        new DiagnosticReport
+                        {
+                            Id = "duplicate1",
+                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                            Code = new CodeableConcept()
+                            {
+                                Coding = new List<Coding>()
+                                {
+                                    new Coding()
+                                    {
+                                        Code = "11488-4",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "12345-3",
+                                        System = "https://loinc.org",
+                                    },
+                                    new Coding()
+                                    {
+                                        Code = "18748-4",
+                                        System = "https://loinc.org",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference("patient"),
+                            PresentedForm = new List<Attachment>
+                            {
+                                new Attachment()
+                                {
+                                    ContentType = "application/xhtml",
+                                    Creation = "2006-12-24",
+                                    Url = "http://example.org/fhir/duplicate/attachment1",
+                                },
+                            },
+                        },
+                    },
+                    1,
+                    2,
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetDeleteResourceData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    // Delete a DiagnosticReport resource with one duplicate resource.
                     new DiagnosticReport
                     {
                         Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
                         Status = DiagnosticReport.DiagnosticReportStatus.Registered,
                         Code = new CodeableConcept()
                         {
@@ -964,8 +3725,84 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                             {
                                 Tag = new List<Coding>
                                 {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateCreatedOn, DateTime.UtcNow.ToString("o")),
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
+                                },
+                            },
+                            Content = new List<DocumentReference.ContentComponent>
+                            {
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = new Attachment()
+                                    {
+                                        ContentType = "application/xhtml",
+                                        Creation = "2005-12-24",
+                                        Url = "http://example.org/fhir/Binary/attachment-source",
+                                    },
+                                },
+                            },
+                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
+#if R4 || R4B || Stu3
+                            Status = DocumentReferenceStatus.Current,
+#else
+                            Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                        },
+                    },
+                    DeleteOperation.SoftDelete,
+                    1,
+                    1,
+                },
+                new object[]
+                {
+                    // Delete a  DiagnosticReport resource with multiple duplicate resources.
+                    new DiagnosticReport
+                    {
+                        Id = "source",
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
+                        {
+                            Coding = new List<Coding>()
+                            {
+                                new Coding()
+                                {
+                                    Code = "12345",
+                                },
+                            },
+                        },
+                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
+                        PresentedForm = new List<Attachment>
+                        {
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-source1",
+                            },
+                            new Attachment()
+                            {
+                                ContentType = "application/xhtml",
+                                Creation = "2006-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-source2",
+                            },
+                        },
+                    },
+                    new List<Resource>
+                    {
+                        new DocumentReference
+                        {
+                            Id = "duplicate",
+                            Meta = new Meta()
+                            {
+                                Tag = new List<Coding>
+                                {
+                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -995,7 +3832,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -1025,7 +3861,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
                                 Tag = new List<Coding>
                                 {
                                     new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
                                 },
                             },
                             Content = new List<DocumentReference.ContentComponent>
@@ -1048,1198 +3883,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Guidance
 #endif
                         },
                     },
+                    DeleteOperation.HardDelete,
+                    1,
+                    3,
                 },
                 new object[]
                 {
-                    // Update a DocumentReference resource with one attachment.
-                    new DocumentReference
+                    // Delete a DiagnosticReport resource without duplicate resource.
+                    new DiagnosticReport
                     {
                         Id = "source",
-                        Meta = new Meta()
+                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                        Code = new CodeableConcept()
                         {
-                            Tag = new List<Coding>
+                            Coding = new List<Coding>()
                             {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
+                                new Coding()
                                 {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
+                                    Code = "12345",
                                 },
                             },
                         },
                         Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
+                        PresentedForm = new List<Attachment>
                         {
-                            Id = "duplicate",
-                            Meta = new Meta()
+                            new Attachment()
                             {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
+                                ContentType = "application/xhtml",
+                                Creation = "2005-12-24",
+                                Url = "http://example.org/fhir/Binary/attachment-source",
                             },
                         },
-                    },
-                },
-                new object[]
-                {
-                    // Update a DocumentReference resource with multiple attachment.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source1",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source2",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Update a DocumentReference resource without any attachment.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>(),
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Update a DocumentReference resource with attachments when a duplicate resource doesn't exist.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source1",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source2",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
                     },
                     new List<Resource>(),
-                },
-                new object[]
-                {
-                    // Update a DocumentReference resource with multiple duplicates.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate1",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate1",
-                                },
-                            },
-                        },
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate2",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate2",
-                                },
-                            },
-                        },
-                    },
-                },
-            };
-
-            foreach (var d in data)
-            {
-                yield return d;
-            }
-        }
-
-        public static IEnumerable<object[]> GetDeleteResourceData()
-        {
-            var data = new[]
-            {
-                new object[]
-                {
-                    // Delete a DiagnosticReport resource with one attachment.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>
-                        {
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
-                            },
-                        },
-                    },
                     DeleteOperation.SoftDelete,
-                    new List<Resource>
-                    {
-                        new DocumentReference
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a  DiagnosticReport resource with multiple attachments.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>
-                        {
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source1",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source2",
-                            },
-                        },
-                    },
-                    DeleteOperation.SoftDelete,
-                    new List<Resource>
-                    {
-                        new DocumentReference
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DiagnosticReport resource without any attachment.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>(),
-                    },
-                    DeleteOperation.SoftDelete,
-                    new List<Resource>
-                    {
-                        new DocumentReference
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DiagnosticReport resource with attachments when no duplicates.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>
-                        {
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2006-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source1",
-                            },
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2007-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source2",
-                            },
-                        },
-                    },
-                    DeleteOperation.SoftDelete,
-                    new List<Resource>(),
-                },
-                new object[]
-                {
-                    // Delete a DiagnosticReport resource with multiple duplicates.
-                    new DiagnosticReport
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                        Code = new CodeableConcept()
-                        {
-                            Coding = new List<Coding>()
-                            {
-                                new Coding()
-                                {
-                                    Code = "12345",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                        PresentedForm = new List<Attachment>
-                        {
-                            new Attachment()
-                            {
-                                ContentType = "application/xhtml",
-                                Creation = "2005-12-24",
-                                Url = "http://example.org/fhir/Binary/attachment-source",
-                            },
-                        },
-                    },
-                    DeleteOperation.SoftDelete,
-                    new List<Resource>
-                    {
-                        new DocumentReference
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                        new DocumentReference
-                        {
-                            Id = "duplicate1",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                        new DocumentReference
-                        {
-                            Id = "duplicate2",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Content = new List<DocumentReference.ContentComponent>
-                            {
-                                new DocumentReference.ContentComponent()
-                                {
-                                    Attachment = new Attachment()
-                                    {
-                                        ContentType = "application/xhtml",
-                                        Creation = "2005-12-24",
-                                        Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                            Status = DocumentReferenceStatus.Current,
-#else
-                            Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DocumentReference resource with one attachment.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    DeleteOperation.HardDelete,
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DocumentReference resource with multiple attachment.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source1",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source2",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    DeleteOperation.HardDelete,
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DocumentReference resource without any attachment.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>(),
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    DeleteOperation.HardDelete,
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
-                },
-                new object[]
-                {
-                    // Delete a DocumentReference resource with attachments when no duplicates.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2006-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source1",
-                                },
-                            },
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2007-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source2",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    DeleteOperation.HardDelete,
-                    new List<Resource>(),
-                },
-                new object[]
-                {
-                    // Delete a DocumentReference resource with multiple duplicates.
-                    new DocumentReference
-                    {
-                        Id = "source",
-                        Meta = new Meta()
-                        {
-                            Tag = new List<Coding>
-                            {
-                                new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "duplicate"),
-                            },
-                        },
-                        Content = new List<DocumentReference.ContentComponent>
-                        {
-                            new DocumentReference.ContentComponent()
-                            {
-                                Attachment = new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-source",
-                                },
-                            },
-                        },
-                        Subject = new ResourceReference(Guid.NewGuid().ToString()),
-#if R4 || R4B || Stu3
-                        Status = DocumentReferenceStatus.Current,
-#else
-                        Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                    },
-                    DeleteOperation.HardDelete,
-                    new List<Resource>
-                    {
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate1",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                        new DiagnosticReport
-                        {
-                            Id = "duplicate2",
-                            Meta = new Meta()
-                            {
-                                Tag = new List<Coding>
-                                {
-                                    new Coding(ClinicalReferenceDuplicator.TagDuplicateOf, "source"),
-                                    new Coding(ClinicalReferenceDuplicator.TagIsDuplicate, "true"),
-                                },
-                            },
-                            Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-                            Code = new CodeableConcept()
-                            {
-                                Coding = new List<Coding>()
-                                {
-                                    new Coding()
-                                    {
-                                        Code = "12345",
-                                    },
-                                },
-                            },
-                            Subject = new ResourceReference(Guid.NewGuid().ToString()),
-                            PresentedForm = new List<Attachment>
-                            {
-                                new Attachment()
-                                {
-                                    ContentType = "application/xhtml",
-                                    Creation = "2005-12-24",
-                                    Url = "http://example.org/fhir/Binary/attachment-duplicate",
-                                },
-                            },
-                        },
-                    },
+                    1,
+                    0,
                 },
             };
 

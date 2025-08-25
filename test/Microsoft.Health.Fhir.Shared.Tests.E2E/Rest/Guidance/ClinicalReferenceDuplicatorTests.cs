@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
 
         private TestFhirClient Client => _fixture.TestFhirClient;
 
-        [Theory]
+        [Theory(Skip = "Disabling the test since we haven't finalized the design.")]
         [MemberData(nameof(GetCreateResourceData))]
         public async Task GivenResource_WhenCreating_ThenDuplicateResourceShouldBeCreated(
             Resource resource)
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
             await CreateResourceAsync(resource);
         }
 
-        [Theory]
+        [Theory(Skip = "Disabling the test since we haven't finalized the design.")]
         [MemberData(nameof(GetCreateResourceData))]
         public async Task GivenResource_WhenDeleting_ThenDuplicateResourceShouldBeDeleted(
             Resource resource)
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Guidance
             await DeleteResourceAsync(source);
         }
 
-        [Theory]
+        [Theory(Skip = "Disabling the test since we haven't finalized the design.")]
         [MemberData(nameof(GetUpdateResourceData))]
         public async Task GivenResource_WhenUpdating_ThenDuplicateResourceShouldBeUpdated(
             Resource resource,

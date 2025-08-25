@@ -14,18 +14,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
 {
     public interface IClinicalReferenceDuplicator
     {
-        Task<(ResourceWrapper source, ResourceWrapper duplicate)> CreateResourceAsync(
+        Task<IReadOnlyList<ResourceWrapper>> CreateResourceAsync(
             RawResourceElement rawResourceElement,
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<ResourceKey>> DeleteResourceAsync(
             ResourceKey resourceKey,
             DeleteOperation deleteOperation,
-            CancellationToken cancellationToken);
-
-        Task<IReadOnlyList<ResourceWrapper>> SearchResourceAsync(
-            string duplicateResourceType,
-            string resourceId,
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<ResourceWrapper>> UpdateResourceAsync(

@@ -21,8 +21,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
 {
     public class ClinicalReferenceDuplicator : IClinicalReferenceDuplicator
     {
+        internal const string TagDuplicateCreatedOn = "duplicateCreatedOn";
         internal const string TagDuplicateOf = "duplicateOf";
-        internal const string TagIsDuplicate = "isDuplicate";
+
+        // See the link for more info, https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes
+        internal static readonly HashSet<string> ClinicalReferenceSystems = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase)
+        {
+            "https://loinc.org",
+        };
+
+        // See the link for more info, https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes
+        internal static readonly HashSet<string> ClinicalReferenceCodes = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase)
+        {
+            "11488-4",
+            "18842-5",
+            "34117-2",
+            "28570-0",
+            "11506-3",
+            "18748-4",
+            "11502-2",
+            "11526-1",
+        };
 
         private readonly IFhirDataStore _dataStore;
         private readonly ISearchService _searchService;
@@ -48,36 +67,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             _logger = logger;
         }
 
-        public async Task<(ResourceWrapper source, ResourceWrapper duplicate)> CreateResourceAsync(
+        public Task<IReadOnlyList<ResourceWrapper>> CreateResourceAsync(
             RawResourceElement rawResourceElement,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
             EnsureArg.IsNotNull(rawResourceElement.RawResource, nameof(rawResourceElement.RawResource));
 
-            try
-            {
-                var resource = ConvertToResource(rawResourceElement);
-                if (!ShouldDuplicate(resource))
-                {
-                    _logger.LogWarning("A resource doesn't have any attachment with clinical reference.");
-                    return (default, default);
-                }
-
-                var duplicateResourceWrapper = await CreateDuplicateResourceInternalAsync(
-                    resource,
-                    cancellationToken);
-                var sourceResourceWrapper = await UpdateResourceInternalAsync(
-                    resource,
-                    duplicateResourceWrapper,
-                    cancellationToken);
-                return (sourceResourceWrapper, duplicateResourceWrapper);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to create a duplicate resource and update a resource with its id.");
-                throw;
-            }
+            return UpsertDuplicateResourceInternalAsync(
+                rawResourceElement,
+                cancellationToken);
         }
 
         public async Task<IReadOnlyList<ResourceKey>> DeleteResourceAsync(
@@ -89,9 +88,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
 
             try
             {
-                var duplicateResourceWrappers = await SearchResourceAsync(
-                    GetDuplicateResourceType(resourceKey.ResourceType),
-                    resourceKey.Id,
+                // Steps:
+                // 1. Search a duplicate resource(s), tagged with the id of a deleted (source) resource.
+                //    1.1. If the search result has a resource(s), delete it.
+                //    1.2. If the search result has no resources, no actions.
+                // 3. Return the duplicate resource(s) deleted.
+                var duplicateResourceWrappers = await SearchDuplicateResourceAsync(
+                    resourceKey,
                     cancellationToken);
                 _logger.LogInformation("Deleting {Count} duplicate resources...", duplicateResourceWrappers.Count);
 
@@ -130,123 +133,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> SearchResourceAsync(
-            string duplicateResourceType,
-            string resourceId,
-            CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(duplicateResourceType, nameof(duplicateResourceType));
-            EnsureArg.IsNotNull(resourceId, nameof(resourceId));
-
-            try
-            {
-                var queryParameters = new List<Tuple<string, string>>
-                {
-                    Tuple.Create("_tag", $"{TagDuplicateOf}|{resourceId}"),
-                };
-
-                _logger.LogInformation(
-                    "Searching a duplicate resource '{DuplicateResourceType}' of a resource '{Id}'...",
-                    duplicateResourceType,
-                    resourceId);
-
-                var resources = new List<ResourceWrapper>();
-                string continuationToken = null;
-                do
-                {
-                    var searchResult = await _searchService.SearchAsync(
-                        duplicateResourceType,
-                        queryParameters,
-                        cancellationToken);
-                    if (searchResult.Results.Any())
-                    {
-                        resources.AddRange(
-                            searchResult.Results
-                                .Where(x => x.Resource?.RawResource != null)
-                                .Select(x => x.Resource));
-                    }
-
-                    continuationToken = searchResult.ContinuationToken;
-                }
-                while (!string.IsNullOrEmpty(continuationToken));
-
-                return resources;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to search a duplicate resource.");
-                throw;
-            }
-        }
-
-        public async Task<IReadOnlyList<ResourceWrapper>> UpdateResourceAsync(
+        public Task<IReadOnlyList<ResourceWrapper>> UpdateResourceAsync(
             RawResourceElement rawResourceElement,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
             EnsureArg.IsNotNull(rawResourceElement.RawResource, nameof(rawResourceElement.RawResource));
 
-            try
-            {
-                var resource = ConvertToResource(rawResourceElement);
-                if (ShouldDuplicate(resource))
-                {
-                    var duplicateResourceWrappers = await SearchResourceAsync(
-                        GetDuplicateResourceType(rawResourceElement.InstanceType),
-                        rawResourceElement.Id,
-                        cancellationToken);
-                    _logger.LogInformation("Updating {Count} duplicate resources...", duplicateResourceWrappers.Count);
-
-                    if (duplicateResourceWrappers.Any())
-                    {
-                        if (duplicateResourceWrappers.Count > 1)
-                        {
-                            _logger.LogWarning("More than one duplicate resource found.");
-                        }
-
-                        var duplicateResourcesUpdated = new List<ResourceWrapper>();
-                        foreach (var wrapper in duplicateResourceWrappers)
-                        {
-                            try
-                            {
-                                var duplicate = ConvertToResource(wrapper.RawResource);
-                                var duplicateUpdated = await UpdateDuplicateResourceInternalAsync(
-                                    resource,
-                                    duplicate,
-                                    cancellationToken);
-                                duplicateResourcesUpdated.Add(duplicateUpdated);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to update a duplicate resource: {Id}...", wrapper.ResourceId);
-                                throw;
-                            }
-                        }
-
-                        return duplicateResourcesUpdated;
-                    }
-
-                    _logger.LogWarning("No duplicate resources found.");
-                    (var sourceWrapper, var duplicateWrapper) = await CreateResourceAsync(
-                        rawResourceElement,
-                        cancellationToken);
-                    return new List<ResourceWrapper> { duplicateWrapper };
-                }
-                else
-                {
-                    _logger.LogWarning("A resource doesn't have any attachment with clinical reference.");
-                    await DeleteResourceAsync(
-                        new ResourceKey(resource.TypeName, resource.Id),
-                        DeleteOperation.HardDelete,
-                        cancellationToken);
-                    return new List<ResourceWrapper>();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete a duplicate resource.");
-                throw;
-            }
+            return UpsertDuplicateResourceInternalAsync(
+                rawResourceElement,
+                cancellationToken);
         }
 
         public bool IsDuplicatableResourceType(string resourceType)
@@ -343,19 +239,151 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        private async Task<ResourceWrapper> UpdateDuplicateResourceInternalAsync(
+        private async Task<IReadOnlyList<ResourceWrapper>> SearchDuplicateResourceAsync(
             Resource resource,
-            Resource duplicateResource,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
-            EnsureArg.IsNotNull(duplicateResource, nameof(duplicateResource));
 
             try
             {
-                UpdateDuplicateResource(resource, duplicateResource);
+                var duplicateResourceType = GetDuplicateResourceType(resource.TypeName);
+                var queryParameters = new List<Tuple<string, string>>();
+                if (string.Equals(resource.TypeName, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+                {
+                    var diagnosticReport = (DiagnosticReport)resource;
+                    var codes = GetClinicalReferenceCodes(diagnosticReport)
+                        .Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                        .ToList();
+#if R4 || R4B || Stu3
+                    queryParameters.Add(Tuple.Create("format", string.Join(",", codes)));
+#else
+                    queryParameters.Add(Tuple.Create("format-code", string.Join(",", codes)));
+#endif
+                    if (!string.IsNullOrEmpty(diagnosticReport.Subject?.Reference))
+                    {
+                        queryParameters.Add(Tuple.Create("subject", diagnosticReport.Subject.Reference));
+                    }
+                }
+                else
+                {
+                    var documentReference = (DocumentReference)resource;
+                    var codes = GetClinicalReferenceCodes(documentReference)
+                        .Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                        .ToList();
+                    queryParameters.Add(Tuple.Create("code", string.Join(",", codes)));
+                    if (!string.IsNullOrEmpty(documentReference.Subject?.Reference))
+                    {
+                        queryParameters.Add(Tuple.Create("subject", documentReference.Subject.Reference));
+                    }
+                }
 
-                var duplicateResourceWrapper = _resourceWrapperFactory.Create(
+                _logger.LogInformation(
+                    "Searching a duplicate resource '{DuplicateResourceType}' of a resource '{Id}'...",
+                    duplicateResourceType,
+                    resource.Id);
+
+                var resources = new List<ResourceWrapper>();
+                string continuationToken = null;
+                do
+                {
+                    var searchResult = await _searchService.SearchAsync(
+                        duplicateResourceType,
+                        queryParameters,
+                        cancellationToken);
+                    if (searchResult.Results.Any())
+                    {
+                        resources.AddRange(
+                            searchResult.Results
+                                .Where(x => x.Resource?.RawResource != null)
+                                .Select(x => x.Resource));
+                    }
+
+                    continuationToken = searchResult.ContinuationToken;
+                }
+                while (!string.IsNullOrEmpty(continuationToken));
+
+                return resources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to search a duplicate resource.");
+                throw;
+            }
+        }
+
+        private async Task<IReadOnlyList<ResourceWrapper>> SearchDuplicateResourceAsync(
+            ResourceKey resourceKey,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+
+            try
+            {
+                var duplicateResourceType = GetDuplicateResourceType(resourceKey.ResourceType);
+                var queryParameters = new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_tag", $"{TagDuplicateOf}|{resourceKey.Id}"),
+                };
+
+                _logger.LogInformation(
+                    "Searching a duplicate resource '{DuplicateResourceType}' of a resource '{Id}'...",
+                    duplicateResourceType,
+                    resourceKey.Id);
+
+                var resources = new List<ResourceWrapper>();
+                string continuationToken = null;
+                do
+                {
+                    var searchResult = await _searchService.SearchAsync(
+                        duplicateResourceType,
+                        queryParameters,
+                        cancellationToken);
+                    if (searchResult.Results.Any())
+                    {
+                        resources.AddRange(
+                            searchResult.Results
+                                .Where(x => x.Resource?.RawResource != null)
+                                .Select(x => x.Resource));
+                    }
+
+                    continuationToken = searchResult.ContinuationToken;
+                }
+                while (!string.IsNullOrEmpty(continuationToken));
+
+                return resources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to search a duplicate resource.");
+                throw;
+            }
+        }
+
+        private async Task<ResourceWrapper> UpdateDuplicateResourceInternalAsync(
+            Resource resource,
+            ResourceWrapper duplicateResourceWrapper,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(duplicateResourceWrapper, nameof(duplicateResourceWrapper));
+
+            try
+            {
+                var duplicateResource = ConvertToResource(duplicateResourceWrapper.RawResource);
+                var duplicateResourceUpdated = UpdateDuplicateResource(
+                    resource,
+                    duplicateResource);
+                if (!duplicateResourceUpdated)
+                {
+                    _logger.LogInformation(
+                        "Updating a duplicate resource '{DuplicateResourceType}' unnecessary: {Id}...",
+                        duplicateResource.TypeName,
+                        resource.Id);
+                    return duplicateResourceWrapper;
+                }
+
+                var duplicateResourceWrapperToUpdate = _resourceWrapperFactory.Create(
                     duplicateResource.ToResourceElement(),
                     false,
                     true);
@@ -366,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                     resource.Id);
                 var outcome = await _dataStore.UpsertAsync(
                     new ResourceWrapperOperation(
-                        duplicateResourceWrapper,
+                        duplicateResourceWrapperToUpdate,
                         true,
                         true,
                         null,
@@ -388,144 +416,64 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             }
         }
 
-        private async Task<ResourceWrapper> UpdateResourceInternalAsync(
-            Resource resource,
-            ResourceWrapper duplicateResourceWrapper,
+        private async Task<IReadOnlyList<ResourceWrapper>> UpsertDuplicateResourceInternalAsync(
+            RawResourceElement rawResourceElement,
             CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-            EnsureArg.IsNotNull(duplicateResourceWrapper, nameof(duplicateResourceWrapper));
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+            EnsureArg.IsNotNull(rawResourceElement.RawResource, nameof(rawResourceElement.RawResource));
 
             try
             {
-                if (resource.Meta == null)
+                // Steps:
+                // 1. Check if a source resource has one of the clinical reference code.
+                //    (e.g. DiagnosticReport?code=[system|code]&subject=Patient/[id], DocumentReference?format=[system|code]&subject=Patient/[id])
+                //    1.1. If it has, move to 2.
+                //    1.2. If it hasn't, no actions.
+                // 2. Search a duplicate resource(s) with the clinical reference code and subject (if specified).
+                //    (e.g. DiagnosticReport?code=[system|code])
+                //    2.1. If the search result has a resource(s), add missing attachemts in the source resport to it.
+                //    2.2. If the search result has no resources, create a duplicate resource by copying the code, subject, and attachments.
+                //         (Also, tag a duplicate resource so that we can identify a resource we created as a duplicate.)
+                // 3. Return the duplicate resource(s) updated/created.
+                var resource = ConvertToResource(rawResourceElement);
+                var duplicateResourceWrappers = new List<ResourceWrapper>();
+                if (ShouldDuplicate(resource))
                 {
-                    resource.Meta = new Meta();
+                    var resourceWrappersFound = await SearchDuplicateResourceAsync(
+                        resource,
+                        cancellationToken);
+                    if (!resourceWrappersFound.Any())
+                    {
+                        var duplicateResourceWrapper = await CreateDuplicateResourceInternalAsync(
+                            resource,
+                            cancellationToken);
+                        duplicateResourceWrappers.Add(duplicateResourceWrapper);
+                    }
+                    else
+                    {
+                        foreach (var wrapper in resourceWrappersFound)
+                        {
+                            var wrapperUpdated = await UpdateDuplicateResourceInternalAsync(
+                                resource,
+                                wrapper,
+                                cancellationToken);
+                            duplicateResourceWrappers.Add(wrapperUpdated);
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("A resource doesn't have any attachment with clinical reference.");
                 }
 
-                var tags = new List<Coding>();
-                if (resource.Meta.Tag != null)
-                {
-                    tags.AddRange(
-                        resource.Meta.Tag.Where(x => !string.Equals(x.System, TagDuplicateOf, StringComparison.OrdinalIgnoreCase)));
-                }
-
-                tags.Add(new Coding(TagDuplicateOf, duplicateResourceWrapper.ResourceId));
-                resource.Meta.Tag = tags;
-
-                var resourceWrapper = _resourceWrapperFactory.Create(
-                    resource.ToResourceElement(),
-                    false,
-                    true);
-
-                _logger.LogInformation(
-                    "Updating a '{ResourceType}' resource with a duplicate resource '{Id}'...",
-                    resource.TypeName,
-                    duplicateResourceWrapper.ResourceId);
-                var outcome = await _dataStore.UpsertAsync(
-                    new ResourceWrapperOperation(
-                        resourceWrapper,
-                        true,
-                        true,
-                        null,
-                        false,
-                        false,
-                        null),
-                    cancellationToken);
-
-                _logger.LogInformation(
-                    "A '{ResourceType}' resource {Outcome}.",
-                    resource.TypeName,
-                    outcome.OutcomeType.ToString().ToLowerInvariant());
-                return outcome.Wrapper;
+                return duplicateResourceWrappers;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update a resource with a duplicate resource id.");
+                _logger.LogError(ex, "Failed to upsert a duplicate resource.");
                 throw;
             }
-        }
-
-        private static Resource CreateDuplicateResource(Resource resource)
-        {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-
-            if (!(resource is DiagnosticReport || resource is DocumentReference))
-            {
-                throw new ArgumentException(
-                    $"A resource to be duplicated must be of type '{nameof(DiagnosticReport)}' or '{nameof(DocumentReference)}'.");
-            }
-
-            if (resource is DiagnosticReport)
-            {
-                var diagnosticReportToDuplicate = (DiagnosticReport)resource;
-
-                // TODO: more fields need to be populated?
-                var documentReference = new DocumentReference
-                {
-                    Meta = new Meta
-                    {
-                        Tag = new List<Coding>
-                        {
-                            new Coding(TagDuplicateOf, diagnosticReportToDuplicate.Id),
-                            new Coding(TagIsDuplicate, bool.TrueString.ToLowerInvariant()),
-                        },
-                    },
-                    Content = new List<DocumentReference.ContentComponent>(),
-                    Subject = diagnosticReportToDuplicate.Subject,
-#if R4 || R4B || Stu3
-                    Status = DocumentReferenceStatus.Current,
-#else
-                    Status = DocumentReference.DocumentReferenceStatus.Current,
-#endif
-                };
-
-                if (diagnosticReportToDuplicate.PresentedForm?.Any(x => x.Url != null) ?? false)
-                {
-                    // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                    // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                    foreach (var attachment in diagnosticReportToDuplicate.PresentedForm.Where(x => x.Url != null))
-                    {
-                        documentReference.Content.Add(
-                            new DocumentReference.ContentComponent
-                            {
-                                Attachment = attachment,
-                            });
-                    }
-                }
-
-                return documentReference;
-            }
-
-            var documentReferenceToDuplicate = (DocumentReference)resource;
-
-            // TODO: more fields need to be populated?
-            var diagnosticReport = new DiagnosticReport
-            {
-                Meta = new Meta
-                {
-                    Tag = new List<Coding>
-                    {
-                        new Coding(TagDuplicateOf, resource.Id),
-                        new Coding(TagIsDuplicate, bool.TrueString.ToLowerInvariant()),
-                    },
-                },
-                PresentedForm = new List<Attachment>(),
-                Subject = documentReferenceToDuplicate.Subject,
-                Status = DiagnosticReport.DiagnosticReportStatus.Registered,
-            };
-
-            if (documentReferenceToDuplicate.Content?.Any(x => x.Attachment?.Url != null) ?? false)
-            {
-                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                foreach (var attachment in documentReferenceToDuplicate.Content?.Where(x => x.Attachment?.Url != null).Select(x => x.Attachment))
-                {
-                    diagnosticReport.PresentedForm.Add(attachment);
-                }
-            }
-
-            return diagnosticReport;
         }
 
         private static Resource ConvertToResource(RawResource rawResource)
@@ -545,11 +493,196 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
             return ConvertToResource(rawResourceElement.RawResource);
         }
 
-        private static string GetDuplicateResourceId(Resource resource)
+        private static Resource CreateDuplicateResource(Resource resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return resource?.Meta?.Tag?.SingleOrDefault(x => x.System == TagDuplicateOf)?.Code;
+            if (!(resource is DiagnosticReport || resource is DocumentReference))
+            {
+                throw new ArgumentException(
+                    $"A resource to be duplicated must be of type '{nameof(DiagnosticReport)}' or '{nameof(DocumentReference)}'.");
+            }
+
+            if (resource is DiagnosticReport)
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+
+                // TODO: more fields need to be populated?
+                var documentReference = new DocumentReference
+                {
+                    Meta = new Meta
+                    {
+                        Tag = new List<Coding>
+                        {
+                            new Coding(TagDuplicateCreatedOn, DateTime.UtcNow.ToString("o")),
+                            new Coding(TagDuplicateOf, diagnosticReport.Id),
+                        },
+                    },
+                    Content = new List<DocumentReference.ContentComponent>(),
+                    Subject = diagnosticReport.Subject,
+#if R4 || R4B || Stu3
+                    Status = DocumentReferenceStatus.Current,
+#else
+                    Status = DocumentReference.DocumentReferenceStatus.Current,
+#endif
+                };
+
+                var crefs = GetClinicalReferences(diagnosticReport);
+#if R4 || R4B || Stu3
+                foreach (var cref in crefs)
+                {
+                    foreach (var code in cref.codes)
+                    {
+                        foreach (var attachment in cref.attachments)
+                        {
+                            documentReference.Content.Add(
+                                new DocumentReference.ContentComponent
+                                {
+                                    Attachment = attachment,
+                                    Format = code,
+                                });
+                        }
+                    }
+                }
+#else
+                foreach (var cref in crefs)
+                {
+                    var profiles = cref.codes
+                        .Select(
+                            x =>
+                            {
+                                return new DocumentReference.ProfileComponent()
+                                {
+                                    Value = x,
+                                };
+                            })
+                        .ToList();
+                    foreach (var attachment in cref.attachments)
+                    {
+                        documentReference.Content.Add(
+                            new DocumentReference.ContentComponent
+                            {
+                                Attachment = attachment,
+                                Profile = profiles,
+                            });
+                    }
+                }
+#endif
+
+                return documentReference;
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+
+                // TODO: more fields need to be populated?
+                var diagnosticReport = new DiagnosticReport
+                {
+                    Meta = new Meta
+                    {
+                        Tag = new List<Coding>
+                        {
+                            new Coding(TagDuplicateCreatedOn, DateTime.UtcNow.ToString("o")),
+                            new Coding(TagDuplicateOf, resource.Id),
+                        },
+                    },
+                    PresentedForm = new List<Hl7.Fhir.Model.Attachment>(),
+                    Subject = documentReference.Subject,
+                    Status = DiagnosticReport.DiagnosticReportStatus.Registered,
+                };
+
+                var crefs = GetClinicalReferences(documentReference);
+                var codes = crefs.SelectMany(x => x.codes);
+                diagnosticReport.Code = new CodeableConcept();
+                foreach (var code in crefs.SelectMany(x => x.codes))
+                {
+                    diagnosticReport.Code.Add(code.System, code.Code, code.Display);
+                }
+
+                diagnosticReport.PresentedForm.AddRange(crefs.SelectMany(x => x.attachments));
+                return diagnosticReport;
+            }
+        }
+
+        private static List<Coding> GetClinicalReferenceCodes(Resource resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            if (string.Equals(resource.TypeName, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+                return diagnosticReport.Code?.Coding?
+                    .Where(x => ClinicalReferenceSystems.Contains(x?.System) && ClinicalReferenceCodes.Contains(x?.Code))
+                    .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                    .ToList();
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+#if R4 || R4B || Stu3
+                return documentReference.Content
+                    .Where(x => ClinicalReferenceSystems.Contains(x?.Format?.System) && ClinicalReferenceCodes.Contains(x?.Format?.Code))
+                    .Select(x => x.Format)
+                    .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                    .ToList();
+#else
+                return documentReference.Content
+                    .SelectMany(x => x?.Profile?
+                        .Where(y => y?.Value?.GetType() == typeof(Coding)
+                            && ClinicalReferenceSystems.Contains(((Coding)y.Value)?.System)
+                            && ClinicalReferenceCodes.Contains(((Coding)y.Value)?.Code))
+                        .Select(y => (Coding)y.Value))
+                    .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                    .ToList();
+#endif
+            }
+        }
+
+        private static List<(IList<Coding> codes, IList<Attachment> attachments)> GetClinicalReferences(Resource resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var clinicalReferences = new List<(IList<Coding> codes, IList<Attachment> attachments)>();
+            if (string.Equals(resource.TypeName, KnownResourceTypes.DiagnosticReport, StringComparison.OrdinalIgnoreCase))
+            {
+                var diagnosticReport = (DiagnosticReport)resource;
+                var codes = diagnosticReport.Code?.Coding?
+                    .Where(x => ClinicalReferenceSystems.Contains(x?.System) && ClinicalReferenceCodes.Contains(x?.Code))
+                    .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                    .ToList();
+                clinicalReferences.Add(new(codes, diagnosticReport.PresentedForm));
+            }
+            else
+            {
+                var documentReference = (DocumentReference)resource;
+#if R4 || R4B || Stu3
+                var contents = documentReference.Content
+                    .Where(x => ClinicalReferenceSystems.Contains(x?.Format?.System) && ClinicalReferenceCodes.Contains(x?.Format?.Code))
+                    .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x.Format))
+                    .ToList();
+                foreach (var content in contents)
+                {
+                    clinicalReferences.Add(new(new List<Coding> { content.Format }, new List<Attachment> { content.Attachment }));
+                }
+#else
+                foreach (var content in documentReference.Content)
+                {
+                    var codes = content.Profile
+                        .Where(x => (x.Value is Coding)
+                            && ClinicalReferenceSystems.Contains(((Coding)x.Value).System)
+                            && ClinicalReferenceCodes.Contains(((Coding)x.Value).Code))
+                        .Select(x => (Coding)x.Value)
+                        .DistinctBy(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                        .ToList();
+                    if (codes.Any())
+                    {
+                        clinicalReferences.Add(new(codes, new List<Attachment> { content.Attachment }));
+                    }
+                }
+#endif
+            }
+
+            return clinicalReferences;
         }
 
         private static string GetDuplicateResourceType(string resourceType)
@@ -567,28 +700,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                 return false;
             }
 
-            if (resource.Meta?.Tag?.Any(x => string.Equals(x.System, TagDuplicateOf, StringComparison.OrdinalIgnoreCase)) ?? false)
-            {
-                return true;
-            }
-
-            if (resource is DiagnosticReport)
-            {
-                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                return ((DiagnosticReport)resource).PresentedForm?.Any(x => x.Url != null) ?? false;
-            }
-            else if (resource is DocumentReference)
-            {
-                // TODO: need to be more selective about whether the resource should be duplicated based on urls.
-                // (https://hl7.org/fhir/us/core/STU6.1/clinical-notes.html#clinical-notes-1)
-                return ((DocumentReference)resource).Content?.Any(x => x.Attachment?.Url != null) ?? false;
-            }
-
-            return false;
+            var crefs = GetClinicalReferences(resource);
+            return crefs.SelectMany(x => x.codes).Any() && crefs.SelectMany(x => x.attachments).Any();
         }
 
-        private static void UpdateDuplicateResource(
+        private static bool UpdateDuplicateResource(
             Resource resource,
             Resource duplicateResource)
         {
@@ -603,56 +719,93 @@ namespace Microsoft.Health.Fhir.Core.Features.Guidance
                     $"A source/target resource to be updated must be of type '{nameof(DiagnosticReport)}' and '{nameof(DocumentReference)}'.");
             }
 
+            var resourceUpdated = false;
             if (resource is DiagnosticReport)
             {
                 var diagnosticReport = (DiagnosticReport)resource;
                 var documentReference = (DocumentReference)duplicateResource;
-                documentReference.Subject = diagnosticReport.Subject;
 
-                var contents = new List<DocumentReference.ContentComponent>();
-                if (documentReference.Content != null)
+#if R4 || R4B || Stu3
+                foreach (var code in GetClinicalReferenceCodes(diagnosticReport))
                 {
-                    // TODO: save attachments without a url. is this right?
-                    contents.AddRange(documentReference.Content.Where(x => string.IsNullOrEmpty(x.Attachment?.Url)));
-                }
-
-                if (diagnosticReport.PresentedForm?.Any(x => !string.IsNullOrEmpty(x.Url)) ?? false)
-                {
-                    foreach (var attachment in diagnosticReport.PresentedForm.Where(x => x.Url != null))
+                    foreach (var attachment in diagnosticReport.PresentedForm)
                     {
-                        contents.Add(
-                            new DocumentReference.ContentComponent
-                            {
-                                Attachment = attachment,
-                            });
+                        if (!documentReference.Content.Any(
+                                x => ClinicalReferenceDuplicatorHelper.CompareCoding(x.Format, code)
+                                    && ClinicalReferenceDuplicatorHelper.CompareAttachment(x.Attachment, attachment)))
+                        {
+                            documentReference.Content.Add(
+                                new DocumentReference.ContentComponent()
+                                {
+                                    Attachment = attachment,
+                                    Format = code,
+                                });
+                            resourceUpdated = true;
+                        }
                     }
                 }
+#else
+                var profiles = GetClinicalReferenceCodes(diagnosticReport)
+                    .Select(
+                        x => new DocumentReference.ProfileComponent()
+                        {
+                            Value = new Coding(x.System, x.Code, x.Display),
+                        })
+                    .ToList();
+                foreach (var attachment in diagnosticReport.PresentedForm)
+                {
+                    var contents = documentReference.Content
+                        .Where(x => ClinicalReferenceDuplicatorHelper.CompareAttachment(x.Attachment, attachment))
+                        .ToList();
+                    if (!contents.Any())
+                    {
+                        documentReference.Content.Add(
+                            new DocumentReference.ContentComponent()
+                            {
+                                Attachment = attachment,
+                                Profile = profiles,
+                            });
+                        resourceUpdated = true;
+                        continue;
+                    }
 
-                documentReference.Content = contents;
+                    foreach (var content in contents)
+                    {
+                        if (!ClinicalReferenceDuplicatorHelper.CompareCodings(content.Profile, profiles))
+                        {
+                            content.Profile = content.Profile
+                                .UnionBy(
+                                    profiles,
+                                    x => (x.Value is Coding) ? (((Coding)x.Value).System, ((Coding)x.Value).Code) : (string.Empty, string.Empty))
+                                .ToList();
+                            resourceUpdated = true;
+                        }
+                    }
+                }
+#endif
             }
             else
             {
                 var documentReference = (DocumentReference)resource;
                 var diagnosticReport = (DiagnosticReport)duplicateResource;
-                diagnosticReport.Subject = documentReference.Subject;
-
-                var attachments = new List<Attachment>();
-                if (diagnosticReport.PresentedForm != null)
+                var codes = GetClinicalReferenceCodes(diagnosticReport)
+                    .Select(x => ClinicalReferenceDuplicatorHelper.ConvertToString(x))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var attachments = GetClinicalReferences(documentReference)
+                    .Where(x => x.codes.Any(y => codes.Contains(ClinicalReferenceDuplicatorHelper.ConvertToString(y))))
+                    .SelectMany(x => x.attachments)
+                    .ToList();
+                foreach (var attachment in attachments)
                 {
-                    // TODO: save attachments without a url. is this right?
-                    attachments.AddRange(diagnosticReport.PresentedForm.Where(x => string.IsNullOrEmpty(x.Url)));
-                }
-
-                if (documentReference.Content?.Any(x => !string.IsNullOrEmpty(x.Attachment?.Url)) ?? false)
-                {
-                    foreach (var attachment in documentReference.Content?.Where(x => x.Attachment?.Url != null).Select(x => x.Attachment))
+                    if (!diagnosticReport.PresentedForm.Any(x => ClinicalReferenceDuplicatorHelper.CompareAttachment(x, attachment)))
                     {
-                        attachments.Add(attachment);
+                        diagnosticReport.PresentedForm.Add(attachment);
+                        resourceUpdated = true;
                     }
                 }
-
-                diagnosticReport.PresentedForm = attachments;
             }
+
+            return resourceUpdated;
         }
     }
 }

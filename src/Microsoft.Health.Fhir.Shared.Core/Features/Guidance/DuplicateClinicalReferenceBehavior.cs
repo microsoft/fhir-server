@@ -10,11 +10,9 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Guidance;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
 {
@@ -50,14 +48,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Guidance
                 && response?.Outcome?.RawResourceElement?.RawResource != null
                 && _clinicalReferenceDuplicator.IsDuplicatableResourceType(response.Outcome.RawResourceElement.InstanceType))
             {
-                (var source, var duplicate) = await _clinicalReferenceDuplicator.CreateResourceAsync(
+                await _clinicalReferenceDuplicator.CreateResourceAsync(
                     response.Outcome.RawResourceElement,
                     cancellationToken);
-                if (source != null)
-                {
-                    return new UpsertResourceResponse(
-                        new SaveOutcome(new RawResourceElement(source), response.Outcome.Outcome));
-                }
             }
 
             return response;

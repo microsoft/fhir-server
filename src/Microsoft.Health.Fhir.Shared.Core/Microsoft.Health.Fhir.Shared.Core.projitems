@@ -17,6 +17,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceWrapperFactoryExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Guidance\ClinicalReferenceDuplicator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Guidance\ClinicalReferenceDuplicatorHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Guidance\DuplicateClinicalReferenceBehavior.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Guidance\IClinicalReferenceDuplicator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
