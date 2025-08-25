@@ -229,12 +229,6 @@ CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
     Status               VARCHAR (20)  NOT NULL,
     IsPartiallySupported BIT           NOT NULL);
 
-CREATE TYPE dbo.SearchParamTableType_3 AS TABLE (
-    Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (20)       NOT NULL,
-    IsPartiallySupported BIT                NOT NULL,
-    LastUpdated          DATETIMEOFFSET (7) NULL);
-
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE (
     Offset          INT          NOT NULL,
     ResourceTypeId  SMALLINT     NOT NULL,
@@ -6231,7 +6225,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.UpsertSearchParams
-@searchParams dbo.SearchParamTableType_3 READONLY
+@searchParams dbo.SearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -6241,25 +6235,6 @@ DECLARE @lastUpdated AS DATETIMEOFFSET (7) = SYSDATETIMEOFFSET();
 DECLARE @summaryOfChanges TABLE (
     Uri    VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Action VARCHAR (20)  NOT NULL);
-DECLARE @conflictedRows TABLE (
-    Uri VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
-INSERT INTO @conflictedRows (Uri)
-SELECT sp.Uri
-FROM   @searchParams AS sp
-       INNER JOIN
-       dbo.SearchParam AS existing
-       ON sp.Uri = existing.Uri
-WHERE  sp.LastUpdated IS NOT NULL
-       AND sp.LastUpdated != existing.LastUpdated;
-IF EXISTS (SELECT 1
-           FROM   @conflictedRows)
-    BEGIN
-        DECLARE @conflictMessage AS NVARCHAR (4000);
-        SELECT @conflictMessage = CONCAT('Optimistic concurrency conflict detected for search parameters: ', STRING_AGG(Uri, ', '))
-        FROM   @conflictedRows;
-        ROLLBACK;
-        THROW 50001, @conflictMessage, 1;
-    END
 MERGE INTO dbo.SearchParam WITH (TABLOCKX)
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
@@ -6270,8 +6245,7 @@ SET Status               = source.Status,
 WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported)
 OUTPUT source.Uri, $ACTION INTO @summaryOfChanges;
 SELECT SearchParamId,
-       SearchParam.Uri,
-       SearchParam.LastUpdated
+       SearchParam.Uri
 FROM   dbo.SearchParam AS searchParam
        INNER JOIN
        @summaryOfChanges AS upsertedSearchParam
