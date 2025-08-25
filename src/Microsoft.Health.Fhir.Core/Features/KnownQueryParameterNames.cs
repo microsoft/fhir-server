@@ -146,5 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ExcludedResourceTypes = "excludedResourceTypes";
 
         public const string ReverseInclude = "_revinclude";
+
+        public const string ReturnDetails = "_details";
     }
 }

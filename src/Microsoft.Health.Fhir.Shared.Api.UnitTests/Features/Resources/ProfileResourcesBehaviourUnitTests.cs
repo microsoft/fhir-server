@@ -66,9 +66,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         public async Task GivenProfileResourcesBehaviour_WhenExecutedUnderTheBundleContext_ThenDoNotCallProfileResolverRefresh()
         {
             var bundleResourceContext = new BundleResourceContext(
-                BundleProcessingLogic.Parallel,
-                Hl7.Fhir.Rest.HTTPVerb.POST,
-                Guid.NewGuid());
+                bundleType: Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                processingLogic: BundleProcessingLogic.Parallel,
+                httpVerb: Hl7.Fhir.Model.Bundle.HTTPVerb.POST,
+                persistedId: null,
+                bundleOperationId: Guid.NewGuid());
 
             ValueSet valueSet = new ValueSet();
             ResourceElement resourceElement = new ResourceElement(valueSet.ToTypedElement());

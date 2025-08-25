@@ -2924,7 +2924,8 @@ BEGIN TRY
            CONVERT (BIT, 0) AS IsPartial,
            IsRawResourceMetaSet,
            SearchParamHash,
-           RawResource
+           RawResource,
+           IsHistory
     FROM   dbo.Resource
     WHERE  ResourceTypeId = @ResourceTypeId
            AND ResourceSurrogateId BETWEEN @StartId AND @EndId
@@ -2943,7 +2944,8 @@ BEGIN TRY
            CONVERT (BIT, 0) AS IsPartial,
            IsRawResourceMetaSet,
            SearchParamHash,
-           RawResource
+           RawResource,
+           IsHistory
     FROM   @SurrogateIds
            INNER JOIN
            dbo.Resource
