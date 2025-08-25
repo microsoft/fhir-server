@@ -78,17 +78,6 @@ namespace Microsoft.Health.JobManagement
                             try
                             {
                                 _logger.LogDebug("Queue={QueueType}: dequeuing next job...", queueType);
-                                if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
-                                {
-                                    lock (dequeueTimeoutJobStopwatch)
-                                    {
-                                        if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
-                                        {
-                                            dequeueTimeoutJobsCounter = runningJobsTarget;
-                                            dequeueTimeoutJobStopwatch.Restart();
-                                        }
-                                    }
-                                }
 
                                 if (Interlocked.Decrement(ref dequeueTimeoutJobsCounter) >= 0)
                                 {
@@ -129,6 +118,12 @@ namespace Microsoft.Health.JobManagement
 #else
                     await cancellationTokenSource.CancelAsync();
 #endif
+                }
+
+                if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                {
+                    dequeueTimeoutJobsCounter = runningJobsTarget;
+                    dequeueTimeoutJobStopwatch.Restart();
                 }
 
                 if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
