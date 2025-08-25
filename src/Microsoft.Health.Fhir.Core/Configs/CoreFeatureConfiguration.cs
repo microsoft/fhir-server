@@ -99,5 +99,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Azure SQL Database with geo-replication configured.
         /// </summary>
         public bool EnableGeoRedundancy { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server enables clinical reference duplication.
+        /// </summary>
+        public bool EnableClinicalReferenceDuplication { get; set; } = false;
     }
 }
