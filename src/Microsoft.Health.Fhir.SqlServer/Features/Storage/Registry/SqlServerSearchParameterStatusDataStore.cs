@@ -94,45 +94,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         string stringStatus;
                         DateTimeOffset? lastUpdated;
                         bool? isPartiallySupported;
-                        byte[] rowVersion = null;
 
                         ResourceSearchParameterStatus resourceSearchParameterStatus;
 
-                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
-                        {
-                            // Read RowVersion if available in current schema - will need to be updated once generated model includes RowVersion
-                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                                VLatest.SearchParam.SearchParamId,
-                                VLatest.SearchParam.Uri,
-                                VLatest.SearchParam.Status,
-                                VLatest.SearchParam.LastUpdated,
-                                VLatest.SearchParam.IsPartiallySupported);
-
-                            // Read RowVersion manually for now, but only if the column exists
-                            try
-                            {
-                                if (sqlDataReader.FieldCount > 5 && !await sqlDataReader.IsDBNullAsync("RowVersion", cancellationToken))
-                                {
-                                    rowVersion = (byte[])sqlDataReader["RowVersion"];
-                                }
-                            }
-                            catch (IndexOutOfRangeException)
-                            {
-                                // RowVersion column doesn't exist yet - this can happen during schema migration
-                                // Log a warning but continue without the RowVersion
-                                _logger.LogWarning("RowVersion column not found in SearchParam table. This may indicate the database schema is not fully migrated to V94 yet.");
-                                rowVersion = null;
-                            }
-                        }
-                        else
-                        {
-                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                                VLatest.SearchParam.SearchParamId,
-                                VLatest.SearchParam.Uri,
-                                VLatest.SearchParam.Status,
-                                VLatest.SearchParam.LastUpdated,
-                                VLatest.SearchParam.IsPartiallySupported);
-                        }
+                        (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
 
                         if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
                         {
@@ -150,7 +120,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             Status = status,
                             IsPartiallySupported = (bool)isPartiallySupported,
                             LastUpdated = (DateTimeOffset)lastUpdated,
-                            RowVersion = rowVersion,
                         };
 
                         // Check whether the corresponding type of the search parameter is supported.
@@ -219,16 +188,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     retryCount++;
                     _logger.LogWarning("Optimistic concurrency conflict detected on attempt {RetryCount}. Retrying...", retryCount);
 
-                    // Refresh the statuses with current RowVersion values
+                    // Refresh the statuses with current LastUpdated values
                     var refreshedStatuses = await GetSearchParameterStatuses(cancellationToken);
                     var refreshedDict = refreshedStatuses.ToDictionary(s => s.Uri.OriginalString, s => s);
 
-                    // Update our statuses with fresh RowVersion values
+                    // Update our statuses with fresh LastUpdated values
                     foreach (var status in currentStatuses)
                     {
                         if (refreshedDict.TryGetValue(status.Uri.OriginalString, out var refreshed))
                         {
-                            status.RowVersion = refreshed.RowVersion;
+                            status.LastUpdated = refreshed.LastUpdated;
                         }
                     }
 
@@ -256,44 +225,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         // The upsert procedure returns the search parameters that were new.
-                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri);
+
+                        // Read LastUpdated for the inserted/updated parameters
+                        DateTimeOffset? lastUpdated = null;
+                        try
                         {
-                            (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(
-                                VLatest.SearchParam.SearchParamId,
-                                VLatest.SearchParam.Uri);
-
-                            // Read RowVersion manually for now, but only if the column exists
-                            byte[] rowVersion = null;
-                            try
+                            if (sqlDataReader.FieldCount > 2 && !await sqlDataReader.IsDBNullAsync("LastUpdated", cancellationToken))
                             {
-                                if (sqlDataReader.FieldCount > 2 && !await sqlDataReader.IsDBNullAsync("RowVersion", cancellationToken))
-                                {
-                                    rowVersion = (byte[])sqlDataReader["RowVersion"];
-                                }
-                            }
-                            catch (IndexOutOfRangeException)
-                            {
-                                // RowVersion column doesn't exist yet - this can happen during schema migration
-                                _logger.LogWarning("RowVersion column not found in UpsertSearchParams result. This may indicate the database schema is not fully migrated to V94 yet.");
-                                rowVersion = null;
-                            }
-
-                            // Add the new search parameters to the FHIR model dictionary.
-                            _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
-
-                            // Update the RowVersion in our original collection for future operations
-                            var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
-                            if (matchingStatus != null)
-                            {
-                                matchingStatus.RowVersion = rowVersion;
+                                lastUpdated = (DateTimeOffset)sqlDataReader["LastUpdated"];
                             }
                         }
-                        else
+                        catch (IndexOutOfRangeException)
                         {
-                            (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+                            // LastUpdated column doesn't exist yet - this can happen during schema migration
+                            _logger.LogWarning("LastUpdated column not found in UpsertSearchParams result.");
+                            lastUpdated = null;
+                        }
 
-                            // Add the new search parameters to the FHIR model dictionary.
-                            _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                        // Add the new search parameters to the FHIR model dictionary.
+                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+
+                        // Update the LastUpdated in our original collection for future operations
+                        var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
+                        if (matchingStatus != null && lastUpdated.HasValue)
+                        {
+                            matchingStatus.LastUpdated = lastUpdated.Value;
                         }
                     }
                 }

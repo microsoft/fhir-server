@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     searchParameterStatus.Uri.OriginalString,
                     searchParameterStatus.Status.ToString(),
                     searchParameterStatus.IsPartiallySupported,
-                    searchParameterStatus.RowVersion != null ? new MemoryStream(searchParameterStatus.RowVersion) : null))
+                    searchParameterStatus.LastUpdated != default(System.DateTimeOffset) ? searchParameterStatus.LastUpdated : null))
                 .ToList();
         }
     }

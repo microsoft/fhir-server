@@ -56,13 +56,13 @@ Implement `SearchParameterConcurrencyManager` - a static, per-SearchParameter-UR
 - **Scope**: Protects all SearchParameter operations (Add, Update, Delete, Status changes)
 
 ### Layer 2: Database-Level Optimistic Concurrency  
-Enhance the SQL schema (Version 94) with RowVersion-based optimistic concurrency control in the SearchParam table to prevent conflicts between different application instances.
+Enhance the SQL schema (Version 94) with LastUpdated-based optimistic concurrency control in the SearchParam table to prevent conflicts between different application instances.
 
 **Implementation Details:**
-- **RowVersion Column**: Add `rowversion` column to SearchParam table for change tracking
-- **Enhanced Table Types**: Create `SearchParamTableType_3` with RowVersion support
+- **LastUpdated Column**: Use existing `LastUpdated` column in SearchParam table for change tracking
+- **Enhanced Table Types**: Create `SearchParamTableType_3` with LastUpdated support
 - **Updated Stored Procedures**: Modify `UpsertSearchParams` to detect and handle concurrency conflicts
-- **Backward Compatibility**: Graceful fallback for schemas without RowVersion support
+- **Backward Compatibility**: Graceful fallback for schemas without LastUpdated-based optimistic concurrency support
 
 ### Integration Architecture
 ```
@@ -74,7 +74,7 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
                                                            ?
                                               SqlServerSearchParameterStatusDataStore (Database Optimistic Concurrency)
                                                            ?
-                                              SQL Server with RowVersion checks
+                                              SQL Server with LastUpdated checks
 ```
 
 ### Key Components Modified:
@@ -89,14 +89,14 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
    - Ensures atomic updates to both status and in-memory definitions
 
 3. **SQL Schema Version 94** (New)
-   - Enhanced `SearchParam` table with `RowVersion` column
-   - New `SearchParamTableType_3` table type with RowVersion support
+   - Enhanced `SearchParam` table using existing `LastUpdated` column for optimistic concurrency
+   - New `SearchParamTableType_3` table type with LastUpdated support
    - Updated `UpsertSearchParams` stored procedure with conflict detection
 
 4. **SqlServerSearchParameterStatusDataStore** (Enhanced)
-   - Schema-aware operations supporting both V93 (without RowVersion) and V94+ (with RowVersion)
+   - Schema-aware operations supporting both V93 (without LastUpdated-based optimistic concurrency) and V94+ (with LastUpdated-based optimistic concurrency)
    - Defensive error handling during schema migration periods
-   - Proper RowVersion handling in GET and UPSERT operations
+   - Proper LastUpdated handling in GET and UPSERT operations
 
 ## Status
 **Accepted** - Implemented and deployed
@@ -111,7 +111,7 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
 - **Reliable Error Handling**: Clear success/failure responses instead of cryptic exceptions
 
 #### Enhanced Data Integrity
-- **Cross-Instance Protection**: RowVersion prevents conflicts between different FHIR server instances
+- **Cross-Instance Protection**: LastUpdated timestamp prevents conflicts between different FHIR server instances
 - **Transactional Consistency**: All SearchParameter-related updates happen atomically
 - **Schema Migration Safety**: Graceful handling of environments during schema upgrades
 
@@ -129,12 +129,12 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
 
 #### Increased Complexity
 - **Two-Layer Architecture**: Developers must understand both application and database concurrency
-- **Schema Versioning**: Additional migration complexity for RowVersion column
+- **Schema Versioning**: Additional migration complexity for LastUpdated-based optimistic concurrency
 - **Error Handling**: More sophisticated exception handling for concurrency conflicts
 
 #### Performance Considerations
 - **Lock Contention**: High-frequency updates to the same SearchParameter may create bottlenecks
-- **Database Overhead**: RowVersion column adds 8 bytes per SearchParam row
+- **Database Overhead**: LastUpdated column checks add minimal overhead per SearchParam row
 - **Memory Usage**: SemaphoreSlim instances consume additional memory (though minimal)
 
 #### Deployment Dependencies
@@ -171,12 +171,12 @@ HTTP Request ? CreateOrUpdateSearchParameterBehavior ? SearchParameterOperations
 
 #### Monitoring and Alerting
 - **Lock Duration Monitoring**: Track average time spent waiting for SearchParameter locks
-- **Concurrency Conflict Rates**: Monitor frequency of RowVersion conflicts
+- **Concurrency Conflict Rates**: Monitor frequency of LastUpdated conflicts
 - **Active Lock Count**: Alert if semaphore count grows unexpectedly
 
 ## References
 - [FHIR SearchParameter Specification](https://hl7.org/fhir/searchparameter.html)
-- [SQL Server Row Versioning](https://docs.microsoft.com/en-us/sql/t-sql/data-types/rowversion-transact-sql)
+- [SQL Server datetimeoffset data type](https://docs.microsoft.com/en-us/sql/t-sql/data-types/datetimeoffset-transact-sql)
 - [.NET SemaphoreSlim Documentation](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)
 - Related ADRs:
   - ADR 2311: Limit Concurrent Calls to MergeResources (similar concurrency patterns)

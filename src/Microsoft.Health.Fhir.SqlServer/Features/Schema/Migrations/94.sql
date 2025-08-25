@@ -230,10 +230,10 @@ CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
     IsPartiallySupported BIT           NOT NULL);
 
 CREATE TYPE dbo.SearchParamTableType_3 AS TABLE (
-    Uri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (20)  NOT NULL,
-    IsPartiallySupported BIT           NOT NULL,
-    RowVersion           VARBINARY (8) NULL);
+    Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status               VARCHAR (20)       NOT NULL,
+    IsPartiallySupported BIT                NOT NULL,
+    LastUpdated          DATETIMEOFFSET (7) NULL);
 
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE (
     Offset          INT          NOT NULL,
@@ -706,7 +706,6 @@ CREATE TABLE dbo.SearchParam (
     Status               VARCHAR (20)       NULL,
     LastUpdated          DATETIMEOFFSET (7) NULL,
     IsPartiallySupported BIT                NULL,
-    RowVersion           ROWVERSION         NOT NULL,
     CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
     CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri) WITH (DATA_COMPRESSION = PAGE)
 );
@@ -3098,8 +3097,7 @@ SELECT SearchParamId,
        Uri,
        Status,
        LastUpdated,
-       IsPartiallySupported,
-       RowVersion
+       IsPartiallySupported
 FROM   dbo.SearchParam;
 
 GO
@@ -6249,8 +6247,8 @@ FROM   @searchParams AS sp
        INNER JOIN
        dbo.SearchParam AS existing
        ON sp.Uri = existing.Uri
-WHERE  sp.RowVersion IS NOT NULL
-       AND sp.RowVersion != existing.RowVersion;
+WHERE  sp.LastUpdated IS NOT NULL
+       AND sp.LastUpdated != existing.LastUpdated;
 IF EXISTS (SELECT 1
            FROM   @conflictedRows)
     BEGIN
@@ -6271,7 +6269,7 @@ WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySup
 OUTPUT source.Uri, $ACTION INTO @summaryOfChanges;
 SELECT SearchParamId,
        SearchParam.Uri,
-       SearchParam.RowVersion
+       SearchParam.LastUpdated
 FROM   dbo.SearchParam AS searchParam
        INNER JOIN
        @summaryOfChanges AS upsertedSearchParam

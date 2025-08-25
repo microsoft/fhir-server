@@ -15,5 +15,5 @@ CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
 
-    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported, RowVersion FROM dbo.SearchParam
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
 GO

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        public async Task GivenSchemaVersion94OrHigher_WhenGettingSearchParameterStatuses_ThenRowVersionIsReturned()
+        public async Task GivenSchemaVersion94OrHigher_WhenGettingSearchParameterStatuses_ThenLastUpdatedIsReturned()
         {
             // Skip if not SQL Server or schema version < 94
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
@@ -44,19 +44,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Assert
             Assert.NotEmpty(statuses);
 
-            // Verify that at least some statuses have RowVersion (new parameters will have row versions)
-            var statusesWithRowVersion = statuses.Where(s => s.RowVersion != null);
-
-            // All statuses should have RowVersion in schema 94+
-            foreach (var status in statusesWithRowVersion)
+            // Verify that all statuses have LastUpdated (all parameters should have LastUpdated values)
+            foreach (var status in statuses)
             {
-                Assert.NotNull(status.RowVersion);
-                Assert.Equal(8, status.RowVersion.Length); // SQL Server rowversion is always 8 bytes
+                Assert.True(status.LastUpdated != default(DateTimeOffset), "All search parameter statuses should have valid LastUpdated values");
             }
         }
 
         [SkippableFact]
-        public async Task GivenNewSearchParameterStatus_WhenUpserting_ThenRowVersionIsReturned()
+        public async Task GivenNewSearchParameterStatus_WhenUpserting_ThenLastUpdatedIsReturned()
         {
             // Skip if not SQL Server or schema version < 94
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
@@ -68,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Disabled,
                 IsPartiallySupported = false,
-                RowVersion = null, // New parameter, no row version yet
+                LastUpdated = default(DateTimeOffset), // New parameter, no previous LastUpdated
             };
 
             try
@@ -76,14 +72,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Act
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { newStatus }, CancellationToken.None);
 
-                // Get the upserted status to check RowVersion was assigned
+                // Get the upserted status to check LastUpdated was assigned
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var upsertedStatus = allStatuses.FirstOrDefault(s => s.Uri.ToString() == testUri);
 
                 // Assert
                 Assert.NotNull(upsertedStatus);
-                Assert.NotNull(upsertedStatus.RowVersion);
-                Assert.Equal(8, upsertedStatus.RowVersion.Length);
+                Assert.True(upsertedStatus.LastUpdated != default(DateTimeOffset), "LastUpdated should be assigned for new parameters");
             }
             finally
             {
@@ -93,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithCorrectRowVersion_ThenSucceeds()
+        public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithCorrectLastUpdated_ThenSucceeds()
         {
             // Skip if not SQL Server or schema version < 94
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
@@ -112,17 +107,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Create initial status
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { initialStatus }, CancellationToken.None);
 
-                // Get the created status with its RowVersion
+                // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
 
-                // Modify and update with correct RowVersion
+                // Modify and update with correct LastUpdated
                 var updatedStatus = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled, // Changed status
                     IsPartiallySupported = true, // Changed partially supported
-                    RowVersion = createdStatus.RowVersion, // Use the returned RowVersion
+                    LastUpdated = createdStatus.LastUpdated, // Use the current LastUpdated
                 };
 
                 // Act
@@ -135,8 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Assert
                 Assert.Equal(SearchParameterStatus.Enabled, result.Status);
                 Assert.True(result.IsPartiallySupported);
-                Assert.NotNull(result.RowVersion);
-                Assert.NotEqual(createdStatus.RowVersion, result.RowVersion); // RowVersion should change
+                Assert.True(result.LastUpdated > createdStatus.LastUpdated, "LastUpdated should change after update");
             }
             finally
             {
@@ -146,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithIncorrectRowVersion_ThenEventuallySucceedsWithRetry()
+        public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithIncorrectLastUpdated_ThenEventuallySucceedsWithRetry()
         {
             // Skip if not SQL Server or schema version < 94
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
@@ -165,28 +159,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Create initial status
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { initialStatus }, CancellationToken.None);
 
-                // Get the created status with its RowVersion
+                // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
 
-                // Make an intermediate update to change the RowVersion
+                // Make an intermediate update to change the LastUpdated
                 var intermediateUpdate = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = false,
-                    RowVersion = createdStatus.RowVersion,
+                    LastUpdated = createdStatus.LastUpdated,
                 };
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { intermediateUpdate }, CancellationToken.None);
 
-                // Now try to update with the stale RowVersion
-                // The retry mechanism should detect the conflict, refresh the RowVersion, and succeed
+                // Now try to update with the stale LastUpdated
+                // The retry mechanism should detect the conflict, refresh the LastUpdated, and succeed
                 var staleUpdate = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = true,
-                    RowVersion = createdStatus.RowVersion, // This is now stale
+                    LastUpdated = createdStatus.LastUpdated, // This is now stale
                 };
 
                 // Act - This should succeed due to retry mechanism
@@ -214,7 +208,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
 
             // This test would need to be implemented with a custom data store that simulates
-            // persistent concurrency conflicts that can't be resolved by refreshing RowVersion.
+            // This test would need to be implemented with a custom data store that simulates
+            // persistent concurrency conflicts that can't be resolved by refreshing LastUpdated.
             // For now, we'll skip this test as it requires more complex setup than the current
             // integration test framework supports.
             Skip.If(true, "Test requires custom setup to simulate persistent concurrency conflicts");
@@ -240,17 +235,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Create initial status
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { initialStatus }, CancellationToken.None);
 
-                // Get the created status with its RowVersion
+                // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
 
-                // Prepare two concurrent updates with the same RowVersion
+                // Prepare two concurrent updates with the same LastUpdated
                 var update1 = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = false,
-                    RowVersion = createdStatus.RowVersion,
+                    LastUpdated = createdStatus.LastUpdated,
                 };
 
                 var update2 = new ResourceSearchParameterStatus
@@ -258,7 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = true,
-                    RowVersion = createdStatus.RowVersion,
+                    LastUpdated = createdStatus.LastUpdated,
                 };
 
                 // Act - Execute both updates concurrently
@@ -271,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Assert
                 // With retry logic, both operations should eventually succeed
-                // The system is designed to handle transient concurrency conflicts by retrying with updated RowVersion
+                // The system is designed to handle transient concurrency conflicts by retrying with updated LastUpdated
                 var successes = results.Count(r => r.Success);
                 var failures = results.Count(r => !r.Success);
 
@@ -296,7 +291,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        public async Task GivenOptimisticConcurrencyDetection_WhenRowVersionChangesBeforeUpdate_ThenRetryMechanismHandlesConflict()
+        public async Task GivenOptimisticConcurrencyDetection_WhenLastUpdatedChangesBeforeUpdate_ThenRetryMechanismHandlesConflict()
         {
             // Skip if not SQL Server or schema version < 94
             Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
@@ -315,29 +310,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Create initial status
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { initialStatus }, CancellationToken.None);
 
-                // Get the created status with its RowVersion
+                // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
-                var originalRowVersion = createdStatus.RowVersion;
+                var originalLastUpdated = createdStatus.LastUpdated;
 
-                // First, update with current RowVersion to change it
+                // First, update with current LastUpdated to change it
                 var intermediateUpdate = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = false,
-                    RowVersion = originalRowVersion,
+                    LastUpdated = originalLastUpdated,
                 };
 
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { intermediateUpdate }, CancellationToken.None);
 
-                // Now try to update with the stale RowVersion - this should trigger retry mechanism
+                // Now try to update with the stale LastUpdated - this should trigger retry mechanism
                 var staleUpdate = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = true,
-                    RowVersion = originalRowVersion, // This is now stale
+                    LastUpdated = originalLastUpdated, // This is now stale
                 };
 
                 // Act - This should succeed due to retry mechanism
@@ -350,7 +345,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Assert - The update should have succeeded (with retry)
                 Assert.Equal(SearchParameterStatus.Supported, finalStatus.Status);
                 Assert.True(finalStatus.IsPartiallySupported);
-                Assert.NotEqual(originalRowVersion, finalStatus.RowVersion); // RowVersion should have changed
+                Assert.True(finalStatus.LastUpdated > originalLastUpdated, "LastUpdated should have changed"); // LastUpdated should have changed
             }
             finally
             {
@@ -381,7 +376,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Create existing parameter
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { existingStatus }, CancellationToken.None);
 
-                // Get the created status with its RowVersion
+                // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == existingTestUri);
 
@@ -391,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Enabled,
                     IsPartiallySupported = true,
-                    RowVersion = createdStatus.RowVersion, // With RowVersion
+                    LastUpdated = createdStatus.LastUpdated, // With LastUpdated
                 };
 
                 var createNew = new ResourceSearchParameterStatus
@@ -399,7 +394,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Uri = new Uri(newTestUri),
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = false,
-                    RowVersion = null, // Without RowVersion (new parameter)
+                    LastUpdated = default(DateTimeOffset), // Without LastUpdated (new parameter)
                 };
 
                 // Act
@@ -413,11 +408,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Assert
                 Assert.Equal(SearchParameterStatus.Enabled, updatedExisting.Status);
                 Assert.True(updatedExisting.IsPartiallySupported);
-                Assert.NotNull(updatedExisting.RowVersion);
+                Assert.True(updatedExisting.LastUpdated > createdStatus.LastUpdated, "Updated parameter should have newer LastUpdated");
 
                 Assert.Equal(SearchParameterStatus.Supported, createdNew.Status);
                 Assert.False(createdNew.IsPartiallySupported);
-                Assert.NotNull(createdNew.RowVersion);
+                Assert.True(createdNew.LastUpdated != default(DateTimeOffset), "New parameter should have valid LastUpdated");
             }
             finally
             {
@@ -428,7 +423,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        public async Task GivenSchemaVersionBelow94_WhenUpserting_ThenRowVersionIsIgnoredGracefully()
+        public async Task GivenSchemaVersionBelow94_WhenUpserting_ThenLastUpdatedIsIgnoredGracefully()
         {
             // Skip if SQL Server and schema version >= 94
             Skip.If(IsSqlServerWithOptimisticConcurrency(), "This test validates backward compatibility with schema < 94");
@@ -441,12 +436,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(testUri),
                 Status = SearchParameterStatus.Enabled,
                 IsPartiallySupported = true,
-                RowVersion = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 }, // Should be ignored
+                LastUpdated = DateTimeOffset.Now.AddDays(-1), // Should be ignored for older schemas
             };
 
             try
             {
-                // Act - Should not throw even with RowVersion provided for older schemas
+                // Act - Should not throw even with old LastUpdated provided for older schemas
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
 
                 // Verify the status was created/updated successfully
@@ -459,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Equal(SearchParameterStatus.Enabled, result.Status);
                 Assert.True(result.IsPartiallySupported);
 
-                // RowVersion behavior depends on schema version - we just verify no exceptions were thrown
+                // LastUpdated behavior depends on schema version - we just verify no exceptions were thrown
             }
             finally
             {

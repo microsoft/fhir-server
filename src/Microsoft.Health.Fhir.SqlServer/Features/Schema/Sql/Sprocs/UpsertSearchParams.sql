@@ -7,7 +7,7 @@
 --
 -- DESCRIPTION
 --     Given a set of search parameters, creates or updates the parameters.
---     Implements optimistic concurrency control using RowVersion.
+--     Implements optimistic concurrency control using LastUpdated.
 --
 -- PARAMETERS
 --     @searchParams
@@ -34,13 +34,13 @@ DECLARE @conflictedRows TABLE (
     Uri VARCHAR(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 );
 
--- Check for concurrency conflicts first
+-- Check for concurrency conflicts first using LastUpdated
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri 
 FROM @searchParams sp
 INNER JOIN dbo.SearchParam existing ON sp.Uri = existing.Uri
-WHERE sp.RowVersion IS NOT NULL 
-  AND sp.RowVersion != existing.RowVersion;
+WHERE sp.LastUpdated IS NOT NULL 
+  AND sp.LastUpdated != existing.LastUpdated;
 
 -- If we have conflicts, raise an error
 IF EXISTS (SELECT 1 FROM @conflictedRows)
@@ -67,7 +67,7 @@ OUTPUT source.Uri, $ACTION INTO @summaryOfChanges;
 
 SELECT SearchParamId,
        SearchParam.Uri,
-       SearchParam.RowVersion
+       SearchParam.LastUpdated
 FROM   dbo.SearchParam AS searchParam
        INNER JOIN
        @summaryOfChanges AS upsertedSearchParam

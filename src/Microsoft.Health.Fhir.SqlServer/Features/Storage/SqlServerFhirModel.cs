@@ -398,8 +398,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
                 // Use the appropriate collection based on schema version
-                bool includeRowVersion = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
-                var collection = new SearchParameterStatusCollection(includeRowVersion);
+                bool includeLastUpdated = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
+                var collection = new SearchParameterStatusCollection(includeLastUpdated);
                 collection.AddRange(statuses);
 
                 // Use the appropriate table type based on schema version
