@@ -55,6 +55,7 @@ namespace Microsoft.Health.JobManagement
             var workers = new List<Task<JobInfo>>();
             var dequeueDelay = true;
             var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
+            var dequeueTimeoutJobsCounter = 0;
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
                 RunningJobsTarget.TryGetValue(queueType, out var runningJobsTarget);
@@ -77,22 +78,21 @@ namespace Microsoft.Health.JobManagement
                             try
                             {
                                 _logger.LogDebug("Queue={QueueType}: dequeuing next job...", queueType);
-                                var dequeueTimeoutJobs = false;
                                 if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
                                     lock (dequeueTimeoutJobStopwatch)
                                     {
                                         if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                         {
-                                            dequeueTimeoutJobs = true;
+                                            dequeueTimeoutJobsCounter = runningJobsTarget;
                                             dequeueTimeoutJobStopwatch.Restart();
                                         }
                                     }
+                                }
 
-                                    if (dequeueTimeoutJobs)
-                                    {
-                                        job = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
-                                    }
+                                if (Interlocked.Decrement(ref dequeueTimeoutJobsCounter) >= 0)
+                                {
+                                    job = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
                                 }
 
                                 job ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
