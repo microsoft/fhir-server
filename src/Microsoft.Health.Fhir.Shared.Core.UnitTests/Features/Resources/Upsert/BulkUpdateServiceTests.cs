@@ -705,7 +705,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             };
             var innerException = new InvalidOperationException("Simulated inner error");
             int mergeCallCount = 0;
-            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>())
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     mergeCallCount++;
@@ -787,7 +787,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
 
-            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>())
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     updateCount++;
@@ -850,7 +850,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
 
             // Simulate MergeAsync throwing an exception
-            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>())
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns<Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>>(callInfo =>
                 {
                     throw new InvalidOperationException("Simulated failure");
@@ -903,7 +903,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
 
-            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>())
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     updateCount++;
