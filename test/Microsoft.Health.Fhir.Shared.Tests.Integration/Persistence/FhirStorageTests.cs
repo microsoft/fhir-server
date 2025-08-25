@@ -139,13 +139,15 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                         Thread.Sleep(100 * i);
                         if (useDefaultMergeOptions)
                         {
+                            // default MergeOptions uses enlistTransaction: false
                             patient.Id = Guid.NewGuid().ToString();
                             await Mediator.UpsertResourceAsync(patient.ToResourceElement());
                         }
                         else
                         {
+                            // default MergeOptions uses enlistTransaction: false hence pass true to validate non default options path
                             var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
-                            await _dataStore.MergeAsync([resOp], new MergeOptions(false), CancellationToken.None);
+                            await _dataStore.MergeAsync([resOp], new MergeOptions(enlistTransaction: true), CancellationToken.None);
                         }
                     });
                 }

@@ -772,7 +772,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
+                // For regular upserts and sequential bundle operations, we need to use C# transactions hence setting enlistTransaction to true.
+                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true);
+                var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)
