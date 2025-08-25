@@ -60,8 +60,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenUserHasReadPermission_ThenSearchShouldSucceed()
+        [Theory]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.Search)]
+        public async Task GivenASearchResourceHistoryRequest_WhenUserHasReadPermission_ThenSearchShouldSucceed(DataActions returnedDataAction)
         {
             // Arrange
             var authService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             authService
                 .CheckAccess(DataActions.Read | DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.Read);
+                .Returns(returnedDataAction);
 
             var request = new SearchResourceHistoryRequest("Patient");
             var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
@@ -89,8 +91,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenUserHasSearchPermission_ThenSearchShouldSucceed()
+        [Theory]
+        [InlineData(DataActions.None)]
+        [InlineData(DataActions.Write)]
+        [InlineData(DataActions.ReadV2)]
+        public async Task GivenASearchResourceHistoryRequest_WhenUserLacksPermissions_ThenUnauthorizedExceptionIsThrown(DataActions returnedDataAction)
         {
             // Arrange
             var authService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -102,80 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             authService
                 .CheckAccess(DataActions.Read | DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.Search);
-
-            var request = new SearchResourceHistoryRequest("Patient");
-            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
-            var expectedBundle = new Bundle().ToResourceElement();
-
-            _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
-            _bundleFactory.CreateHistoryBundle(searchResult).Returns(expectedBundle);
-
-            // Act & Assert - Should not throw UnauthorizedFhirActionException
-            var actualResponse = await searchResourceHistoryHandler.Handle(request, CancellationToken.None);
-
-            Assert.NotNull(actualResponse);
-            Assert.Equal(expectedBundle, actualResponse.Bundle);
-        }
-
-        [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenUserLacksPermissions_ThenUnauthorizedExceptionIsThrown()
-        {
-            // Arrange
-            var authService = Substitute.For<IAuthorizationService<DataActions>>();
-            var searchResourceHistoryHandler = new SearchResourceHistoryHandler(
-                _searchService,
-                _bundleFactory,
-                authService,
-                new DataResourceFilter(MissingDataFilterCriteria.Default));
-
-            authService
-                .CheckAccess(DataActions.Read | DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.None);
-
-            var request = new SearchResourceHistoryRequest("Patient");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                searchResourceHistoryHandler.Handle(request, CancellationToken.None));
-        }
-
-        [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenUserHasOnlyWritePermission_ThenUnauthorizedExceptionIsThrown()
-        {
-            // Arrange
-            var authService = Substitute.For<IAuthorizationService<DataActions>>();
-            var searchResourceHistoryHandler = new SearchResourceHistoryHandler(
-                _searchService,
-                _bundleFactory,
-                authService,
-                new DataResourceFilter(MissingDataFilterCriteria.Default));
-
-            authService
-                .CheckAccess(DataActions.Read | DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.Write);
-
-            var request = new SearchResourceHistoryRequest("Patient");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                searchResourceHistoryHandler.Handle(request, CancellationToken.None));
-        }
-
-        [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenUserHasOnlyReadV2Permission_ThenUnauthorizedExceptionIsThrown()
-        {
-            // Arrange
-            var authService = Substitute.For<IAuthorizationService<DataActions>>();
-            var searchResourceHistoryHandler = new SearchResourceHistoryHandler(
-                _searchService,
-                _bundleFactory,
-                authService,
-                new DataResourceFilter(MissingDataFilterCriteria.Default));
-
-            authService
-                .CheckAccess(DataActions.Read | DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.ReadV2);
+                .Returns(returnedDataAction);
 
             var request = new SearchResourceHistoryRequest("Patient");
 
