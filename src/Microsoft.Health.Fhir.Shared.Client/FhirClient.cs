@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Client
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
+        private const string PreferHeaderName = "prefer";
         public const string ProfileValidation = "x-ms-profile-validation";
         public const string ReindexParametersStatus = "Status";
 
@@ -301,6 +302,20 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<T>(response);
         }
 
+        public async Task<HttpResponseMessage> BulkUpdateAsync(string uri, Parameters patchRequest, CancellationToken cancellationToken)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
+            {
+                Content = CreateStringContent(patchRequest),
+            };
+
+            message.Headers.Accept.Add(_mediaType);
+            message.Headers.Add(PreferHeaderName, "respond-async");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            return response;
+        }
+
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)
         {
             var sb = new StringBuilder();
@@ -479,9 +494,9 @@ namespace Microsoft.Health.Fhir.Client
             return await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, bool returnDetails = false, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation + (returnDetails ? "?_details=true" : string.Empty));
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
@@ -590,7 +605,7 @@ namespace Microsoft.Health.Fhir.Client
             return reindexJobResult;
         }
 
-        public async Task<FhirResponse<Parameters>> WaitForBulkDeleteStatus(Uri bulkDeleteJobUri)
+        public async Task<FhirResponse<Parameters>> WaitForBulkJobStatus(string jobType, Uri bulkJobUri)
         {
             int checkCount = 0;
             int maxCount = 30;
@@ -606,7 +621,7 @@ namespace Microsoft.Health.Fhir.Client
                     await Task.Delay(delay);
                 }
 
-                jobResult = await CheckJobAsync(bulkDeleteJobUri);
+                jobResult = await CheckJobAsync(bulkJobUri);
                 checkCount++;
             }
             while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && checkCount < maxCount);
@@ -616,7 +631,7 @@ namespace Microsoft.Health.Fhir.Client
             if (checkCount >= maxCount)
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"Bulk delete at ${bulkDeleteJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
+                throw new Exception($"${jobType} at ${bulkJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 

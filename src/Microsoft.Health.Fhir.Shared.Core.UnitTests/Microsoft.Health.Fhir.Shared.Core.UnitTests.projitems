@@ -22,9 +22,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexOrchestratorJobTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexProcessingJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandlerTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilitiesTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandlerTests.cs" />
@@ -35,6 +35,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\BulkUpdateServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToNumberSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToQuantitySearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ReferenceToUriSearchValueConverterTests.cs" />

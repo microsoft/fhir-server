@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
-        private readonly IParameterStore _parameterStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
@@ -93,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
-            IParameterStore parameterStore,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -105,7 +103,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            EnsureArg.IsNotNull(parameterStore, nameof(parameterStore));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -118,7 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
-            _parameterStore = parameterStore;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -465,6 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     ReadWrapper(
                                         reader,
+                                        exportTimeTravel,
                                         out short resourceTypeId,
                                         out string resourceId,
                                         out int version,
@@ -476,7 +473,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         out bool isRawResourceMetaSet,
                                         out string searchParameterHash,
                                         out byte[] rawResourceBytes,
-                                        out bool isInvisible);
+                                        out bool isInvisible,
+                                        out bool isHistory);
 
                                     if (isInvisible)
                                     {
@@ -501,7 +499,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             using var rawResourceStream = new MemoryStream(rawResourceBytes);
                                             var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                            _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+                                            _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
                                             if (string.IsNullOrEmpty(decompressedResource))
                                             {
@@ -552,7 +550,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 null,
                                                 null,
                                                 searchParameterHash,
-                                                resourceSurrogateId),
+                                                resourceSurrogateId)
+                                            {
+                                                IsHistory = isHistory,
+                                            },
                                             SearchEntryMode.Match));
                                     }
                                     else
@@ -740,6 +741,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         ReadWrapper(
                             reader,
+                            true,
                             out short _,
                             out string resourceId,
                             out int version,
@@ -751,7 +753,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
                             out byte[] rawResourceBytes,
-                            out bool isInvisible);
+                            out bool isInvisible,
+                            out bool isHistory);
 
                         if (isInvisible)
                         {
@@ -786,7 +789,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null,
                                 searchParameterHash,
-                                resourceSurrogateId),
+                                resourceSurrogateId)
+                            {
+                                IsHistory = isHistory,
+                            },
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
@@ -927,6 +933,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void ReadWrapper(
             SqlDataReader reader,
+            bool readIsHistory,
             out short resourceTypeId,
             out string resourceId,
             out int version,
@@ -938,7 +945,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
             out byte[] rawResourceBytes,
-            out bool isInvisible)
+            out bool isInvisible,
+            out bool isHistory)
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
@@ -952,6 +960,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceBytes = reader.GetSqlBytes(10).Value;
             isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+            isHistory = readIsHistory && reader.FieldCount > 11 ? reader.Read(VLatest.Resource.IsHistory, 11) : false;
         }
 
         [Conditional("DEBUG")]
@@ -1167,7 +1176,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Count = totalCount,
                 StartResourceSurrogateId = startResourceSurrogateId,
                 EndResourceSurrogateId = endResourceSurrogateId,
-                CurrentResourceSurrogateId = startResourceSurrogateId,
             };
 
             return searchResult;
@@ -1209,7 +1217,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Count = totalCount,
                 StartResourceSurrogateId = startResourceSurrogateId,
                 EndResourceSurrogateId = endResourceSurrogateId,
-                CurrentResourceSurrogateId = startResourceSurrogateId,
             };
 
             return searchResult;
@@ -1399,6 +1406,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             {
                                 ReadWrapper(
                                     reader,
+                                    exportTimeTravel,
                                     out short resourceTypeId,
                                     out string resourceId,
                                     out int version,
@@ -1410,7 +1418,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
                                     out byte[] rawResourceBytes,
-                                    out bool isInvisible);
+                                    out bool isInvisible,
+                                    out bool isHistory);
+
                                 if (isInvisible)
                                 {
                                     continue;
@@ -1423,7 +1433,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                         using var rawResourceStream = new MemoryStream(rawResourceBytes);
                                         var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
-                                        _logger.LogVerbose(_parameterStore, cancellationToken, "{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+                                        _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
 
                                         if (string.IsNullOrEmpty(decompressedResource))
                                         {
@@ -1447,7 +1457,10 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                             null,
                                             null,
                                             searchParameterHash,
-                                            resourceSurrogateId),
+                                            resourceSurrogateId)
+                                        {
+                                            IsHistory = isHistory,
+                                        },
                                         SearchEntryMode.Include));
                                 }
                                 else

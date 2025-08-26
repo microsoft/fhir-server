@@ -25,17 +25,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleType? bundleType,
             BundleProcessingLogic bundleProcessingLogic,
             bool optimizedQuerySet,
-            int numberOfResources)
+            int numberOfResources,
+            int generatedIdentifiers,
+            int resolvedReferences)
             : base()
         {
             BundleType = bundleType;
             BundleProcessingLogic = bundleProcessingLogic;
             OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
+            GeneratedIdentifiers = generatedIdentifiers;
+            ResolvedReferences = resolvedReferences;
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
         }
 
         public int NumberOfResources { get; }
+
+        /// <summary>
+        /// Total number of resource identifiers that were generated during the processing of a transactional bundle.
+        /// </summary>
+        public int GeneratedIdentifiers { get; set; }
+
+        /// <summary>
+        /// Total number of references that were successfully resolved during the processing of a transactional bundle.
+        /// </summary>
+        public int ResolvedReferences { get; set; }
 
         public int RegisteredEntries => _entries.Count;
 
@@ -45,6 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public bool OptimizedQueryProcessing { get; }
 
+        public bool FailedDueClientError { get; private set; }
+
         public override string GetLoggingCategory() => LoggingCategory;
 
         public override string GetStatisticsAsJson()
@@ -52,6 +68,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var finalStatistics = _entries
                 .GroupBy(e => string.Concat(e.HttpVerb, " - ", e.HttpStatusCode))
                 .Select(g => new { httpVerb = g.First().HttpVerb.ToString(), statusCode = g.First().HttpStatusCode, count = g.Count(), avgExecutionTime = g.Average(r => r.ElapsedTime.TotalMilliseconds), minExecutionTime = g.Min(r => r.ElapsedTime.TotalMilliseconds), maxExecutionTime = g.Max(r => r.ElapsedTime.TotalMilliseconds) })
+                .ToArray();
+
+            var resourceTypesStatistics = _entries
+                .GroupBy(e => e.ResourceType)
+                .Select(g => new { resourceType = g.Key, count = g.Count() })
                 .ToArray();
 
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
@@ -67,24 +88,35 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 numberOfResources = NumberOfResources,
                 registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
+                clientError = FailedDueClientError,
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,
                 statistics = finalStatistics,
+                resourceTypes = resourceTypesStatistics,
+                references = new
+                {
+                    identifiers = GeneratedIdentifiers,
+                    references = ResolvedReferences,
+                },
             });
 
             return serializableEntity.ToString();
         }
 
-        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, int index, string statusCode, TimeSpan elapsedTime)
+        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, string statusCode, TimeSpan elapsedTime)
         {
-            int httpStatusCodeAsInt = 0;
-            if (Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
+            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
             {
-                httpStatusCodeAsInt = (int)httpStatusCode;
+                httpStatusCode = HttpStatusCode.BadRequest;
             }
 
-            _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, Index = index, HttpStatusCode = httpStatusCodeAsInt, ElapsedTime = elapsedTime });
+            _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, ResourceType = resourceType, Index = index, HttpStatusCode = (int)httpStatusCode, ElapsedTime = elapsedTime });
+        }
+
+        public void MarkBundleAsFailedDueClientError()
+        {
+            FailedDueClientError = true;
         }
 
         private sealed class BundleHandlerStatisticEntry
@@ -92,6 +124,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public Hl7.Fhir.Model.Bundle.HTTPVerb HttpVerb { get; set; }
 
             public int Index { get; set; }
+
+            public string ResourceType { get; set; }
 
             public int HttpStatusCode { get; set; }
 

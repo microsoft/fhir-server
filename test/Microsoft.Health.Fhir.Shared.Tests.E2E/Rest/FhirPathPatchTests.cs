@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public static IEnumerable<object[]> GetIncorrectRequestTestData()
         {
             yield return new object[] { new Parameters().AddPatchParameter("replace", value: new Code("female")), "Patch replace operations must have the 'path' part." };
-            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")), "Invalid patch operation type: 'coo'. Only 'add', 'insert', 'delete', 'replace', and 'move' are allowed." };
+            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")), "Invalid patch operation type: 'coo'. Only 'add', 'insert', 'delete', 'replace', 'upsert', and 'move' are allowed." };
             yield return new object[] { new Parameters().AddPatchParameter("replace"), "Patch replace operations must have the 'path' part." };
             yield return new object[] { new Parameters().AddPatchParameter("replace", path: "Patient.gender"), "Patch replace operations must have the 'value' part." };
         }
@@ -109,16 +109,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [SkippableTheory(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly(FhirBundleProcessingLogic processingLogic)
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
 
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 

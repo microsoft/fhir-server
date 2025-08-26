@@ -10,7 +10,13 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Health;
+using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Health;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -18,9 +24,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -126,11 +132,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<ReindexJobSqlThrottlingController>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SqlQueueClient>()
                 .Singleton()
                 .AsSelf()
@@ -167,14 +168,20 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.AddSingleton<ValueCache<CustomerKeyHealth>>();
+
+            services.Add<SqlStatusReporter>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<DefragWatchdog>().Singleton().AsSelf();
-
             services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
-
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+
+            services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

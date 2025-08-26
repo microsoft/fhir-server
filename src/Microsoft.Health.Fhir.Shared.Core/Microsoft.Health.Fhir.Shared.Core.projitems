@@ -30,7 +30,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterInfoEqualityComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandler.cs" />
@@ -51,12 +50,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalPatchResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\FhirPathPatchBuilder.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\OperationUpsert.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\JsonPatchPayload.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatchPayload.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\FhirPathPatchBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\ElementModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\FhirParametersExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\BulkUpdateService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)\Features\Resources\Patch\FhirPathPatch\Operations\PatchOperationType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\OperationAdd.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\OperationBase.cs" />
