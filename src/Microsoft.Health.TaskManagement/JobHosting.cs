@@ -53,7 +53,7 @@ namespace Microsoft.Health.JobManagement
             _lastHeartbeatLog = DateTime.UtcNow;
             var workers = new List<Task<JobInfo>>();
             var dequeueDelay = true;
-            var dequeueTimeoutJobStopwatch = Stopwatch.StartNew();
+            var dequeueTimeoutJobsStopwatch = Stopwatch.StartNew();
             var dequeueTimeoutJobsCounter = 0;
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -119,10 +119,10 @@ namespace Microsoft.Health.JobManagement
 #endif
                 }
 
-                if (dequeueTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                if (dequeueTimeoutJobsStopwatch.Elapsed.TotalSeconds > 600)
                 {
                     dequeueTimeoutJobsCounter = runningJobsTarget;
-                    dequeueTimeoutJobStopwatch.Restart();
+                    dequeueTimeoutJobsStopwatch.Restart();
                 }
 
                 if (DateTime.UtcNow - _lastHeartbeatLog > TimeSpan.FromHours(1))
