@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  sql:
+    container_name: fhir-sql-github
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      # Use environment variable for password - better for GitHub CI/CD
+      SA_PASSWORD: "${SQL_SERVER_PASSWORD:-Dev123!@#}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      # Use named volume for better performance in CI
+      - sql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${SQL_SERVER_PASSWORD:-Dev123!@#} -Q 'SELECT 1' -C"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  fhir:
+    depends_on:
+      sql:
+        condition: service_healthy
+    build: 
+      context: ../../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.
+        USER_UID: 1000
+        USER_GID: 1000
+
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock 
+      - ../../:/workspace:cached
+      # Cache node_modules and obj/bin folders for better performance
+      - fhir-node-modules:/workspace/node_modules
+      - fhir-obj:/workspace/obj
+      - fhir-bin:/workspace/bin
+
+    entrypoint: /usr/local/share/docker-init.sh
+
+    # Use bridge network for better isolation in CI
+    networks:
+      - fhir-network
+    
+    environment:
+      # FHIR Server configuration for SQL Server
+      DataStore: "SqlServer"
+      SqlServer__AllowDatabaseCreation: "true"
+      SqlServer__Initialize: "true"
+      SqlServer__SchemaOptions__AutomaticUpdatesEnabled: "true"
+      SqlServer__ConnectionString: "Server=sql,1433;Initial Catalog=FHIR;User ID=sa;Password=${SQL_SERVER_PASSWORD:-Dev123!@#};TrustServerCertificate=true;Encrypt=false"
+      TestAuthEnvironment__FilePath: "/workspace/testauthenvironment.json"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      TaskHosting__Enabled: "true"
+      TaskHosting__MaxRunningTaskCount: "2"
+      # Disable authentication for CI/testing
+      FhirServer__Security__Enabled: "false"
+    
+    # so the container won't exit
+    command: sleep infinity
+
+networks:
+  fhir-network:
+    driver: bridge
+
+volumes:
+  sql-data:
+  fhir-node-modules:
+  fhir-obj:
+  fhir-bin:

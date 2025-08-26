@@ -295,3 +295,6 @@ install-aso/
 
 # Azurite
 __azurite*
+
+# DevContainer environment files
+.devcontainer/**/.env

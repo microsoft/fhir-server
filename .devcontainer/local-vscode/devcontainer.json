@@ -1,0 +1,95 @@
+// DevContainer for local VSCode development
+// Connects to host SQL Server or Cosmos DB instances
+{
+    "name": "FHIR Local Development",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "fhir",
+    "workspaceFolder": "/workspace",
+
+    "hostRequirements": {
+        "cpus": 2,
+        "memory": "4gb"
+    },
+
+    "features": {
+        "ghcr.io/devcontainers/features/azure-cli:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+
+    // Use this environment variable if you need to bind mount your local source code into a new container.
+    "remoteEnv": {
+        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+        // These should be set in your local environment or .env file
+        "SQL_SERVER_CONNECTION": "${localEnv:SQL_SERVER_CONNECTION:server=host.docker.internal;Initial Catalog=FHIR;Integrated Security=true;TrustServerCertificate=true}",
+        "COSMOS_DB_HOST": "${localEnv:COSMOS_DB_HOST:https://host.docker.internal:8081}",
+        "COSMOS_DB_KEY": "${localEnv:COSMOS_DB_KEY:C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==}",
+        "DATASTORE_TYPE": "${localEnv:DATASTORE_TYPE:SqlServer}",
+        "FHIR_SERVER_SECRET": "${localEnv:FHIR_SERVER_SECRET:dev-secret-key}"
+    },
+    
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "github.copilot",
+                "github.copilot-chat",
+                "ms-azuretools.vscode-docker",
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.csdevkit",
+                "ms-dotnettools.vscodeintellicode-csharp",
+                "ms-azuretools.vscode-cosmosdb",
+                "ms-mssql.mssql",
+                "humao.rest-client",
+                "azurite.azurite",
+                "ms-azuretools.vscode-health-fhir-converter",
+                "yannick-lagger.vscode-fhir-tools",
+                "edenlabio.fhir-profiler-tool",
+                "cqframework.cql",
+                "github.vscode-pull-request-github",
+                "github.github-vscode-theme",
+                // Additional extensions for local development
+                "ms-vscode.powershell",
+                "formulahendry.dotnet-test-explorer"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                // Optimized settings for local development
+                "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
+                "omnisharp.enableRoslynAnalyzers": true,
+                "omnisharp.enableEditorConfigSupport": true,
+                "omnisharp.enableAsyncCompletion": true,
+                // GitHub Copilot settings
+                "github.copilot.enable": {
+                    "*": true,
+                    "yaml": true,
+                    "plaintext": false,
+                    "markdown": true,
+                    "csharp": true
+                },
+                // SQL connection for local development
+                "mssql.connections": [
+                    {
+                        "server": "host.docker.internal",
+                        "database": "FHIR",
+                        "authenticationType": "Integrated",
+                        "profileName": "Local FHIR SQL Server",
+                        "password": ""
+                    }
+                ]
+            }
+        }
+    },
+
+    // Post-create setup for local development
+    "postCreateCommand": "echo 'Local development container ready. Use DATASTORE_TYPE env var to switch between SqlServer/CosmosDb'",
+
+    // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    "remoteUser": "vscode",
+
+    "portsAttributes": {
+        "44348": {
+            "label": "FHIR Server HTTPS",
+            "protocol": "https"
+        }
+    }
+}

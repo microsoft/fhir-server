@@ -1,0 +1,122 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "R4 - Local Development",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR4",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "${env:DATASTORE_TYPE}",
+                // SQL Server settings
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true",
+                "SqlServer__ConnectionString": "${env:SQL_SERVER_CONNECTION};Initial Catalog=FHIR_R4",
+                // Cosmos DB settings  
+                "CosmosDb__Host": "${env:COSMOS_DB_HOST}",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_R4",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true",
+                "CosmosDb__UseManagedIdentity": "false",
+                // Common settings
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "${env:FHIR_SECURITY_ENABLED}",
+                "FhirServer__Operations__Export__StorageAccountConnection": "${env:EXPORT_STORAGE_CONNECTION}",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "${env:INTEGRATION_STORAGE_CONNECTION}",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "${env:TASK_HOSTING_ENABLED}",
+                "TaskHosting__MaxRunningTaskCount": "${env:TASK_HOSTING_MAX_RUNNING_TASKS}"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "STU3 - Local Development", 
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildSTU3",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "${env:DATASTORE_TYPE}",
+                // SQL Server settings
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true",
+                "SqlServer__ConnectionString": "${env:SQL_SERVER_CONNECTION};Initial Catalog=FHIR_STU3",
+                // Cosmos DB settings
+                "CosmosDb__Host": "${env:COSMOS_DB_HOST}",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_STU3",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true",
+                "CosmosDb__UseManagedIdentity": "false",
+                // Common settings
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "${env:FHIR_SECURITY_ENABLED}",
+                "FhirServer__Operations__Export__StorageAccountConnection": "${env:EXPORT_STORAGE_CONNECTION}",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "${env:INTEGRATION_STORAGE_CONNECTION}",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "${env:TASK_HOSTING_ENABLED}",
+                "TaskHosting__MaxRunningTaskCount": "${env:TASK_HOSTING_MAX_RUNNING_TASKS}"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "R5 - Local Development",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR5", 
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "${env:DATASTORE_TYPE}",
+                // SQL Server settings
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true",
+                "SqlServer__ConnectionString": "${env:SQL_SERVER_CONNECTION};Initial Catalog=FHIR_R5",
+                // Cosmos DB settings
+                "CosmosDb__Host": "${env:COSMOS_DB_HOST}",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_R5",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true",
+                "CosmosDb__UseManagedIdentity": "false",
+                // Common settings
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "${env:FHIR_SECURITY_ENABLED}",
+                "FhirServer__Operations__Export__StorageAccountConnection": "${env:EXPORT_STORAGE_CONNECTION}",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "${env:INTEGRATION_STORAGE_CONNECTION}",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "${env:TASK_HOSTING_ENABLED}",
+                "TaskHosting__MaxRunningTaskCount": "${env:TASK_HOSTING_MAX_RUNNING_TASKS}"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}

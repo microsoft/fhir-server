@@ -1,0 +1,83 @@
+// DevContainer for GitHub CI/CD with SQL Server backend
+// Optimized for automated builds and testing in GitHub environment
+{
+    "name": "FHIR GitHub CI - SQL Server",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "fhir",
+    "workspaceFolder": "/workspace",
+
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "8gb"
+    },
+
+    "features": {
+        "ghcr.io/devcontainers/features/azure-cli:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+
+    // Use this environment variable if you need to bind mount your local source code into a new container.
+    "remoteEnv": {
+        "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+        // Use environment variables for sensitive data instead of hardcoded values
+        "SQL_SERVER_PASSWORD": "${localEnv:SQL_SERVER_PASSWORD:Dev123!@#}",
+        "FHIR_SERVER_SECRET": "${localEnv:FHIR_SERVER_SECRET:dev-secret-key}"
+    },
+    
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "github.copilot",
+                "github.copilot-chat",
+                "ms-azuretools.vscode-docker",
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.csdevkit",
+                "ms-dotnettools.vscodeintellicode-csharp",
+                "ms-azuretools.vscode-cosmosdb",
+                "ms-mssql.mssql",
+                "humao.rest-client",
+                "azurite.azurite",
+                "ms-azuretools.vscode-health-fhir-converter",
+                "yannick-lagger.vscode-fhir-tools",
+                "edenlabio.fhir-profiler-tool",
+                "cqframework.cql",
+                "github.vscode-pull-request-github",
+                "github.github-vscode-theme"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                // Optimized settings for GitHub CI environment
+                "omnisharp.enableMsBuildLoadProjectsOnDemand": true,
+                "omnisharp.enableRoslynAnalyzers": true,
+                "omnisharp.enableEditorConfigSupport": true,
+                "omnisharp.enableAsyncCompletion": true,
+                // GitHub Copilot settings
+                "github.copilot.enable": {
+                    "*": true,
+                    "yaml": true,
+                    "plaintext": false,
+                    "markdown": true,
+                    "csharp": true
+                }
+            }
+        }
+    },
+
+    // Post-create commands to setup the environment
+    "postCreateCommand": "echo 'GitHub CI SQL container ready for FHIR development'",
+
+    // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    "remoteUser": "vscode",
+
+    "portsAttributes": {
+        "44348": {
+            "label": "FHIR Server HTTPS",
+            "protocol": "https"
+        },
+        "1433": {
+            "label": "SQL Server",
+            "protocol": "tcp"
+        }
+    }
+}

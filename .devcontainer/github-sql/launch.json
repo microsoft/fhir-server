@@ -1,0 +1,86 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "R4 SQL Server - GitHub CI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR4",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "SqlServer",
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true",
+                "SqlServer__ConnectionString": "Server=sql,1433;Initial Catalog=FHIR_R4;User ID=sa;Password=${env:SQL_SERVER_PASSWORD};TrustServerCertificate=true;Encrypt=false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "false",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "STU3 SQL Server - GitHub CI",
+            "type": "coreclr", 
+            "request": "launch",
+            "preLaunchTask": "buildSTU3",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "SqlServer",
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true", 
+                "SqlServer__ConnectionString": "Server=sql,1433;Initial Catalog=FHIR_STU3;User ID=sa;Password=${env:SQL_SERVER_PASSWORD};TrustServerCertificate=true;Encrypt=false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "false",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "R5 SQL Server - GitHub CI",
+            "type": "coreclr",
+            "request": "launch", 
+            "preLaunchTask": "buildR5",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "SqlServer",
+                "SqlServer__AllowDatabaseCreation": "true",
+                "SqlServer__Initialize": "true",
+                "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "true",
+                "SqlServer__ConnectionString": "Server=sql,1433;Initial Catalog=FHIR_R5;User ID=sa;Password=${env:SQL_SERVER_PASSWORD};TrustServerCertificate=true;Encrypt=false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json", 
+                "FhirServer__Security__Enabled": "false",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}

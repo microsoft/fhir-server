@@ -1,33 +1,49 @@
-## DevContainers
+# FHIR Server DevContainers
+
+## 🚀 New Organized DevContainer Setup
+
+**We now have 3 specialized DevContainer configurations!** Each optimized for different development scenarios:
+
+- 📁 **[github-sql/](./github-sql/)** - GitHub CI/CD with SQL Server backend
+- 📁 **[github-cosmos/](./github-cosmos/)** - GitHub CI/CD with Cosmos DB backend  
+- 📁 **[local-vscode/](./local-vscode/)** - Local development connecting to host databases
+
+👉 **[See the comprehensive README.md for detailed instructions](./README.md)**
+
+## Legacy Setup (Still Available)
 
 [DevContainers](https://code.visualstudio.com/docs/remote/containers) lets you use a Docker container as a full-featured development environment. It allows you to open any folder inside (or mounted into) a container and take advantage of Visual Studio Code's full feature set.
 
-In this project the devcontainer starts two containers:
-1) the dev container with .net SDK
-2) a container with the Azure CosmosDB emulator
+The legacy devcontainer setup starts two containers:
+1) the dev container with .NET SDK
+2) a container with the SQL Server or Azure CosmosDB emulator
 
-The two containers are wired so after switching to the remote container, just hit 'debug/run' (cosmos version) and start debugging.
-
-### Prerequisites
-
-Visual Studio Code
-
-### Usage
+### Quick Start (Legacy)
 
 1. Install the 'Visual Studio Code Remote - Containers' extension.
-2. Visual Studio Code will ask to open the folder inside a container. Allow it.
-3. Your dev env is ready for use.
+2. Open the repository root in VSCode  
+3. VSCode will ask to open the folder inside a container. Allow it.
+4. Your dev env is ready for use.
 
-Another option
+Alternative method:
 1. Install the 'Visual Studio Code Remote - Containers' extension.
 2. Click on the bottom left corner and click 'reopen in a container'
-![Start](../docs/images/devcontainers/devcontainer1.png)&nbsp;
-![Start](../docs/images/devcontainers/devcontainer2.png)&nbsp;
 3. The container will start
-![Start](../docs/images/devcontainers/devcontainer3.png)&nbsp;
 
 ### Running / Debugging FHIR
 
-1. Run the selected profile
-![Start](../docs/images/devcontainers/devcontainer4.png)&nbsp;
-2. Use postman to query the server. e.g. https://localhost:44348/Patient
+1. Run the selected profile (F5 or Run panel)
+2. Use Postman or REST Client to query the server: `https://localhost:44348/Patient`
+
+---
+
+## ⚡ Upgrade to New DevContainers
+
+**Benefits of the new setup:**
+- ✅ No hardcoded passwords  
+- ✅ Environment variable configuration
+- ✅ Better organization for CI vs local development
+- ✅ GitHub Copilot ready out of the box
+- ✅ Optimized performance for each scenario
+
+**[Get started with the new DevContainers →](./README.md)**

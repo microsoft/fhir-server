@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  cosmos:
+    container_name: fhir-cosmos-github
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: 2.0
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
+      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+      # Better for CI - don't require SSL for internal communication
+      AZURE_COSMOS_EMULATOR_DISABLE_SERVER_CERTIFICATE_VALIDATION: "true"
+      AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: "127.0.0.1"
+    volumes:
+      # Use named volume for persistence in CI
+      - cosmos-data:/tmp/cosmos/appdata
+    ports:
+      - "8081:8081"
+      - "8900:8900"
+    healthcheck:
+      test: ["CMD", "curl", "-k", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - fhir-network
+
+  fhir:
+    depends_on:
+      cosmos:
+        condition: service_healthy
+    build: 
+      context: ../../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.
+        USER_UID: 1000
+        USER_GID: 1000
+
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock 
+      - ../../:/workspace:cached
+      # Cache node_modules and obj/bin folders for better performance
+      - fhir-node-modules:/workspace/node_modules
+      - fhir-obj:/workspace/obj
+      - fhir-bin:/workspace/bin
+
+    entrypoint: /usr/local/share/docker-init.sh
+
+    # Use bridge network for better isolation in CI
+    networks:
+      - fhir-network
+    
+    environment:
+      # FHIR Server configuration for Cosmos DB
+      DataStore: "CosmosDb"
+      CosmosDb__Host: "https://cosmos:8081"
+      CosmosDb__Key: "${COSMOS_DB_KEY:-C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==}"
+      CosmosDb__DatabaseId: "FhirTests"
+      CosmosDb__AllowDatabaseCreation: "true"
+      CosmosDb__AllowCollectionSetup: "true"
+      CosmosDb__UseManagedIdentity: "false"
+      TestAuthEnvironment__FilePath: "/workspace/testauthenvironment.json"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      TaskHosting__Enabled: "true"
+      TaskHosting__MaxRunningTaskCount: "2"
+      # Disable authentication for CI/testing
+      FhirServer__Security__Enabled: "false"
+      # Storage for export/import operations
+      FhirServer__Operations__Export__StorageAccountConnection: "UseDevelopmentStorage=true"
+      FhirServer__Operations__IntegrationDataStore__StorageAccountConnection: "UseDevelopmentStorage=true"
+      FhirServer__Operations__Import__Enabled: "true"
+    
+    # so the container won't exit
+    command: sleep infinity
+
+networks:
+  fhir-network:
+    driver: bridge
+
+volumes:
+  cosmos-data:
+  fhir-node-modules:
+  fhir-obj:
+  fhir-bin:

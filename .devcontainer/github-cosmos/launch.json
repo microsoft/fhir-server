@@ -1,0 +1,101 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "R4 Cosmos DB - GitHub CI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR4", 
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "CosmosDb",
+                "CosmosDb__Host": "https://cosmos:8081",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_R4",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true", 
+                "CosmosDb__UseManagedIdentity": "false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "false",
+                "FhirServer__Operations__Export__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "STU3 Cosmos DB - GitHub CI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildSTU3",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "CosmosDb",
+                "CosmosDb__Host": "https://cosmos:8081",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_STU3",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true",
+                "CosmosDb__UseManagedIdentity": "false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "false",
+                "FhirServer__Operations__Export__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "R5 Cosmos DB - GitHub CI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR5",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net9.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "CosmosDb",
+                "CosmosDb__Host": "https://cosmos:8081",
+                "CosmosDb__Key": "${env:COSMOS_DB_KEY}",
+                "CosmosDb__DatabaseId": "FHIR_R5",
+                "CosmosDb__AllowDatabaseCreation": "true",
+                "CosmosDb__AllowCollectionSetup": "true",
+                "CosmosDb__UseManagedIdentity": "false",
+                "TestAuthEnvironment__FilePath": "/workspace/testauthenvironment.json",
+                "FhirServer__Security__Enabled": "false", 
+                "FhirServer__Operations__Export__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__IntegrationDataStore__StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer__Operations__Import__Enabled": "true",
+                "TaskHosting__Enabled": "true",
+                "TaskHosting__MaxRunningTaskCount": "2"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            },
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}
