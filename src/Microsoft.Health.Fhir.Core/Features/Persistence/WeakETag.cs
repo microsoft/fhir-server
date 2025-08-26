@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Text.RegularExpressions;
+using System.Net.Http.Headers;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class WeakETag
     {
         private const string WeakEtagPattern = @"^W\/\""(.+)\""$";
+        private readonly EntityTagHeaderValue _entityTag;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WeakETag"/> class.
@@ -21,6 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private WeakETag(string versionId)
         {
             VersionId = versionId;
+            // Create a weak ETag using EntityTagHeaderValue
+            // Need to add quotes if not already present
+            string tagValue = versionId.StartsWith("\"") && versionId.EndsWith("\"") ? versionId : $"\"{versionId}\"";
+            _entityTag = new EntityTagHeaderValue(tagValue, isWeak: true);
         }
 
         /// <summary>
@@ -38,9 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(versionId, nameof(versionId));
 
-            var match = Regex.Match(versionId, WeakEtagPattern);
-
-            if (match.Success)
+            // Check if the versionId is already formatted as a weak ETag
+            if (EntityTagHeaderValue.TryParse(versionId, out var parsed) && parsed.IsWeak)
             {
                 // This throws an argument exception because it should only be caused by internal calls
                 throw new ArgumentException(Core.Resources.VersionIdFormatNotETag, nameof(versionId));
@@ -58,15 +62,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
-            var match = Regex.Match(weakETag, WeakEtagPattern);
-
-            if (!match.Success)
+            if (!EntityTagHeaderValue.TryParse(weakETag, out var parsed) || !parsed.IsWeak)
             {
                 // This throws a bad request exception because it was potentially supplied by an end user
                 throw new BadRequestException(string.Format(Core.Resources.WeakETagFormatRequired, weakETag));
             }
 
-            return new WeakETag(match.Groups[1].Value);
+            // Extract the version ID from the parsed ETag
+            // parsed.Tag includes quotes, so remove them
+            string tag = parsed.Tag;
+            string versionId = tag.StartsWith("\"") && tag.EndsWith("\"") 
+                ? tag.Substring(1, tag.Length - 2) 
+                : tag;
+
+            return new WeakETag(versionId);
         }
 
         /// <summary>
@@ -75,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <returns>WeakETag with the weak etag decoration</returns>
         public override string ToString()
         {
-            return $"W/\"{VersionId}\"";
+            return _entityTag.ToString();
         }
     }
 }
