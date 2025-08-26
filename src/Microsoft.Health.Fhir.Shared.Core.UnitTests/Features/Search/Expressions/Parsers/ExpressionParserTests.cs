@@ -307,6 +307,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(new[] { resourceType.ToString() }, invalidParameterName, "value"));
         }
 
+        [Theory]
+        [InlineData("*")]
+        [InlineData("  :*")]
+        public void GivenARevIncludeWithoutResourceType_WhenParsing_ThenExceptionShouldBeThrown(string includeValue)
+        {
+            ResourceType sourceResourceType = ResourceType.Patient;
+
+            // Parse the expression.
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.ParseInclude(new[] { sourceResourceType.ToString() }, includeValue, true, false, null));
+        }
+
         private SearchParameterInfo SetupSearchParameter(ResourceType resourceType, string paramName)
         {
             SearchParameterInfo searchParameter = new SearchParameter

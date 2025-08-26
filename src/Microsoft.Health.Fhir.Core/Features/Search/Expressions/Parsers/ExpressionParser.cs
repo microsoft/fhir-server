@@ -98,6 +98,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
             }
 
+            if (isReversed && string.IsNullOrWhiteSpace(originalType))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.RevIncludeMissingType);
+            }
+
             allowedResourceTypesByScope = allowedResourceTypesByScope?.ToList();
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
             {
