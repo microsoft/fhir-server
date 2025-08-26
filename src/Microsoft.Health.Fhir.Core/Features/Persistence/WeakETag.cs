@@ -11,7 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class WeakETag
     {
-        private const string WeakEtagPattern = @"^W\/\""(.+)\""$";
         private readonly EntityTagHeaderValue _entityTag;
 
         /// <summary>
