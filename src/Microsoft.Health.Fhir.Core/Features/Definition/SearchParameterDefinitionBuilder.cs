@@ -20,6 +20,8 @@ using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -44,14 +46,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         internal static void Build(
             IReadOnlyCollection<ITypedElement> searchParameters,
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
@@ -68,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider, logger);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider, searchParameterComparer, logger);
             }
         }
 
@@ -304,14 +308,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private static HashSet<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
-            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
             HashSet<SearchParameterInfo> results;
-            if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> cachedSearchParameters))
+            if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> cachedSearchParameters))
             {
-                results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
+                results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values.SelectMany(x => x));
             }
             else
             {
@@ -326,19 +331,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null && !string.Equals(KnownResourceTypes.Base, baseType, StringComparison.OrdinalIgnoreCase))
             {
-                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider, logger);
+                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider, searchParameterComparer, logger);
                 results.UnionWith(baseResults);
             }
 
             results.UnionWith(searchParametersLookup[resourceType]);
 
-            var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
+            var searchParameterDictionary = new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>();
             foreach (SearchParameterInfo searchParam in results)
             {
-                if (!searchParameterDictionary.TryAdd(searchParam.Code, searchParam) && searchParameterDictionary.TryGetValue(searchParam.Code, out SearchParameterInfo searchPWithSameCode))
-                {
-                    logger.LogWarning("SearchParameterDefinitionBuilder: Search parameter name {SearchParam1} with Base Resource Type {BaseResourceTypes1} has same code {Code} as Search Param name {SearchParam2} with Base Resource Type {BaseResourceTypes2}", searchParam.Name, searchParam.BaseResourceTypes, searchParam.Code, searchPWithSameCode.Name, searchPWithSameCode.BaseResourceTypes);
-                }
+                searchParameterDictionary.AddOrUpdate(
+                    searchParam.Code,
+                    _ => new ConcurrentQueue<SearchParameterInfo>(new[] { searchParam }),
+                    (_, existing) =>
+                    {
+                        var isBaseTypeSearchParameter = searchParam.IsBaseTypeSearchParameter();
+                        if (existing.TryPeek(out var sp) && sp != null)
+                        {
+                            if (searchParam.Type != sp.Type)
+                            {
+                                logger.LogWarning("The types of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            isBaseTypeSearchParameter |= sp.IsBaseTypeSearchParameter();
+                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression, isBaseTypeSearchParameter) == int.MinValue)
+                            {
+                                logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
+                                return existing;
+                            }
+
+                            if (searchParam.Type == SearchParamType.Composite)
+                            {
+                                var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                if (searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
+                                {
+                                    logger.LogWarning("The components of the incoming and existing search parameter are different.");
+                                    return existing;
+                                }
+                            }
+                        }
+
+                        var list = new List<SearchParameterInfo>(existing);
+                        list.Add(searchParam);
+                        if (isBaseTypeSearchParameter)
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter));
+                        }
+                        else
+                        {
+                            list.Sort((x, y) => searchParameterComparer.CompareExpression(y.Expression, x.Expression));
+                        }
+
+                        return new ConcurrentQueue<SearchParameterInfo>(list);
+                    });
             }
 
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
