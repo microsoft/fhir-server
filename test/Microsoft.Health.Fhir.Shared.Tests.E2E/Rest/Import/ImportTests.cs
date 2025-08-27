@@ -308,39 +308,26 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            const string date = "1900-01-01Z00:00"; // make sure this date is not used by other tests.
-
-            // last batch should be large to minimize size dependent retries, hence load single resource first
-            var ndJson = CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse(date));
-            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
-            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var message = await ImportWaitAsync(checkLocation, false);
-            if (message.StatusCode == HttpStatusCode.BadRequest) // after 1000 runs in CI it can start failing here
-            {
-                Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
-                return;
-            }
-
-            Assert.Equal(HttpStatusCode.OK, message.StatusCode);
-
+            // import runs batches of 1000 resources, to minimize size dependent retries attempt to load 81000,
+            // so all batches have the same size of 1000 resources
             // create 4 files to utilize all threads
             var locations = new List<Uri>();
             for (int l = 0; l < 4; l++)
             {
                 var strbld = new StringBuilder();
-                for (int i = 0; i < 20000; i++)
+                for (int i = 0; i < (l < 3 ? 20000 : 21000); i++)
                 {
                     var id = Guid.NewGuid().ToString("N");
-                    var str = CreateTestPatient(id, DateTimeOffset.Parse(date));
+                    var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
                     strbld.Append(str);
                 }
 
                 locations.Add((await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location);
             }
 
-            request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
-            checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            message = await ImportWaitAsync(checkLocation, false);
+            var request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
         }
