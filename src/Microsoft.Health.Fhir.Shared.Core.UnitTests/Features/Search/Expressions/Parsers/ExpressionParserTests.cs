@@ -308,14 +308,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("*")]
-        [InlineData("  :*")]
-        public void GivenARevIncludeWithoutResourceType_WhenParsing_ThenExceptionShouldBeThrown(string includeValue)
+        [InlineData("*", true, true)]
+        [InlineData("*:*", true, true)]
+        [InlineData(":*", true, false)]
+        [InlineData("  :*", true, false)]
+        [InlineData("*", false, true)]
+        [InlineData("*:*", false, true)]
+        public void GivenAnIncludeOrRevInclude_WhenParsing_ThenExceptionShouldBeThrownOnInvalidResourceType(string includeValue, bool revinclude, bool success)
         {
-            ResourceType sourceResourceType = ResourceType.Patient;
-
-            // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.ParseInclude(new[] { sourceResourceType.ToString() }, includeValue, true, false, null));
+            try
+            {
+                _expressionParser.ParseInclude(new[] { ResourceType.Patient.ToString() }, includeValue, revinclude, false, null);
+                Assert.True(success);
+            }
+            catch (InvalidSearchOperationException)
+            {
+                Assert.False(success);
+            }
         }
 
         private SearchParameterInfo SetupSearchParameter(ResourceType resourceType, string paramName)

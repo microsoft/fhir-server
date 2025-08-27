@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 wildCard = true;
+                originalType = isReversed ? "*" : originalType;
             }
             else if (TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> type))
             {
