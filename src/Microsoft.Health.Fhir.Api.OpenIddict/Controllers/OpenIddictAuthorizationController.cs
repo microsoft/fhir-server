@@ -45,7 +45,9 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Token()
         {
-            var request = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>()?.Transaction?.Request;
+            var feature = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>();
+            var transaction = feature?.Transaction;
+            var request = transaction?.Request;
             if (request == null)
             {
                 throw new RequestNotValidException("Invalid request: null");
@@ -86,6 +88,13 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
             // Set the list of scopes granted to the client application in access_token.
             identity.SetScopes(request.GetScopes());
             identity.SetResources(await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes())));
+
+            // Add a custom claim for the raw scope with dynamic query parameters.
+            if (transaction.Properties.TryGetValue("raw_scope", out var rawScopeObj) && rawScopeObj is string rawScope)
+            {
+                identity.SetClaim("raw_scope", rawScope);
+            }
+
             identity.SetDestinations(GetDestinations);
 
             return SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);

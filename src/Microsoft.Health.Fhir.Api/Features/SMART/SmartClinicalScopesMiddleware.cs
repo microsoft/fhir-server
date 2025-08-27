@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -33,7 +35,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
-        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all|[cruds]+)", RegexOptions.Compiled);
+        private static readonly Regex ClinicalScopeRegEx = new Regex(
+            @"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|[a-zA-Z]*|all)\.(?<accessLevel>read|write|\*|all|[cruds]+)(?:\?(?<searchParams>([a-zA-Z0-9_\-]+=[^&\s]+)(&[a-zA-Z0-9_\-]+=[^&\s]+)*))?",
+            RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -142,21 +146,62 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     foreach (string singleScope in authorizationConfiguration.ScopesClaim)
                     {
-                        foreach (Claim claim in principal.FindAll(singleScope))
+                        // To support SMART V2 Finer-grained resource constraints using search parameters in OpenIdDict we are replacing the search parameters with wild card *
+                        // For example Patient/Observation.rd?category=blah will be Patient/Observation.rd?*
+                        // We are storing the original scopes in raw_Scope
+                        // If the raw_Scope is non empty then use that as a scopeClaims
+                        // In all the other cases (including anything other than OpenIdDict) keep reading from all the possible scopes like scp, scope, roles
+                        if (!string.IsNullOrEmpty(principal.FindFirstValue("raw_scope")))
                         {
-                            scopeClaims += " " + string.Join(" ", claim.Value);
+                            scopeClaims = principal.FindFirstValue("raw_scope");
+                            break;
+                        }
+                        else
+                        {
+                            foreach (Claim claim in principal.FindAll(singleScope))
+                            {
+                                scopeClaims += " " + string.Join(" ", claim.Value);
+                            }
                         }
                     }
 
                     var matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    bool smartV1AccessLevelUsed = false;
+                    bool smartV2AccessLevelUsed = false;
                     foreach (Match match in matches)
                     {
+                        var accessLevel = match.Groups["accessLevel"]?.Value;
+                        if (string.IsNullOrEmpty(accessLevel))
+                        {
+                            continue;
+                        }
+
+                        // Detect v1 vs v2 based on the accessLevel value.
+                        // v1 uses: "read", "write", "*", "all"
+                        // v2 uses: letters from "cruds" (e.g., "c", "r", "u", "d", "s" or any combination)
+                        if (accessLevel.Equals("read", StringComparison.OrdinalIgnoreCase) ||
+                                           accessLevel.Equals("write", StringComparison.OrdinalIgnoreCase) ||
+                                           accessLevel.Equals("*", StringComparison.OrdinalIgnoreCase) ||
+                                           accessLevel.Equals("all", StringComparison.OrdinalIgnoreCase))
+                        {
+                            smartV1AccessLevelUsed = true;
+                        }
+                        else
+                        {
+                            smartV2AccessLevelUsed = true;
+                        }
+
+                        // If both types are detected, throw an error.
+                        if (smartV1AccessLevelUsed && smartV2AccessLevelUsed)
+                        {
+                            throw new BadHttpRequestException(string.Format(Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed));
+                        }
+
                         fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
+                        SearchParams smartScopeSearchParameters = new SearchParams();
 
                         var id = match.Groups["id"]?.Value;
                         var resource = match.Groups["resource"]?.Value;
-                        var accessLevel = match.Groups["accessLevel"]?.Value;
-
                         permittedDataActions = ParseScopePermissions(accessLevel);
 
                         if (!string.IsNullOrEmpty(resource)
@@ -167,7 +212,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 resource = KnownResourceTypes.All;
                             }
 
-                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+                            // If Finer-grained resource constraints using search parameters present
+                            if (match.Groups["searchParams"].Success)
+                            {
+                                smartScopeSearchParameters = new SearchParams();
+                                var searchParamsString = match.Groups["searchParams"].Value;
+                                var searchParamsPairs = searchParamsString.Split('&');
+
+                                // iterate through each key-value pair and add them to the SearchParams
+                                foreach (var kvPair in searchParamsPairs)
+                                {
+                                    var parts = kvPair.Split('=');
+                                    if (parts.Length == 2)
+                                    {
+                                        smartScopeSearchParameters.Add(parts[0], parts[1]);
+                                    }
+                                }
+
+                                if (smartScopeSearchParameters.Parameters.Count > 0)
+                                {
+                                    fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControlWithSearchParameters = true;
+                                }
+                            }
+
+                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id, smartScopeSearchParameters));
 
                             scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
 

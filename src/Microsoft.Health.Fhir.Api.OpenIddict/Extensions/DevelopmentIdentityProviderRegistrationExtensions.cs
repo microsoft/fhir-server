@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
 using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
@@ -121,6 +122,39 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                         // Enable this line if we choose to disable some of the default validation handler OpenIddict uses.
                         // options.EnableDegradedMode();
 
+                        // Custom event handlers to replace dynamic search parameters in SMART v2 scopes with wildcards.
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
+                            {
+                                if (!string.IsNullOrEmpty(context.Request.Scope))
+                                {
+                                    // Store the original scope value.
+                                    context.Transaction.Properties["raw_scope"] = context.Request.Scope;
+
+                                    var originalScopes = context.Request.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                    var normalizedScopes = new List<string>();
+
+                                    foreach (var scope in originalScopes)
+                                    {
+                                        if (scope.Contains('?', StringComparison.CurrentCultureIgnoreCase))
+                                        {
+                                            int index = scope.IndexOf('?', StringComparison.CurrentCultureIgnoreCase);
+
+                                            // Replace the dynamic query part with a fixed wildcard.
+                                            normalizedScopes.Add(string.Concat(scope.AsSpan(0, index), "?*"));
+                                        }
+                                        else
+                                        {
+                                            normalizedScopes.Add(scope);
+                                        }
+                                    }
+
+                                    context.Request.Scope = string.Join(" ", normalizedScopes);
+                                }
+
+                                return default;
+                            }).SetOrder(int.MinValue)); // Ensure this runs early
+
                         // Note: OpenIddict has a default token validation handler that does more granular validation
                         //   including checking the cliend Id and secret. So, we may not need this event handler.
                         //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
@@ -210,29 +244,86 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
+        private static IEnumerable<string> GeneratePermissionCombinations()
+        {
+            // Basic permission letters: create, read, update, delete, search.
+            char[] ops = new[] { 'c', 'r', 'u', 'd', 's' };
+            int n = ops.Length;
+
+            // There are 2^n - 1 non-empty combinations.
+            for (int mask = 1; mask < (1 << n); mask++)
+            {
+                var sb = new StringBuilder();
+                for (int j = 0; j < n; j++)
+                {
+                    if ((mask & (1 << j)) != 0)
+                    {
+                        sb.Append(ops[j]);
+                    }
+                }
+
+                // Do not sort the combination, so the order remains as "cruds".
+                yield return sb.ToString();
+            }
+        }
+
         internal static List<string> GenerateSmartClinicalScopes()
         {
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
             var scopes = new List<string>();
 
+            // Global wildcard scopes for all resources (SMART v1)
             scopes.Add("patient/*.*");
-            scopes.Add("user/*.*");
+            scopes.Add("patient/*.read");
+            scopes.Add("patient/*.write");
             scopes.Add("system/*.*");
             scopes.Add("system/*.read");
-            scopes.Add("patient/*.read");
-            scopes.Add("user/*.write");
+            scopes.Add("system/*.write");
+            scopes.Add("user/*.*");
             scopes.Add("user/*.read");
+            scopes.Add("user/*.write");
 
             foreach (var resourceType in resourceTypes)
             {
+                // SMART v1 scopes
                 scopes.Add($"patient/{resourceType}.*");
-                scopes.Add($"user/{resourceType}.*");
                 scopes.Add($"patient/{resourceType}.read");
-                scopes.Add($"user/{resourceType}.read");
                 scopes.Add($"patient/{resourceType}.write");
-                scopes.Add($"user/{resourceType}.write");
+                scopes.Add($"system/{resourceType}.*");
                 scopes.Add($"system/{resourceType}.write");
                 scopes.Add($"system/{resourceType}.read");
+                scopes.Add($"user/{resourceType}.*");
+                scopes.Add($"user/{resourceType}.read");
+                scopes.Add($"user/{resourceType}.write");
+
+                // SMART v2 granular permission scopes for patient, user, and system contexts.
+                foreach (var prefix in new[] { "patient", "user", "system" })
+                {
+                    foreach (var combo in GeneratePermissionCombinations())
+                    {
+                        scopes.Add($"{prefix}/{resourceType}.{combo}");
+                    }
+                }
+
+                // SMART v2 scopes could have any dynamic search parameter
+                // We would replace them with wildcard * in auth layer
+                foreach (var prefix in new[] { "patient", "user", "system" })
+                {
+                    foreach (var combo in GeneratePermissionCombinations())
+                    {
+                        scopes.Add($"{prefix}/{resourceType}.{combo}?*");
+                    }
+                }
+            }
+
+            // SMART v2 granular permission scopes for all resource types with wildcard *
+            foreach (var prefix in new[] { "patient", "user", "system" })
+            {
+                foreach (var combo in GeneratePermissionCombinations())
+                {
+                    scopes.Add($"{prefix}/*.{combo}");
+                    scopes.Add($"{prefix}/*.{combo}?*");
+                }
             }
 
             return scopes;
