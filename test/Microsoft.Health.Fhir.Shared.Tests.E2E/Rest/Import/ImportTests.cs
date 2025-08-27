@@ -1205,7 +1205,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                     inputResource.Type = "Patient";
                 }
 
-                input.Add(new InputResource() { Url = location });
+                input.Add(inputResource);
             }
 
             var request = new ImportRequest()
