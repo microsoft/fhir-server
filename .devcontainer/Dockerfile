@@ -1,55 +1,20 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/dotnet/.devcontainer/base.Dockerfile
+# Use modern DevContainers .NET image with pre-installed .NET SDKs
+# This eliminates the need to download external scripts and provides a stable foundation
+FROM mcr.microsoft.com/devcontainers/dotnet:9.0
 
-# Note: You can use any Debian/Ubuntu based image you want. 
-FROM mcr.microsoft.com/vscode/devcontainers/base:0-buster
+# Install additional packages needed for FHIR development
+RUN apt-get update && apt-get install -y \
+    dos2unix \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# [Option] Install zsh
-ARG INSTALL_ZSH="true"
-# [Option] Upgrade OS packages to their latest versions
-ARG UPGRADE_PACKAGES="false"
-# [Option] Enable non-root Docker access in container
-ARG ENABLE_NONROOT_DOCKER="true"
-# [Option] Use the OSS Moby CLI instead of the licensed Docker CLI
-ARG USE_MOBY="true"
+# Install .NET 6 SDK for compatibility (project uses both .NET 6 and 9)
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list \
+    && apt-get update \
+    && apt-get install -y dotnet-sdk-6.0 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install needed packages and setup non-root user. Use a separate RUN statement to add your
-# own dependencies. A user of "automatic" attempts to reuse an user ID if one already exists.
-#ARG USERNAME=
-ARG USERNAME=automatic
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-
-RUN sudo mkdir -p /setup
-COPY .devcontainer/library-scripts/*.sh /setup/library-scripts/
-COPY .devcontainer/library-scripts/setup.sh /setup/setup.sh
-RUN wget https://dot.net/v1/dotnet-install.sh -O /setup/dotnet-install.sh
-RUN chmod +x /setup/dotnet-install.sh
-
-RUN apt-get update \
-    && apt-get install -y dos2unix \
-    && dos2unix /setup/library-scripts/*.sh \
-    && /bin/bash /setup/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" "true" "true" \
-    # Use Docker script from script library to set things up
-    && /bin/bash /setup/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "/var/run/docker-host.sock" "/var/run/docker.sock" "${USERNAME}" \
-    # Clean up
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /setup/library-scripts/
-
-# Install .net SDK
-COPY global.json /setup/global.json
-COPY build/dotnet6-compat/global.json /setup/global-dotnet6-compat.json
-RUN dos2unix /setup/*.sh
-RUN chmod +x /setup/*.sh
-RUN sudo mkdir -p /usr/share/dotnet
-RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global-dotnet6-compat.json
-RUN /setup/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global.json
-RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-
-# Setting the ENTRYPOINT to docker-init.sh will configure non-root access 
-# to the Docker socket. The script will also execute CMD as needed.
-ENTRYPOINT [ "/usr/local/share/docker-init.sh" ]
-
-# [Optional] Uncomment this section to install additional OS packages.
-# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-#     && apt-get -y install --no-install-recommends <your-package-list-here>
+# The modern DevContainers base image handles Docker access automatically
+# No custom entrypoint needed for basic functionality
 
 EXPOSE 44348
