@@ -312,7 +312,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // This is achieved by loading 81000 resources total (81 batch). Last batch will be retriued only 80 times.
             // Create 4 files to utilize all import threads
             var locations = new List<Uri>();
-            for (int l = 0; l < 4; l++)
+            for (var l = 0; l < 4; l++)
             {
                 locations.Add(await CreateNDJson(l < 3 ? 20000 : 21000));
             }
@@ -327,7 +327,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         private async Task<Uri> CreateNDJson(int resources)
         {
             var strbld = new StringBuilder();
-            for (int r = 0; r < resources; r++)
+            for (var r = 0; r < resources; r++)
             {
                 var str = CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
                 strbld.Append(str);
