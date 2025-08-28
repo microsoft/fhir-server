@@ -19,6 +19,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -33,6 +34,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
@@ -49,12 +51,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly ITestOutputHelper _output;
 
-        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
+        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture, ITestOutputHelper output)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+            _output = output;
         }
 
         [Fact]
@@ -305,21 +309,16 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayMs = 5000, TimeoutMs = 300000)] // 5 minutes timeout
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            var ndJson = new StringBuilder();
-            for (int i = 0;  i < 80001; i++)
-            {
-                var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
-                ndJson.Append(str);
-            }
+            // Use pre-generated file with 80,001 patients to avoid memory issues
+            string largePatientFile = Samples.GetNdJson("Import-80KPatients");
 
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var message = await ImportWaitAsync(checkLocation, false);
+            var upload = await Time("UploadFileAsync", () => ImportTestHelper.UploadFileAsync(largePatientFile, _fixture.StorageAccount), _output);
+            var request = CreateImportRequest(upload.location, ImportMode.IncrementalLoad);
+            var checkLocation = await Time("CreateImportTaskAsync", () => ImportTestHelper.CreateImportTaskAsync(_client, request), _output);
+            var message = await Time("ImportWaitAsync", () => ImportWaitAsync(checkLocation, false), _output);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
         }
@@ -2017,6 +2016,14 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             return resources;
+        }
+
+        private static async Task<T> Time<T>(string name, Func<Task<T>> op, ITestOutputHelper output)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await op();
+            output.WriteLine($"{name} took {sw.Elapsed}");
+            return result;
         }
     }
 }

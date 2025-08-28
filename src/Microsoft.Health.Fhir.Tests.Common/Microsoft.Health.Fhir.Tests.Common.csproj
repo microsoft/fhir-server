@@ -63,6 +63,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-80KPatients.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
