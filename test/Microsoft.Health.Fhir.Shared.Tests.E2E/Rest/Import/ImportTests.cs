@@ -308,21 +308,13 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            // import runs batches of 1000 resources, to minimize size dependent retries attempt to load 81000,
-            // so all batches have the same size of 1000 resources
-            // create 4 files to utilize all threads
+            // Import loads batches of 1000 resources. To minimize size dependent retries make all batches the same size 1000.
+            // This is achieved by loading 81000 resources total (81 batch). Last batch will be retriued only 80 times.
+            // Create 4 files to utilize all import threads
             var locations = new List<Uri>();
             for (int l = 0; l < 4; l++)
             {
-                var strbld = new StringBuilder();
-                for (int i = 0; i < (l < 3 ? 20000 : 21000); i++)
-                {
-                    var id = Guid.NewGuid().ToString("N");
-                    var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
-                    strbld.Append(str);
-                }
-
-                locations.Add((await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location);
+                locations.Add(await CreateNDJson(l < 3 ? 20000 : 21000));
             }
 
             var request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
@@ -330,6 +322,18 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
+        }
+
+        private async Task<Uri> CreateNDJson(int resources)
+        {
+            var strbld = new StringBuilder();
+            for (int r = 0; r < resources; r++)
+            {
+                var str = CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
+                strbld.Append(str);
+            }
+
+            return (await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location;
         }
 
         [Fact]
