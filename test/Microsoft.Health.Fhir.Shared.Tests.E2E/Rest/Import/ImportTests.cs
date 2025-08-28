@@ -34,6 +34,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
@@ -50,12 +51,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly ITestOutputHelper _output;
 
-        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
+        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture, ITestOutputHelper output)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+            _output = output;
         }
 
         [Fact]
@@ -312,10 +315,10 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // Use pre-generated file with 80,001 patients to avoid memory issues
             string largePatientFile = Samples.GetNdJson("Import-80KPatients");
 
-            var location = (await ImportTestHelper.UploadFileAsync(largePatientFile, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            var message = await ImportWaitAsync(checkLocation, false);
+            var upload = await Time("UploadFileAsync", () => ImportTestHelper.UploadFileAsync(largePatientFile, _fixture.StorageAccount), _output);
+            var request = CreateImportRequest(upload.location, ImportMode.IncrementalLoad);
+            var checkLocation = await Time("CreateImportTaskAsync", () => ImportTestHelper.CreateImportTaskAsync(_client, request), _output);
+            var message = await Time("ImportWaitAsync", () => ImportWaitAsync(checkLocation, false), _output);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
         }
@@ -2013,6 +2016,14 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             return resources;
+        }
+
+        private static async Task<T> Time<T>(string name, Func<Task<T>> op, ITestOutputHelper output)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await op();
+            output.WriteLine($"{name} took {sw.Elapsed}");
+            return result;
         }
     }
 }
