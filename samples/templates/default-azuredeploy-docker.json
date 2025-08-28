@@ -715,7 +715,7 @@
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
             "sku": {
-                "name": "Standard_LRS"
+                "name": "Premium_LRS"
             },
             "kind": "Storage",
             "tags": {}
