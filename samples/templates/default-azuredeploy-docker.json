@@ -717,7 +717,7 @@
             "sku": {
                 "name": "Premium_LRS"
             },
-            "kind": "Storage",
+            "kind": "BlockBlobStorage",
             "tags": {}
         },
         {
