@@ -309,12 +309,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             // Import loads batches of 1000 resources. To minimize size dependent retries make all batches the same size 1000.
-            // This is achieved by loading 81000 resources total (81 batch). Last batch will be retriued only 80 times.
-            // Create 4 files to utilize all import threads
+            // Create 81 files with 1000 resources each. This should use all availble processing threads too.
             var locations = new List<Uri>();
-            for (var l = 0; l < 4; l++)
+            for (var l = 0; l < 81; l++)
             {
-                locations.Add(await CreateNDJson(l < 3 ? 20000 : 21000));
+                locations.Add(await CreateNDJson(1000));
             }
 
             var request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
