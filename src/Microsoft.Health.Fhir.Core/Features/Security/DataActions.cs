@@ -15,8 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     {
         None = 0,
 
-        Read = 1,
-        Write = 1 << 1,
+        // Legacy permissions (maintained for backward compatibility)
+        Read = 1 << 0, // Legacy read permission (includes search capability for SMART v1 compatibility)
+        Write = 1 << 1, // Legacy write permission (kept for backward compatibility)
         Delete = 1 << 2,
         HardDelete = 1 << 3,
         Export = 1 << 4,
@@ -28,9 +29,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         SearchParameter = 1 << 10,
         BulkOperator = 1 << 11,
 
+        // SMART v2 granular permissions
+        Search = 1 << 12, // SMART v2 search permission
+        ReadById = 1 << 13, // SMART v2 read permission (read-only, no search)
+        Create = 1 << 14, // SMART v2 create permission
+        Update = 1 << 15, // SMART v2 update permission
+
         Smart = 1 << 30, // Do not include Smart in the '*' case.  We only want smart for a user if explicitly added to the role or user
 
         [EnumMember(Value = "*")]
-        All = (BulkOperator << 1) - 1,
+        All = (Update << 1) - 1,
     }
 }

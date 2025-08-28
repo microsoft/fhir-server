@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>93</LatestSchemaVersion>
+    <LatestSchemaVersion>94</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -54,6 +54,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -73,15 +74,16 @@
   <ItemGroup>
     <Compile Remove="**\*.generated.cs" />
     <Compile Remove="**\*.generated.*.cs" />
+    <Compile Remove="Features\Operations\Reindex\**" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Features\Operations\Reindex\**" />
+    <None Remove="Features\Operations\Reindex\**" />
   </ItemGroup>
 
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Features\Operations\Reindex\" />
   </ItemGroup>
 
   <!-- Target contains sql build tasks -->

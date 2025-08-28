@@ -58,6 +58,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
+        [Fact]
+        public async Task CheckNumberOfDequeues()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("INSERT INTO dbo.Parameters(Id, Char) SELECT 'DequeueJob', 'LogEvent'");
+
+            await Task.Delay(TimeSpan.FromSeconds(12));
+
+            var dequeues = (int)ExecuteSql(@$"
+SELECT count(*)
+  FROM dbo.EventLog 
+  WHERE EventDate > dateadd(second,-10,getUTCdate())
+    AND Process = 'DequeueJob'
+    AND Mode LIKE 'Q=2 %' -- import
+                ");
+
+            // polling interval is set to 1 second. 2 jobs. expected 20.
+            Assert.True(dequeues > 16 && dequeues < 24, $"not expected dequeues={dequeues}");
+        }
+
         [Theory]
         [InlineData(false)] // eventualConsistency=false
         [InlineData(true)] // eventualConsistency=true
@@ -294,6 +318,32 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
+        public async Task ProcessingJobBytesToReadHonored()
+        {
+            var ndJson = CreateTestPatient(Guid.NewGuid().ToString("N"));
+
+            //// set small bytes to read, so there are multiple processing jobs
+            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
+            var result = await ImportCheckAsync(request, null, 0, true);
+            Assert.Equal(7, result.Output.Count); // 7 processing jobs
+
+            //// no details
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
+            result = await ImportCheckAsync(request, null, 0, false);
+            Assert.Single(result.Output);
+
+            //// default bytes to read
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad);
+            result = await ImportCheckAsync(request, null, 0, true);
+            Assert.Single(result.Output);
+
+            //// 0 should be ovewritten by default in orchestrator job
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 0);
+            result = await ImportCheckAsync(request, null, 0, true);
+            Assert.Single(result.Output);
         }
 
         [Fact]
@@ -1119,7 +1169,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
         {
             var inputResource = new InputResource() { Url = location };
             if (setResourceType)
@@ -1127,7 +1177,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 inputResource.Type = "Patient";
             }
 
-            return new ImportRequest()
+            var request = new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
@@ -1138,6 +1188,13 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 EventualConsistency = eventualConsistency,
                 ErrorContainerName = errorContainerName,
             };
+
+            if (processingJobBytesToRead.HasValue)
+            {
+                request.ProcessingJobBytesToRead = processingJobBytesToRead.Value;
+            }
+
+            return request;
         }
 
         private static string PrepareResource(string id, string version, string lastUpdatedYear)
@@ -1867,12 +1924,12 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 });
         }
 
-        private async Task<ImportJobResult> ImportCheckAsync(ImportRequest request, TestFhirClient client = null, int? errorCount = null)
+        private async Task<ImportJobResult> ImportCheckAsync(ImportRequest request, TestFhirClient client = null, int? errorCount = null, bool returnDetails = false)
         {
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
-            var response = await ImportWaitAsync(checkLocation);
+            var response = await ImportWaitAsync(checkLocation, returnDetails: returnDetails);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
@@ -1891,10 +1948,10 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return result;
         }
 
-        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, bool checkSuccessStatus = true)
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, bool checkSuccessStatus = true, bool returnDetails = false)
         {
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, checkSuccessStatus)).StatusCode == HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation, checkSuccessStatus, returnDetails)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }

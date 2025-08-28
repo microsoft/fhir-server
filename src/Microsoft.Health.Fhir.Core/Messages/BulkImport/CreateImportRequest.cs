@@ -21,9 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            bool allowNegativeVersions = false,
-            string errorContainerName = null,
-            bool eventualConsistency = false)
+            bool allowNegativeVersions,
+            string errorContainerName,
+            bool eventualConsistency,
+            int processingJobBytesToRead)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             AllowNegativeVersions = allowNegativeVersions;
             ErrorContainerName = errorContainerName;
             EventualConsistency = eventualConsistency;
+            ProcessingJobBytesToRead = processingJobBytesToRead;
         }
 
         /// <summary>
@@ -86,5 +88,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Flag is relevant only for resource creates. Default value is false.
         /// </summary>
         public bool EventualConsistency { get; set; }
+
+        /// <summary>
+        /// Number of bytes to be read by processing job.
+        /// </summary>
+        public int ProcessingJobBytesToRead { get; set; }
     }
 }
