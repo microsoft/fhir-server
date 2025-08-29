@@ -21,6 +21,7 @@ using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -292,7 +293,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
+                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion, false))
                         {
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -512,7 +513,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
                             if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, false))
                             {
                                 loaded.Add(input);
                             }
@@ -658,7 +659,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var versionIdInt = int.Parse(existing.Key.VersionId);
                         if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
                         {
-                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, false))
                             {
                                 loaded.Add(input);
                             }
@@ -908,42 +909,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)
+        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion, bool ignoreMetadata)
         {
-            if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
+            if (ignoreMetadata)
             {
                 return false;
             }
-
-            if (keepVersion)
+            else
             {
-                return input.Data == existing.Data;
-            }
+                if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
+                {
+                    return false;
+                }
 
-            var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
-            var inputVersion = GetJsonValue(input.Data, "versionId", true);
-            var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
-            var existingVersion = GetJsonValue(existing.Data, "versionId", true);
-            if (inputVersion == existingVersion)
-            {
-                if (inputDate == existingDate)
+                if (keepVersion)
                 {
                     return input.Data == existing.Data;
                 }
 
-                return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
-            }
-            else
-            {
-                if (inputDate == existingDate)
+                var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
+                var inputVersion = GetJsonValue(input.Data, "versionId", true);
+                var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
+                var existingVersion = GetJsonValue(existing.Data, "versionId", true);
+                if (inputVersion == existingVersion)
                 {
-                    return input.Data == existing.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
-                }
+                    if (inputDate == existingDate)
+                    {
+                        return input.Data == existing.Data;
+                    }
 
-                return input.Data
-                            == existing.Data
-                                .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
-                                .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                    return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                }
+                else
+                {
+                    if (inputDate == existingDate)
+                    {
+                        return input.Data == existing.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
+                    }
+
+                    return input.Data
+                                == existing.Data
+                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
+                                    .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                }
             }
         }
 
