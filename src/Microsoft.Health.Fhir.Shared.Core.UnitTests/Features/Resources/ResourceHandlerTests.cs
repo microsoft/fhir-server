@@ -495,15 +495,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Fact]
-        public async Task GivenUpsertRequestWithPostHttpVerb_WhenUserLacksCreatePermission_ThenShouldThrowUnauthorizedException()
+        [Theory]
+        [InlineData(DataActions.None)]
+        [InlineData(DataActions.Update)]
+        public async Task GivenUpsertRequestWithPostHttpVerb_WhenUserLacksCreatePermission_ThenShouldThrowUnauthorizedException(DataActions returnedDataActions)
         {
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("POST", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
             var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.POST, Guid.NewGuid());
 
-            _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataActions);
 
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
@@ -529,15 +531,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Fact]
-        public async Task GivenUpsertRequestWithPutHttpVerb_WhenUserLacksUpdatePermission_ThenShouldThrowUnauthorizedException()
+        [Theory]
+        [InlineData(DataActions.None)]
+        [InlineData(DataActions.Create)]
+        public async Task GivenUpsertRequestWithPutHttpVerb_WhenUserLacksUpdatePermission_ThenShouldThrowUnauthorizedException(DataActions returnedDataAction)
         {
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("PUT", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
             var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.PUT, Guid.NewGuid());
 
-            _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataAction);
 
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
