@@ -63,7 +63,7 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 5
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
