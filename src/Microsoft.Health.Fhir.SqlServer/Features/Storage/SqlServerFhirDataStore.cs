@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -84,7 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            IResourceDeserializer resourceDeserializer)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -100,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -909,14 +912,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion, bool ignoreMetadata)
+        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper, bool keepVersion, bool ignoreMetadata)
         {
             if (ignoreMetadata)
             {
-                return false;
+                var inputResource = _resourceDeserializer.Deserialize(inputWrapper);
+                var existingResource = _resourceDeserializer.Deserialize(existingWrapper);
+
+                var inputMeta = inputResource.Scalar<Hl7.Fhir.Model.Meta>("Resource.meta");
             }
             else
             {
+                var input = inputWrapper.RawResource;
+                var existing = existingWrapper.RawResource;
+
                 if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
                 {
                     return false;
