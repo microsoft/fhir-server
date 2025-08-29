@@ -70,7 +70,7 @@ jobs:
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             appServicePlanSku = "B3"
-            numberOfInstances = 4
+            numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
