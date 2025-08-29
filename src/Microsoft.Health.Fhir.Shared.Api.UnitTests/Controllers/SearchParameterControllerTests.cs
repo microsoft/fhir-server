@@ -148,6 +148,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).Send(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenAnInvalidSearchParameterStatusUpdateRequest_WhenParametersAreEmpty_ThenRequestNotValidExceptionShouldBeThrown(
+            bool emptyParameters)
+        {
+            var fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            fhirRuntimeConfiguration.IsSelectiveSearchParameterSupported.Returns(true);
+            _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
+
+            var controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), fhirRuntimeConfiguration);
+            var requestBody = emptyParameters ? new Parameters() : null;
+            var act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
+            await Assert.ThrowsAsync<RequestNotValidException>(act);
+        }
+
         private Parameters CreateInvalidRequestBody()
         {
             Parameters parameters = new Parameters();

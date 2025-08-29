@@ -34,22 +34,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class CosmosHealthCheckTests
+    public class CosmosDbHealthCheckTests
     {
         private readonly Container _container = Substitute.For<Container>();
         private readonly ICosmosClientTestProvider _testProvider = Substitute.For<ICosmosClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
-        private readonly ILogger<CosmosHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosHealthCheck>>();
+        private readonly ILogger<CosmosDbHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosDbHealthCheck>>();
 
-        private readonly TestCosmosHealthCheck _healthCheck;
+        private readonly TestCosmosDbHealthCheck _healthCheck;
 
-        public CosmosHealthCheckTests()
+        public CosmosDbHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
             optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
-            _healthCheck = new TestCosmosHealthCheck(
+            _healthCheck = new TestCosmosDbHealthCheck(
                 new NonDisposingScope(_container),
                 _configuration,
                 optionsSnapshot,

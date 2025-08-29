@@ -25,7 +25,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
-    public class CosmosHealthCheck : IHealthCheck
+    public class CosmosDbHealthCheck : IHealthCheck
     {
         private const string UnhealthyDescription = "The store is unhealthy.";
         private const string DegradedDescription = "The health of the store has degraded.";
@@ -35,22 +35,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly ICosmosClientTestProvider _testProvider;
-        private readonly ILogger<CosmosHealthCheck> _logger;
+        private readonly ILogger<CosmosDbHealthCheck> _logger;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosHealthCheck"/> class.
+        /// Initializes a new instance of the <see cref="CosmosDbHealthCheck"/> class.
         /// </summary>
         /// <param name="container">The Cosmos Container factory/</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
-        public CosmosHealthCheck(
+        public CosmosDbHealthCheck(
             IScoped<Container> container,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosClientTestProvider testProvider,
-            ILogger<CosmosHealthCheck> logger)
+            ILogger<CosmosDbHealthCheck> logger)
         {
             EnsureArg.IsNotNull(container, nameof(container));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
