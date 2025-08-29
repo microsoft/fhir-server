@@ -314,10 +314,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("  :*", true, false)]
         [InlineData("*", false, true)]
         [InlineData("*:*", false, true)]
+        [InlineData(":*", false, true)]
+        [InlineData("  :*", false, true)]
         public void GivenAnIncludeOrRevInclude_WhenParsing_ThenExceptionShouldBeThrownOnInvalidResourceType(string includeValue, bool revinclude, bool success)
         {
             try
             {
+                // Note that there is an inconsistency in handling invalid parameters for _include and _revinclude. For example,
+                // "<spaces>:*" is accepted as a valid parameter for _include whereas it is rejected for _revinclude. A parameter like
+                // that should be rejected for both (although the change for _include shouldn't be made without notifying customers).
                 _expressionParser.ParseInclude(new[] { ResourceType.Patient.ToString() }, includeValue, revinclude, false, null);
                 Assert.True(success);
             }
