@@ -308,20 +308,31 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            var ndJson = new StringBuilder();
-            for (var i = 0; i < 81000; i++)
+            // To minimize number of size dependent retries last batch should have max size - 1000.
+            // Create 81 files with 1000 resources each. This should also use all available processing threads.
+            var locations = new List<Uri>();
+            for (var l = 0; l < 81; l++)
             {
-                var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
-                ndJson.Append(str);
+                locations.Add(await CreateNDJson(1000));
             }
 
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
+        }
+
+        private async Task<Uri> CreateNDJson(int resources)
+        {
+            var strbld = new StringBuilder();
+            for (var r = 0; r < resources; r++)
+            {
+                var str = CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
+                strbld.Append(str);
+            }
+
+            return (await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location;
         }
 
         [Fact]
