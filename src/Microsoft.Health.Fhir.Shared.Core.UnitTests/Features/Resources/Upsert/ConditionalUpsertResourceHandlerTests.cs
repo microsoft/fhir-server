@@ -101,7 +101,6 @@ public class ConditionalUpsertResourceHandlerTests
     {
         // Arrange
         // Setup search service to return one match (for upsert scenarios)
-        // Setup search service to return one match (for upsert scenarios)
         var searchResult = GetSearchResult(Samples.GetDefaultPatient());
 
         var taskResult = Task.FromResult(searchResult);
@@ -128,8 +127,12 @@ public class ConditionalUpsertResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task GivenAConditionalUpsertResourceHandler_WhenUserHasOnlySearchPermission_ThenUnauthorizedExceptionIsThrown()
+    [Theory]
+    [InlineData(DataActions.Search)]
+    [InlineData(DataActions.Update)]
+    [InlineData(DataActions.Read)]
+    [InlineData(DataActions.None)]
+    public async Task GivenAConditionalUpsertResourceHandler_WhenUserhasInsufficientPermission_ThenUnauthorizedExceptionIsThrown(DataActions returnedDataAction)
     {
         // Arrange
         // Setup search service to return one match (for upsert scenarios)
@@ -146,88 +149,7 @@ public class ConditionalUpsertResourceHandlerTests
 
         _authService
             .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
-            .Returns(DataActions.Search);
-
-        var patient = Samples.GetDefaultPatient();
-        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
-        var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.Handle(request, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task GivenAConditionalUpsertResourceHandler_WhenUserHasOnlyUpdatePermission_ThenUnauthorizedExceptionIsThrown()
-    {
-        // Arrange
-        // Setup search service to return one match (for upsert scenarios)
-        var searchResult = GetSearchResult(Samples.GetDefaultPatient());
-
-        var taskResult = Task.FromResult(searchResult);
-
-        _searchService.SearchAsync(
-          Arg.Any<string>(),
-          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-          Arg.Any<CancellationToken>())
-          .Returns(taskResult);
-
-        _authService
-            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
-            .Returns(DataActions.Update);
-
-        var patient = Samples.GetDefaultPatient();
-        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
-        var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.Handle(request, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task GivenAConditionalUpsertResourceHandler_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionIsThrown()
-    {
-        // Arrange
-        // Setup search service to return one match (for upsert scenarios)
-        var searchResult = GetSearchResult(Samples.GetDefaultPatient());
-
-        var taskResult = Task.FromResult(searchResult);
-
-        _searchService.SearchAsync(
-          Arg.Any<string>(),
-          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-          Arg.Any<CancellationToken>())
-          .Returns(taskResult);
-
-        _authService
-            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
-            .Returns(DataActions.Read);
-
-        var patient = Samples.GetDefaultPatient();
-        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
-        var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.Handle(request, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task GivenAConditionalUpsertResourceHandler_WhenUserLacksAllPermissions_ThenUnauthorizedExceptionIsThrown()
-    {
-        // Arrange
-        // Setup search service to return one match (for upsert scenarios)
-        var searchResult = GetSearchResult(Samples.GetDefaultPatient());
-
-        var taskResult = Task.FromResult(searchResult);
-
-        _searchService.SearchAsync(
-          Arg.Any<string>(),
-          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-          Arg.Any<CancellationToken>())
-          .Returns(taskResult);
-
-        _authService
-            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
-            .Returns(DataActions.None);
+            .Returns(returnedDataAction);
 
         var patient = Samples.GetDefaultPatient();
         var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
