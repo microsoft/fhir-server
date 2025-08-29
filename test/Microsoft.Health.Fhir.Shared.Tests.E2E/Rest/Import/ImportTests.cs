@@ -1186,8 +1186,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
         private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
         {
-            var input = new List<InputResource>();
-            foreach (var location in locations)
+            var input = locations.Select(location =>
             {
                 var inputResource = new InputResource() { Url = location };
                 if (setResourceType)
@@ -1195,8 +1194,8 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                     inputResource.Type = "Patient";
                 }
 
-                input.Add(inputResource);
-            }
+                return inputResource;
+            }).ToList();
 
             var request = new ImportRequest()
             {
