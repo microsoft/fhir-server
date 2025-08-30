@@ -552,7 +552,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_LastUpdatedOnResourceCannotBeInTheFuture()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(20)); // set value higher than 10 seconds tolerance
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(60)); // set value higher than 10 seconds tolerance
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             var result = await ImportCheckAsync(request, null, 1);
@@ -1961,7 +1961,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.NotEmpty(result.Output);
             if (errorCount != null && errorCount != 0)
             {
-                Assert.Equal(errorCount.Value, result.Error.First().Count);
+                Assert.Equal(errorCount.Value, result.Error.Count > 0 ? result.Error.First().Count : 0);
             }
             else
             {
