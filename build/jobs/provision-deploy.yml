@@ -63,7 +63,7 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 4
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
@@ -71,7 +71,7 @@ jobs:
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "P1V3"
+            appServicePlanSku = "P2V3"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
