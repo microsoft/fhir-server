@@ -28,7 +28,6 @@ using Newtonsoft.Json;
 using Polly;
 using Xunit;
 using Xunit.Abstractions;
-using Xunit.Sdk;
 using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 
@@ -111,8 +110,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
 
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag);
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -139,8 +136,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
@@ -174,8 +169,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Add a second version
             resource.Active = true;
             resource = await _fhirClient.UpdateAsync(resource);
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
@@ -1033,30 +1026,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
                 else if (parameter.Name == "ResourceDeletedCount")
                 {
-                    var exceptions = new List<EqualException>();
-                    var aggregateMessage = "Resource count mismatch.\r\n";
-
                     foreach (var part in parameter.Part)
                     {
                         var resourceName = part.Name;
                         var numberDeleted = (long)((Integer64)part.Value).Value;
 
-                        try
-                        {
-                            Assert.Equal(expectedResults[resourceName], numberDeleted);
-                        }
-                        catch (EqualException ex)
-                        {
-                            exceptions.Add(ex);
-                            aggregateMessage += $"{resourceName} amount didn't match. Deleted {numberDeleted}, expected {expectedResults[resourceName]}\r\n";
-                        }
-
+                        Assert.Equal(expectedResults[resourceName], numberDeleted);
                         resultsChecked++;
-                    }
-
-                    if (exceptions.Any())
-                    {
-                        throw new AggregateException(aggregateMessage, exceptions);
                     }
                 }
                 else
