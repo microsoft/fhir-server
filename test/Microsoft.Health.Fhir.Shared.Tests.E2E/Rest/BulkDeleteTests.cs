@@ -111,8 +111,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
 
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag);
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -139,8 +137,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
@@ -174,8 +170,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Add a second version
             resource.Active = true;
             resource = await _fhirClient.UpdateAsync(resource);
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
@@ -250,8 +244,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 "Observation/$bulk-delete",
@@ -314,8 +306,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 "Patient/$bulk-delete",
@@ -357,8 +347,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 "Observation/$bulk-delete",
@@ -385,8 +373,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 2000);
-
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
@@ -445,9 +431,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             organization.Active = true;
             await _fhirClient.CreateAsync(organization);
-
-            // Wait to ensure resources are created before bulk delete
-            await Task.Delay(2000);
 
             // Create the request with Observation and Location as excluded resource types
             var request = new HttpRequestMessage
@@ -937,8 +920,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _fhirClient.CreateAsync(observation);
 
-            await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
-
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 "Patient/$bulk-delete",
@@ -977,8 +958,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), (int)expectedResults[key], tag);
             }
-
-            await Task.Delay(2000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag, path, queryParams);
 
