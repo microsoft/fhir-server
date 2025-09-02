@@ -35,7 +35,8 @@ DECLARE @conflictedRows TABLE (
 );
 
 -- Adding WITH TABLOCKX higher up in transaction per PR 5097 review comments
-WITH (TABLOCKX)
+-- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
+SELECT TOP 0 * FROM dbo.SearchParam WITH (TABLOCKX);
 
 -- Check for concurrency conflicts first using LastUpdated
 INSERT INTO @conflictedRows (Uri)

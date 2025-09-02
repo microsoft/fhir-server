@@ -6243,7 +6243,7 @@ DECLARE @summaryOfChanges TABLE (
     Action VARCHAR (20)  NOT NULL);
 DECLARE @conflictedRows TABLE (
     Uri VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
-WITH (TABLOCKX)
+SELECT TOP 0 * FROM dbo.SearchParam WITH (TABLOCKX);
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri
 FROM   @searchParams AS sp
