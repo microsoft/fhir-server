@@ -6243,14 +6243,14 @@ DECLARE @summaryOfChanges TABLE (
     Action VARCHAR (20)  NOT NULL);
 DECLARE @conflictedRows TABLE (
     Uri VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
+WITH (TABLOCKX)
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri
 FROM   @searchParams AS sp
        INNER JOIN
        dbo.SearchParam AS existing
        ON sp.Uri = existing.Uri
-WHERE  sp.LastUpdated IS NOT NULL
-       AND sp.LastUpdated != existing.LastUpdated;
+WHERE  sp.LastUpdated != existing.LastUpdated;
 IF EXISTS (SELECT 1
            FROM   @conflictedRows)
     BEGIN
@@ -6260,7 +6260,7 @@ IF EXISTS (SELECT 1
         ROLLBACK;
         THROW 50001, @conflictMessage, 1;
     END
-MERGE INTO dbo.SearchParam WITH (TABLOCKX)
+MERGE INTO dbo.SearchParam
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
 WHEN MATCHED THEN UPDATE 

@@ -34,13 +34,15 @@ DECLARE @conflictedRows TABLE (
     Uri VARCHAR(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 );
 
+-- Adding WITH TABLOCKX higher up in transaction per PR 5097 review comments
+WITH (TABLOCKX)
+
 -- Check for concurrency conflicts first using LastUpdated
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri 
 FROM @searchParams sp
 INNER JOIN dbo.SearchParam existing ON sp.Uri = existing.Uri
-WHERE sp.LastUpdated IS NOT NULL 
-  AND sp.LastUpdated != existing.LastUpdated;
+WHERE sp.LastUpdated != existing.LastUpdated;
 
 -- If we have conflicts, raise an error
 IF EXISTS (SELECT 1 FROM @conflictedRows)
@@ -55,7 +57,7 @@ BEGIN
 END
 
 -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
-MERGE INTO dbo.SearchParam WITH (TABLOCKX)
+MERGE INTO dbo.SearchParam
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
 WHEN MATCHED THEN UPDATE 

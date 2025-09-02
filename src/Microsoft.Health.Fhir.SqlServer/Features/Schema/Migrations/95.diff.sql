@@ -39,8 +39,7 @@ INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri 
 FROM @searchParams sp
 INNER JOIN dbo.SearchParam existing ON sp.Uri = existing.Uri
-WHERE sp.LastUpdated IS NOT NULL 
-  AND sp.LastUpdated != existing.LastUpdated;
+WHERE sp.LastUpdated != existing.LastUpdated;
 
 -- If we have conflicts, raise an error
 IF EXISTS (SELECT 1 FROM @conflictedRows)
