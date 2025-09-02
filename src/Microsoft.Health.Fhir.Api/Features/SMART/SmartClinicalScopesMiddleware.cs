@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         permissions |= DataActions.Create; // SMART v2 granular create permission
                         break;
                     case 'r':
-                        permissions |= DataActions.ReadV2 | DataActions.Export; // SMART v2 read-only (no search)
+                        permissions |= DataActions.ReadV2; // SMART v2 read-only (no search)
                         break;
                     case 'u':
                         permissions |= DataActions.Update; // SMART v2 granular update permission
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         permissions |= DataActions.Delete; // SMART v2 granular delete permission
                         break;
                     case 's':
-                        permissions |= DataActions.Search; // Search is a separate permission in v2
+                        permissions |= DataActions.Search | DataActions.Export; // Search is a separate permission in v2
                         break;
                     default:
                         // Unknown permission character - log warning but continue
