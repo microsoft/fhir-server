@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(DataActions.None)]
         [InlineData(DataActions.Write)]
-        [InlineData(DataActions.ReadV2)]
+        [InlineData(DataActions.ReadById)]
         public async Task GivenASearchResourceHistoryRequest_WhenUserLacksPermissions_ThenUnauthorizedExceptionIsThrown(DataActions returnedDataAction)
         {
             // Arrange

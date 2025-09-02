@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         // SMART v2 granular permissions
         Search = 1 << 12, // SMART v2 search permission
-        ReadV2 = 1 << 13, // SMART v2 read permission (read-only, no search)
+        ReadById = 1 << 13, // SMART v2 read permission (read-only, no search)
         Create = 1 << 14, // SMART v2 create permission
         Update = 1 << 15, // SMART v2 update permission
 

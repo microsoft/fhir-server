@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         permissions |= DataActions.Create; // SMART v2 granular create permission
                         break;
                     case 'r':
-                        permissions |= DataActions.ReadV2; // SMART v2 read-only (no search)
+                        permissions |= DataActions.ReadById; // SMART v2 read-only (no search)
                         break;
                     case 'u':
                         permissions |= DataActions.Update; // SMART v2 granular update permission

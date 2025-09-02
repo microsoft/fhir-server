@@ -777,6 +777,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var result = await PutResource(newPatient);
             Assert.NotNull(result);
+            Assert.Equal("smart-v2-create-test", result.Wrapper.ResourceId);
         }
 
         [SkippableFact]
@@ -910,6 +911,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var updateResult = await PutResource(updatedPatient);
             Assert.NotNull(updateResult);
+            Assert.Equal("smart-patient-A", updateResult.Wrapper.ResourceId);
         }
 
         [SkippableFact]
@@ -927,7 +929,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             // Should throw exception when trying to read with only Create permission
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
                 _fixture.GetResourceHandler.Handle(
                     new GetResourceRequest(new ResourceKey("Patient", "smart-patient-A"), bundleResourceContext: null),
                     CancellationToken.None));
@@ -965,7 +967,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.ReadById, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
@@ -991,7 +993,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Grant Search + Read permissions only (no Create or Update)
             var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient");
-            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.ReadById, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 });
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";

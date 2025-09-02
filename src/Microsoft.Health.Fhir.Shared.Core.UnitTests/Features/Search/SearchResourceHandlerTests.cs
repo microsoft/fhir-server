@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // Setup authorization to return Search permission (which is what we check for)
             // This simulates SMART v1 ".read" or v2 ".rs" scopes
             authorizationService.CheckAccess(DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.Search);
+                .Returns(DataActions.Search | DataActions.Read);
 
             _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
