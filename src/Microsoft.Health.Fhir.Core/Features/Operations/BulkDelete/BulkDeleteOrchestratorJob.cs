@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
@@ -43,6 +44,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             BulkDeleteDefinition processingDefinition = null;
 
             using var searchService = _searchService.Invoke();
+
+            // Add a filter so that the job doesn't delete any records created after the job was queued
+            var createDate = new PartialDateTime(jobInfo.CreateDate);
+            var searchParameters = new List<Tuple<string, string>>()
+                {
+                    new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"),
+                };
+
+            if (definition.SearchParameters != null)
+            {
+                searchParameters.AddRange(definition.SearchParameters);
+            }
+
+            definition.SearchParameters = searchParameters;
+
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
@@ -67,19 +83,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
         internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
         {
-            var searchParameters = new List<Tuple<string, string>>()
+            var countCheckSearchParameters = new List<Tuple<string, string>>()
                 {
                     new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
                 };
 
             if (baseDefinition.SearchParameters != null)
             {
-                searchParameters.AddRange(baseDefinition.SearchParameters);
+                countCheckSearchParameters.AddRange(baseDefinition.SearchParameters);
             }
 
             while (resourceTypes.Count > 0)
             {
-                int numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
+                int numResources = (await searchService.SearchAsync(resourceTypes[0], countCheckSearchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
 
                 if (numResources == 0)
                 {
