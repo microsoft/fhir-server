@@ -13,17 +13,15 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
-    public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability, IBundleInnerRequest
+    public class CreateResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
         public CreateResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
-            BundleResourceContext = bundleResourceContext;
         }
-
-        public BundleResourceContext BundleResourceContext { get; }
 
         public ResourceElement Resource { get; }
 

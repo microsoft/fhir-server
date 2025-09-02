@@ -720,6 +720,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _mediator.Received().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
 
             Assert.Equal(type == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, notification.FhirOperation);
+            Assert.Equal("https", notification.Protocol); // Verify protocol is set correctly
 
             var results = notification.ApiCallResults;
 

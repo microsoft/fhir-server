@@ -478,6 +478,51 @@ public class CosmosQueueClient : IQueueClient
         });
     }
 
+    public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+    {
+        return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeInternalAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+    {
+        QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+           JOIN d in c.definitions
+           WHERE c.queueType = @queueType 
+           AND ARRAY_CONTAINS([0, 1], d.status)")
+        .WithParameter("@queueType", queueType);
+
+        var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
+
+        if (response.Count == 0)
+        {
+            return Array.Empty<JobInfo>();
+        }
+
+        var jobInfos = new List<JobInfo>();
+
+        foreach (var jobGroup in response)
+        {
+            if (returnParentOnly)
+            {
+                // Parent job is the one where JobId equals the JobGroupWrapper.Id
+                var parentJob = jobGroup.Definitions.FirstOrDefault(d => d.JobId == jobGroup.Id);
+                if (parentJob != null && (parentJob.Status == (byte)JobStatus.Created || parentJob.Status == (byte)JobStatus.Running))
+                {
+                    jobInfos.AddRange(jobGroup.ToJobInfo(new[] { parentJob }));
+                }
+            }
+            else
+            {
+                // Return all active jobs in the group
+                var activeJobs = jobGroup.Definitions.Where(d =>
+                    d.Status == (byte)JobStatus.Created || d.Status == (byte)JobStatus.Running);
+                jobInfos.AddRange(jobGroup.ToJobInfo(activeJobs));
+            }
+        }
+
+        return jobInfos;
+    }
+
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
         byte queueType,
         long groupId,

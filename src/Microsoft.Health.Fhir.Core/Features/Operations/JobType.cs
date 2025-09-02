@@ -16,5 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         BulkDeleteOrchestrator = 6,
         BulkUpdateProcessing = 7,
         BulkUpdateOrchestrator = 8,
+        ReindexOrchestrator = 9,
+        ReindexProcessing = 10,
     }
 }

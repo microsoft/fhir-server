@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using System.Security.Policy;
 using System.Text.RegularExpressions;
@@ -95,22 +96,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <summary>
         /// Performs bulk updates on multiple FHIR resources using conditional patch parameters.
         /// Executes search, patch, and update operations in parallel, supporting continuation for paged results.
-        /// For non-page-level jobs, reads all result pages and processes them in reverse order to maintain update consistency.
+        /// For non-page-level jobs, reads all result pages and processes them in reverse order to maintain update consistency
+        /// And to fit in the logic for both workflows parallel vs non-parallel.
         /// Prioritizes updating included resources before matched resources to prevent invalid continuation tokens due to surrogate ID changes for matched resources.
         /// For included resources, processes from the last page backward, as _lastUpdated is only applied to matched resources.
-        /// This approach avoids returning already updated resources in subsequent searches and ensures accurate bulk updates.
+        /// This approach avoids returning already updated included resources in subsequent searches and ensures accurate bulk updates.
         /// Handles batching, error aggregation, and audit logging throughout the operation.
         /// </summary>
-        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
+        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<SearchResultEntry> searchResults;
             SearchResult searchResult;
             string ct;
             string ict;
 
-            searchResult = await Search(resourceType, isIncludesRequest, conditionalParameters, cancellationToken);
-
-            Dictionary<string, long> resourceTypesUpdated = new Dictionary<string, long>();
             BulkUpdateResult finalBulkUpdateResult = new BulkUpdateResult();
             Dictionary<string, long> totalResources = new Dictionary<string, long>();
             Dictionary<string, long> resourcesIgnored = new Dictionary<string, long>(); // contains the count of resources that have no valid patch parameters or excluded resource types
@@ -122,14 +121,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var updateTasks = new List<Task<Dictionary<string, long>>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+            searchResult = await Search(resourceType, isIncludesRequest, conditionalParameters, cancellationToken);
+            if (!searchResult.Results?.Any() ?? true)
+            {
+                _logger.LogInformation("No resources found for bulk update operation for resource type {ResourceType}.", resourceType);
+                return finalBulkUpdateResult;
+            }
+
             // Deserialize the FHIR patch parameters from the payload
             var fhirJsonParser = new FhirJsonParser();
             var deserializedFhirPatchParameters = await fhirJsonParser.ParseAsync<Hl7.Fhir.Model.Parameters>(fhirPatchParameters);
 
             try
             {
-                ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
-                if ((searchResult.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(ct))
+                if (searchResult.Results != null && searchResult.Results.Any())
                 {
                     ct = isIncludesRequest ? searchResult.IncludesContinuationToken : searchResult.ContinuationToken;
                     ict = searchResult.IncludesContinuationToken;
@@ -139,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated())
                     {
                         // run a search for included results
-                        (resourceTypesUpdated, finalBulkUpdateResult) = await HandleIncludedResources(resourceType, fhirPatchParameters, parallelThreads - updateTasks.Count, true, conditionalParameters, bundleResourceContext, ct, ict, resourceTypesUpdated, finalBulkUpdateResult, cancellationToken);
+                        finalBulkUpdateResult = await HandleIncludedResources(resourceType, fhirPatchParameters, true, conditionalParameters, bundleResourceContext, ct, ict, finalBulkUpdateResult, cancellationToken);
                     }
 
                     // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
@@ -158,9 +163,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
                         }
 
-                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, parallelThreads, readNextPage, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
-                        resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
+                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
                         finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
+                        _logger.LogInformation("Bulk updated total {Count} resources for the page.", subResult.ResourcesUpdated.Sum(resource => resource.Value));
                     }
 
                     // Group the results based on the resource type and prepare the conditional patch requests
@@ -184,13 +189,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
                             updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
-
-                            if (updateTasks.Count >= parallelThreads)
-                            {
-                                await updateTasks[0];
-                            }
                         }
                     }
+                }
+                else
+                {
+                    _logger.LogInformation("No resources found for bulk update operation for resource type {ResourceType}.", resourceType);
                 }
             }
             catch (Exception ex)
@@ -201,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             try
             {
-                // We need to wait until all running tasks are cancelled to get a count of resources deleted.
+                // We need to wait until all running tasks are cancelled or completed to get a count of resources updated.
                 await Task.WhenAll(updateTasks);
             }
             catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
@@ -209,15 +213,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
                 foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
                 {
-                    _logger.LogError(coreException, "Error updating");
+                    _logger.LogError(coreException, "Aggregate exception during bulk update operation while waiting for all update tasks");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating");
+                _logger.LogError(ex, "Generic exception during bulk update operation while waiting for all update tasks");
             }
 
-            resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
             if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
@@ -232,7 +235,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             var resourcesUpdated = result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<BulkUpdateResult>)
                                     .Select(ex => ((IncompleteOperationException<BulkUpdateResult>)ex).PartialResults.ResourcesUpdated as Dictionary<string, long>);
-                            AppendUpdateResults(resourceTypesUpdated, resourcesUpdated);
                             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, resourcesUpdated);
                         }
 
@@ -258,8 +260,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private async Task FinalizePatchResultsAndAuditAsync(string resourceType, BulkUpdateResult finalBulkUpdateResult, Dictionary<string, long> resourcesIgnored, Dictionary<string, long> commonPatchFailures, ConcurrentDictionary<string, long> patchFailures, ConcurrentDictionary<string, List<(string id, Exception exception)>> patchExceptions)
         {
             // Let's update finalBulkUpdateResult with current page patch results commonPatchFailures, patchFailures, resourcesIgnored
-            AppendUpdateResults(finalBulkUpdateResult.ResourcesIgnored as Dictionary<string, long>, [resourcesIgnored]);
-            AppendUpdateResults(finalBulkUpdateResult.ResourcesPatchFailed as Dictionary<string, long>, [commonPatchFailures]);
+            AppendUpdateResults(finalBulkUpdateResult.ResourcesIgnored as Dictionary<string, long>, new[] { resourcesIgnored });
+            AppendUpdateResults(finalBulkUpdateResult.ResourcesPatchFailed as Dictionary<string, long>, new[] { commonPatchFailures });
             foreach (var newResult in patchFailures)
             {
                 if (!finalBulkUpdateResult.ResourcesPatchFailed.TryAdd(newResult.Key, newResult.Value))
@@ -299,7 +301,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <summary>
         /// Handles included resources in bulk update by recursively processing continuation tokens and aggregating results.
         /// </summary>
-        private async Task<(Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult)> HandleIncludedResources(string resourceType, string fhirPatchParameters, int parallelThreads, bool readNextPage, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, Dictionary<string, long> resourceTypesUpdated, BulkUpdateResult finalBulkUpdateResult, CancellationToken cancellationToken)
+        private async Task<BulkUpdateResult> HandleIncludedResources(string resourceType, string fhirPatchParameters, bool readNextPage, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, BulkUpdateResult finalBulkUpdateResult, CancellationToken cancellationToken)
         {
             var cloneList = new List<Tuple<string, string>>(conditionalParameters);
             cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
@@ -308,10 +310,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
 
-            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, parallelThreads, readNextPage, true, cloneList, bundleResourceContext, cancellationToken);
-            resourceTypesUpdated = AppendUpdateResults(resourceTypesUpdated, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subResult.ResourcesUpdated) });
+            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, true, cloneList, bundleResourceContext, cancellationToken);
             finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
-            return (resourceTypesUpdated, finalBulkUpdateResult);
+            return finalBulkUpdateResult;
         }
 
         /// <summary>
@@ -321,14 +322,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             using (var searchService = _searchServiceFactory.Invoke())
             {
-                return await searchService.Value.SearchAsync(
+                var searchResults = await searchService.Value.SearchAsync(
                     resourceType,
                     conditionalParameters,
                     cancellationToken,
-                    false,
+                    true,
                     resourceVersionTypes: ResourceVersionType.Latest,
                     onlyIds: false,
                     isIncludesOperation: isIncludesRequest);
+
+                if (searchResults != null && searchResults.Results.Any())
+                {
+                    // When running the search with surrogate IDs, and if resource becomes historical after the job is started then
+                    // the search returns historical record, we need to filter out the history resources
+                    searchResults = new SearchResult(
+                        searchResults.Results.Where(r => !r.Resource.IsHistory),
+                        searchResults.ContinuationToken,
+                        searchResults.SortOrder,
+                        searchResults.UnsupportedSearchParameters,
+                        searchResults.SearchIssues,
+                        searchResults.IncludesContinuationToken);
+                }
+
+                return searchResults;
             }
         }
 
@@ -374,7 +390,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             // Use ResourcesIgnored keys that were found in last page and count the numbers for this page and remove it from resourcesPerPage
             foreach (var key in resourcesIgnored.Keys.Intersect(resourcesPerPage.Keys).ToList())
             {
-                // Store the count of resources that would fail to patch in commonPatchFailures
+                // Store the count of resources that should be ignored
                 resourcesIgnored[key] = resourcesIgnored[key] + resourcesPerPage[key];
                 resourcesPerPage.Remove(key);
             }
@@ -573,11 +589,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, cancellationToken);
                 }
 
-                await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken);
+                if (wrapperOperationsMatches.Any())
+                {
+                    await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken);
+                }
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {
-                _logger.LogError(ex.InnerException, "Error updating");
+                _logger.LogError(ex.InnerException, "Error updating resources");
 
                 var ids = ex.PartialResults.Select(item => (
                     item.Key.ResourceType,
@@ -590,13 +609,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 var resourceTypesUpdated = ids.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count());
 
-                // check the dictionary bulkUpdateResultsSoFar.ResourcesUpdated and add new values for resourceTypesUpdated
-                AppendUpdateResults(bulkUpdateResultsSoFar.ResourcesUpdated as Dictionary<string, long>, (IEnumerable<Dictionary<string, long>>)resourceTypesUpdated);
+                // return the new BulkUpdateResult with the resources updated, the final result will be updated later in the calling method
+                var bulkUpdateResultsFromUpdateFlow = new BulkUpdateResult();
+                AppendUpdateResults(bulkUpdateResultsFromUpdateFlow.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(resourceTypesUpdated) });
 
                 await CreateAuditLog(resourceType, true, ids);
                 throw new IncompleteOperationException<BulkUpdateResult>(
                     ex.InnerException,
-                    bulkUpdateResultsSoFar);
+                    bulkUpdateResultsFromUpdateFlow);
             }
 
             await CreateAuditLog(
