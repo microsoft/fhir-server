@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
+using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 {
@@ -118,6 +119,8 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                         // Register sample scope strings (replace usage of ApiScope).
                         options.RegisterScopes(AllowedScopes);
                         options.RegisterScopes(smartScopes.ToArray());
+
+                        options.RegisterClaims("fhirUser");
 
                         // Enable this line if we choose to disable some of the default validation handler OpenIddict uses.
                         // options.EnableDegradedMode();
@@ -269,7 +272,43 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
         internal static List<string> GenerateSmartClinicalScopes()
         {
-            var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
+            // Generating the full ist of scopes for all resource types is slow and
+            // consumes an excessive amount of memory. Instead, we will generate the
+            // scopes for a subset of the resource types
+            // var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
+
+            var resourceTypes = new[]
+            {
+                "AllergyIntolerance",
+                "Appointment",
+                "AuditEvent",
+                "Bundle",
+                "CarePlan",
+                "Condition",
+                "Device",
+                "DiagnosticReport",
+                "Encounter",
+                "Group",
+                "Immunization",
+                "MedicationRequest",
+                "Observation",
+                "Patient",
+                "Practitioner",
+                "Procedure",
+                "Sequence",
+                "ServiceRequest",
+                "ValueSet",
+                "StructureDefinition",
+                "Specimen",
+                "SearchParameter",
+                "Organization",
+                "Location",
+                "Provenance",
+                "Composition",
+                "Medication",
+                "MedicationAdministration",
+            };
+
             var scopes = new List<string>();
 
             // Global wildcard scopes for all resources (SMART v1)
@@ -345,30 +384,6 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
             var hash = SHA256.HashData(bytes);
 
             return Convert.ToBase64String(hash);
-        }
-
-        private static Claim[] CreateFhirUserClaims(string userId, string host)
-        {
-            string userType = null;
-
-            if (userId.Contains("patient", StringComparison.OrdinalIgnoreCase))
-            {
-                userType = "Patient";
-            }
-            else if (userId.Contains("practitioner", StringComparison.OrdinalIgnoreCase))
-            {
-                userType = "Practitioner";
-            }
-            else if (userId.Contains("system", StringComparison.OrdinalIgnoreCase))
-            {
-                userType = "System";
-            }
-
-            return new[]
-            {
-                new Claim("appid", userId),
-                new Claim("fhirUser", $"{host}{userType}/" + userId),
-            };
         }
 
         private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource

@@ -40,14 +40,18 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.search
+&scope=patient/Patient.s patient/Observation.s
 
 ### Test Search permission - should succeed
-GET https://{{hostname}}/Patient?name=SMARTGivenName1
+GET https://{{hostname}}/Patient?name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Test Search permission - allowed but doesn't find patient
+GET https://{{hostname}}/Patient?name=smart-patient-C
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ### Test Search permission with chained search - should succeed
-GET https://{{hostname}}/Observation?subject:Patient.name=SMARTGivenName1
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ### Test direct read with Search permission only - should fail (403)
@@ -64,16 +68,20 @@ POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
 
 grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
-&scope=patient/Patient.read
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Patient.r fhir-api
 
 ### Test Read permission - should succeed
 GET https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{readBearer.response.body.access_token}}
 
+### Test Read permission - allowed but won't find Patient
+GET https://{{hostname}}/Patient/smart-patient-B
+Authorization: Bearer {{readBearer.response.body.access_token}}
+
 ### Test search with Read permission only - should fail (403)
-GET https://{{hostname}}/Patient?name=SMARTGivenName1
+GET https://{{hostname}}/Patient?name=smart-patient-A
 Authorization: Bearer {{readBearer.response.body.access_token}}
 
 ##################################################################
@@ -88,7 +96,7 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.create
+&scope=patient/Patient.c
 
 ### Test Create permission - should succeed
 POST https://{{hostname}}/Patient
@@ -121,7 +129,7 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.update
+&scope=patient/Patient.u
 
 ### Test Update permission - should succeed
 PUT https://{{hostname}}/Patient/smart-patient-A
@@ -155,33 +163,19 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.delete
+&scope=patient/Patient.d
 
 ### Test Delete permission (soft delete) - should succeed
 DELETE https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{deleteBearer.response.body.access_token}}
 
+### Test Hard Delete permission - should fao;
+DELETE https://{{hostname}}/Patient/smart-patient-A?hardDelete=true
+Authorization: Bearer {{deleteBearer.response.body.access_token}}
+
 ### Test read with Delete permission only - should fail (403)
 GET https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{deleteBearer.response.body.access_token}}
-
-##################################################################
-### SMART v2 HARD DELETE Permission Tests
-##################################################################
-
-### Get token with SMART v2 HardDelete permission
-# @name hardDeleteBearer
-POST https://{{hostname}}/connect/token
-content-type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
-&scope=patient/Patient.hardDelete patient/Patient.delete
-
-### Test Hard Delete permission - should succeed
-DELETE https://{{hostname}}/Patient/smart-patient-A?hardDelete=true
-Authorization: Bearer {{hardDeleteBearer.response.body.access_token}}
 
 ##################################################################
 ### SMART v2 Combined Permissions Tests
@@ -195,7 +189,7 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.search patient/Patient.read
+&scope=patient/Patient.rs
 
 ### Test Search + Read - both should succeed
 GET https://{{hostname}}/Patient?name=SMARTGivenName1
@@ -211,11 +205,11 @@ POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
 
 grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
-&scope=patient/Patient.create patient/Patient.read patient/Patient.update patient/Patient.delete
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Patient.cruds
 
-### Test full CRUD operations
+### Test full CRUDS operations
 # Create
 POST https://{{hostname}}/Patient
 content-type: application/json
@@ -231,6 +225,34 @@ Authorization: Bearer {{crudBearer.response.body.access_token}}
   ]
 }
 
+# Read - should succeed with cruds scope
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+# Search - should succeed with cruds scope
+GET https://{{hostname}}/Patient?name=SMARTGivenName1
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+# Update - should succeed with cruds scope
+PUT https://{{hostname}}/Patient/smart-patient-A
+content-type: application/json
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "smart-patient-A",
+  "name": [
+    {
+      "given": ["SMART", "v2", "CRUD", "Updated"],
+      "family": "TestPatient"
+    }
+  ]
+}
+
+# Delete - should succeed with cruds scope
+DELETE https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
 ##################################################################
 ### SMART v2 Cross-Resource Type Tests
 ##################################################################
@@ -241,8 +263,8 @@ POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
 
 grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
 &scope=patient/Patient.read patient/Observation.search patient/Encounter.create
 
 ### Test Patient read - should succeed
