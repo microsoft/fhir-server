@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion, false))
+                        if (ExistingRawResourceIsEqualToInput(resource, existingResource, resourceExt.KeepVersion, false))
                         {
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -516,7 +516,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
                             if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, false))
+                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper, existing.Matched, false, false))
                             {
                                 loaded.Add(input);
                             }
@@ -662,7 +662,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var versionIdInt = int.Parse(existing.Key.VersionId);
                         if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
                         {
-                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, false))
+                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper, existing.Matched.RawResource, false, false))
                             {
                                 loaded.Add(input);
                             }
@@ -914,39 +914,80 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper, bool keepVersion, bool ignoreMetadata)
         {
+            if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
+            {
+                return false;
+            }
+
+            var input = inputWrapper.RawResource;
+            var existing = existingWrapper.RawResource;
+
+            if (input.Data == existing.Data)
+            {
+                return true; // The two are identical
+            }
+
             if (ignoreMetadata)
             {
-                var inputResource = _resourceDeserializer.Deserialize(inputWrapper);
-                var existingResource = _resourceDeserializer.Deserialize(existingWrapper);
+                var inputResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(inputWrapper).ResourceInstance;
+                var existingResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(existingWrapper).ResourceInstance;
 
-                var inputMeta = inputResource.Scalar<Hl7.Fhir.Model.Meta>("Resource.meta");
+                var inputMeta = inputResource.Meta;
+                var existingMeta = existingResource.Meta;
+
+                if (inputMeta.Equals(existingMeta))
+                {
+                    return false; // Difference is in a non-meta field
+                }
+                else
+                {
+                    var inputChildren = inputResource.NamedChildren.GetEnumerator();
+                    var existingChildren = existingResource.NamedChildren.GetEnumerator();
+
+                    var resourcesIdentical = true;
+
+                    do
+                    {
+                        var inputChild = inputChildren.Current;
+                        var existingChild = existingChildren.Current;
+
+                        if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        else if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            existingChildren.MoveNext();
+                            existingChild = existingChildren.Current;
+                        }
+
+                        if (!inputChild.ElementName.Equals(existingChild.ElementName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            resourcesIdentical = false;
+                            break;
+                        }
+
+                        if (!inputChild.Equals(existingChild))
+                        {
+                            resourcesIdentical = false;
+                            break;
+                        }
+
+                        existingChildren.MoveNext();
+                    }
+                    while (inputChildren.MoveNext());
+
+                    return resourcesIdentical;
+                }
             }
             else
             {
-                var input = inputWrapper.RawResource;
-                var existing = existingWrapper.RawResource;
-
-                if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
-                {
-                    return false;
-                }
-
-                if (keepVersion)
-                {
-                    return input.Data == existing.Data;
-                }
-
                 var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
                 var inputVersion = GetJsonValue(input.Data, "versionId", true);
                 var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
                 var existingVersion = GetJsonValue(existing.Data, "versionId", true);
                 if (inputVersion == existingVersion)
                 {
-                    if (inputDate == existingDate)
-                    {
-                        return input.Data == existing.Data;
-                    }
-
                     return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
                 }
                 else
