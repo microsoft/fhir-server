@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
             if (importRequest.ProcessingJobBytesToRead > 0)
             {
-                parameters.Add(ProcessingJobBytesToReadParameterName, new FhirString(importRequest.ProcessingJobBytesToRead.ToString()));
+                parameters.Add(ProcessingJobBytesToReadParameterName, new Integer(importRequest.ProcessingJobBytesToRead));
             }
 
             return parameters;
