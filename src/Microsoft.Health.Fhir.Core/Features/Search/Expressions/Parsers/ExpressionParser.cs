@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 wildCard = true;
+                originalType = isReversed ? "*" : originalType;
             }
             else if (TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> type))
             {
@@ -96,6 +97,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
+            }
+
+            if (isReversed && string.IsNullOrWhiteSpace(originalType))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.RevIncludeMissingType);
             }
 
             allowedResourceTypesByScope = allowedResourceTypesByScope?.ToList();

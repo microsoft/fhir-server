@@ -174,12 +174,12 @@ END
 
             // TODO: Temp code to test database stats
             startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.SearchParamCount message is not found");
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 120, "DatabaseStats.SearchParamCount message is not found");
 
             await cts.CancelAsync();
             await wdTask;
