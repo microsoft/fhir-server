@@ -308,20 +308,31 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
-            var ndJson = new StringBuilder();
-            for (int i = 0;  i < 80001; i++)
+            // To minimize number of size dependent retries last batch should have max size - 1000.
+            // Create 81 files with 1000 resources each. This should also use all available processing threads.
+            var locations = new List<Uri>();
+            for (var l = 0; l < 81; l++)
             {
-                var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
-                ndJson.Append(str);
+                locations.Add(await CreateNDJson(1000));
             }
 
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var request = CreateImportRequest(locations, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
+        }
+
+        private async Task<Uri> CreateNDJson(int resources)
+        {
+            var strbld = new StringBuilder();
+            for (var r = 0; r < resources; r++)
+            {
+                var str = CreateTestPatient(Guid.NewGuid().ToString("N"), DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.));
+                strbld.Append(str);
+            }
+
+            return (await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location;
         }
 
         [Fact]
@@ -541,7 +552,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_LastUpdatedOnResourceCannotBeInTheFuture()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(20)); // set value higher than 10 seconds tolerance
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(60)); // set value higher than 10 seconds tolerance
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             var result = await ImportCheckAsync(request, null, 1);
@@ -1173,20 +1184,25 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
+        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
         {
-            var inputResource = new InputResource() { Url = location };
-            if (setResourceType)
+            var input = locations.Select(location =>
             {
-                inputResource.Type = "Patient";
-            }
+                var inputResource = new InputResource() { Url = location };
+                if (setResourceType)
+                {
+                    inputResource.Type = "Patient";
+                }
+
+                return inputResource;
+            }).ToList();
 
             var request = new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = new List<InputResource>() { inputResource },
+                Input = input,
                 Mode = importMode.ToString(),
                 AllowNegativeVersions = allowNegativeVersions,
                 EventualConsistency = eventualConsistency,
@@ -1199,6 +1215,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             return request;
+        }
+
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
+        {
+            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingJobBytesToRead);
         }
 
         private static string PrepareResource(string id, string version, string lastUpdatedYear)
@@ -1940,7 +1961,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.NotEmpty(result.Output);
             if (errorCount != null && errorCount != 0)
             {
-                Assert.Equal(errorCount.Value, result.Error.First().Count);
+                Assert.Equal(errorCount.Value, result.Error.Count > 0 ? result.Error.First().Count : 0);
             }
             else
             {
