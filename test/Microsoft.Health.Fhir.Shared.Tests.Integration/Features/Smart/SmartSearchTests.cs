@@ -118,30 +118,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
                 foreach (var entry in smartBundle.Entry)
                 {
-                    await PutResource(entry.Resource);
+                    await UpsertResource(entry.Resource);
                 }
 
                 smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientB");
                 foreach (var entry in smartBundle.Entry)
                 {
-                    await PutResource(entry.Resource);
+                    await UpsertResource(entry.Resource);
                 }
 
                 smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientC");
                 foreach (var entry in smartBundle.Entry)
                 {
-                    await PutResource(entry.Resource);
+                    await UpsertResource(entry.Resource);
                 }
 
                 smartBundle = Samples.GetJsonSample<Bundle>("SmartCommon");
                 foreach (var entry in smartBundle.Entry)
                 {
-                    await PutResource(entry.Resource);
+                    await UpsertResource(entry.Resource);
                 }
 
-                await PutResource(Samples.GetJsonSample<Medication>("Medication"));
-                await PutResource(Samples.GetJsonSample<Organization>("Organization"));
-                await PutResource(Samples.GetJsonSample<Location>("Location-example-hq"));
+                await UpsertResource(Samples.GetJsonSample<Medication>("Medication"));
+                await UpsertResource(Samples.GetJsonSample<Organization>("Organization"));
+                await UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq"));
             }
         }
 
@@ -696,12 +696,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal(70, results.Results.Count());
         }
 
-        private async Task<UpsertOutcome> PutResource(Resource resource)
+        private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
         {
             ResourceElement resourceElement = resource.ToResourceElement();
 
             var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
-            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
+            var resourceRequest = new ResourceRequest(httpMethod);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
@@ -775,7 +775,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("TestCreate").AndFamily("SmartV2") },
             };
 
-            var result = await PutResource(newPatient);
+            var result = await UpsertResource(newPatient);
             Assert.NotNull(result);
             Assert.Equal("smart-v2-create-test", result.Wrapper.ResourceId);
         }
@@ -846,7 +846,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("UpdatedName").AndFamily("Updated") },
             };
 
-            var result = await PutResource(updatedPatient);
+            var result = await UpsertResource(updatedPatient);
             Assert.NotNull(result);
         }
 
@@ -877,7 +877,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchCreate").AndFamily("SmartV2") },
             };
 
-            var createResult = await PutResource(newPatient);
+            var createResult = await UpsertResource(newPatient);
             Assert.NotNull(createResult);
         }
 
@@ -909,7 +909,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Name = new List<HumanName> { new HumanName().WithGiven("SearchUpdate").AndFamily("SmartV2") },
             };
 
-            var updateResult = await PutResource(updatedPatient);
+            var updateResult = await UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal("smart-patient-A", updateResult.Wrapper.ResourceId);
         }
@@ -956,7 +956,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             };
 
             // Should fail when trying to create with only Search permission
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => PutResource(newPatient));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(newPatient));
         }
 
         [SkippableFact]
@@ -980,7 +980,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             };
 
             // Should fail when trying to update with only Read permission
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => PutResource(updatedPatient));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(updatedPatient));
         }
 
         [SkippableFact]
@@ -1017,7 +1017,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Id = "smart-v2-should-fail-create",
                 Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Create") },
             };
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => PutResource(newPatient));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(newPatient, "POST"));
 
             // Update should fail
             var updatePatient = new Patient
@@ -1025,7 +1025,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Id = "smart-patient-A",
                 Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Update") },
             };
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => PutResource(updatePatient));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(updatePatient));
         }
     }
 }
