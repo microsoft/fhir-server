@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
@@ -33,22 +34,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class CosmosHealthCheckTests
+    public class CosmosDbHealthCheckTests
     {
         private readonly Container _container = Substitute.For<Container>();
         private readonly ICosmosClientTestProvider _testProvider = Substitute.For<ICosmosClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
-        private readonly ILogger<CosmosHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosHealthCheck>>();
+        private readonly ILogger<CosmosDbHealthCheck> _mockLogger = Substitute.For<ILogger<TestCosmosDbHealthCheck>>();
 
-        private readonly TestCosmosHealthCheck _healthCheck;
+        private readonly TestCosmosDbHealthCheck _healthCheck;
 
-        public CosmosHealthCheckTests()
+        public CosmosDbHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
             optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
-            _healthCheck = new TestCosmosHealthCheck(
+            _healthCheck = new TestCosmosDbHealthCheck(
                 new NonDisposingScope(_container),
                 _configuration,
                 optionsSnapshot,
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
         {
             foreach (int clientCmkIssue in new List<int>(Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValueClientIssue)).Cast<int>()))
             {
@@ -210,6 +211,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.NotNull(result.Data);
             Assert.True(result.Data.Any());
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error500.ToString());
+        }
+
+        [Fact]
+        public async Task GivenCustomerManagedKeyException_IsCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
+        {
+            foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
+            {
+                var cmkException = new CustomerManagedKeyException($"CMK issue: {cmkIssue}");
+                _testProvider.ClearSubstitute();
+                _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs(cmkException);
+
+                HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+                Assert.Equal(HealthStatus.Degraded, result.Status);
+                Assert.NotNull(result.Data);
+                Assert.True(result.Data.Any());
+
+                VerifyErrorInResult(result.Data, "Reason", cmkException.Message);
+
+                VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error412.ToString());
+            }
         }
 
         [Fact]

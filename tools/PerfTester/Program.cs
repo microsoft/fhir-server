@@ -91,7 +91,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 return;
             }
 
-            if (_callType == "BundleCreate")
+            if (_callType == "BundleCreate" || _callType == "BundleImport")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelBundleCreates();
@@ -285,6 +285,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var errors = 0L;
             var resources = 0;
             long sumLatency = 0;
+            _store.TryLogEvent($"threads={_threads}.{_callType}", "Warn", "Starting...", null, CancellationToken.None).Wait();
             BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer, _nameFilter), _threads, _bundleSize, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
@@ -298,7 +299,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 foreach (var jsonInt in lineItem.Item2)
                 {
                     var json = jsonInt;
-                    var (resourceType, resourceId) = ParseJson(ref json, Guid.NewGuid().ToString());
+                    var (resourceType, resourceId) = ParseJson(ref json, _callType == "BundleCreate" ? Guid.NewGuid().ToString() : null);
                     var entry = GetEntry(json, resourceType, resourceId);
                     entries.Add(entry);
                 }

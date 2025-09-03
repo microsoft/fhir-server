@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -113,10 +115,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.Input,
                  importRequest.StorageDetail,
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
-                 HttpContext.RequestAborted,
                  importRequest.AllowNegativeVersions,
                  importRequest.ErrorContainerName,
-                 importRequest.EventualConsistency);
+                 importRequest.EventualConsistency,
+                 importRequest.ProcessingJobBytesToRead,
+                 HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
@@ -137,11 +140,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.GetImportStatusById)]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> GetImportStatusById(long idParameter)
+        public async Task<IActionResult> GetImportStatusById(long idParameter, [FromQuery(Name = KnownQueryParameterNames.ReturnDetails)] bool returnDetails)
         {
             var getBulkImportResult = await _mediator.GetImportStatusAsync(
                 idParameter,
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                returnDetails);
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202 - Accepted.

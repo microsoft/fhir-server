@@ -46,8 +46,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
         }
 
-        [Fact]
-        public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenAndIsParallelIsTrue_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges()
+        [Theory]
+        [MemberData(nameof(GetAllowedSearchParameters))]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrue_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges(List<Tuple<string, string>> searchParams)
         {
             SetupMockQueue(2);
             _queueClient.ClearReceivedCalls();
@@ -59,11 +60,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 return Task.FromResult(GenerateSearchResult(2));
             });
-
-            var searchParams = new List<Tuple<string, string>>()
-            {
-                new Tuple<string, string>("_lastUpdated", "value"),
-            };
 
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, searchParams, "test", "test", "test", null, isParallel: true);
             var jobInfo = new JobInfo()
@@ -595,6 +591,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        public static IEnumerable<object[]> GetAllowedSearchParameters()
+        {
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>(),
+            };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("_lastUpdated", "value"),
+                },
+            };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("_maxCount", "value"),
+                },
+            };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("_lastUpdated", "value"),
+                    new Tuple<string, string>("_maxCount", "value"),
+                },
+            };
+            yield return new object[]
+            {
+                new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("_lastUpdated", "value1"),
+                    new Tuple<string, string>("_lastUpdated", "value2"),
+                    new Tuple<string, string>("_lastUpdated", "value3"),
+                },
+            };
         }
 
         private void SetupMockQueue(int numRanges)

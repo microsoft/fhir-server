@@ -62,6 +62,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
+                // We need to make sure we have the latest search parameters before trying to add
+                // a search parameter. This is to avoid creating a duplicate search parameter that
+                // was recently added and that hasn't propogated to all fhir-server instances.
+                await GetAndApplySearchParameterUpdates(cancellationToken);
+
                 // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -197,10 +202,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // data and insert the updated version
                 _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
-                _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
-
-                // ICM:648766003 *** NEW: Sync after delete to ensure all pods know about the deletion ***
-                await GetAndApplySearchParameterUpdates(cancellationToken);
+                try
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
+                }
+                catch (ResourceNotFoundException)
+                {
+                    // do nothing, there may not be a search parameter to remove
+                }
 
                 _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });

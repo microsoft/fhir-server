@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -256,6 +256,10 @@
   </data>
   <data name="InvalidConditionalReference" xml:space="preserve">
     <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceToMultipleResources" xml:space="preserve">
+    <value>Given conditional reference '{0}' resolved to multiple resources.</value>
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
@@ -769,9 +773,6 @@
   <data name="OperationFailedForCustomerManagedKey" xml:space="preserve">
     <value>Error occurred during an operation that is dependent on the customer-managed key. Use https://go.microsoft.com/fwlink/?linkid=2300268 to troubleshoot the issue.</value>
   </data>
-  <data name="ReindexRunning" xml:space="preserve">
-    <value>A Reindex job is currenlty active. Search parameters cannot be updated until Reindex is complete.</value>
-  </data>
   <data name="TooManyIncludeResults" xml:space="preserve">
     <value>The search criteria provided returns partial included resources. Use '_includesCount' parameter to retrieve all included resources (Default: {0}, Max: {1}).</value>
   </data>
@@ -799,8 +800,21 @@
   <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
     <value>Not referenced only supports the value *:*</value>
   </data>
+  <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
+    <value>Found job id '{0}', but it is a child job and not the primary reindex job.</value>
+    <comment>{0} is the job id</comment>
+  </data>
+  <data name="ReindexRunningException" xml:space="preserve">
+    <value>A Reindex Job is currently running. Wait till it has completed before trying again.</value>
+  </data>
+  <data name="SearchParametersNotInitialized" xml:space="preserve">
+    <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
+  </data>
   <data name="TruncatedIncludeMessageForIncludes" xml:space="preserve">
     <value>Included items are truncated. Use the related link in the response to retrieve all included items.</value>
+  </data>
+  <data name="ConstraintViolation" xml:space="preserve">
+    <value>Failure inserting data due to a code value overflow. Please contact support for assistance.</value>
   </data>
   <data name="InvalidReturnPreferenceValue" xml:space="preserve">
     <value>The 'returnPreference' value '{0}' is invalid. The supported values are: {1}.</value>

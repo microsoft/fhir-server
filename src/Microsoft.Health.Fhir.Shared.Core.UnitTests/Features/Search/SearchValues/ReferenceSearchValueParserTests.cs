@@ -27,7 +27,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         public ReferenceSearchValueParserTests()
         {
-            _fhirRequestContextAccessor.RequestContext.BaseUri.Returns(BaseUri);
+            // Create a substitute for IFhirRequestContext
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+
+            // Configure the BaseUri property on the substitute
+            fhirRequestContext.BaseUri.Returns(BaseUri);
+
+            // Assign the substitute to the RequestContext property
+            _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
             _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
         }
