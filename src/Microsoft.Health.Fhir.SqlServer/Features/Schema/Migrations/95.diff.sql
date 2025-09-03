@@ -15,8 +15,8 @@ BEGIN
 END
 GO
 
--- Update the UpsertSearchParams stored procedure to use LastUpdated-based optimistic concurrency
-ALTER PROCEDURE dbo.UpsertSearchParams
+-- Create the UpsertSearchParamsWithOptimisticConcurrency stored procedure to use LastUpdated-based optimistic concurrency
+CREATE PROCEDURE dbo.UpsertSearchParamsWithOptimisticConcurrency
     @searchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;

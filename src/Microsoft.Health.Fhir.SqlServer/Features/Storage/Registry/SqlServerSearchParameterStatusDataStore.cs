@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     {
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
+        private readonly VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
         private readonly SqlServerSortingValidator _sortingValidator;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         public SqlServerSearchParameterStatusDataStore(
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
+            VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsWithOptimisticConcurrencyTvpGenerator,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
             SqlServerSortingValidator sortingValidator,
@@ -60,6 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
+            _updateSearchParamsWithOptimisticConcurrencyTvpGenerator = updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
             _sortingValidator = sortingValidator;
@@ -218,7 +221,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
+                if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                {
+                    VLatest.UpsertSearchParamsWithOptimisticConcurrency.PopulateCommand(sqlCommandWrapper, _updateSearchParamsWithOptimisticConcurrencyTvpGenerator.Generate(statuses.ToList()));
+                }
+                else
+                {
+                    VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
+                }
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
