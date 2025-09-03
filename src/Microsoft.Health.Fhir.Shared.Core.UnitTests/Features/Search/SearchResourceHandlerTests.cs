@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // Setup authorization to return only Read permission (no Search permission)
             // This simulates SMART v2 scope like "patient/Patient.r" which only allows direct access
             authorizationService.CheckAccess(DataActions.Search, CancellationToken.None)
-                .Returns(DataActions.None);
+                .Returns(DataActions.ReadById);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
                 searchResourceHandler.Handle(request, CancellationToken.None));
