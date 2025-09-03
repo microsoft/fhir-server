@@ -342,6 +342,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.Includes:
                     routeName = RouteNames.IncludesOperationDefinition;
                     break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRefOperationDefinition;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
