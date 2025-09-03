@@ -138,6 +138,12 @@ CREATE TYPE dbo.ResourceWriteClaimList AS TABLE (
     ClaimTypeId         TINYINT        NOT NULL,
     ClaimValue          NVARCHAR (128) NOT NULL);
 
+CREATE TYPE dbo.SearchParamList AS TABLE (
+    Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status               VARCHAR (20)       NOT NULL,
+    IsPartiallySupported BIT                NOT NULL,
+    LastUpdated          DATETIMEOFFSET (7) NULL UNIQUE (Uri));
+
 CREATE TYPE dbo.StringList AS TABLE (
     String VARCHAR (MAX));
 
@@ -228,12 +234,6 @@ CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
     Uri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status               VARCHAR (20)  NOT NULL,
     IsPartiallySupported BIT           NOT NULL);
-
-CREATE TYPE dbo.SearchParamTableType_3 AS TABLE (
-    Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (20)       NOT NULL,
-    IsPartiallySupported BIT                NOT NULL,
-    LastUpdated          DATETIMEOFFSET (7) NULL);
 
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE (
     Offset          INT          NOT NULL,
@@ -6231,7 +6231,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.UpsertSearchParams
-@searchParams dbo.SearchParamTableType_3 READONLY
+@searchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -6243,7 +6243,8 @@ DECLARE @summaryOfChanges TABLE (
     Action VARCHAR (20)  NOT NULL);
 DECLARE @conflictedRows TABLE (
     Uri VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
-SELECT TOP 0 * FROM dbo.SearchParam WITH (TABLOCKX);
+SELECT TOP 0 *
+FROM   dbo.SearchParam WITH (TABLOCKX);
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri
 FROM   @searchParams AS sp

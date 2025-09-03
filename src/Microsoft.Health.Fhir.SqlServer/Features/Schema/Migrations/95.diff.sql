@@ -3,9 +3,9 @@
 **************************************************************/
 
 -- Create new table type with LastUpdated support for optimistic concurrency
-IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'SearchParamTableType_3' AND is_user_defined = 1)
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'SearchParamList' AND is_user_defined = 1)
 BEGIN
-    CREATE TYPE dbo.SearchParamTableType_3 AS TABLE
+    CREATE TYPE dbo.SearchParamList AS TABLE
     (
         Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
         Status varchar(20) NOT NULL,
@@ -17,7 +17,7 @@ GO
 
 -- Update the UpsertSearchParams stored procedure to use LastUpdated-based optimistic concurrency
 ALTER PROCEDURE dbo.UpsertSearchParams
-    @searchParams dbo.SearchParamTableType_3 READONLY
+    @searchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

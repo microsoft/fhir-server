@@ -404,7 +404,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 // Use the appropriate table type based on schema version
                 string tableTypeName = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency
-                    ? "dbo.SearchParamTableType_3"
+                    ? "dbo.SearchParamList"
                     : "dbo.SearchParamTableType_2";
 
                 var tableValuedParameter = new SqlParameter
