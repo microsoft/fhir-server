@@ -36,9 +36,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 parameters.AddParameter(1, includeInHash: false);
                 parameters.AddParameter(VLatest.Resource.ResourceId, "abc", false);
                 parameters.AddParameter(VLatest.Resource.ResourceId, (object)"123", false);
+                parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, 123, false);
             });
 
             Assert.False(parameters.HasParametersToHash);
+        }
+
+        [Fact]
+        public void GivenParameterThatShouldHashed_WhenAdded_ChangesHash()
+        {
+            using var command = new SqlCommand();
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+
+            AssertChangesHash(parameters, () =>
+            {
+                parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, 123, true);
+            });
+
+            Assert.True(parameters.HasParametersToHash);
         }
 
         [Theory]
