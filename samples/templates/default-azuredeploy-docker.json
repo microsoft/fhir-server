@@ -232,6 +232,13 @@
                 "description": "The type of Telemetry provider being used for telemetry logging to Application Insights resource."
             }
         },
+        "networkSecurityPerimeterResourceGroup": {
+            "type": "string",
+            "defaultValue": "nsp",
+            "metadata": {
+                "description": "Resource group containing the Network Security Perimeter."
+            }
+        },
         "networkSecurityPerimeterName": {
             "type": "string",
             "defaultValue": "fhirbuildsnsp",
@@ -735,19 +742,18 @@
             "tags": {}
         },
         {
-            "type": "Microsoft.Storage/storageAccounts/networkSecurityPerimeterConfigurations",
-            "apiVersion": "2023-05-01",
-            "name": "[concat(variables('storageAccountName'), '/', guid(uniqueString(parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'), variables('serviceName'))))]",
+            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
+            "apiVersion": "2023-07-01-preview",
+            "name": "[concat(parameters('networkSecurityPerimeterName'), '/', uniqueString(variables('storageAccountName')))]",
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
             ],
             "properties": {
-                "networkSecurityPerimeter": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters', parameters('networkSecurityPerimeterName'))]"
-                },
+                "resourceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                "resourceLocation": "[resourceGroup().location]",
                 "profile": {
-                    "name": "[parameters('networkSecurityPerimeterProfileName')]"
+                    "id": "[resourceId(subscription().subscriptionId, parameters('networkSecurityPerimeterResourceGroup'), 'Microsoft.Network/networkSecurityPerimeters/profiles', parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 }
             }
         },
