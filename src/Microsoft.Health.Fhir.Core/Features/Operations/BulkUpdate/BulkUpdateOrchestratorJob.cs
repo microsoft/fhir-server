@@ -185,7 +185,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                         if (searchResult.Results != null && searchResult.Results.Any() && !string.IsNullOrEmpty(searchResult.ContinuationToken))
                         {
-                            // Nothing more to process
+                            // More results to process
+                            // Let's update the ContinuationToken in searchParam so that we can start from the next page
                             searchParams.RemoveAll(x => x.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
                             searchParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(searchResult.ContinuationToken)));
                             prevContinuationToken = searchResult.ContinuationToken;

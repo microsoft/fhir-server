@@ -97,6 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 _contextAccessor.RequestContext = fhirRequestContext;
                 using IScoped<IBulkUpdateService> upsertService = _updateFactory.Invoke();
                 Exception exception = null;
+                uint readUpto = 0;
 
                 var queryParametersList = new List<Tuple<string, string>>();
                 if (definition.SearchParameters is not null)
@@ -118,18 +119,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // We want to process everything in the batches of 1000
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery <= ProcessingBatchSize ? definition.MaximumNumberOfResourcesPerQuery.ToString() : ProcessingBatchSize.ToString()));
 
-                    if (definition.ReadNextPage || definition.GlobalEndSurrogateId != null)
-                    {
-                        // Serial executions with readNextPage as true should read next page
-                        // Subjobs based on resource type-surrogate id ranges should read next page as false since they are already scoped to a range hence readUpto is 0
-                        result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, 0, isIncludesRequest: false, queryParametersList, null, cancellationToken);
-                    }
-                    else
-                    {
-                        // For CT level jobs, readNextPage is false and readUpto is set based on 1k batches
-                        uint readUpto = definition.MaximumNumberOfResourcesPerQuery <= 1000 ? 1 : ((definition.MaximumNumberOfResourcesPerQuery - 1) / 1000) + 1;
-                        result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, cancellationToken);
-                    }
+                    // If readNextPage is true, we want to read all the pages until there are no more results and we ignore the readUpto value
+                    // If readNextPage is false, we want to read only one page when readUpto is 1 or 0. OR read until the readUpto value
+
+                    // For serial executions, readNextPage is true and it should read next pages hence readUpto is 0
+                    // For subjobs based on resource type-surrogate id ranges, readNextPage is false since they are already scoped to a range hence readUpto is 0
+                    // For CT level jobs, readNextPage is false and readUpto is set based on 1k batches
+                    readUpto = (definition.ReadNextPage || definition.GlobalEndSurrogateId != null)
+                                ? 0
+                                : (definition.MaximumNumberOfResourcesPerQuery <= 1000
+                                      ? 1
+                                      : ((definition.MaximumNumberOfResourcesPerQuery - 1) / 1000) + 1);
+
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, cancellationToken);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
