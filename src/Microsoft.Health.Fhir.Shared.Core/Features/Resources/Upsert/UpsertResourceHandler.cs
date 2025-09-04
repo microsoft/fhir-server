@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             else
             {
                 // Fallback when method is unavailable: infer from ETag/Id
-                Resource tmp = request.Resource.ToPoco<Resource>();
+                var tmp = request.Resource?.ToPoco<Resource>();
                 if (string.IsNullOrEmpty(tmp?.Id))
                 {
                     var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
