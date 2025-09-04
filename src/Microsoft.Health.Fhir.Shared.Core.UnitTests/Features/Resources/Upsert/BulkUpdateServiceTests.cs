@@ -133,7 +133,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 isIncludesRequest).Returns(new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>()));
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Empty(result.ResourcesUpdated);
+            Assert.Empty(result.ResourcesIgnored);
+            Assert.Empty(result.ResourcesPatchFailed);
+
+            result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 10, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -142,8 +150,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Empty(result.ResourcesPatchFailed);
         }
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenResultsReturned_ResourcesAreUpdated()
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(5)]
+        [InlineData(10)]
+        public async Task UpdateMultipleAsync_WhenResultsReturned_ResourcesAreUpdated(uint readUpto)
         {
             // Arrange
             var resourceType = "Patient";
@@ -157,25 +169,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _searchServiceFactory.Invoke().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
-                conditionalParameters,
-                cancellationToken,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
                 true,
                 ResourceVersionType.Latest,
                 false,
                 isIncludesRequest).Returns((x) =>
             {
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 } }));
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 } }, "continuationToken"));
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            uint timesFactor = readUpto == 0 ? 1 : readUpto;
 
             // Assert
             Assert.NotNull(result);
             Assert.Single(result.ResourcesUpdated); // Should be updated or empty if patch fails
-            Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
-            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
-            Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
+            Assert.True(result.ResourcesUpdated["Patient"] == 5 * timesFactor); // Assuming all 5 resources were updated successfully
+            Assert.True(result.ResourcesPatchFailed["Practitioner"] == 2 * timesFactor); // Practitioner failed on immutable property update
+            Assert.True(result.ResourcesIgnored["Observation"] == 1 * timesFactor); // Observations ignored as no applicable patch request
         }
 
         [Fact]
@@ -204,7 +217,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -215,9 +228,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task UpdateMultipleAsync_WhenSingleMatchAndZeroIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
+        [InlineData(true, 0)]
+        [InlineData(true, 1)]
+        [InlineData(true, 5)]
+        [InlineData(true, 10)]
+        [InlineData(false, 0)]
+        [InlineData(false, 1)]
+        [InlineData(false, 5)]
+        [InlineData(false, 10)]
+        public async Task UpdateMultipleAsync_WhenSingleMatchAndZeroIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage, uint readUpto)
         {
             // Arrange
             var resourceType = "Patient";
@@ -243,9 +262,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
+            // readUpto is ignored when readNextPage is true
+            // readUpto is considered when readNextPage is false but since there is only one matched page, it is ignored
             Assert.NotNull(result);
             Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
             Assert.True(result.ResourcesUpdated["Patient"] == 2); // Assuming all 2 resources were updated successfully
@@ -255,9 +276,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task UpdateMultipleAsync_WhenSingleMatchAndSingleIncludePagesWithGivenReadNextPageResourcesAreUpdated(bool readNextPage)
+        [InlineData(true, 0)]
+        [InlineData(true, 1)]
+        [InlineData(true, 5)]
+        [InlineData(true, 10)]
+        [InlineData(false, 0)]
+        [InlineData(false, 1)]
+        [InlineData(false, 5)]
+        [InlineData(false, 10)]
+        public async Task UpdateMultipleAsync_WhenSingleMatchAndSingleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage, uint readUpto)
         {
             // Arrange
             var resourceType = "Patient";
@@ -292,9 +319,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
+            // readUpto is ignored when readNextPage is true
+            // readUpto is considered when readNextPage is false but since there is only one matched page, it is ignored
             Assert.NotNull(result);
             Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
             Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
@@ -304,9 +333,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task UpdateMultipleAsync_WhenSingleMatchAndMultipleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
+        [InlineData(true, 0)]
+        [InlineData(true, 1)]
+        [InlineData(true, 5)]
+        [InlineData(true, 10)]
+        [InlineData(false, 0)]
+        [InlineData(false, 1)]
+        [InlineData(false, 5)]
+        [InlineData(false, 10)]
+        public async Task UpdateMultipleAsync_WhenSingleMatchAndMultipleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage, uint readUpto)
         {
             // Arrange
             var resourceType = "Patient";
@@ -344,9 +379,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
+            // readUpto is ignored when readNextPage is true
+            // readUpto is considered when readNextPage is false but since there is only one matched page, it is ignored
             Assert.NotNull(result);
             Assert.True(result.ResourcesUpdated.Count == 2); // Should be updated or empty if patch fails
             Assert.True(result.ResourcesUpdated["Patient"] == 5); // Assuming all 5 resources were updated successfully
@@ -396,7 +433,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -433,7 +470,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -496,7 +533,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -561,7 +598,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -628,7 +665,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);
@@ -730,7 +767,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -805,7 +842,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
             });
 
             Assert.Equal(1, updateCount);
@@ -859,7 +896,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -927,7 +964,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
+                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationTokenSource.Token);
             });
 
             Assert.Equal(1, updateCount);

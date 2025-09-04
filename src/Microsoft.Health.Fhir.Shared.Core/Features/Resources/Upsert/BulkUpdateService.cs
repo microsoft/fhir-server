@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// This approach avoids returning already updated included resources in subsequent searches and ensures accurate bulk updates.
         /// Handles batching, error aggregation, and audit logging throughout the operation.
         /// </summary>
-        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
+        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint readUpto, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<SearchResultEntry> searchResults;
             SearchResult searchResult;
@@ -148,7 +148,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
 
                     // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
-                    if (!string.IsNullOrEmpty(ct) && readNextPage)
+                    // Or when readUpto is set for CT level jobs and we have not reached that limit yet
+                    if ((!string.IsNullOrEmpty(ct) && readNextPage) || (!string.IsNullOrEmpty(ct) && !readNextPage && readUpto > 1))
                     {
                         var cloneList = new List<Tuple<string, string>>(conditionalParameters);
                         if (isIncludesRequest)
@@ -163,7 +164,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
                         }
 
-                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
+                        readUpto--;
+                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, cloneList, bundleResourceContext, cancellationToken);
                         finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
                         _logger.LogInformation("Bulk updated total {Count} resources for the page.", subResult.ResourcesUpdated.Sum(resource => resource.Value));
                     }
@@ -310,7 +312,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
 
-            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, true, cloneList, bundleResourceContext, cancellationToken);
+            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, true, cloneList, bundleResourceContext, cancellationToken);
             finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
             return finalBulkUpdateResult;
         }

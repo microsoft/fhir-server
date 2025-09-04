@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -95,6 +96,84 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrueAndExistingEnqueuedJobs_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges()
+        {
+            SetupMockQueue(2);
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_lastUpdated", "value"),
+            };
+
+            var resourceTypes = new HashSet<string> { "Patient", "Observation" };
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(resourceTypes.ToList());
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>()).Returns((x) =>
+            {
+                return Task.FromResult(GenerateSearchResult(2));
+            });
+
+            var jobs = new List<JobInfo>()
+                {
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 1,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, null, null)),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 2,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", "31")),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 3,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", (long.MaxValue - 3).ToString())),
+                    },
+                };
+
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // Only one call for resource type Observation as Patient has existing jobs covering the surrogate id ranges
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
+
+            // Checks that two processing jobs were queued for each type
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = ((string[])calls.ElementAt(1).GetArguments()[1]).ToArray();
+
+            Assert.Equal(2, definitions.Length);
+
+            // Checks that the processing job lists both resource types
+            foreach (var definitionString in definitions)
+            {
+                var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitionString);
+
+                // check actualDefinition.Type contains one of the type from resourceTypes
+                Assert.NotNull(actualDefinition.Type);
+                Assert.Equal("Observation", actualDefinition.Type);
+                Assert.NotNull(actualDefinition.StartSurrogateId);
+                Assert.NotNull(actualDefinition.EndSurrogateId);
+            }
+        }
+
+        [Fact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithSinglePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
         {
             _queueClient.ClearReceivedCalls();
@@ -142,6 +221,168 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResultsAndPartiallyEnqueuedJobs_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForRemainingPagesOnly()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            int callCount = 0;
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(_ =>
+                {
+                    callCount++;
+
+                    // First 5 calls: return "continuationToken", 6th call: return null
+                    var continuationToken = callCount <= 5 ? "continuationToken" : null;
+                    return Task.FromResult(GenerateSearchResult(2, continuationToken));
+                });
+
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+
+            var jobs = new List<JobInfo>()
+                {
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 1,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true)),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 2,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 3,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
+                    },
+                };
+
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _queueClient.ReceivedWithAnyArgs(5).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+
+            // Checks that 5 processing jobs were queued
+            // Only 5 jobs were enqueued as first call to search is going to check for previously enqueued jobs, so we return continuation token for next page
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
+            var definitions = calls
+                .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
+                .SelectMany(defs => defs) // Flatten all arrays into one sequence
+                .ToArray(); // Convert to a single string[]
+
+            Assert.Equal(5, definitions.Length);
+
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[i]);
+
+                // check actualDefinition.Type contains one of the type from resourceTypes
+                Assert.NotNull(actualDefinition.Type);
+                Assert.Equal("Patient", actualDefinition.Type);
+
+                // Since 2 jobs already exist for continuationToken 21 and 22, the new ones should be for rest of the pages
+                // Continuation token is not null for the first call as we start from page 3
+                Assert.NotNull(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
+            }
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResultsAndCompletelyEnqueuedJobs_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForRemainingPagesOnly()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(_ =>
+                {
+                    // no continuation token as a last page
+                    return Task.FromResult(GenerateSearchResult(2, null));
+                });
+
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+
+            var dateTimeNow = DateTime.UtcNow;
+            var jobs = new List<JobInfo>()
+                {
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 1,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-60),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 2,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-30),
+                    },
+                    new JobInfo()
+                    {
+                        Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 3,
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-15),
+                    },
+                };
+
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.Now,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+
+            // Checks that 1 processing job was queued
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
+            var definitions = calls
+                .Select(call => (string[])call.GetArguments()[1]) // Get the definitions array from each call
+                .SelectMany(defs => defs) // Flatten all arrays into one sequence
+                .ToArray(); // Convert to a single string[]
+
+            Assert.Empty(definitions);
+        }
+
+        [Fact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
         {
             _queueClient.ClearReceivedCalls();
@@ -172,7 +413,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(6).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
             // Checks that 6 processing jobs were queued
@@ -330,7 +571,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
-            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.ReceivedWithAnyArgs(4).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
             // Checks that 4 processing jobs were queued for 4 matched result pages
@@ -373,7 +614,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         [Fact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsFalseWithSearchParameter_ThenOnlyOneProcessingJobsIsCreated()
         {
-            SetupMockQueue(2);
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 
@@ -427,7 +667,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         [Fact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsFalseWithoutSearchParameter_ThenOnlyOneProcessingJobsIsCreated()
         {
-            SetupMockQueue(2);
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 
@@ -446,6 +685,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                     new JobInfo()
                     {
                         Status = JobStatus.Created,
+                        GroupId = 1,
+                        Id = 1,
                     },
                 };
 
@@ -641,7 +882,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 {
                     for (int i = 0; i < numRanges; i++)
                     {
-                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1));
+                        ranges.Add((long.MaxValue - i - 100, long.MaxValue - i - 50));
                     }
                 }
 

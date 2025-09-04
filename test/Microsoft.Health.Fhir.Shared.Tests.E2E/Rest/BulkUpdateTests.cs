@@ -464,7 +464,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             ChangeTypeToUpsertPatchParameter(patchRequest);
 
-            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update?_maxCount=500", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
 
             ChangeTypeToUpsertPatchParameter(patchRequest);
-            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update?_maxCount=500", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
@@ -517,7 +517,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             ChangeTypeToUpsertPatchParameter(patchRequest);
 
-            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
+            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update?_maxCount=500", new Dictionary<string, string>() { { "_isParallel", isParallel.ToString() } });
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
@@ -549,7 +549,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     { "_isParallel", isParallel.ToString() },
                 };
 
-            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update?_maxCount=500", queryParam);
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
@@ -579,7 +579,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     { "_include", "Group:member" },
                     { "_isParallel", isParallel.ToString() },
                 };
-            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            using HttpResponseMessage responseIgnored = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update?_maxCount=500", queryParam);
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
@@ -610,7 +610,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     { "_include", "Group:member" },
                     { "_isParallel", isParallel.ToString() },
                 };
-            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            using HttpResponseMessage responsePatchFailed = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update?_maxCount=500", queryParam);
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
@@ -646,7 +646,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .AddAddPatchParameter("Patient", "active", new FhirBoolean(true))
                 .AddAddPatchParameter("Group", "active", new FhirBoolean(true));
             ChangeTypeToUpsertPatchParameter(patchRequest);
-            using HttpResponseMessage responseForIncludedResultsOnDifferentPages = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update", queryParam);
+            using HttpResponseMessage responseForIncludedResultsOnDifferentPages = await SendBulkUpdateRequest(tag, patchRequest, "Group/$bulk-update?_maxCount=500", queryParam);
             Assert.Equal(HttpStatusCode.Accepted, responseForIncludedResultsOnDifferentPages.StatusCode);
 
             BulkUpdateResult expectedResultsForIncludedResultsOnDifferentPages = new BulkUpdateResult();
