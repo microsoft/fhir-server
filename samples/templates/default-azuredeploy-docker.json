@@ -231,6 +231,20 @@
             "metadata": {
                 "description": "The type of Telemetry provider being used for telemetry logging to Application Insights resource."
             }
+        },
+        "networkSecurityPerimeterName": {
+            "type": "string",
+            "defaultValue": "fhirbuildsnsp",
+            "metadata": {
+                "description": "Name of the Network Security Perimeter to associate storage accounts with."
+            }
+        },
+        "networkSecurityPerimeterProfileName": {
+            "type": "string",
+            "defaultValue": "defaultProfile",
+            "metadata": {
+                "description": "Name of the Network Security Perimeter profile to use for storage account association."
+            }
         }
     },
     "variables": {
@@ -719,6 +733,23 @@
             },
             "kind": "Storage",
             "tags": {}
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/networkSecurityPerimeterConfigurations",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(variables('storageAccountName'), '/', guid(uniqueString(parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'), variables('serviceName'))))]",
+            "condition": "[variables('enableIntegrationStore')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+            ],
+            "properties": {
+                "networkSecurityPerimeter": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters', parameters('networkSecurityPerimeterName'))]"
+                },
+                "profile": {
+                    "name": "[parameters('networkSecurityPerimeterProfileName')]"
+                }
+            }
         },
         {
             "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
