@@ -483,7 +483,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("POST", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-            var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.POST, Guid.NewGuid());
+            var bundleContext = new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Sequential, Bundle.HTTPVerb.POST, persistedId: null, Guid.NewGuid());
 
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
@@ -503,7 +503,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("POST", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-            var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.POST, Guid.NewGuid());
+            var bundleContext = new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Sequential, Bundle.HTTPVerb.POST, persistedId: null, Guid.NewGuid());
 
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataActions);
 
@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("PUT", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-            var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.PUT, Guid.NewGuid());
+            var bundleContext = new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Sequential, Bundle.HTTPVerb.PUT, persistedId: null, Guid.NewGuid());
 
             _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Update);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
@@ -539,7 +539,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation();
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
             contextAccessor.RequestContext = new FhirRequestContext("PUT", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-            var bundleContext = new BundleResourceContext(BundleProcessingLogic.Sequential, HTTPVerb.PUT, Guid.NewGuid());
+            var bundleContext = new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Sequential, Bundle.HTTPVerb.PUT, persistedId: null, Guid.NewGuid());
 
             _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataAction);
 

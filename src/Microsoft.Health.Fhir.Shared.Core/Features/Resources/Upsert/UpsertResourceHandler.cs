@@ -61,12 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             EnsureArg.IsNotNull(request, nameof(request));
 
             // Determine HTTP method, preferring Bundle context over request context
-            HTTPVerb? method = request.BundleResourceContext?.HttpVerb ??
-                               (_contextAccessor?.RequestContext?.Method != null ?
-                                Enum.TryParse<HTTPVerb>(_contextAccessor.RequestContext.Method, true, out var parsedMethod) ? parsedMethod : null :
-                                null);
+            Hl7.Fhir.Model.Bundle.HTTPVerb? method = request.BundleResourceContext?.HttpVerb;
 
-            if (method == HTTPVerb.POST)
+            if (method == null && _contextAccessor?.RequestContext?.Method != null)
+            {
+                if (System.Enum.TryParse<Hl7.Fhir.Model.Bundle.HTTPVerb>(_contextAccessor.RequestContext.Method, true, out var parsedMethod))
+                {
+                    method = parsedMethod;
+                }
+            }
+
+            if (method == Hl7.Fhir.Model.Bundle.HTTPVerb.POST)
             {
                 // Explicit create via POST
                 var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
@@ -75,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                     throw new UnauthorizedFhirActionException();
                 }
             }
-            else if (method == HTTPVerb.PUT)
+            else if (method == Hl7.Fhir.Model.Bundle.HTTPVerb.PUT)
             {
                 // Explicit update via PUT
                 var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Write, cancellationToken);
