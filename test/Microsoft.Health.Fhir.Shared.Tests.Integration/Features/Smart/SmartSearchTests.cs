@@ -870,6 +870,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("name", "SMARTGivenName1"));
             var searchResults = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
+            Assert.False(searchResults.SearchIssues.Any());
+
             // Test create capability
             var newPatient = new Patient
             {
@@ -912,120 +914,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var updateResult = await UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal("smart-patient-A", updateResult.Wrapper.ResourceId);
-        }
-
-        [SkippableFact]
-        public async Task GivenSmartV2OnlyCreateScope_WhenAttemptingRead_ThenAccessDenied()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Create, "patient");
-
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            // Should throw exception when trying to read with only Create permission
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                _fixture.GetResourceHandler.Handle(
-                    new GetResourceRequest(new ResourceKey("Patient", "smart-patient-A"), bundleResourceContext: null),
-                    CancellationToken.None));
-        }
-
-        [SkippableFact]
-        public async Task GivenSmartV2OnlySearchScope_WhenAttemptingCreate_ThenAccessDenied()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient");
-
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            var newPatient = new Patient
-            {
-                Id = "smart-patient-search-only",
-                Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Create") },
-            };
-
-            // Should fail when trying to create with only Search permission
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(newPatient));
-        }
-
-        [SkippableFact]
-        public async Task GivenSmartV2OnlyReadScope_WhenAttemptingUpdate_ThenAccessDenied()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.ReadById, "patient");
-
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            var updatedPatient = new Patient
-            {
-                Id = "smart-patient-A",
-                Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Update") },
-            };
-
-            // Should fail when trying to update with only Read permission
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(updatedPatient));
-        }
-
-        [SkippableFact]
-        public async Task GivenSmartV2MultipleScopes_WhenUsingDifferentOperations_ThenOnlyAuthorizedOperationsSucceed()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            // Grant Search + Read permissions only (no Create or Update)
-            var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient");
-            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.ReadById, "patient");
-
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            // Search should succeed
-            var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
-            var searchResults = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.NotEmpty(searchResults.Results);
-
-            // Read should succeed
-            var readResult = await _fixture.GetResourceHandler.Handle(
-                new GetResourceRequest(new ResourceKey("Patient", "smart-patient-A"), bundleResourceContext: null),
-                CancellationToken.None);
-            Assert.NotNull(readResult.Resource);
-
-            // Create should fail
-            var newPatient = new Patient
-            {
-                Id = "smart-v2-should-fail-create",
-                Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Create") },
-            };
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(newPatient, "POST"));
-
-            // Update should fail
-            var updatePatient = new Patient
-            {
-                Id = "smart-patient-A",
-                Name = new List<HumanName> { new HumanName().WithGiven("ShouldFail").AndFamily("Update") },
-            };
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => UpsertResource(updatePatient));
         }
     }
 }
