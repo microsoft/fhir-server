@@ -550,11 +550,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenUpsertRequestWithNoHttpVerb_WhenResourceHasNoId_ThenShouldRequireCreatePermission()
+        public async Task GivenUpsertRequestWithInvalidHttpVerb_WhenResourceHasNoId_ThenShouldRequireCreatePermission()
         {
             var resource = Samples.GetDefaultObservation().UpdateId(null);
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext(null, "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
+            contextAccessor.RequestContext = new FhirRequestContext("foo", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
 
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
