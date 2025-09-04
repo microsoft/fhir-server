@@ -142,7 +142,7 @@ CREATE TYPE dbo.SearchParamList AS TABLE (
     Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status               VARCHAR (20)       NOT NULL,
     IsPartiallySupported BIT                NOT NULL,
-    LastUpdated          DATETIMEOFFSET (7) NULL UNIQUE (Uri));
+    LastUpdated          DATETIMEOFFSET (7) NOT NULL UNIQUE (Uri));
 
 CREATE TYPE dbo.StringList AS TABLE (
     String VARCHAR (MAX));
@@ -6273,13 +6273,11 @@ DECLARE @summaryOfChanges TABLE (
     Action VARCHAR (20)  NOT NULL);
 DECLARE @conflictedRows TABLE (
     Uri VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
-SELECT TOP 0 *
-FROM   dbo.SearchParam WITH (TABLOCKX);
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri
 FROM   @searchParams AS sp
        INNER JOIN
-       dbo.SearchParam AS existing
+       dbo.SearchParam AS existing WITH (UPDLOCK, HOLDLOCK)
        ON sp.Uri = existing.Uri
 WHERE  sp.LastUpdated != existing.LastUpdated;
 IF EXISTS (SELECT 1
@@ -6291,7 +6289,7 @@ IF EXISTS (SELECT 1
         ROLLBACK;
         THROW 50001, @conflictMessage, 1;
     END
-MERGE INTO dbo.SearchParam
+MERGE INTO dbo.SearchParam WITH (HOLDLOCK)
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
 WHEN MATCHED THEN UPDATE 

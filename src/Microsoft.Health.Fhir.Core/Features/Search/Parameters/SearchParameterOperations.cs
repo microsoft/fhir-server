@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         throw;
                     }
-                    catch (Exception ex) when (!(ex is FhirException))
+                    catch (Exception ex)
                     {
                         _logger.LogError(ex, "Unexpected error adding search parameter.");
                         var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);

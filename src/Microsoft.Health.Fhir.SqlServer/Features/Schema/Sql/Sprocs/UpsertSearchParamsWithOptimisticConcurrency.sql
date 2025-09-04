@@ -14,7 +14,7 @@
 --         * The updated existing search parameters or the new search parameters
 --
 -- RETURN VALUE
---     The IDs and URIs of the search parameters that were inserted (not updated).
+--     The IDs, URIs and LastUpdated of the search parameters that were inserted or updated.
 --
 CREATE PROCEDURE dbo.UpsertSearchParamsWithOptimisticConcurrency
     @searchParams dbo.SearchParamList READONLY
@@ -34,15 +34,12 @@ DECLARE @conflictedRows TABLE (
     Uri VARCHAR(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 );
 
--- Adding WITH TABLOCKX higher up in transaction per PR 5097 review comments
--- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
-SELECT TOP 0 * FROM dbo.SearchParam WITH (TABLOCKX);
-
 -- Check for concurrency conflicts first using LastUpdated
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri 
 FROM @searchParams sp
-INNER JOIN dbo.SearchParam existing ON sp.Uri = existing.Uri
+INNER JOIN dbo.SearchParam existing WITH (UPDLOCK, HOLDLOCK) 
+  ON sp.Uri = existing.Uri
 WHERE sp.LastUpdated != existing.LastUpdated;
 
 -- If we have conflicts, raise an error
@@ -58,7 +55,7 @@ BEGIN
 END
 
 -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
-MERGE INTO dbo.SearchParam
+MERGE INTO dbo.SearchParam WITH (HOLDLOCK)
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
 WHEN MATCHED THEN UPDATE 

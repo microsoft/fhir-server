@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     searchParameterStatus.Uri.OriginalString,
                     searchParameterStatus.Status.ToString(),
                     searchParameterStatus.IsPartiallySupported,
-                    searchParameterStatus.LastUpdated != default(System.DateTimeOffset) ? searchParameterStatus.LastUpdated : null))
+                    searchParameterStatus.LastUpdated != default(System.DateTimeOffset) ? searchParameterStatus.LastUpdated : System.DateTimeOffset.MinValue))
                 .ToList();
         }
     }
