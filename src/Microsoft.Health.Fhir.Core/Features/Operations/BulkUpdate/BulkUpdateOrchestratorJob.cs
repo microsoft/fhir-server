@@ -159,16 +159,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs at page level.");
 
                     // Let's check for existing jobs to avoid duplicate processing
-                    var lastEnqueuedMaxContinuationToken = groupJobs
-                        .Where(x => x.Id != jobInfo.Id) // exclude coordinator
+                    var topJob = groupJobs
+                        .Where(x => x.Id != jobInfo.Id)
                         .OrderByDescending(j => j.CreateDate)
-                        .Select(x => JsonConvert.DeserializeObject<BulkUpdateDefinition>(x.Definition))
-                        .Where(def => def.SearchParameters != null &&
-                                      def.SearchParameters.Any(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase)))
-                        .Select(def => def.SearchParameters
-                            .First(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
-                            .Item2)
                         .FirstOrDefault();
+
+                    string lastEnqueuedMaxContinuationToken = topJob == null
+                        ? null
+                        : JsonConvert.DeserializeObject<BulkUpdateDefinition>(topJob.Definition)
+                             .SearchParameters?
+                             .FirstOrDefault(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
+                             ?.Item2;
 
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
-                    if (lastEnqueuedMaxContinuationToken != null)
+                    if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))
                     {
                         searchParams.RemoveAll(x => x.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
                         searchParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, lastEnqueuedMaxContinuationToken));

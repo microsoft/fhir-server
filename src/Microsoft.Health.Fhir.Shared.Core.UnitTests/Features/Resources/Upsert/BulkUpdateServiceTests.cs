@@ -109,8 +109,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 _logger);
         }
 
-        [Fact]
-        public async Task UpdateMultipleAsync_WhenNoResults_ReturnsEmptyBulkUpdateResult()
+        [Theory]
+        [InlineData(0)]
+        [InlineData(10)]
+        public async Task UpdateMultipleAsync_WhenNoResults_ReturnsEmptyBulkUpdateResult(uint readUpto)
         {
             // Arrange
             var resourceType = "Patient";
@@ -133,15 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 isIncludesRequest).Returns(new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>()));
 
             // Act
-            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Empty(result.ResourcesUpdated);
-            Assert.Empty(result.ResourcesIgnored);
-            Assert.Empty(result.ResourcesPatchFailed);
-
-            result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 10, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
+            var result = await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, conditionalParameters, bundleResourceContext: null, cancellationToken);
 
             // Assert
             Assert.NotNull(result);

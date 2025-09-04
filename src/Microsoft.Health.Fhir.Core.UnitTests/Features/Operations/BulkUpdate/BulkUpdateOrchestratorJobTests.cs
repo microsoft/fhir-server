@@ -114,6 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 return Task.FromResult(GenerateSearchResult(2));
             });
 
+            var dateTimeNow = DateTime.UtcNow;
             var jobs = new List<JobInfo>()
                 {
                     new JobInfo()
@@ -122,20 +123,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         GroupId = 1,
                         Id = 1,
                         Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, null, null)),
+                        CreateDate = dateTimeNow.AddSeconds(-60),
                     },
                     new JobInfo()
                     {
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 2,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", "31")),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", "31")),
+                        CreateDate = dateTimeNow.AddSeconds(-30),
                     },
                     new JobInfo()
                     {
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 3,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", (long.MaxValue - 3).ToString())),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", searchParams, "test", "test", "test", null, isParallel: true, false, "21", (long.MaxValue - 3).ToString())),
+                        CreateDate = dateTimeNow.AddSeconds(-15),
                     },
                 };
 
@@ -243,6 +247,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new Tuple<string, string>("param", "value"),
             };
 
+            var dateTimeNow = DateTime.UtcNow;
             var jobs = new List<JobInfo>()
                 {
                     new JobInfo()
@@ -251,20 +256,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         GroupId = 1,
                         Id = 1,
                         Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-60),
                     },
                     new JobInfo()
                     {
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 2,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-30),
                     },
                     new JobInfo()
                     {
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 3,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
+                        CreateDate = dateTimeNow.AddSeconds(-15),
                     },
                 };
 
@@ -343,7 +351,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 2,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "21"), }, "test", "test", "test", null, isParallel: true)),
                         CreateDate = dateTimeNow.AddSeconds(-30),
                     },
                     new JobInfo()
@@ -351,7 +359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         Status = JobStatus.Created,
                         GroupId = 1,
                         Id = 3,
-                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
+                        Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", new List<Tuple<string, string>>() { new Tuple<string, string>("ct", "22"), }, "test", "test", "test", null, isParallel: true)),
                         CreateDate = dateTimeNow.AddSeconds(-15),
                     },
                 };
@@ -370,7 +378,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that 1 processing job was queued
+            // Checks that 0 processing job was queued
             var calls = _queueClient.ReceivedCalls()
                 .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
                 .ToList();
