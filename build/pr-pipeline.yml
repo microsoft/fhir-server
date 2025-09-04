@@ -209,7 +209,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: deployR4
@@ -250,7 +250,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: deployR4B
@@ -291,7 +291,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: deployR5
@@ -332,7 +332,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
+      sqlComputeTier: 'Hyperscale'
       reindexEnabled: true
 
 - stage: testStu3
