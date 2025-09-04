@@ -107,7 +107,6 @@ Content-Type:application/fhir+json
 | mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
 | allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
 | eventualConsistency | Allows FHIR server to create resource and its search parameters in multiple SQL transactions. This can substantially increases ingestion throughput, but might cause delays before resource will become fully searchable. | 0..1 | To enable this feature pass true. By default it is false, so resource and its search parameters are created in single SQL transaction (strong consistency). |
-| processingJobBytesToRead | Allows FHIR server to adjust number of bytes processing jobs read. Default value is 10 MiB. This value might be not optimal for very large resources (>10 MiB). | 0..1 | For large resources (>10 MiB) provide value in bytes that is greater or equal to resource size. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -137,10 +136,6 @@ Content-Type:application/fhir+json
         {
             "name": "eventualConsistency",
             "valueBoolean": true
-        },
-        {
-            "name": "processingJobBytesToRead",
-            "valueInteger": 100000000
         },
         {
             "name": "input",
