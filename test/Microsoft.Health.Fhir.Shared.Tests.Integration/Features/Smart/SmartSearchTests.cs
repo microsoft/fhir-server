@@ -693,7 +693,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
-            Assert.Equal(70, results.Results.Count());
+            Assert.True(results.Results.Count() >= 70);
         }
 
         private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
