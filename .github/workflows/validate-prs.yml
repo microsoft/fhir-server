@@ -27,7 +27,7 @@ jobs:
         with:
           repository: "microsoft/fhir-server"
       - uses: actions/labeler@v5
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         env:
           TITLE: ${{ env.TITLE }}
           LABELS: ${{ env.LABELS }}
