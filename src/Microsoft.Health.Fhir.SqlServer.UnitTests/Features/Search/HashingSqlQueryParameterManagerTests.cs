@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenParameterThatShouldHashed_WhenAdded_ChangesHash()
+        public void GivenParameterThatShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
             var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
