@@ -252,6 +252,20 @@
             "metadata": {
                 "description": "Name of the Network Security Perimeter profile to use for storage account association."
             }
+        },
+        "enableNetworkSecurityPerimeter": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable Network Security Perimeter association for storage accounts."
+            }
+        },
+        "networkSecurityPerimeterSubscriptionId": {
+            "type": "string",
+            "defaultValue": "[subscription().subscriptionId]",
+            "metadata": {
+                "description": "Subscription ID containing the Network Security Perimeter."
+            }
         }
     },
     "variables": {
@@ -691,7 +705,7 @@
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
             ],
             "properties": {
-                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
+                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer",
                 "principalId": "89e25294-a480-4657-a77d-bf69c28a836c"
             }
         },
@@ -744,18 +758,21 @@
         {
             "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
             "apiVersion": "2023-07-01-preview",
-            "name": "[concat(parameters('networkSecurityPerimeterName'), '/', uniqueString(variables('storageAccountName')))]",
-            "condition": "[variables('enableIntegrationStore')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-            ],
+            "name": "[format('{0}/{1}', parameters('networkSecurityPerimeterName'), uniqueString(variables('storageAccountName')))]",
+            "condition": "[and(variables('enableIntegrationStore'), parameters('enableNetworkSecurityPerimeter'))]",
             "properties": {
-                "resourceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
-                "resourceLocation": "[resourceGroup().location]",
+                "privateLinkResource": {
+                    "id": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+                },
                 "profile": {
-                    "id": "[resourceId(subscription().subscriptionId, parameters('networkSecurityPerimeterResourceGroup'), 'Microsoft.Network/networkSecurityPerimeters/profiles', parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
+                    "id": "[resourceId(parameters('networkSecurityPerimeterSubscriptionId'), parameters('networkSecurityPerimeterResourceGroup'), 'Microsoft.Network/networkSecurityPerimeters/profiles', parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 }
-            }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                "[resourceId(parameters('networkSecurityPerimeterSubscriptionId'), parameters('networkSecurityPerimeterResourceGroup'), 'Microsoft.Network/networkSecurityPerimeters', parameters('networkSecurityPerimeterName'))]",
+                "[resourceId(parameters('networkSecurityPerimeterSubscriptionId'), parameters('networkSecurityPerimeterResourceGroup'), 'Microsoft.Network/networkSecurityPerimeters/profiles', parameters('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
+            ]
         },
         {
             "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
