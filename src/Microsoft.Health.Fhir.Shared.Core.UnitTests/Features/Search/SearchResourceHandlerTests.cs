@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var expectedBundle = new Bundle().ToResourceElement();
 
             // Setup authorization to return Search permission
-            authorizationService.CheckAccess(DataActions.Search, CancellationToken.None)
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
                 .Returns(DataActions.Search);
 
             _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Setup authorization to return only Read permission (no Search permission)
             // This simulates SMART v2 scope like "patient/Patient.r" which only allows direct access
-            authorizationService.CheckAccess(DataActions.Search, CancellationToken.None)
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
                 .Returns(DataActions.ReadById);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var request = new SearchResourceRequest("Patient", null);
 
             // Setup authorization to return no permissions
-            authorizationService.CheckAccess(DataActions.Search, CancellationToken.None)
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
                 .Returns(DataActions.None);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
