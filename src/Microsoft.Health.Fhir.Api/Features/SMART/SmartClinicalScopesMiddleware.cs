@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         {
                             foreach (Claim claim in principal.FindAll(singleScope))
                             {
-                                scopeClaimsBuilder.Append(" ").Append(claim.Value);
+                                scopeClaimsBuilder.Append(' ').Append(claim.Value);
                             }
                         }
                     }

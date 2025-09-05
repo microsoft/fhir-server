@@ -252,11 +252,12 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
             // Basic permission letters: create, read, update, delete, search.
             char[] ops = new[] { 'c', 'r', 'u', 'd', 's' };
             int n = ops.Length;
+            var sb = new StringBuilder();
 
             // There are 2^n - 1 non-empty combinations.
             for (int mask = 1; mask < (1 << n); mask++)
             {
-                var sb = new StringBuilder();
+                sb.Clear();
                 for (int j = 0; j < n; j++)
                 {
                     if ((mask & (1 << j)) != 0)
