@@ -235,10 +235,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams)
-                        WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri FROM dbo.SearchParam;
+                        INSERT INTO dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+                        SELECT sp.Uri, 'Disabled', SYSDATETIMEOFFSET(), sp.IsPartiallySupported
+                        FROM (
+                            SELECT * FROM  OPENJSON (@searchParams)
+                            WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported')
+                        ) AS sp
+                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam WHERE Uri = sp.Uri);
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
@@ -265,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
-                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
+                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
                 string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
                 string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                 string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
@@ -386,10 +389,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
 
                         UPDATE dbo.SearchParam
-                        SET Status = ISNULL(dbo.SearchParam.Status, sps.Status), LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
-                        ON dbo.SearchParam.Uri = sps.Uri
-                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
+                        ON dbo.SearchParam.Uri = sps.Uri;
 
                         SELECT @RowsAffected = @@ROWCOUNT;
                         COMMIT TRANSACTION;";

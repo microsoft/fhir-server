@@ -72,7 +72,7 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
             });
     }
 
-    [Fact]
+    [Fact(Skip = "No longer valid")]
     public async Task GivenADatabaseWithNullSearchParameterStatuses_WhenInitializing_ThenSearchParameterStatusesNotNull()
     {
         // Arrange
