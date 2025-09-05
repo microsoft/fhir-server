@@ -142,6 +142,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
+                    var scopeClaimsBuilder = new StringBuilder();
                     string scopeClaims = string.Empty;
 
                     foreach (string singleScope in authorizationConfiguration.ScopesClaim)
@@ -160,9 +161,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         {
                             foreach (Claim claim in principal.FindAll(singleScope))
                             {
-                                scopeClaims += " " + string.Join(" ", claim.Value);
+                                scopeClaimsBuilder.Append(" ").Append(claim.Value);
                             }
                         }
+                    }
+
+                    if (string.IsNullOrEmpty(scopeClaims))
+                    {
+                        scopeClaims = scopeClaimsBuilder.ToString();
                     }
 
                     var matches = ClinicalScopeRegEx.Matches(scopeClaims);
