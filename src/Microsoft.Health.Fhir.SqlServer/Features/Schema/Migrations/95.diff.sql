@@ -87,21 +87,57 @@ END CATCH
 GO
 
 -- Ensure SearchParam table has the required columns for optimistic concurrency
--- Note: The table structure should already be correct from the base schema,
--- but this ensures we have the necessary columns in case of partial migrations
+-- Step 1: Add columns if they don't exist (as nullable first)
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'Status')
 BEGIN
-    ALTER TABLE dbo.SearchParam ADD Status varchar(20) NOT NULL DEFAULT 'Disabled';
+    ALTER TABLE dbo.SearchParam ADD Status varchar(20) NULL;
 END
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'LastUpdated')
 BEGIN
-    ALTER TABLE dbo.SearchParam ADD LastUpdated datetimeoffset(7) NOT NULL DEFAULT SYSDATETIMEOFFSET();
+    ALTER TABLE dbo.SearchParam ADD LastUpdated datetimeoffset(7) NULL;
 END
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'IsPartiallySupported')
 BEGIN
-    ALTER TABLE dbo.SearchParam ADD IsPartiallySupported bit NOT NULL DEFAULT 0;
+    ALTER TABLE dbo.SearchParam ADD IsPartiallySupported bit NULL;
+END
+
+-- Step 2: Update any NULL values with appropriate defaults
+UPDATE dbo.SearchParam 
+SET Status = 'Enabled' 
+WHERE Status IS NULL;
+
+UPDATE dbo.SearchParam 
+SET LastUpdated = SYSDATETIMEOFFSET() 
+WHERE LastUpdated IS NULL;
+
+UPDATE dbo.SearchParam 
+SET IsPartiallySupported = 0 
+WHERE IsPartiallySupported IS NULL;
+
+-- Step 3: Alter columns to be NOT NULL now that all NULL values are handled
+DECLARE @sql NVARCHAR(MAX);
+
+-- Check if Status column is nullable and alter it if needed
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'Status' AND is_nullable = 1)
+BEGIN
+    SET @sql = 'ALTER TABLE dbo.SearchParam ALTER COLUMN Status varchar(20) NOT NULL';
+    EXEC sp_executesql @sql;
+END
+
+-- Check if LastUpdated column is nullable and alter it if needed
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'LastUpdated' AND is_nullable = 1)
+BEGIN
+    SET @sql = 'ALTER TABLE dbo.SearchParam ALTER COLUMN LastUpdated datetimeoffset(7) NOT NULL';
+    EXEC sp_executesql @sql;
+END
+
+-- Check if IsPartiallySupported column is nullable and alter it if needed
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'IsPartiallySupported' AND is_nullable = 1)
+BEGIN
+    SET @sql = 'ALTER TABLE dbo.SearchParam ALTER COLUMN IsPartiallySupported bit NOT NULL';
+    EXEC sp_executesql @sql;
 END
 GO
 
