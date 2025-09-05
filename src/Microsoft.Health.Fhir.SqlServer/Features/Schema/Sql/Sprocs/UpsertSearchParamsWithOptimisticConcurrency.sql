@@ -81,6 +81,7 @@ EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION;
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
