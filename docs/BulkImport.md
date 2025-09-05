@@ -1,11 +1,17 @@
 # Bulk import
 
+The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. 
+
 There are two modes of $import supported today-
 
 1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
 1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated, or both lastUpdated and versionId, from resource Meta (if present in resource JSON). There are no performance differences between incremental and initial modes.  
 
-The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
+By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
+
+## Architecture
+
+To achieve high throughput, bulk import runs on distributed computing infrastructure. It splits input files in data units and processes these units in parallel and independent of each other.
 
 ## Prerequisites
 
