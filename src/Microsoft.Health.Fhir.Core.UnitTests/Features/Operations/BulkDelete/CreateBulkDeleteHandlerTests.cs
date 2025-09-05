@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(DeleteOperation.HardDelete, definition.DeleteOperation);
-                Assert.Equal(searchParams.Count + 1, definition.SearchParameters.Count); // Adds the max time
+                Assert.Equal(searchParams.Count, definition.SearchParameters.Count);
 
                 return new List<JobInfo>()
                     {

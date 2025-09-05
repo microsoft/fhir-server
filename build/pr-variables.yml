@@ -1,5 +1,5 @@
 variables:
-    ResourceGroupRegion: 'eastus2'
+    ResourceGroupRegion: 'eastus'
     resourceGroupRoot: 'msh-fhir-pr'
     appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'

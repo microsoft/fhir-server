@@ -64,12 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
-            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters); // remove read only restriction
-            var dateCurrent = new PartialDateTime(Clock.UtcNow);
-            searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
-
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
-            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
+            await _searchService.ConditionalSearchAsync(request.ResourceType, (IReadOnlyList<Tuple<string, string>>)request.ConditionalParameters, cancellationToken, count: 1, logger: _logger);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
@@ -79,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 JobType.BulkDeleteOrchestrator,
                 request.DeleteOperation,
                 request.ResourceType,
-                searchParameters,
+                request.ConditionalParameters,
                 request.ExcludedResourceTypes,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
