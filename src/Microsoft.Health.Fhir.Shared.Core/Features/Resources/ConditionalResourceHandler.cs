@@ -49,7 +49,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
+            // Get the required permissions for this specific conditional operation
+            var requiredPermissions = GetRequiredPermissions(request);
+            var granted = await AuthorizationService.CheckAccess(requiredPermissions.legacyPermissions | requiredPermissions.granularPermissions, cancellationToken);
+
+            // Check if user has the required permissions:
+            // 1. Legacy: Read + Write
+            // 2. Granular: Search + Create/Update/Delete (specific combinations)
+            bool hasLegacyPermissions = (granted & requiredPermissions.legacyPermissions) == requiredPermissions.legacyPermissions;
+            bool hasGranularPermissions = (granted & requiredPermissions.granularPermissions) == requiredPermissions.granularPermissions;
+
+            if (!hasLegacyPermissions && !hasGranularPermissions)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -78,6 +88,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 _logger.LogInformation("PreconditionFailed: Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, matchCount);
                 throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
+        }
+
+        /// <summary>
+        /// Gets the required permissions for the specific conditional operation.
+        /// Returns both legacy permissions (Read + Write) and granular permissions (Search + specific action).
+        /// </summary>
+        protected virtual (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(TRequest request)
+        {
+            // Default: Legacy Read+Write, Granular Search+Create/Update
+            // Concrete implementations should override this to specify the exact granular permissions
+            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Create | DataActions.Update);
         }
 
         public abstract Task<TResponse> HandleSingleMatch(TRequest request, SearchResultEntry match, CancellationToken cancellationToken);
