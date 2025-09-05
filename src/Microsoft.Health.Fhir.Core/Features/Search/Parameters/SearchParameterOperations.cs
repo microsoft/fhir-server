@@ -220,15 +220,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // As any part of the SearchParameter may have been changed, including the URL
                         // the most reliable method of updating the SearchParameter is to delete the previous
                         // data and insert the updated version
-                        _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
-                        await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
-                        try
+
+                        if (!searchParameterWrapper.Url.Equals(prevSearchParamUrl, StringComparison.Ordinal))
                         {
-                            _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
-                        }
-                        catch (ResourceNotFoundException)
-                        {
-                            // do nothing, there may not be a search parameter to remove
+                            _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
+                            await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
+                            try
+                            {
+                                _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
+                            }
+                            catch (ResourceNotFoundException)
+                            {
+                                // do nothing, there may not be a search parameter to remove
+                            }
                         }
 
                         _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);

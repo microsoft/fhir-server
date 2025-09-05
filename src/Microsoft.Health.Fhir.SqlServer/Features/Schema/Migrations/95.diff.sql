@@ -20,8 +20,10 @@ CREATE OR ALTER PROCEDURE dbo.UpsertSearchParamsWithOptimisticConcurrency
     @searchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = null
+       ,@st datetime = getUTCdate()
+
 BEGIN TRANSACTION;
 
 DECLARE @lastUpdated AS DATETIMEOFFSET (7) = SYSDATETIMEOFFSET();
@@ -34,11 +36,12 @@ DECLARE @conflictedRows TABLE (
     Uri VARCHAR(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 );
 
+BEGIN TRY
 -- Check for concurrency conflicts first using LastUpdated
 INSERT INTO @conflictedRows (Uri)
 SELECT sp.Uri
 FROM @searchParams sp
-INNER JOIN dbo.SearchParam existing WITH (UPDLOCK, HOLDLOCK) 
+INNER JOIN dbo.SearchParam existing WITH (TABLOCKX)
 ON sp.Uri = existing.Uri
 WHERE sp.LastUpdated != existing.LastUpdated;
 
@@ -54,7 +57,7 @@ BEGIN
     THROW 50001, @conflictMessage, 1;
 END
 
-MERGE INTO dbo.SearchParam WITH (HOLDLOCK)
+MERGE INTO dbo.SearchParam
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
 WHEN MATCHED THEN UPDATE 
@@ -73,5 +76,11 @@ FROM   dbo.SearchParam AS searchParam
        ON searchParam.Uri = upsertedSearchParam.Uri
 WHERE  upsertedSearchParam.Action = 'INSERT';
 
+EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
 GO
