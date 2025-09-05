@@ -86,16 +86,22 @@ BEGIN CATCH
 END CATCH
 GO
 
-CREATE OR ALTER TABLE dbo.SearchParam
-(
-    SearchParamId           smallint IDENTITY(1,1)      NOT NULL,
-    CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
-    Uri                     varchar(128)                COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri)
-    WITH (DATA_COMPRESSION = PAGE),
-    Status                  varchar(20)                 NOT NULL,
-    LastUpdated             datetimeoffset(7)           NOT NULL,
-    IsPartiallySupported    bit                         NOT NULL
-)
+-- Ensure SearchParam table has the required columns for optimistic concurrency
+-- Note: The table structure should already be correct from the base schema,
+-- but this ensures we have the necessary columns in case of partial migrations
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'Status')
+BEGIN
+    ALTER TABLE dbo.SearchParam ADD Status varchar(20) NOT NULL DEFAULT 'Disabled';
+END
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'LastUpdated')
+BEGIN
+    ALTER TABLE dbo.SearchParam ADD LastUpdated datetimeoffset(7) NOT NULL DEFAULT SYSDATETIMEOFFSET();
+END
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SearchParam') AND name = 'IsPartiallySupported')
+BEGIN
+    ALTER TABLE dbo.SearchParam ADD IsPartiallySupported bit NOT NULL DEFAULT 0;
+END
 GO
 
