@@ -149,7 +149,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     if (parameters.TryGetValue(uri, out var existingStatus))
                     {
-                        existingStatus.LastUpdated = Clock.UtcNow;
                         existingStatus.Status = status;
 
                         if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
@@ -164,7 +163,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         searchParameterStatusList.Add(new ResourceSearchParameterStatus
                         {
-                            LastUpdated = Clock.UtcNow,
                             Status = status,
                             Uri = new Uri(uri),
                         });
