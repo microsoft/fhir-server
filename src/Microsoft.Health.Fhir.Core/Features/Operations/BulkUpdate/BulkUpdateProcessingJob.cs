@@ -123,9 +123,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // If readNextPage is false, we want to read only one page when readUpto is 1 or 0. OR read until the readUpto value
 
                     // For serial executions, readNextPage is true and it should read next pages hence readUpto is 0
-                    // For subjobs based on resource type-surrogate id ranges, readNextPage is false since they are already scoped to a range hence readUpto is 0
+                    // For subjobs based on resource type-surrogate id ranges, readNextPage is false and readUpto is set based on 1k batches
                     // For CT level jobs, readNextPage is false and readUpto is set based on 1k batches
-                    readUpto = (definition.ReadNextPage || definition.GlobalEndSurrogateId != null)
+                    readUpto = definition.ReadNextPage
                                 ? 0
                                 : (definition.MaximumNumberOfResourcesPerQuery <= 1000
                                       ? 1
