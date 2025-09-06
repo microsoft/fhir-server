@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool previousSqlQueryGeneratorFailure = false;
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
+        private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
 
         public SqlQueryGenerator(
@@ -61,6 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             ISqlServerFhirModel model,
             SchemaInformation schemaInfo,
             bool reuseQueryPlans,
+            bool isAsyncOperation,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -73,6 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Model = model;
             _schemaInfo = schemaInfo;
             _reuseQueryPlans = reuseQueryPlans;
+            _isAsyncOperation = isAsyncOperation;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -1171,7 +1174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
-            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
+            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
         private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
