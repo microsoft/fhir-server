@@ -115,6 +115,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// </summary>
         private static readonly string[] PropertiesToAccumulate = new[] { KnownQueryParameterNames.OptimizeConcurrency };
 
+        private static readonly Uri LocalHost = new("http://localhost/");
+
         private IFhirRequestContext _originalFhirRequestContext;
 
         public BundleHandler(
@@ -533,11 +535,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
             httpContext.Response.Body = new MemoryStream();
 
-            var requestUri = new Uri(_fhirRequestContextAccessor.RequestContext.BaseUri, requestUrl);
+            string path = new Uri(LocalHost, requestUrl).GetComponents(UriComponents.Path, UriFormat.Unescaped);
+            Uri requestUri = new(_fhirRequestContextAccessor.RequestContext.BaseUri, requestUrl);
             httpContext.Request.Scheme = requestUri.Scheme;
             httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
             httpContext.Request.PathBase = _originalRequestBase;
-            httpContext.Request.Path = requestUri.LocalPath;
+            httpContext.Request.Path = path.Length is 0 || path[0] is not '/' ? new PathString('/' + path) : new PathString(path);
             httpContext.Request.QueryString = new QueryString(requestUri.Query);
             httpContext.Request.Method = requestMethod.ToString();
 

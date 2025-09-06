@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         {
             IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
 
-            Assert.Equal(new Uri("https://localhost:30/stu3"), fhirRequestContext.BaseUri);
+            Assert.Equal(new Uri("https://localhost:30/stu3/"), fhirRequestContext.BaseUri);
         }
 
         [Fact]
