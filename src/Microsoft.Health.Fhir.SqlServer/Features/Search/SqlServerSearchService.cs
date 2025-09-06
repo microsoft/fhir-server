@@ -388,6 +388,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model,
                                 _schemaInformation,
                                 reuseQueryPlans,
+                                sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
@@ -1347,6 +1348,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 _model,
                                 _schemaInformation,
                                 _reuseQueryPlans.IsEnabled(_sqlRetryService),
+                                sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
