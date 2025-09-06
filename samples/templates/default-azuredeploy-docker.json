@@ -821,7 +821,7 @@
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 },
-                "accessMode": "Transition"
+                "accessMode": "Learning"
             }
         },
         {
@@ -841,7 +841,7 @@
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 },
-                "accessMode": "Transition"
+                "accessMode": "Learning"
             }
         },
         {
@@ -861,7 +861,7 @@
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 },
-                "accessMode": "Transition"
+                "accessMode": "Learning"
             }
         },
         {
@@ -881,7 +881,7 @@
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 },
-                "accessMode": "Transition"
+                "accessMode": "Learning"
             }
         }
     ]
