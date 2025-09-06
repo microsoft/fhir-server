@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.AllowNegativeVersions,
                  importRequest.ErrorContainerName,
                  importRequest.EventualConsistency,
-                 importRequest.ProcessingJobBytesToRead,
+                 importRequest.ProcessingUnitBytesToRead,
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();
