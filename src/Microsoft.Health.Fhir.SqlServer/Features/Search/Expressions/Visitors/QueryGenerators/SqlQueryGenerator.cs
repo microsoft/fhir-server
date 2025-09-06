@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             ISqlServerFhirModel model,
             SchemaInformation schemaInfo,
             bool reuseQueryPlans,
-            bool isAsyncOperation = false,
+            bool isAsyncOperation,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
