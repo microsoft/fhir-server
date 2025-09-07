@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 10, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -150,6 +151,95 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(10000)]
+        [InlineData(5000)]
+        public async Task GivenProcessingJobWithSurrogateIds_WhenJobIsRun_QueryParametersAreBuiltForRangeSubjob(uint maximumNumberOfResourcesPerQuery)
+        {
+            // Arrange: Create a definition with global surrogate properties.
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "type", null, "test", "test", "test", null, isParallel: true, readNextPage: false, startSurrogateId: "startSurrogateId", endSurrogateId: "endSurrogateId", globalStartSurrogateId: "globalStartSurrogateId", globalEndSurrogateId: "globalEndSurrogateId", maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery);
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            // Capture the queryParametersList passed to UpdateMultipleAsync.
+            List<Tuple<string, string>> capturedQueryParameters = null;
+            _updater
+                .UpdateMultipleAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<uint>(),
+                    Arg.Any<bool>(),
+                    Arg.Do<IReadOnlyList<Tuple<string, string>>>(q => capturedQueryParameters = q.ToList()),
+                    Arg.Any<BundleResourceContext>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new BulkUpdateResult()));
+
+            // Act: Execute the job.
+            // Since we are only interested in the query parameters, we let the job run and ignore the result.
+            await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // Assert: We expect queryParametersList to contain 6 tuples.
+            Assert.NotNull(capturedQueryParameters);
+
+            // Expected keys in order for range subjob.
+            var expected = new List<(string Key, string Value)>
+            {
+                (KnownQueryParameterNames.Type, definition.Type),
+                (KnownQueryParameterNames.GlobalEndSurrogateId, definition.GlobalEndSurrogateId),
+                (KnownQueryParameterNames.EndSurrogateId, definition.EndSurrogateId),
+                (KnownQueryParameterNames.GlobalStartSurrogateId, definition.GlobalStartSurrogateId),
+                (KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId),
+                (KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString()),
+            };
+
+            foreach (var exp in expected)
+            {
+                Assert.Contains(capturedQueryParameters, q => q.Item1 == exp.Key && q.Item2 == exp.Value);
+            }
+        }
+
+        [Theory]
+        [InlineData(2500, "1000")]
+        [InlineData(1000, "1000")]
+        [InlineData(1500, "1000")] // above processing batch size; expect ProcessingBatchSize applied.
+        [InlineData(800, "800")] // below processing batch size.
+        public async Task When_GlobalEndSurrogateId_IsNull_QueryParametersCountIsBasedOnProcessingBatchSize(uint maximumNumberOfResourcesPerQuery, string expectedCount)
+        {
+            // Arrange: Create definition with GlobalEndSurrogateId not set.
+            // Arrange: Create a definition with global surrogate properties.
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "type", null, "test", "test", "test", null, isParallel: true, readNextPage: false, maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery);
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            List<Tuple<string, string>> capturedQueryParameters = null;
+            _updater
+                .UpdateMultipleAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<uint>(),
+                    Arg.Any<bool>(),
+                    Arg.Do<IReadOnlyList<Tuple<string, string>>>(q => capturedQueryParameters = q.ToList()),
+                    Arg.Any<BundleResourceContext>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new BulkUpdateResult()));
+
+            await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // Assert: Since GlobalEndSurrogateId is null, only one queryParameter for count is added.
+            Assert.NotNull(capturedQueryParameters);
+            var countParam = capturedQueryParameters.FirstOrDefault(q => q.Item1 == KnownQueryParameterNames.Count);
+            Assert.NotNull(countParam);
+            Assert.Equal(expectedCount, countParam.Item2);
         }
 
         [Theory]
@@ -189,7 +279,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 10, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
@@ -231,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["StructureDefinition"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 10, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
@@ -274,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["Patient"] = 3;
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 10, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
@@ -314,7 +404,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var substituteResults = new BulkUpdateResult();
             substituteResults.ResourcesUpdated["StructureDefinition"] = 3;
 
-            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 10, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobs[1], CancellationToken.None));
