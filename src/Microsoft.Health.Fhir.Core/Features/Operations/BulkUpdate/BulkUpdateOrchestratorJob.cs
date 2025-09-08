@@ -79,8 +79,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 var fhirRequestContext = CreateFhirRequestContext(definition, jobInfo);
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-                var surrogateIdRangeSize = (int)definition.MaximumNumberOfResourcesPerQuery;
-
                 _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
                 var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken);
 
@@ -103,6 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && noOtherSearchParameters)
                 {
+                    // For system level bulk update, use max 1000 as range size
+                    var surrogateIdRangeSize = (int)definition.MaximumNumberOfResourcesPerQuery <= 1000 ? (int)definition.MaximumNumberOfResourcesPerQuery : 1000;
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
