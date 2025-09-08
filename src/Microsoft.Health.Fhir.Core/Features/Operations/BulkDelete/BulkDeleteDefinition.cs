@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         public string Type { get; private set; }
 
         [JsonProperty(JobRecordProperties.SearchParameters)]
-        public IList<Tuple<string, string>> SearchParameters { get; private set; }
+        public IList<Tuple<string, string>> SearchParameters { get; set; }
 
         [JsonProperty(JobRecordProperties.ExcludedResourceTypes)]
         public IList<string> ExcludedResourceTypes { get; private set; }

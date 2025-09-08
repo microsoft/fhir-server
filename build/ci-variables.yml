@@ -1,5 +1,5 @@
 variables:
-    ResourceGroupRegion: 'southcentralus'
+    ResourceGroupRegion: 'eastus2'
     # Due to deleting a keyvault with purge protection we must use a name other than msh-fhir-ci for 90 days after 5/20/2021.
     resourceGroupRoot: 'msh-fhir-ci4'
     appServicePlanName: '$(resourceGroupRoot)-linux'
