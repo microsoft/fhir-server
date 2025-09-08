@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceVersionTypes = other.ResourceVersionTypes;
             IncludesContinuationToken = other.IncludesContinuationToken;
             IncludesOperationSupported = other.IncludesOperationSupported;
-            IsAsyncOperation = other.IsAsyncOperation;
         }
 
         /// <summary>
