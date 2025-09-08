@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // while "patient/Patient.s" or "patient/Patient.rs" include search permissions.
             // Users with only read permission can access resources directly by ID but cannot search.
             // We continue to allow DataActions.Read for legacy support
-            // SMART v2 read scope corresponds to DataActions.Readv2
             var grantedAccess = await _authorizationService.CheckAccess(DataActions.Search | DataActions.Read, cancellationToken);
             if ((grantedAccess & (DataActions.Search | DataActions.Read)) == 0)
             {
