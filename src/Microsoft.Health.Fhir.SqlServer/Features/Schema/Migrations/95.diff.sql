@@ -105,7 +105,7 @@ END
 
 -- Step 2: Update any NULL values with appropriate defaults
 UPDATE dbo.SearchParam 
-SET Status = 'Enabled' 
+SET Status = 'Disabled' 
 WHERE Status IS NULL;
 
 UPDATE dbo.SearchParam 
