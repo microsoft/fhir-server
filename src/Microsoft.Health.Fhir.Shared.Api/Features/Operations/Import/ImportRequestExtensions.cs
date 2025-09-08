@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string ForceParameterName = "force";
         public const string AllowNegativeVersionsParameterName = "allowNegativeVersions";
         public const string EventualConsistencyParameterName = "eventualConsistency";
-        public const string ProcessingJobBytesToReadParameterName = "processingJobBytesToRead";
+        public const string ProcessingUnitBytesToReadParameterName = "processingUnitBytesToRead";
         public const string ErrorContainerNameParameterName = "errorContainerName";
         public const string DefaultStorageDetailType = "azure-blob";
 
@@ -105,9 +105,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 parameters.Add(ErrorContainerNameParameterName, new FhirString(importRequest.ErrorContainerName));
             }
 
-            if (importRequest.ProcessingJobBytesToRead > 0)
+            if (importRequest.ProcessingUnitBytesToRead > 0)
             {
-                parameters.Add(ProcessingJobBytesToReadParameterName, new FhirString(importRequest.ProcessingJobBytesToRead.ToString()));
+                parameters.Add(ProcessingUnitBytesToReadParameterName, new Integer(importRequest.ProcessingUnitBytesToRead));
             }
 
             return parameters;
@@ -193,9 +193,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 importRequest.ErrorContainerName = errorContainerName;
             }
 
-            if (parameters.TryGetIntValue(ProcessingJobBytesToReadParameterName, out int bytesToRead))
+            if (parameters.TryGetIntValue(ProcessingUnitBytesToReadParameterName, out int bytesToRead))
             {
-                importRequest.ProcessingJobBytesToRead = bytesToRead;
+                importRequest.ProcessingUnitBytesToRead = bytesToRead;
             }
 
             return importRequest;

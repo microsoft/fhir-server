@@ -63,6 +63,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         /// <summary>
         /// Number of bytes to be read by processing job.
         /// </summary>
-        public int ProcessingJobBytesToRead { get; set; }
+        public int ProcessingUnitBytesToRead { get; set; }
     }
 }

@@ -236,9 +236,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 result.TotalBytes += blobLength;
-                var bytesToRead = coordDefinition.ProcessingJobBytesToRead == 0
+                var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
                                 ? BytesToReadDefault
-                                : coordDefinition.ProcessingJobBytesToRead;
+                                : coordDefinition.ProcessingUnitBytesToRead;
                 foreach (var offset in GetOffsets(blobLength, bytesToRead))
                 {
                     var newInput = input.Clone();

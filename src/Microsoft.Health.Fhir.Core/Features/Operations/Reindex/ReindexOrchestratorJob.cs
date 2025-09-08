@@ -212,10 +212,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             await CalculateAndSetTotalAndResourceCounts();
 
+            // Handle search parameters for resource types with count 0
+            var resourceTypesWithZeroCount = _reindexJobRecord.ResourceCounts
+                .Where(kvp => kvp.Value.Count == 0)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            if (resourceTypesWithZeroCount.Any())
+            {
+                var zeroCountParams = notYetIndexedParams
+                    .Where(p => p.BaseResourceTypes.Any(baseType => resourceTypesWithZeroCount.Contains(baseType)))
+                    .ToList();
+
+                if (zeroCountParams.Any())
+                {
+                    // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
+                    await UpdateSearchParameterStatus(null, zeroCountParams.Select(p => p.Url.ToString()).ToList(), cancellationToken);
+                }
+            }
+
             if (!CheckJobRecordForAnyWork())
             {
-                // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
-                await UpdateSearchParameterStatus(notYetIndexedParams.Select(p => new JobInfo { Definition = JsonConvert.SerializeObject(new ReindexProcessingJobDefinition { SearchParameterUrls = new List<string> { p.Url.OriginalString } }) }).ToList(), null, cancellationToken);
                 return null;
             }
 
