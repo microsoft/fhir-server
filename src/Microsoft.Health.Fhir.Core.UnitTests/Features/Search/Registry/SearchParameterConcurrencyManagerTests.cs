@@ -63,33 +63,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             const int concurrentOperations = 5;
             var executionOrder = new List<int>();
-            var executionStartTimes = new List<DateTime>();
-            var executionEndTimes = new List<DateTime>();
             var lockObject = new object();
+            var entryBarriers = new List<TaskCompletionSource<bool>>();
+            var continueSignals = new List<TaskCompletionSource<bool>>();
+
+            // Create synchronization primitives for each operation
+            for (int i = 0; i < concurrentOperations; i++)
+            {
+                entryBarriers.Add(new TaskCompletionSource<bool>());
+                continueSignals.Add(new TaskCompletionSource<bool>());
+            }
 
             // Act
             var tasks = new List<Task<int>>();
             for (int i = 0; i < concurrentOperations; i++)
             {
                 var operationId = i;
+                var entryBarrier = entryBarriers[i];
+                var continueSignal = continueSignals[i];
+
                 tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
                 {
                     lock (lockObject)
                     {
                         executionOrder.Add(operationId);
-                        executionStartTimes.Add(DateTime.UtcNow);
                     }
 
-                    // Simulate some work
-                    await Task.Delay(50);
+                    // Signal that this operation has entered the critical section
+                    entryBarrier.SetResult(true);
 
-                    lock (lockObject)
-                    {
-                        executionEndTimes.Add(DateTime.UtcNow);
-                    }
+                    // Wait for permission to continue (controlled by test)
+                    await continueSignal.Task;
 
                     return operationId;
                 }));
+            }
+
+            // Verify operations execute sequentially by controlling their execution
+            for (int i = 0; i < concurrentOperations; i++)
+            {
+                // Wait for the next operation to enter the critical section
+                await entryBarriers[i].Task;
+
+                // Verify only this operation has executed so far
+                lock (lockObject)
+                {
+                    Assert.Equal(i + 1, executionOrder.Count);
+                    Assert.Equal(i, executionOrder[i]);
+                }
+
+                // Allow this operation to complete
+                continueSignals[i].SetResult(true);
             }
 
             var results = await Task.WhenAll(tasks);
@@ -97,16 +121,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Assert
             Assert.Equal(concurrentOperations, results.Length);
             Assert.Equal(concurrentOperations, executionOrder.Count);
-            Assert.Equal(concurrentOperations, executionStartTimes.Count);
-            Assert.Equal(concurrentOperations, executionEndTimes.Count);
 
-            // Verify operations executed sequentially (no overlap)
-            for (int i = 1; i < executionStartTimes.Count; i++)
+            // Verify all operations completed in the correct order
+            for (int i = 0; i < concurrentOperations; i++)
             {
-                // Each operation should start after the previous one ended
-                Assert.True(
-                    executionStartTimes[i] >= executionEndTimes[i - 1],
-                    $"Operation {i} started at {executionStartTimes[i]} before operation {i - 1} ended at {executionEndTimes[i - 1]}");
+                Assert.Equal(i, executionOrder[i]);
+                Assert.Equal(i, results[i]);
             }
         }
 
@@ -115,8 +135,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             // Arrange
             const int operationsPerUri = 2;
-            var uri1ExecutionTimes = new List<DateTime>();
-            var uri2ExecutionTimes = new List<DateTime>();
+            var uri1StartedCount = 0;
+            var uri2StartedCount = 0;
+            var bothUrisStarted = new TaskCompletionSource<bool>();
+            var canContinue = new TaskCompletionSource<bool>();
             var lockObject = new object();
 
             // Act
@@ -127,12 +149,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             {
                 tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
                 {
+                    bool shouldSignal = false;
                     lock (lockObject)
                     {
-                        uri1ExecutionTimes.Add(DateTime.UtcNow);
+                        uri1StartedCount++;
+
+                        // Signal when both URIs have at least one operation started
+                        if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                        {
+                            shouldSignal = true;
+                        }
                     }
 
-                    await Task.Delay(100);
+                    if (shouldSignal)
+                    {
+                        bothUrisStarted.TrySetResult(true);
+                    }
+
+                    await canContinue.Task;
                 }));
             }
 
@@ -141,29 +175,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             {
                 tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri2, async () =>
                 {
+                    bool shouldSignal = false;
                     lock (lockObject)
                     {
-                        uri2ExecutionTimes.Add(DateTime.UtcNow);
+                        uri2StartedCount++;
+
+                        // Signal when both URIs have at least one operation started
+                        if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                        {
+                            shouldSignal = true;
+                        }
                     }
 
-                    await Task.Delay(100);
+                    if (shouldSignal)
+                    {
+                        bothUrisStarted.TrySetResult(true);
+                    }
+
+                    await canContinue.Task;
                 }));
             }
 
+            // Wait for operations on both URIs to start concurrently
+            await bothUrisStarted.Task;
+
+            // Verify both URIs have operations running concurrently
+            lock (lockObject)
+            {
+                Assert.True(uri1StartedCount > 0, "At least one operation on URI1 should have started");
+                Assert.True(uri2StartedCount > 0, "At least one operation on URI2 should have started");
+            }
+
+            // Allow all operations to complete
+            canContinue.SetResult(true);
             await Task.WhenAll(tasks);
 
-            // Assert
-            Assert.Equal(operationsPerUri, uri1ExecutionTimes.Count);
-            Assert.Equal(operationsPerUri, uri2ExecutionTimes.Count);
-
-            // Verify that operations on different URIs can execute concurrently
-            // by checking that at least one operation from URI2 started before all URI1 operations completed
-            var minUri1Time = uri1ExecutionTimes[0];
-            var minUri2Time = uri2ExecutionTimes[0];
-
-            // Both should start around the same time (within a reasonable window)
-            var timeDifference = Math.Abs((minUri1Time - minUri2Time).TotalMilliseconds);
-            Assert.True(timeDifference < 50, $"Operations on different URIs should start concurrently. Time difference: {timeDifference}ms");
+            // Assert final counts
+            Assert.Equal(operationsPerUri, uri1StartedCount);
+            Assert.Equal(operationsPerUri, uri2StartedCount);
         }
 
         [Fact]
@@ -206,21 +255,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             task1CanContinue.SetResult(true);
             await task1;
 
-            // Give some time for cleanup
-            await Task.Delay(10);
+            // Wait for cleanup with exponential backoff instead of fixed delay
+            var activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+            var attempts = 0;
+            while (activeLockCount != 1 && attempts < 10)
+            {
+                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+                attempts++;
+            }
 
             // Assert - Should have 1 active lock
-            Assert.Equal(1, SearchParameterConcurrencyManager.ActiveLockCount);
+            Assert.Equal(1, activeLockCount);
 
             // Complete second operation
             task2CanContinue.SetResult(true);
             await task2;
 
-            // Give some time for cleanup
-            await Task.Delay(10);
+            // Wait for final cleanup with exponential backoff
+            activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+            attempts = 0;
+            while (activeLockCount != 0 && attempts < 10)
+            {
+                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+                attempts++;
+            }
 
             // Assert - Should have 0 active locks
-            Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
+            Assert.Equal(0, activeLockCount);
         }
 
         [Fact]
@@ -238,8 +301,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             Assert.Same(expectedException, actualException);
 
-            // Allow time for cleanup to complete
-            await Task.Delay(10);
+            // Wait for cleanup with exponential backoff instead of fixed delay
+            var activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+            var attempts = 0;
+            while (activeLockCount != 0 && attempts < 10)
+            {
+                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+                attempts++;
+            }
 
             // Verify lock is released by ensuring a subsequent operation can execute
             var subsequentExecuted = false;
@@ -250,9 +320,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             });
 
             Assert.True(subsequentExecuted);
-
-            // Allow additional time for final cleanup after the subsequent operation
-            await Task.Delay(10);
             Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
         }
 
@@ -277,9 +344,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Assert
             await Assert.ThrowsAsync<TaskCanceledException>(() => operationTask);
 
-            // Verify lock is released
-            await Task.Delay(10); // Allow cleanup
-            Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
+            // Wait for cleanup with exponential backoff instead of fixed delay
+            var activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+            var attempts = 0;
+            while (activeLockCount != 0 && attempts < 10)
+            {
+                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+                attempts++;
+            }
+
+            Assert.Equal(0, activeLockCount);
         }
 
         [Fact]
@@ -297,13 +372,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 });
             }
 
-            // Force cleanup by waiting
-            await Task.Delay(50);
+            // Wait for cleanup with exponential backoff instead of fixed delay
+            var activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+            var attempts = 0;
+            while (activeLockCount >= 10 && attempts < 10)
+            {
+                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
+                attempts++;
+            }
 
             // Assert - Should not have accumulated locks
             Assert.True(
-                SearchParameterConcurrencyManager.ActiveLockCount < 10,
-                $"Expected less than 10 active locks but found {SearchParameterConcurrencyManager.ActiveLockCount}");
+                activeLockCount < 10,
+                $"Expected less than 10 active locks but found {activeLockCount}");
         }
 
         [Fact]
@@ -357,6 +439,54 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             await Assert.ThrowsAsync<ArgumentNullException>(() =>
                 SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, null));
+        }
+
+        [Fact]
+        public void GivenSearchParameterConcurrencyException_WhenCreatedWithUris_ThenPropertiesAreSet()
+        {
+            // Arrange
+            var uris = new[] { "http://test.com/param1", "http://test.com/param2" };
+
+            // Act
+            var exception = new SearchParameterConcurrencyException(uris);
+
+            // Assert
+            Assert.NotNull(exception.Message);
+            Assert.Contains("param1", exception.Message);
+            Assert.Contains("param2", exception.Message);
+            Assert.Equal(2, exception.ConflictedUris.Count);
+            Assert.Contains("http://test.com/param1", exception.ConflictedUris);
+            Assert.Contains("http://test.com/param2", exception.ConflictedUris);
+        }
+
+        [Fact]
+        public void GivenSearchParameterConcurrencyException_WhenCreatedWithMessage_ThenMessageIsSet()
+        {
+            // Arrange
+            const string expectedMessage = "Test concurrency error";
+
+            // Act
+            var exception = new SearchParameterConcurrencyException(expectedMessage);
+
+            // Assert
+            Assert.Equal(expectedMessage, exception.Message);
+            Assert.Empty(exception.ConflictedUris);
+        }
+
+        [Fact]
+        public void GivenSearchParameterConcurrencyException_WhenCreatedWithMessageAndInnerException_ThenBothAreSet()
+        {
+            // Arrange
+            const string expectedMessage = "Test concurrency error with inner exception";
+            var innerException = new InvalidOperationException("Inner exception");
+
+            // Act
+            var exception = new SearchParameterConcurrencyException(expectedMessage, innerException);
+
+            // Assert
+            Assert.Equal(expectedMessage, exception.Message);
+            Assert.Same(innerException, exception.InnerException);
+            Assert.Empty(exception.ConflictedUris);
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿/*************************************************************
-    Stored procedures - UpsertSearchParams_2
+    Stored procedures - UpsertSearchParamsWithOptimisticConcurrency
 **************************************************************/
 --
 -- STORED PROCEDURE

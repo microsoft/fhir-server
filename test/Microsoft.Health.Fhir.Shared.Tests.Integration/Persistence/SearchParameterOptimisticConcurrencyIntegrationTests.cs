@@ -32,12 +32,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testHelper = fixture.TestHelper;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenSchemaVersion94OrHigher_WhenGettingSearchParameterStatuses_ThenLastUpdatedIsReturned()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Act
             var statuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
@@ -51,12 +48,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenNewSearchParameterStatus_WhenUpserting_ThenLastUpdatedIsReturned()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
             var testUri = $"http://test.com/SearchParameter/ConcurrencyTest_{Guid.NewGuid()}";
             var newStatus = new ResourceSearchParameterStatus
@@ -87,12 +81,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithCorrectLastUpdated_ThenSucceeds()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
             var testUri = $"http://test.com/SearchParameter/ConcurrencyTest_{Guid.NewGuid()}";
             var initialStatus = new ResourceSearchParameterStatus
@@ -139,12 +130,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithIncorrectLastUpdated_ThenEventuallySucceedsWithRetry()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
             var testUri = $"http://test.com/SearchParameter/ConcurrencyTest_{Guid.NewGuid()}";
             var initialStatus = new ResourceSearchParameterStatus
@@ -201,28 +189,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
-        public void GivenMaxRetriesExceeded_WhenConcurrencyConflictsPersist_ThenThrowsConcurrencyException()
+        [Fact]
+        public async Task GivenMultipleConsecutiveStaleUpdates_WhenUpdatingSearchParameter_ThenRetryMechanismIsTriggeredMultipleTimes()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
-            // This test would need to be implemented with a custom data store that simulates
-            // This test would need to be implemented with a custom data store that simulates
-            // persistent concurrency conflicts that can't be resolved by refreshing LastUpdated.
-            // For now, we'll skip this test as it requires more complex setup than the current
-            // integration test framework supports.
-            Skip.If(true, "Test requires custom setup to simulate persistent concurrency conflicts");
-        }
-
-        [SkippableFact]
-        public async Task GivenConcurrentUpdatesToSameSearchParameter_WhenUsingOptimisticConcurrency_ThenBothEventuallySucceedWithRetry()
-        {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
-            var testUri = $"http://test.com/SearchParameter/ConcurrencyTest_{Guid.NewGuid()}";
+            var testUri = $"http://test.com/SearchParameter/RetryTest_{Guid.NewGuid()}";
             var initialStatus = new ResourceSearchParameterStatus
             {
                 Uri = new Uri(testUri),
@@ -238,50 +209,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Get the created status with its LastUpdated
                 var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
+                var originalLastUpdated = createdStatus.LastUpdated;
 
-                // Prepare two concurrent updates with the same LastUpdated
-                var update1 = new ResourceSearchParameterStatus
+                // Force multiple intermediate updates to create staleness
+                for (int i = 0; i < 3; i++)
                 {
-                    Uri = createdStatus.Uri,
-                    Status = SearchParameterStatus.Enabled,
-                    IsPartiallySupported = false,
-                    LastUpdated = createdStatus.LastUpdated,
-                };
+                    var intermediateUpdate = new ResourceSearchParameterStatus
+                    {
+                        Uri = createdStatus.Uri,
+                        Status = SearchParameterStatus.Enabled,
+                        IsPartiallySupported = false,
+                        LastUpdated = createdStatus.LastUpdated,
+                    };
+                    await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { intermediateUpdate }, CancellationToken.None);
 
-                var update2 = new ResourceSearchParameterStatus
+                    // Refresh status for next iteration
+                    allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                    createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
+                }
+
+                // Now attempt update with very stale LastUpdated - this should trigger retry
+                var veryStaleUpdate = new ResourceSearchParameterStatus
                 {
                     Uri = createdStatus.Uri,
                     Status = SearchParameterStatus.Supported,
                     IsPartiallySupported = true,
-                    LastUpdated = createdStatus.LastUpdated,
+                    LastUpdated = originalLastUpdated, // This is very stale (3 updates behind)
                 };
 
-                // Act - Execute both updates concurrently
-                var task1 = _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { update1 }, CancellationToken.None);
-                var task2 = _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { update2 }, CancellationToken.None);
+                // Act - This should succeed due to retry mechanism
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { veryStaleUpdate }, CancellationToken.None);
 
-                var results = await Task.WhenAll(
-                    task1.ContinueWith(t => new { Success = t.IsCompletedSuccessfully, Exception = t.Exception?.GetBaseException() }),
-                    task2.ContinueWith(t => new { Success = t.IsCompletedSuccessfully, Exception = t.Exception?.GetBaseException() }));
-
-                // Assert
-                // With retry logic, both operations should eventually succeed
-                // The system is designed to handle transient concurrency conflicts by retrying with updated LastUpdated
-                var successes = results.Count(r => r.Success);
-                var failures = results.Count(r => !r.Success);
-
-                Assert.Equal(2, successes); // Both should succeed due to retry mechanism
-                Assert.Equal(0, failures);
-
-                // Verify that one of the updates was applied (whichever succeeded last)
+                // Assert - Verify the final status shows the update succeeded despite staleness
                 var finalStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
                 var finalStatus = finalStatuses.First(s => s.Uri.ToString() == testUri);
 
-                // The final status should be one of the two updates
-                Assert.True(
-                    (finalStatus.Status == SearchParameterStatus.Enabled && !finalStatus.IsPartiallySupported) ||
-                    (finalStatus.Status == SearchParameterStatus.Supported && finalStatus.IsPartiallySupported),
-                    $"Final status should match one of the concurrent updates. Actual: Status={finalStatus.Status}, IsPartiallySupported={finalStatus.IsPartiallySupported}");
+                Assert.Equal(SearchParameterStatus.Supported, finalStatus.Status);
+                Assert.True(finalStatus.IsPartiallySupported);
+                Assert.True(finalStatus.LastUpdated > originalLastUpdated, "LastUpdated should have changed significantly");
             }
             finally
             {
@@ -290,12 +255,78 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
+        [Fact]
+        public async Task GivenRapidConcurrentUpdates_WhenUsingStaleLastUpdated_ThenRetryMechanismHandlesHighContentionScenario()
+        {
+            // Arrange
+            var testUri = $"http://test.com/SearchParameter/HighContentionTest_{Guid.NewGuid()}";
+            var initialStatus = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(testUri),
+                Status = SearchParameterStatus.Disabled,
+                IsPartiallySupported = false,
+            };
+
+            try
+            {
+                // Create initial status
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { initialStatus }, CancellationToken.None);
+
+                // Get the created status with its LastUpdated
+                var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                var createdStatus = allStatuses.First(s => s.Uri.ToString() == testUri);
+                var originalLastUpdated = createdStatus.LastUpdated;
+
+                // Create high contention by launching multiple rapid updates
+                var rapidUpdateTasks = new List<Task>();
+                for (int i = 0; i < 5; i++)
+                {
+                    var updateIndex = i;
+                    rapidUpdateTasks.Add(Task.Run(async () =>
+                    {
+                        var rapidUpdate = new ResourceSearchParameterStatus
+                        {
+                            Uri = createdStatus.Uri,
+                            Status = SearchParameterStatus.Enabled,
+                            IsPartiallySupported = updateIndex % 2 == 0,
+                            LastUpdated = createdStatus.LastUpdated, // Using same (potentially stale) LastUpdated
+                        };
+                        await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { rapidUpdate }, CancellationToken.None);
+                    }));
+                }
+
+                // Act - Wait for all rapid updates to complete (some may trigger retries due to contention)
+                await Task.WhenAll(rapidUpdateTasks);
+
+                // Now attempt one final update with the original (definitely stale) LastUpdated
+                var finalStaleUpdate = new ResourceSearchParameterStatus
+                {
+                    Uri = createdStatus.Uri,
+                    Status = SearchParameterStatus.Supported,
+                    IsPartiallySupported = true,
+                    LastUpdated = originalLastUpdated, // This is definitely stale after all the rapid updates
+                };
+
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { finalStaleUpdate }, CancellationToken.None);
+
+                // Assert - Verify the final update succeeded despite high contention
+                var finalStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                var finalStatus = finalStatuses.First(s => s.Uri.ToString() == testUri);
+
+                Assert.Equal(SearchParameterStatus.Supported, finalStatus.Status);
+                Assert.True(finalStatus.IsPartiallySupported);
+                Assert.True(finalStatus.LastUpdated > originalLastUpdated, "LastUpdated should have changed after high contention scenario");
+            }
+            finally
+            {
+                // Cleanup
+                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
+            }
+        }
+
+        [Fact]
         public async Task GivenOptimisticConcurrencyDetection_WhenLastUpdatedChangesBeforeUpdate_ThenRetryMechanismHandlesConflict()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
             var testUri = $"http://test.com/SearchParameter/ConcurrencyTest_{Guid.NewGuid()}";
             var initialStatus = new ResourceSearchParameterStatus
@@ -345,7 +376,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Assert - The update should have succeeded (with retry)
                 Assert.Equal(SearchParameterStatus.Supported, finalStatus.Status);
                 Assert.True(finalStatus.IsPartiallySupported);
-                Assert.True(finalStatus.LastUpdated > originalLastUpdated, "LastUpdated should have changed"); // LastUpdated should have changed
+                Assert.True(finalStatus.LastUpdated > originalLastUpdated, "LastUpdated should have changed");
             }
             finally
             {
@@ -354,12 +385,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenMixedUpdatesWithAndWithoutRowVersion_WhenUpserting_ThenBothSucceed()
         {
-            // Skip if not SQL Server or schema version < 94
-            Skip.If(!IsSqlServerWithOptimisticConcurrency(), "Schema version 94+ required for optimistic concurrency");
-
             // Arrange
             var existingTestUri = $"http://test.com/SearchParameter/Existing_{Guid.NewGuid()}";
             var newTestUri = $"http://test.com/SearchParameter/New_{Guid.NewGuid()}_";
@@ -420,75 +448,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await _testHelper.DeleteSearchParameterStatusAsync(existingTestUri);
                 await _testHelper.DeleteSearchParameterStatusAsync(newTestUri);
             }
-        }
-
-        [SkippableFact]
-        public async Task GivenSchemaVersionBelow94_WhenUpserting_ThenLastUpdatedIsIgnoredGracefully()
-        {
-            // Skip if SQL Server and schema version >= 94
-            Skip.If(IsSqlServerWithOptimisticConcurrency(), "This test validates backward compatibility with schema < 94");
-
-            // This test validates backward compatibility for non-SQL Server or older schema versions
-            // Arrange
-            var testUri = $"http://test.com/SearchParameter/BackwardCompatTest_{Guid.NewGuid()}";
-            var status = new ResourceSearchParameterStatus
-            {
-                Uri = new Uri(testUri),
-                Status = SearchParameterStatus.Enabled,
-                IsPartiallySupported = true,
-                LastUpdated = DateTimeOffset.Now.AddDays(-1), // Should be ignored for older schemas
-            };
-
-            try
-            {
-                // Act - Should not throw even with old LastUpdated provided for older schemas
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
-
-                // Verify the status was created/updated successfully
-                var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
-                var result = allStatuses.FirstOrDefault(r => r.Uri.ToString() == testUri);
-
-                // Assert
-                Assert.NotNull(result);
-                Assert.Equal(testUri, result.Uri.ToString());
-                Assert.Equal(SearchParameterStatus.Enabled, result.Status);
-                Assert.True(result.IsPartiallySupported);
-
-                // LastUpdated behavior depends on schema version - we just verify no exceptions were thrown
-            }
-            finally
-            {
-                // Cleanup
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
-            }
-        }
-
-        /// <summary>
-        /// Determines if this is a SQL Server fixture with schema version 94 or higher (optimistic concurrency support).
-        /// </summary>
-        private bool IsSqlServerWithOptimisticConcurrency()
-        {
-            // For now, assume that if we're using SQL Server, we have the optimistic concurrency feature
-            // This will be true in most integration test scenarios where we use the latest schema
-            if (_fixture.TestHelper is SqlServerFhirStorageTestHelper)
-            {
-                // Check if we can access the SQL Server search parameter status data store
-                // If so, we likely have schema version 94+ support
-                try
-                {
-                    return _fixture.SearchParameterStatusDataStore is SqlServerSearchParameterStatusDataStore;
-                }
-                catch (InvalidCastException)
-                {
-                    return false;
-                }
-                catch (NullReferenceException)
-                {
-                    return false;
-                }
-            }
-
-            return false;
         }
     }
 }
