@@ -93,6 +93,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenASearchResourceRequest_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionThrown()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+
+            // Setup authorization to return only Read permission (no Search permission)
+            // This simulates SMART v2 scope like "patient/Patient.r" which only allows direct access
+            authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.ReadById);
+
             var searchResourceHandler = new SearchResourceHandler(
                 _searchService,
                 _bundleFactory,
@@ -100,11 +106,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new DataResourceFilter(MissingDataFilterCriteria.Default));
 
             var request = new SearchResourceRequest("Patient", null);
-
-            // Setup authorization to return only Read permission (no Search permission)
-            // This simulates SMART v2 scope like "patient/Patient.r" which only allows direct access
-            authorizationService.CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
-                .Returns(DataActions.ReadById);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
                 searchResourceHandler.Handle(request, CancellationToken.None));
