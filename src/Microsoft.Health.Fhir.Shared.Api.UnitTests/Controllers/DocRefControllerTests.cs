@@ -31,19 +31,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     public class DocRefControllerTests
     {
         private readonly DocRefController _controller;
-        private readonly IDocRefRequestProcessor _processor;
+        private readonly IDocRefRequestConverter _converter;
         private readonly USCoreConfiguration _configuration;
 
         public DocRefControllerTests()
         {
-            _processor = Substitute.For<IDocRefRequestProcessor>();
-            _processor.ProcessAsync(
+            _converter = Substitute.For<IDocRefRequestConverter>();
+            _converter.ConvertAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new Bundle().ToResourceElement()));
             _configuration = new USCoreConfiguration();
             _controller = new DocRefController(
-                _processor,
+                _converter,
                 Options.Create(_configuration));
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enable);
             }
 
-            await _processor.Received(enable ? 1 : 0).ProcessAsync(
+            await _converter.Received(enable ? 1 : 0).ConvertAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
         }
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
 
             _configuration.EnableDocRef = enable;
-            _processor.ProcessAsync(
+            _converter.ConvertAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enable);
             }
 
-            await _processor.Received(enable ? 1 : 0).ProcessAsync(
+            await _converter.Received(enable ? 1 : 0).ConvertAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>());
         }

@@ -15,8 +15,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceWrapperFactoryExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DocRefRequestProcessor.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IDocRefRequestProcessor.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Features\Conformance\DocRefRequestConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IDocRefRequestConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />

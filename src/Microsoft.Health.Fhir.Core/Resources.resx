@@ -824,6 +824,9 @@
     <value>The '{0}' parameter must be provided.</value>
   </data>
   <data name="DocRefParameterNotSupported" xml:space="preserve">
-    <value>The '{0}' is not supported.</value>
+    <value>The '{0}' parameter is not supported.</value>
+  </data>
+  <data name="DocRefInvalidParameterCount" xml:space="preserve">
+    <value>The number of the '{0}' parameter should not be more than one.</value>
   </data>
 </root>

@@ -11,9 +11,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 {
-    public interface IDocRefRequestProcessor
+    public interface IDocRefRequestConverter
     {
-        Task<ResourceElement> ProcessAsync(
+        Task<ResourceElement> ConvertAsync(
             IReadOnlyList<Tuple<string, string>> parameters,
             CancellationToken cancellationToken);
     }

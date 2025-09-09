@@ -29,14 +29,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class DocRefRequestProcessorTests
+    public class DocRefRequestConverterTests
     {
-        private readonly DocRefRequestProcessor _processor;
+        private readonly DocRefRequestConverter _converter;
         private readonly IMediator _mediator;
         private readonly IBundleFactory _bundleFactory;
-        private readonly ILogger<DocRefRequestProcessor> _logger;
+        private readonly ILogger<DocRefRequestConverter> _logger;
 
-        public DocRefRequestProcessorTests()
+        public DocRefRequestConverterTests()
         {
             _mediator = Substitute.For<IMediator>();
             _mediator.Send(
@@ -49,8 +49,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<SearchResult>())
                 .Returns(new Bundle().ToResourceElement());
 
-            _logger = Substitute.For<ILogger<DocRefRequestProcessor>>();
-            _processor = new DocRefRequestProcessor(
+            _logger = Substitute.For<ILogger<DocRefRequestConverter>>();
+            _converter = new DocRefRequestConverter(
                 _mediator,
                 _bundleFactory,
                 _logger);
@@ -64,11 +64,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             var parametersToValidate = parameters?
                 .GroupBy(x => x.Item1)
                 .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase) ?? new Dictionary<string, List<Tuple<string, string>>>();
-            var valid = parametersToValidate.TryGetValue(DocRefRequestProcessor.PatientParameterName, out var patientParameters) && patientParameters.Count == 1
-                && (!parametersToValidate.TryGetValue(DocRefRequestProcessor.StartParameterName, out var startParameters) || startParameters.Count == 1)
-                && (!parametersToValidate.TryGetValue(DocRefRequestProcessor.EndParameterName, out var endParameters) || endParameters.Count == 1);
-            var unsupported = parametersToValidate.ContainsKey(DocRefRequestProcessor.OnDemandParameterName)
-                || parametersToValidate.ContainsKey(DocRefRequestProcessor.ProfileParameterName);
+            var valid = parametersToValidate.TryGetValue(DocRefRequestConverter.PatientParameterName, out var patientParameters) && patientParameters.Count == 1
+                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.StartParameterName, out var startParameters) || startParameters.Count == 1)
+                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.EndParameterName, out var endParameters) || endParameters.Count == 1);
+            var unsupported = parametersToValidate.ContainsKey(DocRefRequestConverter.OnDemandParameterName)
+                || parametersToValidate.ContainsKey(DocRefRequestConverter.ProfileParameterName);
 
             _mediator.Send(
                 Arg.Any<SearchResourceRequest>(),
@@ -92,8 +92,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     {
                         Assert.True(unsupported);
 
-                        var p = parameters.Any(x => string.Equals(x.Item1, DocRefRequestProcessor.OnDemandParameterName, StringComparison.OrdinalIgnoreCase))
-                            ? DocRefRequestProcessor.OnDemandParameterName : DocRefRequestProcessor.ProfileParameterName;
+                        var p = parameters.Any(x => string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase))
+                            ? DocRefRequestConverter.OnDemandParameterName : DocRefRequestConverter.ProfileParameterName;
                         var result = (SearchResult)x[0];
                         Assert.NotNull(result);
                         Assert.Equal(1, result.SearchIssues?.Count ?? 0);
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
 
             try
             {
-                await _processor.ConvertAsync(
+                await _converter.ConvertAsync(
                     parameters,
                     CancellationToken.None);
                 Assert.True(valid);
@@ -136,8 +136,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             {
                 // Excluding unsupported parameters from validation.
                 var input = parameters
-                    .Where(x => !string.Equals(x.Item1, DocRefRequestProcessor.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
-                        && !string.Equals(x.Item1, DocRefRequestProcessor.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
+                    .Where(x => !string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(x.Item1, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
                     .ToDictionary(x => x.Item1, x => x.Item2);
 
                 Assert.Equal(input.Count, parametersConverted.Count);
@@ -145,13 +145,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 {
                     var name = p.Key;
                     var value = p.Value;
-                    if (DocRefRequestProcessor.ConvertParameterMap.TryGetValue(name, out var nameConverted))
+                    if (DocRefRequestConverter.ConvertParameterMap.TryGetValue(name, out var nameConverted))
                     {
-                        if (string.Equals(name, DocRefRequestProcessor.StartParameterName, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(name, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
                         {
                             value = $"ge{value}";
                         }
-                        else if (string.Equals(name, DocRefRequestProcessor.EndParameterName, StringComparison.OrdinalIgnoreCase))
+                        else if (string.Equals(name, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
                         {
                             value = $"le{value}";
                         }
@@ -176,10 +176,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Valid set of parameters.
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.TypeParameterName, "https://loinc.org|34133-9"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
                     },
                 },
                 new object[]
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Valid set of parameters with required parameter only.
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
                     },
                 },
                 new object[]
@@ -195,9 +195,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Missing required parameter "patient".
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.TypeParameterName, "https://loinc.org|34133-9"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
                     },
                 },
                 new object[]
@@ -205,10 +205,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Unsupported parameter "on-demand".
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.OnDemandParameterName, "true"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.OnDemandParameterName, "true"),
                     },
                 },
                 new object[]
@@ -216,10 +216,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Unsupported parameter "profile".
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.ProfileParameterName, "https://canonical"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.ProfileParameterName, "https://canonical"),
                     },
                 },
                 new object[]
@@ -227,8 +227,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // More than one "patient" parameter.
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient1"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient1"),
                     },
                 },
                 new object[]
@@ -236,9 +236,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // More than one "start" parameter.
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
                     },
                 },
                 new object[]
@@ -246,9 +246,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // More than one "end" parameter.
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.PatientParameterName, "test-patient"),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.EndParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.EndParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
                     },
                 },
                 new object[]
@@ -256,10 +256,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     // Missing required parameter "patient".
                     new List<Tuple<string, string>>
                     {
-                        Tuple.Create(DocRefRequestProcessor.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
-                        Tuple.Create(DocRefRequestProcessor.TypeParameterName, "https://loinc.org|34133-7"),
-                        Tuple.Create(DocRefRequestProcessor.TypeParameterName, "https://loinc.org|34133-8"),
-                        Tuple.Create(DocRefRequestProcessor.TypeParameterName, "https://loinc.org|34133-9"),
+                        Tuple.Create(DocRefRequestConverter.StartParameterName, DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-7"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-8"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
                     },
                 },
             };

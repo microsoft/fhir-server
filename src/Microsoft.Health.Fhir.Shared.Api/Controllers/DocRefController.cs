@@ -36,17 +36,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     public class DocRefController : Controller
     {
-        private readonly IDocRefRequestProcessor _processor;
+        private readonly IDocRefRequestConverter _converter;
         private readonly USCoreConfiguration _configuration;
 
         public DocRefController(
-            IDocRefRequestProcessor processor,
+            IDocRefRequestConverter converter,
             IOptions<USCoreConfiguration> configuration)
         {
-            EnsureArg.IsNotNull(processor, nameof(processor));
+            EnsureArg.IsNotNull(converter, nameof(converter));
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
 
-            _processor = processor;
+            _converter = converter;
             _configuration = configuration.Value;
         }
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     string.Format(Resources.OperationNotEnabled, OperationsConstants.DocRef));
             }
 
-            var response = await _processor.ProcessAsync(
+            var response = await _converter.ConvertAsync(
                 Request.GetQueriesForSearch(),
                 HttpContext.RequestAborted);
             return FhirResult.Create(response);
@@ -78,8 +78,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     string.Format(Resources.OperationNotEnabled, OperationsConstants.DocRef));
             }
 
-            var response = await _processor.ProcessAsync(
-                ParseParameters(parameters),
+            var parameterList = new List<Tuple<string, string>>(Request.GetQueriesForSearch());
+            parameterList.AddRange(ParseParameters(parameters));
+
+            var response = await _converter.ConvertAsync(
+                parameterList,
                 HttpContext.RequestAborted);
             return FhirResult.Create(response);
         }
