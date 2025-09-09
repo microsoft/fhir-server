@@ -128,6 +128,78 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetTestScopes))]
+        public async Task GivenSmartRawScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
+        {
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+            var fhirRequestContext = new DefaultFhirRequestContext();
+
+            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            var rawScopesClaim = new Claim("raw_scope", scopes);
+            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rawScopesClaim, rolesClaim, fhirUserClaim });
+            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+            httpContext.User = expectedPrincipal;
+            fhirRequestContext.Principal = expectedPrincipal;
+
+            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+            Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetMixedTestScopes))]
+        public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext();
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
+                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            }
+        }
+
+        [Theory]
         [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
@@ -467,6 +539,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "user"),
                 },
             };
+        }
+
+        public static IEnumerable<object[]> GetMixedTestScopes()
+        {
+            yield return new object[] { "patient/Patient.read patient/Observation.r" };
+            yield return new object[] { "patient.Patient.read user.Observation.cr" };
+            yield return new object[] { "patient$Patient.rd patient/Observation.write" };
+            yield return new object[] { "patient$Patient.read patient/Observation.cr" };
+            yield return new object[] { "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.r fhirUser" };
+            yield return new object[] { "patient/Patient.rs user/Observation.cud user/Encounter.write" };
+            yield return new object[] { "patient/Patient.read user/Observation.c" };
+            yield return new object[] { "patient/Patient.all user/Observation.r" };
+            yield return new object[] { "patient/Patient.write user/Observation.u" };
+            yield return new object[] { "patient/Patient.read user/Observation.d" };
+            yield return new object[] { "patient/Patient.read patient/Patient.cruds" };
+            yield return new object[] { "system/Patient.write user/Patient.r" };
+            yield return new object[] { "patient/Patient.* user/Observation.d" };
+            yield return new object[] { "patient/Patient.all patient/Patient.cruds" };
+            yield return new object[] { "system/Patient.all user/Patient.r" };
+            yield return new object[] { "system/Patient.* user/Patient.r" };
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)

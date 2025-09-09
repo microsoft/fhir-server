@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -226,13 +227,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 var searchParamsPairs = searchParamsString.Split('&');
 
                                 // iterate through each key-value pair and add them to the SearchParams
-                                foreach (var kvPair in searchParamsPairs)
+                                foreach (var parts in searchParamsPairs.Select(kvPair => kvPair.Split('=')).Where(parts => parts.Length == 2))
                                 {
-                                    var parts = kvPair.Split('=');
-                                    if (parts.Length == 2)
-                                    {
-                                        smartScopeSearchParameters.Add(parts[0], parts[1]);
-                                    }
+                                    smartScopeSearchParameters.Add(parts[0], parts[1]);
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)
