@@ -215,7 +215,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
-            // TODO: is this for R5 or above only?
             services.AddSingleton<IDocRefRequestConverter, DocRefRequestConverter>();
         }
     }
