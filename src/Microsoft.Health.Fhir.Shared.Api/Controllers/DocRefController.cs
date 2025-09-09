@@ -92,13 +92,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var parameterList = new List<Tuple<string, string>>();
             if (parameters != null)
             {
-                foreach (var p in parameters.Parameter)
-                {
-                    if (!string.IsNullOrEmpty(p.Name))
-                    {
-                        parameterList.Add(Tuple.Create(p.Name, p.Value?.ToString()));
-                    }
-                }
+                parameterList.AddRange(
+                    parameters.Parameter
+                        .Where(x => !string.IsNullOrEmpty(x.Name))
+                        .Select(x => Tuple.Create(x.Name, x.Value?.ToString())));
             }
 
             return parameterList;

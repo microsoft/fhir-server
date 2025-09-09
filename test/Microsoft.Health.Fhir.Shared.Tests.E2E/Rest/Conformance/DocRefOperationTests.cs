@@ -225,11 +225,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.Parameter.Any(x => string.Equals(x.Name, DocRefRequestConverter.PatientParameterName)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.Parameter
                     .Where(x => string.Equals(x.Name, DocRefRequestConverter.PatientParameterName, StringComparison.OrdinalIgnoreCase))
                     .Select(x => ((FhirString)x.Value).Value))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (int.TryParse(v, out var i) && i >= 0 && i < _fixture.Patients.Count)
@@ -243,6 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = values.Count == 1;
@@ -258,11 +259,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.Parameter.Any(x => string.Equals(x.Name, DocRefRequestConverter.StartParameterName)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.Parameter
                     .Where(x => string.Equals(x.Name, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
                     .Select(x => ((FhirString)x.Value).Value))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (TimeSpan.TryParse(v, out var ts))
@@ -276,6 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = valid && values.Count == 1;
@@ -291,11 +293,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.Parameter.Any(x => string.Equals(x.Name, DocRefRequestConverter.EndParameterName)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.Parameter
                     .Where(x => string.Equals(x.Name, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
                     .Select(x => ((FhirString)x.Value).Value))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (TimeSpan.TryParse(v, out var ts))
@@ -309,6 +311,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = valid && values.Count == 1;
@@ -340,9 +343,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.AllKeys.Any(x => string.Equals(x, DocRefRequestConverter.PatientParameterName, StringComparison.OrdinalIgnoreCase)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.GetValues(DocRefRequestConverter.PatientParameterName))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (int.TryParse(v, out var i) && i >= 0 && i < _fixture.Patients.Count)
@@ -356,6 +359,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = values.Count == 1;
@@ -369,9 +373,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.AllKeys.Any(x => string.Equals(x, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.GetValues(DocRefRequestConverter.StartParameterName))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (TimeSpan.TryParse(v, out var ts))
@@ -385,6 +389,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = valid && values.Count == 1;
@@ -398,9 +403,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             if (parameters.AllKeys.Any(x => string.Equals(x, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase)))
             {
                 var values = new List<string>();
+                var value = new StringBuilder();
                 foreach (var p in parameters.GetValues(DocRefRequestConverter.EndParameterName))
                 {
-                    var value = new StringBuilder();
                     foreach (var v in p.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         if (TimeSpan.TryParse(v, out var ts))
@@ -414,6 +419,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     }
 
                     values.Add(value.ToString().TrimEnd(','));
+                    value.Clear();
                 }
 
                 valid = valid && values.Count == 1;

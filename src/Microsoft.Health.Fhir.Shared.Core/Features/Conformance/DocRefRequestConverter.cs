@@ -136,7 +136,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     }
                     else
                     {
-                        _logger.LogWarning("Unknown parameter: {Name}", p.Item1);
+                        var sanitizedName = p.Item1?
+                            .Replace("\r", string.Empty, StringComparison.Ordinal)?
+                            .Replace("\n", string.Empty, StringComparison.Ordinal);
+                        _logger.LogWarning("Unknown parameter: {Name}", sanitizedName);
                         parametersConverted.Add(p);
                     }
                 }
