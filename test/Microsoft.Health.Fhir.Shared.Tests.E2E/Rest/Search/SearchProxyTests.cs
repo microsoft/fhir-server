@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public sealed class SearchProxyTests : SearchTestsBase<HttpIntegrationTestFixture>, IDisposable
+    public sealed class SearchProxyTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private const string XForwardedHost = "X-Forwarded-Host";
         private const string XForwardedPrefix = "X-Forwarded-Prefix";
@@ -52,11 +52,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _proxyClient = fixture.TestFhirServer.GetTestFhirClient(Client.Format, TestApplications.ReadOnlyUser, user: null, reusable: false);
             _proxyClient.HttpClient.DefaultRequestHeaders.Add(XForwardedHost, Host);
             _proxyClient.HttpClient.DefaultRequestHeaders.Add(XForwardedPrefix, Prefix);
-        }
-
-        public void Dispose()
-        {
-            _proxyClient.HttpClient.Dispose();
         }
 
         [Fact]
