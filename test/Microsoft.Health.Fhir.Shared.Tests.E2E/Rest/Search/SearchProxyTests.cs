@@ -32,14 +32,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class SearchBundleTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class SearchProxyTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private const string XForwardedHost = "X-Forwarded-Host";
         private const string XForwardedPrefix = "X-Forwarded-Prefix";
         private const string Host = "e2e.tests.fhir.microsoft.com";
         private const string Prefix = "/search/bundle/tests";
 
-        public SearchBundleTests(HttpIntegrationTestFixture fixture)
+        public SearchProxyTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
         }
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle batchResponse = await Client.PostBundleAsync(batch);
 
             Bundle.EntryComponent responseEntry = Assert.Single(batchResponse.Entry);
-            Bundle searchset = Assert.IsType<Bundle>(responseEntry.Response);
+            Bundle searchset = Assert.IsType<Bundle>(responseEntry.Resource);
             AssertSingletonPatientBundle(searchset);
         }
 
