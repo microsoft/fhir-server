@@ -47,9 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenSearch_WhenIncludingForwardedHeaders_ThenModifyResponseUrls()
         {
-            // Create various resources.
-            string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            // Ensure at least one patient exists
+            await Client.CreateResourcesAsync<Patient>(
                 p => p.Name = new List<HumanName>
                 {
                     new HumanName
@@ -70,9 +69,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenSearchBundle_WhenIncludingForwardedHeaders_ThenModifyResponseUrls()
         {
-            // Create various resources.
-            string tag = Guid.NewGuid().ToString();
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+            // Ensure at least one patient exists
+            await Client.CreateResourcesAsync<Patient>(
                 p => p.Name = new List<HumanName>
                 {
                     new HumanName

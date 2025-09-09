@@ -81,7 +81,6 @@ jobs:
             enableExport = $true
             enableConvertData = $true
             enableImport = $true
-            enableForwardedHeaders = $true
             backgroundTaskCount = 4
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'

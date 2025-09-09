@@ -214,13 +214,6 @@
                 "description": "Determines whether the $import operation will be enabled for this fhir instance."
             }
         },
-        "enableForwardedHeaders": {
-            "type": "bool",
-            "defaultValue": false,
-            "metadata": {
-                "description": "Determines whether the returned URLs can be modified by a proxy."
-            }
-        },
         "backgroundTaskCount": {
             "type": "int",
             "defaultValue": 1,
@@ -261,7 +254,6 @@
             "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
             "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
             "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "1.0.0",
-            "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "[parameters('enableForwardedHeaders')]",
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault__Endpoint": "[variables('keyvaultEndpoint')]",
             "FhirServer__Security__Enabled": "[variables('securityAuthenticationEnabled')]",
