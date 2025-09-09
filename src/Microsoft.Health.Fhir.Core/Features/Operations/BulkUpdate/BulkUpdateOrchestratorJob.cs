@@ -166,10 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                     string lastEnqueuedMaxContinuationToken = topJob == null
                         ? null
-                        : JsonConvert.DeserializeObject<BulkUpdateDefinition>(topJob.Definition)
-                             .SearchParameters?
-                             .FirstOrDefault(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
-                             ?.Item2;
+                        : JsonConvert.DeserializeObject<BulkUpdateDefinition>(topJob.Definition).SearchParameters?.FirstOrDefault(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))?.Item2;
 
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
