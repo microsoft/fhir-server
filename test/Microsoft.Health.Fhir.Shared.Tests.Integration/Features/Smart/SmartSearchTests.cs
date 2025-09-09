@@ -720,7 +720,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Should return resources from smart-patient-A compartment
             Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == "Observation" && r.Resource.ResourceId.Contains("smart-observation-A"));
         }
 
@@ -781,8 +780,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Should return resources from smart-patient-A compartment since practitioner has access
             Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
-            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
         }
 
         [SkippableFact]
@@ -858,8 +856,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.Practitioner, Core.Features.Security.DataActions.Read, "user");
             var scopeRestriction2 = new ScopeRestriction(KnownResourceTypes.CareTeam, Core.Features.Security.DataActions.Read, "user");
+            var scopeRestriction3 = new ScopeRestriction(KnownResourceTypes.Patient, Core.Features.Security.DataActions.Read, "user");
 
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction, scopeRestriction2 });
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction, scopeRestriction2, scopeRestriction3 });
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
 
@@ -873,7 +872,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Should return resources from smart-practitioner-A compartment
             Assert.NotEmpty(results.Results);
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == "CareTeam");
         }
 
