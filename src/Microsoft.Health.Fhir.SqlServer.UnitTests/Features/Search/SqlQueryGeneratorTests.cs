@@ -51,6 +51,7 @@ public class SqlQueryGeneratorTests
             parameters,
             _fhirModel,
             _schemaInformation,
+            false,
             false);
     }
 
