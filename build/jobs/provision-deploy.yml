@@ -52,14 +52,14 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
-     
+
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
-     
+
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
-     
+
         $additionalProperties = $flattenedTestConfig
-     
+
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
@@ -76,17 +76,18 @@ jobs:
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
-            additionalFhirServerConfigProperties = $additionalProperties 
+            additionalFhirServerConfigProperties = $additionalProperties
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
             enableImport = $true
+            enableForwardedHeaders = $true
             backgroundTaskCount = 4
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
         }
-     
+
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
@@ -148,5 +149,5 @@ jobs:
         }
 
   - template: ./provision-healthcheck.yml
-    parameters: 
+    parameters:
       webAppName: ${{ parameters.webAppName }}
