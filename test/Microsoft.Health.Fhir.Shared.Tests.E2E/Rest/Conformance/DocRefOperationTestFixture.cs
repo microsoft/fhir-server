@@ -7,10 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Reflection.Metadata;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Azure;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -37,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
         private List<Patient> _patients;
         private Dictionary<string, List<DocumentReference>> _documentReferences;
-        private DateTime _baseTime;
+        private readonly DateTime _baseTime;
         private readonly string _tag;
 
         public DocRefOperationTestFixture(
