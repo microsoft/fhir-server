@@ -79,6 +79,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(response);
         }
 
+        private static string Convert(DataType value)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            if (value is PrimitiveType)
+            {
+                return value.ToString();
+            }
+
+            if (value is Coding)
+            {
+                return $"{((Coding)value).System}|{((Coding)value).Code}";
+            }
+
+            // TODO: need a way to convert the value of a non-primitive data type to a string.
+            return value.ToString();
+        }
+
         private static List<Tuple<string, string>> ParseParameters(Parameters parameters)
         {
             var parameterList = new List<Tuple<string, string>>();
@@ -87,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 parameterList.AddRange(
                     parameters.Parameter
                         .Where(x => !string.IsNullOrEmpty(x.Name))
-                        .Select(x => Tuple.Create(x.Name, x.Value?.ToString())));
+                        .Select(x => Tuple.Create(x.Name, Convert(x.Value))));
             }
 
             return parameterList;
