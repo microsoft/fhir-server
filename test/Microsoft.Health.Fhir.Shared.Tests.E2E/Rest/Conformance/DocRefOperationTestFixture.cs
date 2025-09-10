@@ -154,6 +154,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                                 End = _baseTime.AddHours(-j).ToString("o"),
                             },
                         },
+#if Stu3
+                        Indexed = DateTimeOffset.UtcNow,
+#endif
 #else
                         Status = DocumentReference.DocumentReferenceStatus.Current,
                         Content = new List<DocumentReference.ContentComponent>
