@@ -123,6 +123,10 @@ BEGIN TRY
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       SET @AffectedRows += @@rowcount
 
+      -- Cleanup for silent meta changes.
+      DELETE FROM dbo.Resource
+        WHERE EXISTS (SELECT * FROM @Resources a WHERE a.ResourceTypeId = ResourceTypeId AND a.ResourceId = a.ResourceId AND a.ResourceSurrogateId = ResourceSurrogateId AND a.Version = Version)
+
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)

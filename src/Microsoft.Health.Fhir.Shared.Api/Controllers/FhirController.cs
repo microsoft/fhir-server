@@ -222,6 +222,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header</param>
+        /// <param name="metaSilent">Optional query parameter to indicate if the version should not be updated if the only changes are to metadata</param>
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]

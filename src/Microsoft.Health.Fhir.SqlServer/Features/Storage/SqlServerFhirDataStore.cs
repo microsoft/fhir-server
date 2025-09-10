@@ -213,6 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
                 var existingVersion = 0;
+                var silentMetaChange = false;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -296,11 +297,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource, existingResource, resourceExt.KeepVersion, false))
+                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                         {
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
+                        }
+                        else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
+                        {
+                            silentMetaChange = true;
                         }
                     }
 
@@ -308,9 +313,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                     if (!resourceExt.KeepVersion) // version is set on input
                     {
-                        resource.Version = versionPlusOne;
+                        if (silentMetaChange)
+                        {
+                            resource.Version = existingResource.Version;
+                            hasVersionToCompare = true;
+                        }
+                        else
+                        {
+                            resource.Version = versionPlusOne;
+                        }
                     }
 
+                    // This is not part of the above check to cover the case of importing data in version order.
                     if (resource.Version == versionPlusOne)
                     {
                         hasVersionToCompare = true;
@@ -323,7 +337,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
+                if (silentMetaChange)
+                {
+                    surrId = existingResource.ResourceSurrogateId;
+                    resource.LastModified = existingResource.LastModified;
+                    SyncVersionIdAndLastUpdatedInMeta(resource);
+                }
+                else if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
                 {
                     surrId = transactionId + index;
                     resource.LastModified = surrId.ToLastUpdated();
@@ -338,7 +358,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 resource.ResourceSurrogateId = surrId;
-                if (resource.Version != InitialVersion) // Do not begin transaction if all creates
+                if (resource.Version != InitialVersion || silentMetaChange) // Do not begin transaction if all creates
                 {
                     singleTransaction = true;
                 }
@@ -516,7 +536,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
                             if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper, existing.Matched, false, false))
+                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
                             {
                                 loaded.Add(input);
                             }
@@ -662,7 +682,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var versionIdInt = int.Parse(existing.Key.VersionId);
                         if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
                         {
-                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper, existing.Matched.RawResource, false, false))
+                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
                             {
                                 loaded.Add(input);
                             }
@@ -912,96 +932,90 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper, bool keepVersion, bool ignoreMetadata)
+        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)
         {
             if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
             {
                 return false;
             }
 
-            var input = inputWrapper.RawResource;
-            var existing = existingWrapper.RawResource;
-
             if (input.Data == existing.Data)
             {
                 return true; // The two are identical
             }
 
-            if (ignoreMetadata)
+            var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
+            var inputVersion = GetJsonValue(input.Data, "versionId", true);
+            var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
+            var existingVersion = GetJsonValue(existing.Data, "versionId", true);
+            if (inputVersion == existingVersion)
             {
-                var inputResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(inputWrapper).ResourceInstance;
-                var existingResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(existingWrapper).ResourceInstance;
-
-                var inputMeta = inputResource.Meta;
-                var existingMeta = existingResource.Meta;
-
-                if (inputMeta.Equals(existingMeta))
-                {
-                    return false; // Difference is in a non-meta field
-                }
-                else
-                {
-                    var inputChildren = inputResource.NamedChildren.GetEnumerator();
-                    var existingChildren = existingResource.NamedChildren.GetEnumerator();
-
-                    var resourcesIdentical = true;
-
-                    do
-                    {
-                        var inputChild = inputChildren.Current;
-                        var existingChild = existingChildren.Current;
-
-                        if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continue;
-                        }
-                        else if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
-                        {
-                            existingChildren.MoveNext();
-                            existingChild = existingChildren.Current;
-                        }
-
-                        if (!inputChild.ElementName.Equals(existingChild.ElementName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            resourcesIdentical = false;
-                            break;
-                        }
-
-                        if (!inputChild.Equals(existingChild))
-                        {
-                            resourcesIdentical = false;
-                            break;
-                        }
-
-                        existingChildren.MoveNext();
-                    }
-                    while (inputChildren.MoveNext());
-
-                    return resourcesIdentical;
-                }
+                return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
             else
             {
-                var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
-                var inputVersion = GetJsonValue(input.Data, "versionId", true);
-                var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
-                var existingVersion = GetJsonValue(existing.Data, "versionId", true);
-                if (inputVersion == existingVersion)
+                if (inputDate == existingDate)
                 {
-                    return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                    return input.Data == existing.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
                 }
-                else
+
+                return input.Data
+                            == existing.Data
+                                .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
+                                .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+            }
+        }
+
+        private bool ChangesAreOnlyInMetadata(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper)
+        {
+            var inputResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(inputWrapper).ResourceInstance;
+            var existingResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(existingWrapper).ResourceInstance;
+
+            var inputMeta = inputResource.Meta;
+            var existingMeta = existingResource.Meta;
+
+            if (inputMeta.Equals(existingMeta))
+            {
+                return false; // Difference is in a non-meta field
+            }
+            else
+            {
+                var inputChildren = inputResource.NamedChildren.GetEnumerator();
+                var existingChildren = existingResource.NamedChildren.GetEnumerator();
+
+                inputChildren.MoveNext();
+                existingChildren.MoveNext();
+
+                do
                 {
-                    if (inputDate == existingDate)
+                    var inputChild = inputChildren.Current;
+                    var existingChild = existingChildren.Current;
+
+                    if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
                     {
-                        return input.Data == existing.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
+                        continue;
+                    }
+                    else if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingChildren.MoveNext();
+                        existingChild = existingChildren.Current;
                     }
 
-                    return input.Data
-                                == existing.Data
-                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                    if (!inputChild.ElementName.Equals(existingChild.ElementName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+
+                    if (!inputChild.ToString().Equals(existingChild.ToString(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+
+                    existingChildren.MoveNext();
                 }
+                while (inputChildren.MoveNext());
+
+                return true;
             }
         }
 
