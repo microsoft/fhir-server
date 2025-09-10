@@ -112,13 +112,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, definition.EndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, definition.GlobalStartSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId));
+
+                    // Subjobs based on resource type-surrogate id ranges, are already scoped to a range definition.MaximumNumberOfResourcesPerQuery
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString()));
+                }
+                else
+                {
+                    // We want to process everything else in the batches of 1000
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery <= ProcessingBatchSize ? definition.MaximumNumberOfResourcesPerQuery.ToString() : ProcessingBatchSize.ToString()));
                 }
 
                 try
                 {
-                    // We want to process everything in the batches of 1000
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery <= ProcessingBatchSize ? definition.MaximumNumberOfResourcesPerQuery.ToString() : ProcessingBatchSize.ToString()));
-
                     // If readNextPage is true, we want to read all the pages until there are no more results and we ignore the readUpto value
                     // If readNextPage is false, we want to read only one page when readUpto is 1 or 0. OR read until the readUpto value
 
