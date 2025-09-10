@@ -792,18 +792,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 "This test is only valid for R4 and R4B");
 
             // Practitioner smart-practitioner-A trying to search patient compartment outside their care
-            var query = new List<Tuple<string, string>>();
+            var query = new List<Tuple<string, string>>() { new Tuple<string, string>("_count", "100") };
 
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "user");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-C";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
 
             // Try to search patient compartment that should NOT be accessible to this practitioner
             var results = await _searchService.Value.SearchCompartmentAsync(
                 "Patient",
-                "smart-patient-C",
+                "smart-patient-B",
                 null, // all resource types
                 query,
                 CancellationToken.None);
