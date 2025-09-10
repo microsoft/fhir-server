@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
+            configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";
