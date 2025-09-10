@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         [InlineData("?patient=0&on-demand=true")] // Unsupported parameter
         [InlineData("?patient=0&profile=http://loinc.org/55107-7")] // Unsupported parameter
         [InlineData("?patient=0&profile=http://loinc.org/55107-7&on-demand=true")] // Unsupported parameter
-        public async Task GivenQuery_WhenDocRefIsInvoked_ThenDocumentReferenceShouldBeRetrieved(
+        public async Task GivenQuery_WhenInvokingDocRef_ThenDocumentReferenceShouldBeRetrieved(
             string query)
         {
             var valid = false;
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
         [SkippableTheory]
         [MemberData(nameof(GetParametersTestData))]
-        public async Task GivenParameters_WhenDocRefIsInvoked_ThenDocumentReferenceShouldBeRetrieved(
+        public async Task GivenParameters_WhenInvokingDocRef_ThenDocumentReferenceShouldBeRetrieved(
             Parameters parameters)
         {
             var valid = false;

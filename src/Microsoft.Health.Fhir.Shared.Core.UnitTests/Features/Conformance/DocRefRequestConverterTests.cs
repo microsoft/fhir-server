@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         }
 
         [Theory]
-        [MemberData(nameof(ProcessParametersTestData))]
-        public async Task GivenParameters_WhenProcessing_ThenSearchResourceShouldBeCalledSuccessfully(
+        [MemberData(nameof(GetParametersTestData))]
+        public async Task GivenParameters_WhenConverting_ThenSearchResourceShouldBeCalledSuccessfully(
             List<Tuple<string, string>> parameters)
         {
             var parametersToValidate = parameters?
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             }
         }
 
-        public static IEnumerable<object[]> ProcessParametersTestData()
+        public static IEnumerable<object[]> GetParametersTestData()
         {
             var data = new[]
             {

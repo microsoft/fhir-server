@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenGetRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToProcessor(
+        public async Task GivenGetRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToConverter(
             bool enable)
         {
             _configuration.EnableDocRef = enable;
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [MemberData(nameof(DocRefByPostTestData))]
-        public async Task GivenPostRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToProcessor(
+        public async Task GivenPostRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToConverter(
             bool enable,
             Parameters parameters)
         {
