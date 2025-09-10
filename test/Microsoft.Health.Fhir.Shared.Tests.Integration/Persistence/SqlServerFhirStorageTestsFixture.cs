@@ -211,17 +211,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
+            var upsertSearchParamsWithOptimisticConcurrencyTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 upsertSearchParamsTvpGenerator,
+                upsertSearchParamsWithOptimisticConcurrencyTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
                 SchemaInformation,
                 sqlSortingValidator,
                 sqlServerFhirModel,
-                _searchParameterDefinitionManager);
+                _searchParameterDefinitionManager,
+                NullLogger<SqlServerSearchParameterStatusDataStore>.Instance);
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -352,11 +355,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(ISqlServerFhirStorageTestHelper))
             {
                 return _testHelper;
-            }
-
-            if (serviceType.IsInstanceOfType(this))
-            {
-                return this;
             }
 
             if (serviceType == typeof(ITransactionHandler))
