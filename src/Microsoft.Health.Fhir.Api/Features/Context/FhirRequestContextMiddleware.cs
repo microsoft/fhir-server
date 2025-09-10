@@ -39,7 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             string baseUriInString = UriHelper.BuildAbsolute(
                 request.Scheme,
                 request.Host,
-                request.PathBase);
+                request.PathBase,
+                "/");
 
             string uriInString = UriHelper.BuildAbsolute(
                 request.Scheme,
