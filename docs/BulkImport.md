@@ -1,11 +1,17 @@
 # Bulk import
 
+The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. 
+
 There are two modes of $import supported today-
 
 1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
 1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated, or both lastUpdated and versionId, from resource Meta (if present in resource JSON). There are no performance differences between incremental and initial modes.  
 
-The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
+By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
+
+## Architecture
+
+To achieve high throughput, bulk import runs on distributed computing infrastructure. It splits input files in data units and processes these units in parallel and independent of each other.
 
 ## Prerequisites
 
@@ -107,6 +113,7 @@ Content-Type:application/fhir+json
 | mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
 | allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
 | eventualConsistency | Allows FHIR server to create resource and its search parameters in multiple SQL transactions. This can substantially increase ingestion throughput, but might cause delays before resource will become fully searchable. | 0..1 | To enable this feature pass true. By default it is false, so resource and its search parameters are created in single SQL transaction (strong consistency). |
+| processingUnitBytesToRead | Allows FHIR server to adjust number of bytes read in each processing unit. Default value is 10 MiB. This value might not be optimal for very large resources (>10 MiB). | 0..1 | For large resources (>10 MiB) provide value in bytes that is greater or equal to resource size. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -136,6 +143,10 @@ Content-Type:application/fhir+json
         {
             "name": "eventualConsistency",
             "valueBoolean": true
+        },
+        {
+            "name": "processingUnitBytesToRead",
+            "valueInteger": 100000000
         },
         {
             "name": "input",
