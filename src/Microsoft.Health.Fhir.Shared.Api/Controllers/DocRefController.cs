@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return $"{((Coding)value).System}|{((Coding)value).Code}";
             }
 
-            // TODO: need a way to convert the value of a non-primitive data type to a string.
+            // NOTE: This won't work for many non-premitive types. We need a way to convert the value of those types to a string correctly.
             return value.ToString();
         }
 

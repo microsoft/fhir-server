@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         protected override async Task OnInitializedAsync()
         {
             await base.OnInitializedAsync();
-#if true
+
             var bundle = new Bundle()
             {
                 Type = Bundle.BundleType.Batch,
@@ -230,7 +230,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 .Select(x => (DocumentReference)x.Resource)
                 .GroupBy(x => x.Subject.Reference)
                 .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase);
-#endif
         }
     }
 }

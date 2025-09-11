@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                 {
                     if (ConvertParameterMap.TryGetValue(p.Item1, out var val))
                     {
-                        // TODO: should we add the prefix for all values when multiple values are specified? (e.g. "start=<date1>,<date2>,...")
+                        // NOTE: adding the prefix for the 1st value only for now. (e.g. we need to decide whether to allow multi-value like "start=<date1>,<date2>,...")
                         if (string.Equals(p.Item1, StartParameterName, StringComparison.OrdinalIgnoreCase))
                         {
                             parametersConverted.Add(Tuple.Create(val, $"ge{p.Item2}"));

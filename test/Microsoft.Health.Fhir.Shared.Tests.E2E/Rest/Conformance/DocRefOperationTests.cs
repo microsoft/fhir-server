@@ -33,6 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class DocRefOperationTests : IClassFixture<DocRefOperationTestFixture>
     {
+        private const string UnknownParameterName = "unknown";
+
         private readonly DocRefOperationTestFixture _fixture;
 
         public DocRefOperationTests(DocRefOperationTestFixture fixture)
@@ -70,17 +72,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         [InlineData("?patient=0&on-demand=true")] // Unsupported parameter
         [InlineData("?patient=0&profile=http://loinc.org/55107-7")] // Unsupported parameter
         [InlineData("?patient=0&profile=http://loinc.org/55107-7&on-demand=true")] // Unsupported parameter
+        [InlineData("?patient=0&unknown=unknownvalue")] // Unknown parameter
         public async Task GivenQuery_WhenInvokingDocRef_ThenDocumentReferenceShouldBeRetrieved(
             string query)
         {
             var valid = false;
             var unsupported = false;
+            var unknown = false;
             try
             {
                 var docrefEnabled = Server.Metadata.SupportsOperation(OperationsConstants.DocRef);
                 Skip.IfNot(docrefEnabled, "The $docref operation is disabled");
 
-                var parameters = ParseQuery(query, out valid, out unsupported);
+                var parameters = ParseQuery(query, out valid, out unsupported, out unknown);
                 var url = $"{KnownResourceTypes.DocumentReference}/{KnownRoutes.DocRef}{ToQueryString(query, parameters)}";
                 var actual = await InvokeAsync(url);
                 Assert.True(valid);
@@ -101,12 +105,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         {
             var valid = false;
             var unsupported = false;
+            var unknown = false;
             try
             {
                 var docrefEnabled = Server.Metadata.SupportsOperation(OperationsConstants.DocRef);
                 Skip.IfNot(docrefEnabled, "The $docref operation is disabled");
 
-                var parameterCollections = ParseParameters(parameters, out valid, out unsupported);
+                var parameterCollections = ParseParameters(parameters, out valid, out unsupported, out unknown);
                 var url = $"{KnownResourceTypes.DocumentReference}/{KnownRoutes.DocRef}";
                 var actual = await InvokeAsync(url, parameters);
                 Assert.True(valid);
@@ -207,10 +212,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 operationOutcomes);
         }
 
-        private NameValueCollection ParseParameters(Parameters parameters, out bool valid, out bool unsupported)
+        private NameValueCollection ParseParameters(Parameters parameters, out bool valid, out bool unsupported, out bool unknown)
         {
             valid = false;
             unsupported = false;
+            unknown = false;
             if (parameters?.Parameter == null || !parameters.Parameter.Any())
             {
                 return new NameValueCollection();
@@ -327,13 +333,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             unsupported = collection.AllKeys.Any(
                 x => string.Equals(x, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(x, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase));
+            unknown = collection.AllKeys.Any(
+                x => string.Equals(x, UnknownParameterName, StringComparison.OrdinalIgnoreCase));
             return collection;
         }
 
-        private NameValueCollection ParseQuery(string query, out bool valid, out bool unsupported)
+        private NameValueCollection ParseQuery(string query, out bool valid, out bool unsupported, out bool unknown)
         {
             valid = false;
             unsupported = false;
+            unknown = false;
             if (string.IsNullOrEmpty(query))
             {
                 return new NameValueCollection();
@@ -433,6 +442,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             unsupported = parameters.AllKeys.Any(
                 x => string.Equals(x, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(x, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase));
+            unknown = parameters.AllKeys.Any(
+                x => string.Equals(x, UnknownParameterName, StringComparison.OrdinalIgnoreCase));
             return parameters;
         }
 
@@ -479,6 +490,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                             && !string.IsNullOrEmpty(y.Diagnostics)
                             && (y.Diagnostics.Contains(DocRefRequestConverter.OnDemandParameterName)
                             || y.Diagnostics.Contains(DocRefRequestConverter.ProfileParameterName))));
+            }
+
+            var unknown = parameters.AllKeys.Any(
+                x => string.Equals(x, UnknownParameterName, StringComparison.OrdinalIgnoreCase));
+            if (unknown)
+            {
+                Assert.Contains(
+                    operationOutcomes,
+                    x => x.Issue.Any(
+                        y => y.Severity == OperationOutcome.IssueSeverity.Warning
+                            && y.Code == OperationOutcome.IssueType.NotSupported
+                            && !string.IsNullOrEmpty(y.Diagnostics)
+                            && y.Diagnostics.Contains(UnknownParameterName)));
             }
         }
 
@@ -752,6 +776,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 {
                     // Invalid parameter
                     new Parameters(),
+                },
+                new object[]
+                {
+                    // Unknown parameter
+                    ToParameters(
+                        new List<Tuple<string, string>>
+                        {
+                            Tuple.Create(DocRefRequestConverter.PatientParameterName, "0"),
+                            Tuple.Create(UnknownParameterName, "unknownvalue"),
+                        }),
                 },
             };
 
