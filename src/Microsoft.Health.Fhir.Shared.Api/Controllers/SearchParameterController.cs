@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -129,6 +130,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static SearchParameterStateUpdateRequest ParseUpdateRequestBody(Parameters inputParams)
         {
+            if (inputParams?.Parameter == null || !inputParams.Parameter.Any())
+            {
+                throw new RequestNotValidException(Core.Resources.SearchParameterRequestNotValid);
+            }
+
             List<Tuple<Uri, SearchParameterStatus>> paramsToUpdate = new List<Tuple<Uri, SearchParameterStatus>>();
 
             foreach (var parameter in inputParams.Parameter)

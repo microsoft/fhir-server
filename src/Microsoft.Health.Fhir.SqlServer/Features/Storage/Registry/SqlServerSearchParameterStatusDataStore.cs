@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -30,20 +32,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     {
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
+        private readonly VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
         private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISqlServerFhirModel _fhirModel;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ILogger<SqlServerSearchParameterStatusDataStore> _logger;
 
         public SqlServerSearchParameterStatusDataStore(
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
+            VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsWithOptimisticConcurrencyTvpGenerator,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
             SqlServerSortingValidator sortingValidator,
             ISqlServerFhirModel fhirModel,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ILogger<SqlServerSearchParameterStatusDataStore> logger)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
@@ -52,14 +58,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
+            _updateSearchParamsWithOptimisticConcurrencyTvpGenerator = updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
             _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _logger = logger;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
@@ -155,30 +164,106 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             // If the search parameter table in SQL does not yet contain the larger status column we reset back to disabled status
             if (_schemaInformation.Current < (int)SchemaVersion.V52)
             {
-                foreach (var status in statuses)
+                foreach (var status in statuses.Where(s => s.Status == SearchParameterStatus.Unsupported))
                 {
-                    if (status.Status == SearchParameterStatus.Unsupported)
-                    {
-                        status.Status = SearchParameterStatus.Disabled;
-                    }
+                    status.Status = SearchParameterStatus.Disabled;
                 }
             }
 
+            await UpsertStatusesWithRetry(statuses, 3, cancellationToken);
+        }
+
+        private async Task UpsertStatusesWithRetry(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, int maxRetries, CancellationToken cancellationToken)
+        {
+            var currentStatuses = statuses.ToList();
+            int retryCount = 0;
+
+            while (retryCount <= maxRetries)
+            {
+                try
+                {
+                    await UpsertStatusesInternal(currentStatuses, cancellationToken);
+                    return; // Success
+                }
+                catch (SqlException sqlEx) when (sqlEx.Number == 50001 && retryCount < maxRetries) // Our custom concurrency error
+                {
+                    // Optimistic concurrency conflict detected - refresh and retry
+                    retryCount++;
+                    _logger.LogWarning("Optimistic concurrency conflict detected on attempt {RetryCount}. Retrying...", retryCount);
+
+                    // Refresh the statuses with current LastUpdated values
+                    var refreshedStatuses = await GetSearchParameterStatuses(cancellationToken);
+                    var refreshedDict = refreshedStatuses.ToDictionary(s => s.Uri.OriginalString, s => s);
+
+                    // Update our statuses with fresh LastUpdated values
+                    foreach (var status in currentStatuses)
+                    {
+                        if (refreshedDict.TryGetValue(status.Uri.OriginalString, out var refreshed))
+                        {
+                            status.LastUpdated = refreshed.LastUpdated;
+                        }
+                    }
+
+                    // Wait before retry to reduce contention
+                    await Task.Delay(TimeSpan.FromMilliseconds(100.0 * retryCount), cancellationToken);
+                }
+                catch (SqlException sqlEx) when (sqlEx.Number == 50001)
+                {
+                    // Max retries exceeded
+                    throw new SearchParameterConcurrencyException("Maximum retry attempts exceeded due to concurrency conflicts", sqlEx);
+                }
+            }
+        }
+
+        private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
+                if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                {
+                    VLatest.UpsertSearchParamsWithOptimisticConcurrency.PopulateCommand(sqlCommandWrapper, _updateSearchParamsWithOptimisticConcurrencyTvpGenerator.Generate(statuses.ToList()));
+                }
+                else
+                {
+                    VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
+                }
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         // The upsert procedure returns the search parameters that were new.
-                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri);
+
+                        // Read LastUpdated for the inserted/updated parameters
+                        DateTimeOffset? lastUpdated = null;
+                        try
+                        {
+                            if (sqlDataReader.FieldCount > 2 && !await sqlDataReader.IsDBNullAsync("LastUpdated", cancellationToken))
+                            {
+                                lastUpdated = (DateTimeOffset)sqlDataReader["LastUpdated"];
+                            }
+                        }
+                        catch (IndexOutOfRangeException)
+                        {
+                            // LastUpdated column doesn't exist yet - this can happen during schema migration
+                            _logger.LogWarning("LastUpdated column not found in UpsertSearchParams result.");
+                            lastUpdated = null;
+                        }
 
                         // Add the new search parameters to the FHIR model dictionary.
                         _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+
+                        // Update the LastUpdated in our original collection for future operations
+                        var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
+                        if (matchingStatus != null && lastUpdated.HasValue)
+                        {
+                            matchingStatus.LastUpdated = lastUpdated.Value;
+                        }
                     }
                 }
             }
