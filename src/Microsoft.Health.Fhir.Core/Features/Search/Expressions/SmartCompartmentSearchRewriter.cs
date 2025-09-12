@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             // The smart user has access to 3 things:
             // 1 - any resource which refers to them
             // 2 - their own resource
-            // 3 - any "uniersal" resources, such as Locations and Medications
+            // 3 - any "universal" resources, such as Locations and Medications
 
             // First a collection of any resources which refer to the smart user
             // we use the CompartmentSearchRewriter to get this list as it matches what we want
