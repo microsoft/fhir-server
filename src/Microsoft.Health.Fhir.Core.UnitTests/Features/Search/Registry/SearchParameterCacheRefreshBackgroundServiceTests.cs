@@ -102,19 +102,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
-        public void Constructor_WithNullConfiguration_ShouldUseDefaultInterval()
+        public void Constructor_WithNullConfiguration_ShouldThrow()
         {
-            // Arrange
-            IOptions<CoreFeatureConfiguration> options = null;
-
-            // Act & Assert - Should not throw and should use default 1 minute interval
-            var service = new SearchParameterCacheRefreshBackgroundService(
+            // Act & Assert - Should throw ArgumentNullException when configuration is null
+            Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                options,
-                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
+                null,
+                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
+        }
 
-            Assert.NotNull(service);
+        [Fact]
+        public void Constructor_WithNullSearchParameterOperations_ShouldThrow()
+        {
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                null,
+                _coreFeatureConfiguration,
+                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
 
         [Fact]
@@ -143,45 +149,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         public async Task OnRefreshTimer_WhenCacheIsStale_ShouldCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
+            _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
+            _searchParameterOperations.ClearReceivedCalls();
+
             _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
                 .Returns(true); // Cache is stale
 
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Act - trigger the timer manually by accessing the private method
-            var timerMethod = typeof(SearchParameterCacheRefreshBackgroundService)
-                .GetMethod("OnRefreshTimer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            timerMethod?.Invoke(_service, new object[] { null });
+            // Wait for the timer to fire at least once and allow async operations to complete
+            await Task.Delay(200);
 
-            // Allow async operations to complete
-            await Task.Delay(100);
-
-            // Assert
-            await _searchParameterStatusManager.Received(1).EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
-            await _searchParameterOperations.Received(1).GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
+            // Assert - use at least 1 call since timer might fire multiple times in test environment
+            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task OnRefreshTimer_WhenCacheIsFresh_ShouldNotCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
+            _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
+            _searchParameterOperations.ClearReceivedCalls();
+
             _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
                 .Returns(false); // Cache is fresh
 
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Act - trigger the timer manually by accessing the private method
-            var timerMethod = typeof(SearchParameterCacheRefreshBackgroundService)
-                .GetMethod("OnRefreshTimer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            timerMethod?.Invoke(_service, new object[] { null });
+            // Wait for the timer to fire at least once and allow async operations to complete
+            await Task.Delay(200);
 
-            // Allow async operations to complete
-            await Task.Delay(100);
+            // Assert - verify the timer is working and EnsureCacheFreshnessAsync was called
+            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
-            // Assert
-            await _searchParameterStatusManager.Received(1).EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
+            // But GetAndApplySearchParameterUpdates should never be called when cache is fresh
             await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
     }
