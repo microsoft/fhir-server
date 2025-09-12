@@ -85,6 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     return false; // Cache is fresh - no action needed
                 }
             }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogWarning(ex, "SearchParameter cache refresh was canceled. Will retry on next scheduled interval.");
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error during search parameter cache validation. Assuming cache is stale to trigger refresh.");

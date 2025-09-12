@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                 return result?.LastUpdated ?? DateTimeOffset.MinValue;
             }
-            catch (Exception)
+            catch (CosmosException)
             {
                 // If query fails, return MinValue to indicate no data or error
                 return DateTimeOffset.MinValue;

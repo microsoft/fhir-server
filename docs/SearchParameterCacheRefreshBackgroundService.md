@@ -44,7 +44,7 @@ Configure the refresh interval in your application settings:
 
 ### Environment Variables
 ```
-Core__SearchParameterCacheRefreshIntervalMinutes=2
+Core__SearchParameterCacheRefreshIntervalMinutes=1
 ```
 
 ### Default Behavior
