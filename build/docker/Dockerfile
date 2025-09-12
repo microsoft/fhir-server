@@ -1,5 +1,5 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.303-azurelinux3.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.305-azurelinux3.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
