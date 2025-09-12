@@ -648,7 +648,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(27, results.Results.Count());
+            Assert.Equal(38, results.Results.Count());
         }
 
         [SkippableFact]
@@ -696,7 +696,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
-            Assert.Equal(70, results.Results.Count());
+            Assert.Equal(89, results.Results.Count());
         }
 
         [SkippableFact]
