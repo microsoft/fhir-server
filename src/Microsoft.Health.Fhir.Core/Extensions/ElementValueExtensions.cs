@@ -25,6 +25,47 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 return false;
             }
 
+            if (!source.Value.ToString().Equals(other.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if ((source.Value.NamedChildren != null && source.Value.NamedChildren.Any()) || (other.Value.NamedChildren != null && other.Value.NamedChildren.Any()))
+            {
+                if (source.Value.NamedChildren == null || !source.Value.NamedChildren.Any())
+                {
+                    return false;
+                }
+
+                if (other.Value.NamedChildren == null || !other.Value.NamedChildren.Any())
+                {
+                    return false;
+                }
+
+                IEnumerator<ElementValue> sourceChildren = source.Value.NamedChildren.GetEnumerator();
+                IEnumerator<ElementValue> otherChildren = other.Value.NamedChildren.GetEnumerator();
+                while (true)
+                {
+                    var sourceMoved = sourceChildren.MoveNext();
+                    var otherMoved = otherChildren.MoveNext();
+
+                    if (sourceMoved != otherMoved)
+                    {
+                        return false;
+                    }
+
+                    if (!sourceMoved)
+                    {
+                        break;
+                    }
+
+                    if (!sourceChildren.Current.EqualValues(otherChildren.Current))
+                    {
+                        return false;
+                    }
+                }
+            }
+
             return true;
         }
     }

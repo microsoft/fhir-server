@@ -194,6 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
+            var overallSilentMeta = false;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
                 var resource = resourceExt.Wrapper;
@@ -306,6 +307,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
                         {
                             silentMetaChange = true;
+                            overallSilentMeta = true;
                         }
                     }
 
@@ -400,7 +402,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, overallSilentMeta, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -738,7 +740,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
+        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, bool silentMeta, CancellationToken cancellationToken)
         {
             var sw = Stopwatch.StartNew();
             using var cmd = new SqlCommand();
@@ -748,6 +750,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+            cmd.Parameters.AddWithValue("@OverwriteExisting", silentMeta);
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -985,37 +988,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var inputChildren = inputResource.NamedChildren.GetEnumerator();
                 var existingChildren = existingResource.NamedChildren.GetEnumerator();
 
-                inputChildren.MoveNext();
-                existingChildren.MoveNext();
+                var inputMoved = inputChildren.MoveNext();
+                var existingMoved = existingChildren.MoveNext();
 
-                do
+                if (inputMoved != existingMoved)
+                {
+                    return false;
+                }
+
+                if (!inputMoved)
+                {
+                    return true; // empty input & existing resource
+                }
+
+                while (true)
                 {
                     var inputChild = inputChildren.Current;
                     var existingChild = existingChildren.Current;
 
+                    // Skip meta
                     if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
                     {
-                        continue;
+                        inputMoved = inputChildren.MoveNext();
+                        inputChild = inputChildren.Current;
                     }
-                    else if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+
+                    if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
                     {
-                        existingChildren.MoveNext();
+                        existingMoved = existingChildren.MoveNext();
                         existingChild = existingChildren.Current;
                     }
 
-                    if (!inputChild.ElementName.Equals(existingChild.ElementName, StringComparison.OrdinalIgnoreCase))
+                    // Need to check if they moved to skip meta and still agree on if there are more fields
+                    if (inputMoved != existingMoved)
                     {
                         return false;
                     }
 
-                    if (!inputChild.ToString().Equals(existingChild.ToString(), StringComparison.OrdinalIgnoreCase))
+                    // If they agree and they didn't move then meta was the last field
+                    if (!inputMoved)
+                    {
+                        break;
+                    }
+
+                    if (!inputChild.EqualValues(existingChild))
                     {
                         return false;
                     }
 
-                    existingChildren.MoveNext();
+                    inputMoved = inputChildren.MoveNext();
+                    existingMoved = existingChildren.MoveNext();
+
+                    // One resource has more fields than the other
+                    if (inputMoved != existingMoved)
+                    {
+                        return false;
+                    }
+
+                    // The end of the file has been reached
+                    if (!inputMoved)
+                    {
+                        break;
+                    }
                 }
-                while (inputChildren.MoveNext());
 
                 return true;
             }
