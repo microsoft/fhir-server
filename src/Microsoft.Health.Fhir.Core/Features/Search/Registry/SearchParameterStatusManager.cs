@@ -90,9 +90,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogWarning(ex, "SearchParameter cache refresh was canceled. Will retry on next scheduled interval.");
                 throw;
             }
-            catch (Exception ex)
+            catch (TimeoutException ex)
             {
-                _logger.LogWarning(ex, "Error during search parameter cache validation. Assuming cache is stale to trigger refresh.");
+                _logger.LogWarning(ex, "Timeout Exception during search parameter cache validation. Assuming cache is stale to trigger refresh.");
 
                 // When in doubt, assume cache is stale - better to do unnecessary work than miss updates
                 return true;
