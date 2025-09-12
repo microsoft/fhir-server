@@ -6,6 +6,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
-        public void Constructor_WithZeroOrNegativeRefreshInterval_ShouldUseDefaultInterval()
+        public void Constructor_WithZeroRefreshInterval_ShouldUseDefaultInterval()
         {
             // Arrange
             var config = new CoreFeatureConfiguration
@@ -91,14 +92,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             options.Value.Returns(config);
 
-            // Act & Assert - Should not throw and should use default interval (which is enforced as minimum 1 minute)
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 options,
-                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
+                mockLogger);
 
+            // Assert
             Assert.NotNull(service);
+
+            // Verify that the constructor logged the correct default interval (1 minute) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:01:00 interval.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public void Constructor_WithNegativeRefreshInterval_ShouldUseDefaultInterval()
+        {
+            // Arrange - Test with negative value
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalMinutes = -5,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                mockLogger);
+
+            // Assert
+            Assert.NotNull(service);
+
+            // Verify that the constructor logged the correct default interval (1 minute) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:01:00 interval.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
         }
 
         [Fact]
