@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\SearchCompartmentHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensionTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\DocRefRequestConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\MockLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />

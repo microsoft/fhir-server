@@ -651,6 +651,21 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<OperationOutcome>(response);
         }
 
+        public async Task<FhirResponse<Resource>> DocRefAsync(string url, string body, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
+
+            message.Headers.Accept.Add(_mediaType);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Resource>(response);
+        }
+
         private StringContent CreateStringContent(Resource resource)
         {
             return new StringContent(_serialize(resource, SummaryType.False), Encoding.UTF8, _contentType);

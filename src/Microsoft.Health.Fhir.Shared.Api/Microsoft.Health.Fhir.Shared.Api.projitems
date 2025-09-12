@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\DocRefController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
