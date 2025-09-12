@@ -157,14 +157,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 {
                     // For Parallel bulk update, when there are SearchParameters then create sub jobs at continuation token level for matched and included resources.
                     _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs at page level.");
+
+                    // Let's check for existing jobs to avoid duplicate processing
+                    var topJob = groupJobs
+                        .Where(x => x.Id != jobInfo.Id)
+                        .OrderByDescending(j => j.CreateDate)
+                        .FirstOrDefault();
+
+                    string lastEnqueuedMaxContinuationToken = topJob == null
+                        ? null
+                        : JsonConvert.DeserializeObject<BulkUpdateDefinition>(topJob.Definition).SearchParameters?.FirstOrDefault(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))?.Item2;
+
                     string nextContinuationToken = null;
                     string prevContinuationToken = null;
                     var definitions = new List<BulkUpdateDefinition>();
+                    SearchResult searchResult;
+
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
+                    if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))
+                    {
+                        searchParams.RemoveAll(x => x.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
+                        searchParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, lastEnqueuedMaxContinuationToken));
+                        searchResult = await Search(definition, searchService, searchParams, cancellationToken);
+
+                        if (searchResult.Results != null && searchResult.Results.Any() && !string.IsNullOrEmpty(searchResult.ContinuationToken))
+                        {
+                            // More results to process
+                            // Let's update the ContinuationToken in searchParam so that we can start from the next page
+                            searchParams.RemoveAll(x => x.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
+                            searchParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(searchResult.ContinuationToken)));
+                            prevContinuationToken = searchResult.ContinuationToken;
+                        }
+                        else
+                        {
+                            // We are at the end of the search results
+                            return OperationCompleted;
+                        }
+                    }
 
                     // Run a search to get the first page of results
-                    SearchResult searchResult = await Search(definition, searchService, searchParams, cancellationToken);
+                    searchResult = await Search(definition, searchService, searchParams, cancellationToken);
 
                     // If the search result is empty, we can skip the rest of the processing
                     while ((searchResult?.Results != null && searchResult.Results.Any()) || !string.IsNullOrEmpty(prevContinuationToken))
@@ -175,7 +208,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                         // Enqueue the job for the current page of results
                         _logger.LogJobInformation(jobInfo, "Creating bulk update definition (3).");
                         var processingRecord = CreateProcessingDefinition(definition, searchService.Value, cancellationToken, definition.Type, prevContinuationToken, false);
-                        definitions.Add(processingRecord);
+
+                        _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
+                        await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
 
                         // Break if there are no more pages to process
                         if (string.IsNullOrEmpty(nextContinuationToken))
@@ -183,23 +218,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                             break;
                         }
 
-                        // If there re more pages, update the previous continuation token to register the job for the next page
+                        // If there are more pages, update the previous continuation token to register the job for the next page
                         prevContinuationToken = nextContinuationToken;
 
                         // Get the next page of results using the continuation token
                         var cloneList = new List<Tuple<string, string>>(searchParams);
                         cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(nextContinuationToken)));
-                        searchResult = await BulkUpdateOrchestratorJob.Search(definition, searchService, cloneList, cancellationToken);
-                    }
-
-                    if (definitions.Any())
-                    {
-                        _logger.LogJobInformation(jobInfo, "Enqueuing bulk update job (4).");
-                        await _queueClient.EnqueueAsync(QueueType.BulkUpdate, cancellationToken, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
-                    }
-                    else
-                    {
-                        _logger.LogJobInformation(jobInfo, "Bulk update orchestration completed: No processing jobs were enqueued.");
+                        searchResult = await Search(definition, searchService, cloneList, cancellationToken);
                     }
                 }
                 else if (groupJobs.Count == 1)

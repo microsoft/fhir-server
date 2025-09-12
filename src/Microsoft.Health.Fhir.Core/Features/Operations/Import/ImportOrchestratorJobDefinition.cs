@@ -75,6 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// If not speficied it is 10 million bytes. In case of very large resources (binary data),
         /// this should be increased to the resource size to avoid unnecessary input file scans.
         /// </summary>
-        public int ProcessingJobBytesToRead { get; set; }
+        public int ProcessingUnitBytesToRead { get; set; }
     }
 }

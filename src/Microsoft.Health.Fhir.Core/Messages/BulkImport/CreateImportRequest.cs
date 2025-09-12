@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             bool allowNegativeVersions,
             string errorContainerName,
             bool eventualConsistency,
-            int processingJobBytesToRead)
+            int processingUnitBytesToRead)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             AllowNegativeVersions = allowNegativeVersions;
             ErrorContainerName = errorContainerName;
             EventualConsistency = eventualConsistency;
-            ProcessingJobBytesToRead = processingJobBytesToRead;
+            ProcessingUnitBytesToRead = processingUnitBytesToRead;
         }
 
         /// <summary>
@@ -92,6 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// <summary>
         /// Number of bytes to be read by processing job.
         /// </summary>
-        public int ProcessingJobBytesToRead { get; set; }
+        public int ProcessingUnitBytesToRead { get; set; }
     }
 }
