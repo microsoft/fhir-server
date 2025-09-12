@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -124,6 +125,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 }
 
                 smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientC");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
+
+                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientD");
                 foreach (var entry in smartBundle.Entry)
                 {
                     await PutResource(entry.Resource);
@@ -690,6 +697,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Equal(70, results.Results.Count());
+        }
+
+        [SkippableFact]
+        public async Task GivenReadScopeOnAllResourcesInACompartment_OnSystemLevelWithPreviouslyUpdatedResources_ReturnsResourcesInThePatientCompartment()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Test data - Create more than 10 universal resources or compartment resources which have lower resource type id and update them to create historical versions
+            // Also create a patient compartment with some other resources, when runing the search, we should get back the compartment resources
+            var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction2 = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-D";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
         }
 
         private async Task<UpsertOutcome> PutResource(Resource resource)
