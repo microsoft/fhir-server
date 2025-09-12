@@ -91,7 +91,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
+                .AsService<ISearchParameterStatusManager>()
                 .AsService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
+
+            // Register the SearchParameter cache refresh background service
+            services
+                .RemoveServiceTypeExact<SearchParameterCacheRefreshBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
+                .Add<SearchParameterCacheRefreshBackgroundService>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>()
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
