@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -90,6 +91,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             // Do nothing. This is only required for SQL.
+        }
+
+        public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)
+        {
+            // Get all statuses to find the max LastUpdated
+            var statuses = await GetSearchParameterStatuses(cancellationToken);
+
+            if (!statuses.Any())
+            {
+                return DateTimeOffset.MinValue;
+            }
+
+            return statuses.Max(s => s.LastUpdated);
         }
     }
 }
