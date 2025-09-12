@@ -69,9 +69,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                // Expected when service is stopped
+                _logger.LogWarning(ex, "SearchParameter cache refresh was canceled. Will retry on next scheduled interval.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during SearchParameter cache refresh. Will retry on next scheduled interval.");
+                throw;
             }
         }
 
@@ -103,11 +108,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     _logger.LogDebug("SearchParameter cache is up to date. No refresh needed.");
                 }
             }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogWarning(ex, "SearchParameter cache refresh was canceled. Will retry on next scheduled interval.");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during SearchParameter cache refresh. Will retry on next scheduled interval.");
-
-                // Continue running - don't let one failure stop the background service
+                throw;
             }
         }
 

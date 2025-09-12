@@ -290,45 +290,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return await _filebasedSearchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
             }
 
-            // Use stored procedure if available (V97+), otherwise fall back to direct query
-            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterMaxLastUpdatedStoredProcedure)
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-                using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                // Use stored procedure if available (V97+), otherwise fall back to direct query
+                if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterMaxLastUpdatedStoredProcedure)
                 {
                     VLatest.GetSearchParamMaxLastUpdated.PopulateCommand(sqlCommandWrapper);
-
-                    var result = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                    // Handle case where no records exist or all LastUpdated values are null
-                    if (result == null || result == DBNull.Value)
-                    {
-                        return DateTimeOffset.MinValue;
-                    }
-
-                    return (DateTimeOffset)result;
                 }
-            }
-            else
-            {
-                // Fallback to direct query for older schema versions
-                using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-                using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                else
                 {
                     sqlCommandWrapper.CommandText = "SELECT MAX(LastUpdated) FROM dbo.SearchParam WHERE LastUpdated IS NOT NULL";
-
-                    var result = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                    // Handle case where no records exist or all LastUpdated values are null
-                    if (result == null || result == DBNull.Value)
-                    {
-                        return DateTimeOffset.MinValue;
-                    }
-
-                    return (DateTimeOffset)result;
                 }
+
+                var result = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+
+                // Handle case where no records exist or all LastUpdated values are null
+                if (result == null || result == DBNull.Value)
+                {
+                    return DateTimeOffset.MinValue;
+                }
+
+                return (DateTimeOffset)result;
             }
         }
     }
