@@ -48,46 +48,9 @@
             "metadata": {
                 "description": "The principal type of the administrator for the sql server."
             }
-        },
-        "networkSecurityPerimeterName": {
-            "type": "string",
-            "defaultValue": "[concat('nsp-', resourceGroup().name)]",
-            "metadata": {
-                "description": "Name of the Network Security Perimeter to create and associate resources with."
-            }
-        },
-        "networkSecurityPerimeterProfileName": {
-            "type": "string",
-            "defaultValue": "defaultProfile",
-            "metadata": {
-                "description": "Name of the Network Security Perimeter profile to create."
-            }
         }
     },
-    "variables": {
-        "networkSecurityPerimeterName": "[parameters('networkSecurityPerimeterName')]"
-    },
     "resources": [
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters",
-            "apiVersion": "2021-02-01-preview",
-            "name": "[variables('networkSecurityPerimeterName')]",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "displayName": "[concat('NSP for ', resourceGroup().name)]"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/profiles",
-            "apiVersion": "2021-02-01-preview", 
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/', parameters('networkSecurityPerimeterProfileName'))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]"
-            ],
-            "properties": {
-                "displayName": "[concat('Profile for ', resourceGroup().name)]"
-            }
-        },
         {
             "name": "[parameters('sqlServerName')]",
             "type": "Microsoft.Sql/servers",
@@ -106,25 +69,6 @@
                     "sid": "[parameters('sqlAdministratorSid')]",
                     "tenantId": "[parameters('sqlAdministratorTenantId')]"
                 }
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2021-02-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/sqlserver-', uniqueString(parameters('sqlServerName')))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
             }
         }
     ]

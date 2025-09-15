@@ -171,6 +171,98 @@ stages:
       adminType: 'federatedServiceConnection'
       deploymentName: "IntegrationTests"
 
+- stage: associateIntTestSqlWithNsp
+  displayName: 'Associate Integration Test SQL with NSP'
+  dependsOn:
+  - deploySqlServer
+  jobs:
+  - job: associateNsp
+    displayName: 'Associate Integration Test SQL Server with NSP'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Associate Integration Test SQL Server with NSP'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          $resourceGroupName = "$(ResourceGroupName)"
+          $sqlServerName = "$(DeploymentEnvironmentName)inttest"
+          $nspName = "nsp-$resourceGroupName"
+          $profileName = "defaultProfile"
+          
+          Write-Host "Associating SQL Server '$sqlServerName' with NSP '$nspName'"
+          
+          # Create NSP association for integration test SQL server
+          $templateContent = @"
+          {
+            "`$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "parameters": {
+              "sqlServerName": {
+                "type": "string"
+              },
+              "nspName": {
+                "type": "string"
+              },
+              "profileName": {
+                "type": "string"
+              }
+            },
+            "resources": [
+              {
+                "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
+                "apiVersion": "2021-02-01-preview",
+                "name": "[concat(parameters('nspName'), '/sqlserver-inttest-', uniqueString(parameters('sqlServerName')))]",
+                "properties": {
+                  "privateLinkResource": {
+                    "id": "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+                  },
+                  "profile": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), parameters('profileName'))]"
+                  },
+                  "accessMode": "Learning"
+                }
+              }
+            ]
+          }
+          "@
+          
+          # Save template to temp file
+          $tempFile = [System.IO.Path]::GetTempFileName() + ".json"
+          $templateContent | Out-File -FilePath $tempFile -Encoding UTF8
+          
+          try {
+            # Deploy the association template
+            $templateParameters = @{
+              sqlServerName = $sqlServerName
+              nspName = $nspName
+              profileName = $profileName
+            }
+            
+            New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroupName `
+              -Name "nsp-association-$sqlServerName" `
+              -TemplateFile $tempFile `
+              -TemplateParameterObject $templateParameters `
+              -Verbose
+              
+            Write-Host "Successfully associated SQL Server '$sqlServerName' with NSP '$nspName'"
+          }
+          catch {
+            Write-Warning "Failed to associate SQL Server with NSP: $($_.Exception.Message)"
+            Write-Host "This might be expected if the association already exists"
+          }
+          finally {
+            # Clean up temp file
+            if (Test-Path $tempFile) {
+              Remove-Item $tempFile -Force
+            }
+          }
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -342,6 +434,7 @@ stages:
   - setupEnvironment
   - deployStu3
   - deployStu3Sql
+  - associateIntTestSqlWithNsp
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -357,6 +450,7 @@ stages:
   - setupEnvironment
   - deployR4
   - deployR4Sql
+  - associateIntTestSqlWithNsp
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -372,6 +466,7 @@ stages:
   - setupEnvironment
   - deployR4B
   - deployR4BSql
+  - associateIntTestSqlWithNsp
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -387,6 +482,7 @@ stages:
   - setupEnvironment
   - deployR5
   - deployR5Sql
+  - associateIntTestSqlWithNsp
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
