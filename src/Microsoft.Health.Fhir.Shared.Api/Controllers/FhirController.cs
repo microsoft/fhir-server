@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery] bool metaSilent = false)
+        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.SilentMeta)] bool metaSilent = false)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
                 new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaSilent),
