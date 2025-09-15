@@ -829,4 +829,7 @@
   <data name="DocRefInvalidParameterCount" xml:space="preserve">
     <value>The number of the '{0}' parameter should not be more than one.</value>
   </data>
+  <data name="DocRefInvalidParameterValue" xml:space="preserve">
+    <value>The '{0}' parameter should not have more than one value, delimited by commas.</value>
+  </data>
 </root>

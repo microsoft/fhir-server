@@ -439,6 +439,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter should not have more than one value, delimited by commas..
+        /// </summary>
+        internal static string DocRefInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("DocRefInvalidParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;{0}&apos; parameter must be provided..
         /// </summary>
         internal static string DocRefMissingRequiredParameter {

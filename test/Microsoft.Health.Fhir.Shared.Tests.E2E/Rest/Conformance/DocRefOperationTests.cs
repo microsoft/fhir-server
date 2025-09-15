@@ -73,6 +73,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         [InlineData("?patient=0&profile=http://loinc.org/55107-7")] // Unsupported parameter
         [InlineData("?patient=0&profile=http://loinc.org/55107-7&on-demand=true")] // Unsupported parameter
         [InlineData("?patient=0&unknown=unknownvalue")] // Unknown parameter
+        [InlineData("?patient=1&start=-08:01:00,-02:01:00")] // Invalie parameter value
+        [InlineData("?patient=1&end=-08:01:00,-02:01:00")] // Invalie parameter value
         public async Task GivenQuery_WhenInvokingDocRef_ThenDocumentReferenceShouldBeRetrieved(
             string query)
         {
@@ -286,7 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     value.Clear();
                 }
 
-                valid = valid && values.Count == 1;
+                valid = valid && values.Count == 1 && !values[0].Contains(',', StringComparison.Ordinal);
                 parameters.Remove(DocRefRequestConverter.StartParameterName);
                 collection.Remove(DocRefRequestConverter.StartParameterName);
                 foreach (var v in values)
@@ -320,7 +322,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     value.Clear();
                 }
 
-                valid = valid && values.Count == 1;
+                valid = valid && values.Count == 1 && !values[0].Contains(',', StringComparison.Ordinal);
                 parameters.Remove(DocRefRequestConverter.EndParameterName);
                 collection.Remove(DocRefRequestConverter.EndParameterName);
                 foreach (var v in values)
@@ -401,7 +403,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     value.Clear();
                 }
 
-                valid = valid && values.Count == 1;
+                valid = valid && values.Count == 1 && !values[0].Contains(',', StringComparison.Ordinal);
                 parameters.Remove(DocRefRequestConverter.StartParameterName);
                 foreach (var v in values)
                 {
@@ -431,7 +433,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     value.Clear();
                 }
 
-                valid = valid && values.Count == 1;
+                valid = valid && values.Count == 1 && !values[0].Contains(',', StringComparison.Ordinal);
                 parameters.Remove(DocRefRequestConverter.EndParameterName);
                 foreach (var v in values)
                 {
@@ -785,6 +787,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                         {
                             Tuple.Create(DocRefRequestConverter.PatientParameterName, "0"),
                             Tuple.Create(UnknownParameterName, "unknownvalue"),
+                        }),
+                },
+                new object[]
+                {
+                    // Invalid parameter value
+                    ToParameters(
+                        new List<Tuple<string, string>>
+                        {
+                            Tuple.Create(DocRefRequestConverter.PatientParameterName, "0,1,2"),
+                            Tuple.Create(DocRefRequestConverter.StartParameterName, "-09:01:00,-03:01:00"),
+                        }),
+                },
+                new object[]
+                {
+                    // Invalid parameter value
+                    ToParameters(
+                        new List<Tuple<string, string>>
+                        {
+                            Tuple.Create(DocRefRequestConverter.PatientParameterName, "0,1,2"),
+                            Tuple.Create(DocRefRequestConverter.EndParameterName, "-09:01:00,-03:01:00"),
                         }),
                 },
             };

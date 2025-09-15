@@ -63,8 +63,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 .GroupBy(x => x.Item1)
                 .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase) ?? new Dictionary<string, List<Tuple<string, string>>>();
             var valid = parametersToValidate.TryGetValue(DocRefRequestConverter.PatientParameterName, out var patientParameters) && patientParameters.Count == 1
-                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.StartParameterName, out var startParameters) || startParameters.Count == 1)
-                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.EndParameterName, out var endParameters) || endParameters.Count == 1);
+                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.StartParameterName, out var startParameters)
+                    || (startParameters.Count == 1 && !(startParameters[0]?.Item2?.Contains(',', StringComparison.Ordinal) ?? true)))
+                && (!parametersToValidate.TryGetValue(DocRefRequestConverter.EndParameterName, out var endParameters)
+                    || (endParameters.Count == 1 && !(endParameters[0]?.Item2?.Contains(',', StringComparison.Ordinal) ?? true)));
             var unsupported = parametersToValidate.ContainsKey(DocRefRequestConverter.OnDemandParameterName)
                 || parametersToValidate.ContainsKey(DocRefRequestConverter.ProfileParameterName);
 
@@ -258,6 +260,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                         Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-7"),
                         Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-8"),
                         Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
+                    },
+                },
+                new object[]
+                {
+                    // More than one "start" parameter value.
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(
+                            DocRefRequestConverter.StartParameterName,
+                            $"{DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")},{DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")}"),
+                    },
+                },
+                new object[]
+                {
+                    // More than one "end" parameter value.
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(
+                            DocRefRequestConverter.EndParameterName,
+                            $"{DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")},{DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")}"),
                     },
                 },
             };

@@ -65,23 +65,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
             var parametersToValidate = parameters
                 .GroupBy(x => x.Item1)
-                .ToDictionary(x => x.Key, x => x.ToList(), StringComparer.OrdinalIgnoreCase);
-            if (!parametersToValidate.ContainsKey(PatientParameterName))
-            {
-                throw new RequestNotValidException(
-                    string.Format(Resources.DocRefMissingRequiredParameter, PatientParameterName));
-            }
-
-            var parametersOut = new List<Tuple<string, string>>[3];
-            if ((!parametersToValidate.TryGetValue(PatientParameterName, out parametersOut[0]) || parametersOut[0]?.Count != 1)
-                || (parametersToValidate.TryGetValue(StartParameterName, out parametersOut[1]) && parametersOut[1]?.Count != 1)
-                || (parametersToValidate.TryGetValue(EndParameterName, out parametersOut[2]) && parametersOut[2]?.Count != 1))
-            {
-                throw new RequestNotValidException(
-                    string.Format(
-                        Resources.DocRefInvalidParameterCount,
-                        (parametersOut[0] != null && parametersOut[0].Count != 1) ? PatientParameterName : ((parametersOut[1] != null && parametersOut[1].Count != 1) ? StartParameterName : EndParameterName)));
-            }
+                .ToDictionary(x => x.Key, x => x?.ToList() ?? new List<Tuple<string, string>>(), StringComparer.OrdinalIgnoreCase);
+            ValidateParameters(parametersToValidate);
 
             if (parametersToValidate.ContainsKey(OnDemandParameterName) || parametersToValidate.ContainsKey(ProfileParameterName))
             {
@@ -146,6 +131,53 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             }
 
             return parametersConverted;
+        }
+
+        private static void ValidateParameters(Dictionary<string, List<Tuple<string, string>>> parameters)
+        {
+            if (!parameters.TryGetValue(PatientParameterName, out var patients) || patients.Count > 1)
+            {
+                if (patients == null)
+                {
+                    throw new RequestNotValidException(
+                        string.Format(Resources.DocRefMissingRequiredParameter, PatientParameterName));
+                }
+
+                throw new RequestNotValidException(
+                    string.Format(Resources.DocRefInvalidParameterCount, PatientParameterName));
+            }
+
+            if (parameters.TryGetValue(StartParameterName, out var starts))
+            {
+                if (starts.Count > 1)
+                {
+                    throw new RequestNotValidException(
+                        string.Format(Resources.DocRefInvalidParameterCount, StartParameterName));
+                }
+
+                var value = starts[0]?.Item2 ?? string.Empty;
+                if (value.Contains(',', StringComparison.Ordinal))
+                {
+                    throw new RequestNotValidException(
+                        string.Format(Resources.DocRefInvalidParameterValue, StartParameterName));
+                }
+            }
+
+            if (parameters.TryGetValue(EndParameterName, out var ends))
+            {
+                if (ends.Count > 1)
+                {
+                    throw new RequestNotValidException(
+                        string.Format(Resources.DocRefInvalidParameterCount, EndParameterName));
+                }
+
+                var value = ends[0]?.Item2 ?? string.Empty;
+                if (value.Contains(',', StringComparison.Ordinal))
+                {
+                    throw new RequestNotValidException(
+                        string.Format(Resources.DocRefInvalidParameterValue, EndParameterName));
+                }
+            }
         }
     }
 }
