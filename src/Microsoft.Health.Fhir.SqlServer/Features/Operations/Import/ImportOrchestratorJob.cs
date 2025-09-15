@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             logger.LogJobInformation(
                 info,
                 "Import Statistics / ImportMode: {ImportMode} / SucceededResources: {SucceededResources} / FailedResources: {FailedResources}",
-                importMode.ToString(),
+                importMode == ImportMode.IncrementalLoad ? ImportMode.IncrementalLoad.ToString() : ImportMode.InitialLoad.ToString(),
                 succeeded,
                 failed);
 
