@@ -25,25 +25,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            CancellationToken cancellationToken,
-            bool allowNegativeVersions = false,
-            string errorContainerName = null,
-            bool eventualConsistency = false)
+            bool allowNegativeVersions,
+            string errorContainerName,
+            bool eventualConsistency,
+            int processingUnitBytesToRead,
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency);
+            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
 
             CreateImportResponse response = await mediator.Send(request, cancellationToken);
             return response;
         }
 
-        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
+        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken, bool returnDetails = false)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new GetImportRequest(jobId);
+            var request = new GetImportRequest(jobId, returnDetails);
 
             GetImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

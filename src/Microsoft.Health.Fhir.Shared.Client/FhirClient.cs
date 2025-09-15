@@ -494,9 +494,9 @@ namespace Microsoft.Health.Fhir.Client
             return await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, bool returnDetails = false, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation + (returnDetails ? "?_details=true" : string.Empty));
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
@@ -572,33 +572,23 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
         {
-            int checkReindexCount = 0;
-            int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(10);
-            var sw = new Stopwatch();
+            const int maxSeconds = 300;
+            var sw = Stopwatch.StartNew();
             string currentStatus;
             FhirResponse<Parameters> reindexJobResult;
-            sw.Start();
-
             do
             {
-                if (checkReindexCount > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
+                await Task.Delay(TimeSpan.FromSeconds(1));
                 reindexJobResult = await CheckJobAsync(reindexJobUri);
                 currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
-                checkReindexCount++;
             }
-            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);
-
+            while (!desiredStatus.Contains(currentStatus) && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
 
-            if (checkReindexCount >= maxCount)
+            if (sw.Elapsed.TotalSeconds >= maxSeconds && !desiredStatus.Contains(currentStatus))
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}. This may cause other tests using Reindex to fail.");
+                throw new Exception($"ReindexJob did not complete within {maxSeconds} seconds. This may cause other tests using Reindex to fail.");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 
@@ -607,31 +597,21 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Parameters>> WaitForBulkJobStatus(string jobType, Uri bulkJobUri)
         {
-            int checkCount = 0;
-            int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(10);
-            var sw = new Stopwatch();
+            const int maxSeconds = 300;
+            var sw = Stopwatch.StartNew();
             FhirResponse<Parameters> jobResult;
-            sw.Start();
-
             do
             {
-                if (checkCount > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
+                await Task.Delay(TimeSpan.FromSeconds(1));
                 jobResult = await CheckJobAsync(bulkJobUri);
-                checkCount++;
             }
-            while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && checkCount < maxCount);
-
+            while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
 
-            if (checkCount >= maxCount)
+            if (sw.Elapsed.TotalSeconds >= maxSeconds && jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted)
             {
 #pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
-                throw new Exception($"${jobType} at ${bulkJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
+                throw new Exception($"${jobType} at ${bulkJobUri} did not complete within {maxSeconds} seconds.");
 #pragma warning restore CA2201 // Do not raise reserved exception types
             }
 

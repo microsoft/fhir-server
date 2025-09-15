@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -24,28 +25,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
     internal static class ExportTestHelper
     {
         // Check export status and return output once we get 200
-        internal static async Task<IList<Uri>> CheckExportStatus(TestFhirClient testFhirClient, Uri contentLocation, int timeToWaitInMinutes = 5)
+        internal static async Task<IList<Uri>> CheckExportStatus(TestFhirClient testFhirClient, Uri contentLocation)
         {
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
-            int retryCount = 0;
+            var sw = Stopwatch.StartNew();
+            var maxSeconds = 300;
 
             // Wait until status change or timeout
-            while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && retryCount < 60)
+            while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && sw.Elapsed.TotalSeconds < maxSeconds)
             {
                 // dispose previous response.
                 response?.Dispose();
-
-                await Task.Delay(timeToWaitInMinutes * 1000);
-
+                await Task.Delay(1000);
                 response = await testFhirClient.CheckExportAsync(contentLocation);
-
                 resultCode = response.StatusCode;
-
-                retryCount++;
             }
 
-            if (retryCount >= 60)
+            if (sw.Elapsed.TotalSeconds >= maxSeconds)
             {
                 throw new Exception($"Export request timed out");
             }

@@ -12,7 +12,6 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -151,9 +150,7 @@ END
             var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
             ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
-            var options = Substitute.For<IOptions<CleanupEventLogWatchdogOptions>>();
-            options.Value.Returns(new CleanupEventLogWatchdogOptions { LogRawResourceStatsEnabled = true, LogRawResourceStatsBatchSize = 10000 });
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper), options);
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
 
@@ -177,28 +174,12 @@ END
 
             // TODO: Temp code to test database stats
             startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("tmp_GetRawResources") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
             }
 
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "tmp_GetRawResources message is not found");
-
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.ResourceTypeTotals") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.ResourceTypeTotals message is not found");
-
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 60)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 60, "DatabaseStats.SearchParamCount message is not found");
+            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 120, "DatabaseStats.SearchParamCount message is not found");
 
             await cts.CancelAsync();
             await wdTask;

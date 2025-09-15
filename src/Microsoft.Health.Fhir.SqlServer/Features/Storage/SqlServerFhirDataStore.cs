@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
@@ -715,6 +716,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
         {
+            var sw = Stopwatch.StartNew();
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
@@ -738,7 +740,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-            cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
+            var commandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
+            cmd.CommandTimeout = commandTimeout;
 
             if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
             {
@@ -751,6 +754,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
             }
+
+            _logger.LogInformation($"MergeResourcesWrapperAsync: transactionId={transactionId}, singleTransaction={singleTransaction}, resources={mergeWrappers.Count}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
@@ -767,7 +772,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
+                // For regular upserts and sequential bundle operations, we need to use C# transactions hence setting enlistTransaction to true.
+                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true);
+                var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)

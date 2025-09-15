@@ -14,14 +14,14 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
-    public class TestCosmosHealthCheck : CosmosHealthCheck
+    public class TestCosmosDbHealthCheck : CosmosDbHealthCheck
     {
-        public TestCosmosHealthCheck(
+        public TestCosmosDbHealthCheck(
             IScoped<Container> container,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosClientTestProvider testProvider,
-            ILogger<CosmosHealthCheck> logger)
+            ILogger<CosmosDbHealthCheck> logger)
             : base(
                   container,
                   configuration,

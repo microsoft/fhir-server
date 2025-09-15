@@ -14,7 +14,6 @@ using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,7 +35,6 @@ using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Net.Http.Headers;
@@ -97,20 +95,6 @@ namespace Microsoft.Health.Fhir.Web
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
 
-            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
-            {
-                services.Configure<ForwardedHeadersOptions>(options =>
-                {
-                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
-
-                    // Only loopback proxies are allowed by default.
-                    // Clear that restriction because forwarders are enabled by explicit
-                    // configuration.
-                    options.KnownNetworks.Clear();
-                    options.KnownProxies.Clear();
-                });
-            }
-
             if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusOn) && prometheusOn)
             {
                 services.AddPrometheusMetrics(Configuration);
@@ -132,7 +116,6 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-                services.Configure<CleanupEventLogWatchdogOptions>(Configuration.GetSection(CleanupEventLogWatchdogOptions.SectionName));
             }
         }
 
@@ -205,10 +188,6 @@ namespace Microsoft.Health.Fhir.Web
 
                 await next.Invoke();
             });
-            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
-            {
-                app.UseForwardedHeaders();
-            }
 
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);

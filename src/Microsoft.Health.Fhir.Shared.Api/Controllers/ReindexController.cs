@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (inputParams == null)
             {
                 _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource.");
-                throw new RequestNotValidException(Resources.ReindexParametersNotValid);
+                return;
             }
 
             var supportedParams = _supportedParams[Request.Method];
@@ -175,9 +175,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             foreach (var param in inputParams.Parameter)
             {
                 var paramName = param.Name;
+                _logger.LogInformation(string.Format("Reindex job received parameter {0} for method {1}", SanitizeStringForLogging(paramName), SanitizeStringForLogging(Request.Method)));
+
                 if (!supportedParams.Contains(paramName))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
+                    _logger.LogInformation(string.Format(Resources.ReindexParameterNotValid, SanitizeStringForLogging(paramName), SanitizeStringForLogging(Request.Method)));
                 }
             }
         }
@@ -235,6 +237,35 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             supportedParams.Add(HttpMethods.Patch, patchParams);
 
             return supportedParams;
+        }
+
+        /// <summary>
+        /// Sanitizes a string for safe logging by removing newlines, carriage returns, tabs, and other control characters
+        /// that could be used for log injection attacks (CRLF injection, log forging).
+        /// </summary>
+        private static string SanitizeStringForLogging(string input)
+        {
+            if (input == null)
+            {
+                return "[null]";
+            }
+
+            if (input.Length == 0)
+            {
+                return "[empty]";
+            }
+
+            // Remove all control characters (ASCII < 32 or == 127), but preserve spaces and printable characters
+            var sanitized = new System.Text.StringBuilder(input.Length);
+            foreach (char c in input)
+            {
+                if (!char.IsControl(c))
+                {
+                    sanitized.Append(c);
+                }
+            }
+
+            return sanitized.ToString();
         }
     }
 }

@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -150,6 +151,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ISearchParameterValidator, SearchParameterValidator>();
             services.AddSingleton<SearchParameterFilterAttribute>();
             services.AddSingleton<ISearchParameterOperations, SearchParameterOperations>();
+            services.AddSingleton<ISearchParameterComparer<SearchParameterInfo>, SearchParameterComparer>();
 
             services.AddTransient<MissingDataFilterCriteria>();
             services.AddTransient<IDataResourceFilter, DataResourceFilter>();
