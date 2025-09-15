@@ -146,6 +146,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return new IncludeExpression(resourceTypes, refSearchParameter, originalType, targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
         }
 
+        public NotReferencedExpression ParseNotReferenced(string notReferencedValue)
+        {
+            if (!notReferencedValue.Contains(SearchSplitChar, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterInvalidValue);
+            }
+
+            if (notReferencedValue.Equals("*:*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, null, true);
+            }
+
+            var parts = notReferencedValue.Split(SearchSplitChar);
+            if (parts.Length != 2)
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterInvalidValue);
+            }
+
+            var type = parts[0];
+            var searchParameter = parts[1];
+
+            if (searchParameter.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, type, true);
+            }
+
+            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(type, searchParameter);
+
+            return new NotReferencedExpression(refSearchParameter, type, false);
+        }
+
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
