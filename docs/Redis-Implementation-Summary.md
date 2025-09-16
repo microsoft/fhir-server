@@ -148,11 +148,13 @@ The Redis distributed cache implementation is complete and operational. To use i
 5. **Extend to other caches**: Resource metadata, search results, configuration data
 
 ### Future Extensions Using Generic Framework:
-The `RedisDistributedCache<T>` framework can be extended to cache:
-1. **Resource metadata**: Resource definitions, schemas, profiles
-2. **Search results**: Frequently-accessed search queries
-3. **Configuration data**: Settings shared across instances
-4. **User sessions**: Authentication and authorization data
+The `RedisDistributedCache<T>` framework can be extended to the following FHIR server components:
+1. **SearchParameterDefinitionManager**: Distribute search parameter definitions across instances
+2. **CapabilityStatement**: Cache and synchronize capability statements across server instances
+3. **Templates**: Distribute template definitions and configurations
+4. **Validation Profiles**: Cache validation profiles and structure definitions for consistent validation
+5. **Bundle Processing State**: Share bundle processing state and progress across instances
+6. **FhirMemoryCache**: Refactor existing memory cache implementations to use the distributed cache pattern
 
 Each extension follows the same pattern:
 1. Create a cache-specific interface

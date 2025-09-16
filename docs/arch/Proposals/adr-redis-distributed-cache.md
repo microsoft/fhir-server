@@ -200,12 +200,14 @@ This approach provides:
 
 ## Future Enhancements
 
-The current implementation provides a solid foundation for extending distributed caching to other FHIR server components:
+The current implementation provides a solid foundation for extending distributed caching to other FHIR server components. The following areas have been identified for future refactoring to use the `RedisDistributedCache<T>` pattern:
 
-1. **Resource Metadata Caching**: Extend pattern to resource definitions and schemas
-2. **Search Result Caching**: Cache frequently-used search results
-3. **Configuration Data Caching**: Share configuration updates across instances  
-4. **User Session Caching**: Distribute user authentication/authorization data
+1. **SearchParameterDefinitionManager**: Distribute search parameter definitions across instances
+2. **CapabilityStatement**: Cache and synchronize capability statements across server instances
+3. **Templates**: Distribute template definitions and configurations
+4. **Validation Profiles**: Cache validation profiles and structure definitions for consistent validation
+5. **Bundle Processing State**: Share bundle processing state and progress across instances
+6. **FhirMemoryCache**: Refactor existing memory cache implementations to use the distributed cache pattern
 
 ## Usage
 
