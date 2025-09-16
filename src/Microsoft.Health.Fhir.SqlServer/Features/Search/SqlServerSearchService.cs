@@ -12,7 +12,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,14 +21,14 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Hackathon;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -55,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
+        private readonly IQueryPlanSelector<bool> _queryPlanSelector;
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private readonly QueryConfiguration _queryConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -88,10 +89,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
+            IOptions<QueryConfiguration> queryConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            IQueryPlanSelector<bool> queryPlanSelector,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -103,9 +106,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(queryPlanSelector, nameof(queryPlanSelector));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _queryConfiguration = EnsureArg.IsNotNull(queryConfiguration?.Value, nameof(queryConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
@@ -120,6 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
+
+            _queryPlanSelector = queryPlanSelector;
 
             if (_reuseQueryPlans == null)
             {
@@ -263,6 +270,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
                 }
+            }
+            else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled)
+            {
+                string hash = "foo";
+                bool reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                SearchResult searchResult = await SearchImpl(sqlSearchOptions, reuseQueryCachingPlan, cancellationToken);
+                stopwatch.Stop();
+
+                _queryPlanSelector.ReportExecutionTime(hash, reuseQueryCachingPlan, stopwatch.Elapsed.TotalMilliseconds);
+
+                return searchResult;
             }
             else
             {
