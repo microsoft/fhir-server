@@ -107,7 +107,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "guidanceresponse-example" };
             yield return new object[] { "healthcareservice-example" };
             yield return new object[] { "imagingstudy-example" };
-            yield return new object[] { "imagingstudy-example" };
             yield return new object[] { "immunizationevaluation-example" };
             yield return new object[] { "immunizationrecommendation.profile" };
             yield return new object[] { "implementationguide-example" };
@@ -166,7 +165,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "riskassessment-example" };
             yield return new object[] { "riskevidencesynthesis-example" };
             yield return new object[] { "schedule-example" };
-
             // yield return new object[] { "searchparameter-example" };
             yield return new object[] { "servicerequest-example" };
             yield return new object[] { "slot-example" };
@@ -191,15 +189,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "ValueSet" };
             yield return new object[] { "verificationresult-example" };
             yield return new object[] { "visionprescription-example" };
-
-            // Iterate through the folder and get all the embedded resource file names
-            // foreach (var fullFileName in Assembly.GetExecutingAssembly().GetManifestResourceNames())
-            // {
-            //    var parts = fullFileName.Split('.');
-            //    var extension = parts[^1];            // "json"
-            //    var fileName = parts[^2];
-            //    yield return new object[] { fileName };
-            // }
         }
     }
 }
