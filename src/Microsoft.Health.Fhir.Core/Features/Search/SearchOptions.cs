@@ -54,6 +54,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesContinuationToken = other.IncludesContinuationToken;
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
+
+            PageNumber = other.PageNumber;
+            PageSize = other.PageSize;
+            RowStart = other.RowStart;
+            RowEnd = other.RowEnd;
         }
 
         /// <summary>
@@ -167,6 +172,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the value indicating whether or not $includes operation is supported.
         /// </summary>
         public bool IncludesOperationSupported { get; internal set; }
+
+        // New pagination properties (using page-based pagination)
+        // Only one pagination mode can be used.
+
+        /// <summary>
+        ///  1-based; if provided then PageSize must also be provided.
+        /// </summary>
+        public int? PageNumber { get; set; }
+
+        /// <summary>
+        /// Defines the number of rows per page.
+        /// </summary>
+        public int? PageSize { get; set; }
+
+        /// <summary>
+        /// Start of the row number from where records are requested
+        /// </summary>
+        public int? RowStart { get; set; }
+
+        /// <summary>
+        /// End of the row number from where records are requested
+        /// </summary>
+        public int? RowEnd { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

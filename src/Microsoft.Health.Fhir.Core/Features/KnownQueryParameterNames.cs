@@ -148,5 +148,14 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ReverseInclude = "_revinclude";
 
         public const string ReturnDetails = "_details";
+
+        // New pagination parameters:
+        public const string Page = "_page";
+
+        public const string PageSize = "_pageSize";
+
+        public const string StartRow = "_startRow";
+
+        public const string EndRow = "_endRow";
     }
 }

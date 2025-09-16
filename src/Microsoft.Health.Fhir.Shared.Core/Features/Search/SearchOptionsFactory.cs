@@ -154,6 +154,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // _format and _pretty are not search parameters, so we can ignore them.
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Page, StringComparison.OrdinalIgnoreCase))
+                {
+                    // if Pagination parameters are present, we set the SearchOptions to use them.
+                    searchOptions.PageNumber = int.TryParse(query.Item2, out int page) && page > 0 ? page : (int?)null;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.PageSize, StringComparison.OrdinalIgnoreCase))
+                {
+                    searchOptions.PageSize = int.TryParse(query.Item2, out int pageSize) && pageSize > 0 ? pageSize : (int?)null;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.StartRow, StringComparison.OrdinalIgnoreCase))
+                {
+                    searchOptions.RowStart = int.TryParse(query.Item2, out int startRow) && startRow > 0 ? startRow : (int?)null;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.EndRow, StringComparison.OrdinalIgnoreCase))
+                {
+                    searchOptions.RowEnd = int.TryParse(query.Item2, out int endRow) && endRow > 0 ? endRow : (int?)null;
+                }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
                     if (string.IsNullOrWhiteSpace(query.Item2))
