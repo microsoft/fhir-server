@@ -135,7 +135,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
         private static void ValidateParameters(Dictionary<string, List<Tuple<string, string>>> parameters)
         {
-            if (!parameters.TryGetValue(PatientParameterName, out var patients) || patients.Count > 1)
+            var parametersToValidate = parameters ?? new Dictionary<string, List<Tuple<string, string>>>();
+            if (!parametersToValidate.TryGetValue(PatientParameterName, out var patients) || patients.Count > 1)
             {
                 if (patients == null)
                 {
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     string.Format(Resources.DocRefInvalidParameterCount, PatientParameterName));
             }
 
-            if (parameters.TryGetValue(StartParameterName, out var starts))
+            if (parametersToValidate.TryGetValue(StartParameterName, out var starts))
             {
                 if (starts.Count > 1)
                 {
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                 }
             }
 
-            if (parameters.TryGetValue(EndParameterName, out var ends))
+            if (parametersToValidate.TryGetValue(EndParameterName, out var ends))
             {
                 if (ends.Count > 1)
                 {
