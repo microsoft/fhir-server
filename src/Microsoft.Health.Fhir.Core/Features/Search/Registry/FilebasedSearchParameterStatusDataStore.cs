@@ -91,5 +91,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             // Do nothing. This is only required for SQL.
         }
+
+        public async Task<int> GetTotalCount(CancellationToken cancellationToken)
+        {
+            var statuses = await GetSearchParameterStatuses(cancellationToken);
+            return statuses.Count;
+        }
     }
 }

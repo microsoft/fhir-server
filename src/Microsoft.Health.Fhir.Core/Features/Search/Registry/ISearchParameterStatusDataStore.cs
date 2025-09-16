@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     {
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken);
 
+        Task<int> GetTotalCount(CancellationToken cancellationToken);
+
         Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken);
 
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);

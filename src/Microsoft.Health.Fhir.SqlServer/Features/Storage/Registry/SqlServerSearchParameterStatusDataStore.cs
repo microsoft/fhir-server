@@ -152,6 +152,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
+        public async Task<int> GetTotalCount(CancellationToken cancellationToken)
+        {
+            // If the search parameter table in SQL does not yet contain status columns
+            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
+            {
+                // Get count information from file-based store.
+                var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+                return statuses.Count;
+            }
+
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                sqlCommandWrapper.CommandText = "SELECT COUNT(*) FROM dbo.SearchParam WHERE Status IS NOT NULL";
+
+                var count = await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                return Convert.ToInt32(count);
+            }
+        }
+
         public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));

@@ -101,6 +101,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
+        public async Task<int> GetTotalCount(CancellationToken cancellationToken)
+        {
+            using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
+
+            var countQuery = _queryFactory.Create<int>(
+                clientScope.Value,
+                new CosmosQueryContext(
+                    new QueryDefinition("SELECT VALUE COUNT(1) FROM c"),
+                    new QueryRequestOptions
+                    {
+                        PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
+                        MaxItemCount = 1,
+                    }));
+
+            FeedResponse<int> countResponse = await countQuery.ExecuteNextAsync(cancellationToken);
+            return countResponse.FirstOrDefault();
+        }
+
         private async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
         {
             var lastUpdatedQuery = _queryFactory.Create<CacheQueryResponse>(

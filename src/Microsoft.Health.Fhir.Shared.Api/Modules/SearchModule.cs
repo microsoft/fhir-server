@@ -8,18 +8,26 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Caching;
+using Microsoft.Health.Fhir.Core.Features.Caching.Redis;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
+using Microsoft.Health.Fhir.Core.Features.Search.BackgroundServices;
+using Microsoft.Health.Fhir.Core.Features.Search.Caching;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
@@ -55,6 +63,60 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            // Configure caching options
+            services.AddOptions<FhirServerCachingConfiguration>()
+                .Configure<IConfiguration>((settings, configuration) =>
+                {
+                    configuration.GetSection(FhirServerCachingConfiguration.SectionName).Bind(settings);
+                });
+
+            // Add distributed cache services for Redis integration
+            services.AddSingleton<ISearchParameterCache>(provider =>
+            {
+                var cachingConfig = provider.GetRequiredService<IOptions<FhirServerCachingConfiguration>>();
+
+                if (cachingConfig.Value.Redis.Enabled)
+                {
+                    // Ensure Redis distributed cache is configured
+                    var distributedCache = provider.GetService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
+                    if (distributedCache == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Redis is enabled but IDistributedCache is not configured. Please configure Redis in your startup.");
+                    }
+
+                    // Get search parameter cache configuration
+                    var searchParamConfig = cachingConfig.Value.Redis.CacheTypes.TryGetValue("SearchParameters", out var config)
+                        ? config
+                        : new CacheTypeConfiguration
+                        {
+                            CacheExpiry = TimeSpan.FromHours(1),
+                            KeyPrefix = "fhir:searchparams",
+                            EnableCompression = true,
+                            EnableVersioning = true,
+                        };
+
+                    var logger = provider.GetRequiredService<ILogger<RedisDistributedCache<ResourceSearchParameterStatus>>>();
+                    var dataStore = provider.GetRequiredService<ISearchParameterStatusDataStore>();
+
+                    return new Microsoft.Health.Fhir.Core.Features.Search.Caching.RedisSearchParameterCache(
+                        distributedCache,
+                        searchParamConfig,
+                        logger,
+                        dataStore);
+                }
+                else
+                {
+                    // When Redis is disabled, return null to indicate no distributed caching
+                    return null;
+                }
+            });
+
+            // Register the Redis implementation class for DI
+            services.Add<Microsoft.Health.Fhir.Core.Features.Search.Caching.RedisSearchParameterCache>()
+                .Singleton()
+                .AsSelf();
+
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
 
@@ -88,10 +150,38 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services
                 .RemoveServiceTypeExact<SearchParameterStatusManager, INotificationHandler<SearchParameterDefinitionManagerInitialized>>()
-                .Add<SearchParameterStatusManager>()
+                .AddSingleton<ISearchParameterStatusManager>(provider =>
+                {
+                    var cachingConfig = provider.GetRequiredService<IOptions<FhirServerCachingConfiguration>>();
+
+                    if (cachingConfig.Value.Redis.Enabled)
+                    {
+                        // Use Redis-enabled manager when Redis is configured and enabled
+                        return provider.GetRequiredService<RedisSearchParameterStatusManager>();
+                    }
+                    else
+                    {
+                        // Use original in-memory manager when Redis is disabled
+                        return provider.GetRequiredService<SearchParameterStatusManager>();
+                    }
+                })
+                .AddSingleton<INotificationHandler<SearchParameterDefinitionManagerInitialized>>(provider =>
+                    provider.GetRequiredService<ISearchParameterStatusManager>() as INotificationHandler<SearchParameterDefinitionManagerInitialized>);
+
+            // Register both implementations - the factory above will choose which one to use
+            services.Add<SearchParameterStatusManager>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<RedisSearchParameterStatusManager>()
+                .Singleton()
+                .AsSelf();
+
+            services
+                .Add<SearchParameterCacheSyncService>()
                 .Singleton()
                 .AsSelf()
-                .AsService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
+                .AsService<IHostedService>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()

@@ -14,8 +14,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IModelInfoProvider _modelInfoProvider;
         private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly FhirServerCachingConfiguration _cachingConfiguration;
         private IQueueClient _queueClient;
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
@@ -59,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IModelInfoProvider modelInfoProvider,
             ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
+            IOptions<FhirServerCachingConfiguration> cachingConfiguration,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -68,6 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(cachingConfiguration, nameof(cachingConfiguration));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -76,7 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
+            _cachingConfiguration = cachingConfiguration.Value;
         }
+
+        private bool IsRedisEnabled => _cachingConfiguration?.Redis?.Enabled == true;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
@@ -131,7 +139,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             try
             {
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                // Only call GetAndApplySearchParameterUpdates if Redis is not enabled
+                if (!IsRedisEnabled)
+                {
+                    _logger.LogDebug("Redis is disabled, applying search parameter updates for reindex job Id: {Id}", _jobInfo?.Id);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                }
+                else
+                {
+                    _logger.LogDebug("Redis is enabled, skipping GetAndApplySearchParameterUpdates for reindex job Id: {Id}", _jobInfo?.Id);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -150,7 +167,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
             _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(_initialSearchParamStatusCollection.First(p => p.Uri == sp.Url).Status));
+            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp =>
+            {
+                var paramStatus = _initialSearchParamStatusCollection.FirstOrDefault(p => p.Uri == sp.Url);
+                return paramStatus != null && validStatus.Contains(paramStatus.Status);
+            });
             var notYetIndexedParams = new List<SearchParameterInfo>();
 
             var resourceList = new HashSet<string>();
@@ -526,7 +547,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // Use base search param definition manager
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
-                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status;
+                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url))?.Status;
 
                 switch (spStatus)
                 {
@@ -900,8 +921,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogDebug("Checking for search parameter updates for reindex job {JobId}", _jobInfo.Id);
 
-                // Sync the latest search parameters
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                // Only call GetAndApplySearchParameterUpdates if Redis is not enabled
+                if (!IsRedisEnabled)
+                {
+                    _logger.LogDebug("Redis is disabled, syncing latest search parameters for reindex job {JobId}", _jobInfo.Id);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                }
+                else
+                {
+                    _logger.LogDebug("Redis is enabled, search parameter updates should be handled via cache notifications for reindex job {JobId}", _jobInfo.Id);
+                }
 
                 // Get the current search parameter status collection
                 var currentSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);

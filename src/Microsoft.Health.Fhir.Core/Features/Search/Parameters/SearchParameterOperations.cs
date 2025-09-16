@@ -11,7 +11,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -25,20 +27,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class SearchParameterOperations : ISearchParameterOperations
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
+        private readonly FhirServerCachingConfiguration _cachingConfiguration;
 
         public SearchParameterOperations(
-            SearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            IOptions<FhirServerCachingConfiguration> cachingConfiguration,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -47,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(cachingConfiguration, nameof(cachingConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -55,8 +60,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
+            _cachingConfiguration = cachingConfiguration.Value;
             _logger = logger;
         }
+
+        /// <summary>
+        /// Checks if Redis caching is enabled
+        /// </summary>
+        private bool IsRedisEnabled => _cachingConfiguration?.Redis?.Enabled == true;
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
@@ -72,7 +83,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        if (!IsRedisEnabled)
+                        {
+                            _logger.LogDebug("Redis is disabled, syncing search parameter updates before adding new parameter");
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -149,7 +164,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to delete
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        // Only sync search parameters if Redis is not enabled
+                        if (!IsRedisEnabled)
+                        {
+                            _logger.LogDebug("Redis is disabled, syncing search parameter updates before deleting parameter");
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         // First we delete the status metadata from the data store as this function depends on
                         // the in memory definition manager.  Once complete we remove the SearchParameter from
@@ -200,7 +220,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        // Only sync search parameters if Redis is not enabled
+                        if (!IsRedisEnabled)
+                        {
+                            _logger.LogDebug("Redis is disabled, syncing search parameter updates before updating parameter");
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);

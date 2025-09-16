@@ -12,9 +12,11 @@ using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -38,6 +40,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly FhirServerCachingConfiguration _cachingConfiguration;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly ILogger _logger;
 
@@ -51,6 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
+            IOptions<FhirServerCachingConfiguration> cachingConfiguration,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger<SearchParameterValidator> logger)
         {
@@ -66,9 +70,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterOperations = searchParameterOperations;
+            _cachingConfiguration = cachingConfiguration.Value;
             _searchParameterComparer = searchParameterComparer;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
+
+        /// <summary>
+        /// Checks if Redis caching is enabled
+        /// </summary>
+        private bool IsRedisEnabled => _cachingConfiguration?.Redis?.Enabled == true;
 
         public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
         {
@@ -98,8 +108,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
                 else
                 {
-                    // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    // Only sync search parameters if Redis is not enabled
+                    if (!IsRedisEnabled)
+                    {
+                        _logger.LogDebug("Redis is disabled, syncing search parameter updates before deleting parameter");
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    }
 
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))

@@ -318,17 +318,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_builder != null)
             {
-                switch (notification.Part)
+                // Use existing semaphore to prevent concurrent capability statement rebuilds
+                // This prevents thread safety issues when Redis triggers frequent updates
+                await _defaultCapabilitySemaphore.WaitAsync(cancellationToken);
+                try
                 {
-                    case RebuildPart.SearchParameter:
-                        // Update search params;
-                        _builder.SyncSearchParametersAsync();
-                        break;
+                    switch (notification.Part)
+                    {
+                        case RebuildPart.SearchParameter:
+                            // Update search params;
+                            _builder.SyncSearchParametersAsync();
+                            break;
 
-                    case RebuildPart.Profiles:
-                        // Update supported profiles;
-                        _builder.SyncProfiles(true);
-                        break;
+                        case RebuildPart.Profiles:
+                            // Update supported profiles;
+                            _builder.SyncProfiles(true);
+                            break;
+                    }
+                }
+                finally
+                {
+                    _defaultCapabilitySemaphore.Release();
                 }
             }
 

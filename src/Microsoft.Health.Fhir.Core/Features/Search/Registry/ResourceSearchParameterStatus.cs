@@ -4,11 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class ResourceSearchParameterStatus
+    public class ResourceSearchParameterStatus : ICacheItem
     {
         public Uri Uri { get; set; }
 
@@ -19,5 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public SortParameterStatus SortStatus { get; set; }
 
         public DateTimeOffset LastUpdated { get; set; }
+
+        /// <summary>
+        /// Cache key for this search parameter status
+        /// </summary>
+        public string CacheKey => Uri.OriginalString;
     }
 }
