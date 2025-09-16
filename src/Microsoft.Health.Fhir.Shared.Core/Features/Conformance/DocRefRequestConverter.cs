@@ -136,9 +136,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
         private static void ValidateParameters(Dictionary<string, List<Tuple<string, string>>> parameters)
         {
             var parametersToValidate = parameters ?? new Dictionary<string, List<Tuple<string, string>>>();
-            if (!parametersToValidate.TryGetValue(PatientParameterName, out var patients) || patients.Count > 1)
+            if (!parametersToValidate.TryGetValue(PatientParameterName, out var patients) || patients == null || patients.Count != 1)
             {
-                if (patients == null)
+                if (patients == null || patients.Count != 1)
                 {
                     throw new RequestNotValidException(
                         string.Format(Resources.DocRefMissingRequiredParameter, PatientParameterName));
@@ -150,13 +150,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
             if (parametersToValidate.TryGetValue(StartParameterName, out var starts))
             {
-                if (starts.Count > 1)
+                if (starts != null && starts.Count > 1)
                 {
                     throw new RequestNotValidException(
                         string.Format(Resources.DocRefInvalidParameterCount, StartParameterName));
                 }
 
-                var value = starts[0]?.Item2 ?? string.Empty;
+                var value = starts?.FirstOrDefault()?.Item2 ?? string.Empty;
                 if (value.Contains(',', StringComparison.Ordinal))
                 {
                     throw new RequestNotValidException(
@@ -166,13 +166,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
             if (parametersToValidate.TryGetValue(EndParameterName, out var ends))
             {
-                if (ends.Count > 1)
+                if (ends != null && ends.Count > 1)
                 {
                     throw new RequestNotValidException(
                         string.Format(Resources.DocRefInvalidParameterCount, EndParameterName));
                 }
 
-                var value = ends[0]?.Item2 ?? string.Empty;
+                var value = ends?.FirstOrDefault()?.Item2 ?? string.Empty;
                 if (value.Contains(',', StringComparison.Ordinal))
                 {
                     throw new RequestNotValidException(
