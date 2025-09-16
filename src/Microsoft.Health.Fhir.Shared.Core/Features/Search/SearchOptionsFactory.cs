@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -90,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
-        [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
         public SearchOptions Create(
             string compartmentType,
             string compartmentId,
@@ -466,16 +466,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             var otherSearchErrors = new List<string>();
+            var invalidSearchParameters = new List<Tuple<string, string>>();
 
             foreach (var notReferencedSearch in notReferencedSearches)
             {
                 try
                 {
-                    searchExpressions.Add(_expressionParser.ParseNotReferenced(notReferencedSearch));
+                    var expression = _expressionParser.ParseNotReferenced(notReferencedSearch);
+
+                    if (expression != null)
+                    {
+                        searchExpressions.Add(expression);
+                    }
                 }
-                catch (InvalidSearchOperationException e)
+                catch (FhirException e)
                 {
-                    otherSearchErrors.Add(e.Message);
+                    otherSearchErrors.Add(e.Issues.First().Diagnostics);
+                    invalidSearchParameters.Add(Tuple.Create(KnownQueryParameterNames.NotReferenced, notReferencedSearch));
                 }
             }
 
@@ -488,7 +495,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
-            searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+            invalidSearchParameters.AddRange(unsupportedSearchParameters);
+            searchOptions.UnsupportedSearchParams = invalidSearchParameters;
 
             // Sort is not needed for summary count
             if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)

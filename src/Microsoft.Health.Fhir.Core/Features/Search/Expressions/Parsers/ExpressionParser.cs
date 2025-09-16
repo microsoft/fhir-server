@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         {
             if (!notReferencedValue.Contains(SearchSplitChar, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterInvalidValue);
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterNoSeparator);
             }
 
             if (notReferencedValue.Equals("*:*", StringComparison.OrdinalIgnoreCase))
@@ -167,11 +167,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             var parts = notReferencedValue.Split(SearchSplitChar);
             if (parts.Length != 2)
             {
-                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterInvalidValue);
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterMultipleSeperators);
             }
 
             var type = parts[0];
             var searchParameter = parts[1];
+
+            if (type.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterWildcardType);
+            }
+
+            // Checking if the resource type is valid. If the type isn't a recognized FHIR resource type this will throw an exception.
+            _searchParameterDefinitionManager.GetSearchParameters(type);
 
             if (searchParameter.Equals("*", StringComparison.OrdinalIgnoreCase))
             {
