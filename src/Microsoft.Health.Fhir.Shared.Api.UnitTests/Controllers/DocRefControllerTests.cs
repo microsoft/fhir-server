@@ -101,9 +101,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         Assert.Equal(expectedParameters.Count, p.Count);
                         if (expectedParameters.Any())
                         {
-                            Assert.Contains(
+                            Assert.All(
                                 p,
-                                x => expectedParameters.Any(y => y.Equals(x)));
+                                x => Assert.Contains(expectedParameters, y => y.Equals(x)));
                         }
 
                         return Task.FromResult(new Bundle().ToResourceElement());
