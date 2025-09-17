@@ -232,20 +232,6 @@
             "metadata": {
                 "description": "The type of Telemetry provider being used for telemetry logging to Application Insights resource."
             }
-        },
-        "networkSecurityPerimeterName": {
-            "type": "string",
-            "defaultValue": "[concat('nsp-', resourceGroup().name)]",
-            "metadata": {
-                "description": "Name of the Network Security Perimeter to create and associate resources with."
-            }
-        },
-        "networkSecurityPerimeterProfileName": {
-            "type": "string",
-            "defaultValue": "defaultProfile",
-            "metadata": {
-                "description": "Name of the Network Security Perimeter profile to create."
-            }
         }
     },
     "variables": {
@@ -304,8 +290,7 @@
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
         "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]",
-        "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]",
-        "networkSecurityPerimeterName": "[parameters('networkSecurityPerimeterName')]"
+        "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]"
     },
     "resources": [
         {
@@ -415,7 +400,7 @@
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
                     "location": "[resourceGroup().location]",
-                    "dependsOn": [
+                    "dependsOn":[
                         "[variables('serviceName')]"
                     ],
                     "properties": {
@@ -428,7 +413,7 @@
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
                     "location": "[resourceGroup().location]",
-                    "dependsOn": [
+                    "dependsOn":[
                         "[variables('serviceName')]"
                     ],
                     "properties": {
@@ -727,7 +712,7 @@
                 "supportsHttpsTrafficOnly": true,
                 "allowBlobPublicAccess": false,
                 "allowSharedKeyAccess": false
-            },
+           },
             "condition": "[variables('enableIntegrationStore')]",
             "dependsOn": [],
             "sku": {
@@ -783,105 +768,6 @@
                 "roleDefinitionId": "[variables('acrPullRoleId')]",
                 "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
                 "principalType": "ServicePrincipal"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[variables('networkSecurityPerimeterName')]",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "displayName": "[concat('NSP for ', parameters('serviceName'))]"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/profiles",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/', parameters('networkSecurityPerimeterProfileName'))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]"
-            ],
-            "properties": {
-                "displayName": "[concat('Profile for ', parameters('serviceName'))]"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/keyvault-', uniqueString(variables('serviceName')))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/sqlserver-', uniqueString(variables('sqlServerDerivedName')))]",
-            "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'new'))]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/storage-', uniqueString(variables('storageAccountName')))]",
-            "condition": "[variables('enableIntegrationStore')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/cosmosdb-', uniqueString(variables('serviceName')))]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
             }
         }
     ]
