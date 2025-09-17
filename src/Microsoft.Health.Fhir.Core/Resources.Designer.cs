@@ -340,6 +340,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate..
+        /// </summary>
+        internal static string CosmosDbRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
         /// </summary>
         internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
@@ -1025,11 +1034,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        ///   Looks up a localized string similar to Not Referenced only allows one :.
         /// </summary>
-        internal static string NotReferencedParameterInvalidValue {
+        internal static string NotReferencedParameterMultipleSeperators {
             get {
-                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
+                return ResourceManager.GetString("NotReferencedParameterMultipleSeperators", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not referenced requires a resource type and search field separated by a :.
+        /// </summary>
+        internal static string NotReferencedParameterNoSeparator {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterNoSeparator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not Referenced doesn&apos;t allow for a wildcard resource type with a specific search field.
+        /// </summary>
+        internal static string NotReferencedParameterWildcardType {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterWildcardType", resourceCulture);
             }
         }
         
@@ -1948,15 +1975,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.
-        /// </summary>
-        internal static string CosmosDbRequestTimeout {
-            get {
-                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
             }
         }
     }

@@ -152,6 +152,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return new IncludeExpression(resourceTypes, refSearchParameter, originalType, targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
         }
 
+        public NotReferencedExpression ParseNotReferenced(string notReferencedValue)
+        {
+            if (!notReferencedValue.Contains(SearchSplitChar, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterNoSeparator);
+            }
+
+            if (notReferencedValue.Equals("*:*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, null, true);
+            }
+
+            var parts = notReferencedValue.Split(SearchSplitChar);
+            if (parts.Length != 2)
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterMultipleSeperators);
+            }
+
+            var type = parts[0];
+            var searchParameter = parts[1];
+
+            if (type.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterWildcardType);
+            }
+
+            // Checking if the resource type is valid. If the type isn't a recognized FHIR resource type this will throw an exception.
+            _searchParameterDefinitionManager.GetSearchParameters(type);
+
+            if (searchParameter.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, type, true);
+            }
+
+            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(type, searchParameter);
+
+            return new NotReferencedExpression(refSearchParameter, type, false);
+        }
+
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))

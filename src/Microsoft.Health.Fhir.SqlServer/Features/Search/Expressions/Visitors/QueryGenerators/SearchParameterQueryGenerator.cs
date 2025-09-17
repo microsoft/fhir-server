@@ -151,6 +151,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     nestedDelimited.BeginDelimitedElement();
                     context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceTypeId}");
+
+                    if (expression.SourceResourceType != null)
+                    {
+                        var resourceTypeId = context.Model.GetResourceTypeId(expression.SourceResourceType);
+
+                        nestedDelimited.BeginDelimitedElement();
+                        context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ResourceTypeId} = {resourceTypeId}");
+
+                        if (expression.ReferenceSearchParameter != null)
+                        {
+                            var searchParamId = context.Model.GetSearchParamId(expression.ReferenceSearchParameter.Url);
+
+                            nestedDelimited.BeginDelimitedElement();
+                            context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.SearchParamId} = {searchParamId}");
+                        }
+                    }
                 }
             }
 
