@@ -99,5 +99,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Azure SQL Database with geo-replication configured.
         /// </summary>
         public bool EnableGeoRedundancy { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Redis notifications are supported.
+        /// When enabled, the system will use Redis pub/sub for multi-instance notifications
+        /// such as SearchParameter changes and other distributed events.
+        /// </summary>
+        public bool SupportsRedisNotifications { get; set; } = false;
     }
 }

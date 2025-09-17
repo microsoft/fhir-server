@@ -12,8 +12,11 @@ using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -101,7 +104,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 statusRegistry,
                 definitionManager,
                 new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
-                Substitute.For<IMediator>(),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
             await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -122,7 +126,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 statusRegistry,
                 definitionManager,
                 new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
-                Substitute.For<IMediator>(),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
             await statusManager.EnsureInitializedAsync(CancellationToken.None);
 

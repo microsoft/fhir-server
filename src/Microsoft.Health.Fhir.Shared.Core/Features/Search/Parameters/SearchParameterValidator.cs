@@ -11,10 +11,13 @@ using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -39,6 +42,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
+        private readonly RedisConfiguration _redisConfiguration;
         private readonly ILogger _logger;
 
         private const string HttpPostName = "POST";
@@ -52,6 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
+            IOptions<RedisConfiguration> redisConfiguration,
             ILogger<SearchParameterValidator> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -60,6 +65,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
+            EnsureArg.IsNotNull(redisConfiguration, nameof(redisConfiguration));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
@@ -67,6 +73,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
             _searchParameterOperations = searchParameterOperations;
             _searchParameterComparer = searchParameterComparer;
+            _redisConfiguration = redisConfiguration.Value;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -99,7 +106,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    // Only sync if Redis is not enabled to coordinate between instances
+                    if (!_redisConfiguration.Enabled)
+                    {
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    }
 
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))

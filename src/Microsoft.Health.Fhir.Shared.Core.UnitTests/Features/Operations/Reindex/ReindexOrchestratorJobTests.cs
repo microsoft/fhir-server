@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -101,6 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      ModelInfoProvider.Instance,
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
+                     Options.Create(new RedisConfiguration { Enabled = false }),
                      NullLoggerFactory.Instance);
         }
 
@@ -162,6 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     ModelInfoProvider.Instance,
                     searchParameterStatusmanager,
                     _searchParameterOperations,
+                    Options.Create(new RedisConfiguration { Enabled = false }),
                     NullLoggerFactory.Instance);
 
             var expectedResourceType = "Account"; // Fix: Use the actual resource type

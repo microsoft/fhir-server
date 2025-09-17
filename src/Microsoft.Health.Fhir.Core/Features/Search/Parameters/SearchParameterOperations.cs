@@ -11,7 +11,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -30,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly RedisConfiguration _redisConfiguration;
         private readonly ILogger _logger;
 
         public SearchParameterOperations(
@@ -39,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            IOptions<RedisConfiguration> redisConfiguration,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -47,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(redisConfiguration, nameof(redisConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -55,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
+            _redisConfiguration = redisConfiguration.Value;
             _logger = logger;
         }
 
@@ -72,7 +78,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        // Only sync if Redis is not enabled to coordinate between instances
+                        if (!_redisConfiguration.Enabled)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -149,7 +159,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to delete
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        // Only sync if Redis is not enabled to coordinate between instances
+                        if (!_redisConfiguration.Enabled)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         // First we delete the status metadata from the data store as this function depends on
                         // the in memory definition manager.  Once complete we remove the SearchParameter from
@@ -200,7 +214,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        // Only sync if Redis is not enabled to coordinate between instances
+                        if (!_redisConfiguration.Enabled)
+                        {
+                            await GetAndApplySearchParameterUpdates(cancellationToken);
+                        }
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -271,8 +289,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="isFromRemoteSync">Whether or not call is orignating from Redis remote sub to prevent update loop</param>
         /// <returns>A task.</returns>
-        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default)
+        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool isFromRemoteSync = false)
         {
             var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
 
@@ -318,9 +337,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Once added to the definition manager we can update their status
+
             await _searchParameterStatusManager.ApplySearchParameterStatus(
-                updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList(),
-                cancellationToken);
+                updatedSearchParameterStatus,
+                cancellationToken,
+                isFromRemoteSync);
         }
 
         private void DeleteSearchParameter(string url)

@@ -59,6 +59,7 @@
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Newtonsoft.Json.Schema" />
     <PackageReference Include="Polly" />
+    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
@@ -82,5 +83,8 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Features\Identity\" />
   </ItemGroup>
 </Project>

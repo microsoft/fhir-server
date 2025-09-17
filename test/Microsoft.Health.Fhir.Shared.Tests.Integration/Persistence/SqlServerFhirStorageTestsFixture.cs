@@ -20,6 +20,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -311,6 +312,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
                 mediator,
+                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
+                Options.Create(new Microsoft.Health.Fhir.Core.Configs.RedisConfiguration { Enabled = false }),
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);

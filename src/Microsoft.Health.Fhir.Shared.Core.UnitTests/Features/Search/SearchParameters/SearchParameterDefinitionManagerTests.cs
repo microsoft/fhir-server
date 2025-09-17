@@ -13,11 +13,14 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -85,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator,
+                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
@@ -151,6 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
                 () => searchService.CreateMockScope(),
+                Options.Create(new RedisConfiguration { Enabled = false }),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
@@ -516,6 +521,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             };
             SearchResult result4 = GetSearchResultFromSearchParam(searchParam4, null);
 
+            var dataStoreSearchParamValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+            dataStoreSearchParamValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
+                .Returns((true, false));
+
             var searchService = Substitute.For<ISearchService>();
 
             searchService.SearchAsync(Arg.Is<SearchOptions>(options => options.ContinuationToken == null), Arg.Any<CancellationToken>())
@@ -536,13 +548,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                Arg.Any<CancellationToken>())
                .Returns(result4);
 
-            var dataStoreSearchParamValidator = Substitute.For<IDataStoreSearchParameterValidator>();
-            dataStoreSearchParamValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);
-
-            _searchParameterSupportResolver
-                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
-                .Returns((true, false));
-
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, searchService.CreateMockScopeProvider(), _searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
@@ -551,7 +556,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterStatusDataStore,
                 searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator,
+                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             await statusManager.EnsureInitializedAsync(CancellationToken.None);

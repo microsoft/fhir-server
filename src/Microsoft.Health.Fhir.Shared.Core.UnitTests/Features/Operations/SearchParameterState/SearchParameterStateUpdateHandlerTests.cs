@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -94,7 +95,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 return scope;
             };
 
-            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                _searchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
+                Options.Create(new Microsoft.Health.Fhir.Core.Configs.RedisConfiguration { Enabled = false }),
+                _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
                 _authorizationService,
                 _searchParameterStatusManager,
