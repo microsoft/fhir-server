@@ -253,6 +253,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 });
             }
 
+            // TODO: Not the ideal, but that's the way how I'm exposing the results of SQL Query Caching Plan.
+            if (result != null && result.SearchAnnotations.Any())
+            {
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Text = new Narrative(result.SearchAnnotations.Select(x => string.Concat(x.Code, " - ", x.DetailsText)).First()),
+                };
+
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Resource = operationOutcome,
+                    Search = new Bundle.SearchComponent
+                    {
+                        Mode = Bundle.SearchEntryMode.Outcome,
+                    },
+                });
+            }
+
             IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
             bundle.Entry.AddRange(entries);
