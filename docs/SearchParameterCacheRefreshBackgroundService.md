@@ -31,7 +31,7 @@ The feature requires:
 
 ## Configuration
 
-Configure the refresh interval in your application settings:
+Configure the refresh interval in your application settings. Default is 1:
 
 ### appsettings.json
 ```json
