@@ -65,7 +65,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return "NotReferenced";
+            var wildcard = WildCard ? " any" : string.Empty;
+            var searchParameter = ReferenceSearchParameter == null ? string.Empty : "." + ReferenceSearchParameter.Name;
+            var resourceType = SourceResourceType == null ? string.Empty : " " + SourceResourceType;
+            return $"Not Referenced by{wildcard}{resourceType}{searchParameter}";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
