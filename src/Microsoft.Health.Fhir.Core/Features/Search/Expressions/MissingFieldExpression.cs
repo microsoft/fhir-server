@@ -42,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(MissingField {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return ToString();
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(MissingFieldException));

@@ -273,8 +273,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
             else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled)
             {
-                string hash = "foo";
+                string hash = sqlSearchOptions.Expression.GetExpressionParameterNames();
                 bool reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
+
+                _logger.LogWarning("DSQPS ------------------------------ For hash {Hash}, reuse query plan is set to {ReuseQueryCachingPlan}", hash, reuseQueryCachingPlan);
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 SearchResult searchResult = await SearchImpl(sqlSearchOptions, reuseQueryCachingPlan, cancellationToken);

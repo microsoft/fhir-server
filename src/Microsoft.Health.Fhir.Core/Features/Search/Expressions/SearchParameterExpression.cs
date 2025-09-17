@@ -35,6 +35,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Param {Parameter.Code} {Expression})";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return $"(Param {Parameter.Code} {Expression.GetExpressionParameterNames()})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(SearchParameterExpression));

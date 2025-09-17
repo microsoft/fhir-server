@@ -50,6 +50,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} IN ({string.Join(", ", Values)}))";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return $"({(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(InExpression<T>));

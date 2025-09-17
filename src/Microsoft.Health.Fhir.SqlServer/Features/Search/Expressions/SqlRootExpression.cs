@@ -74,6 +74,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions) : null)}))";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions.Select(x => x.GetExpressionParameterNames())) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions.Select(x => x.GetExpressionParameterNames())) : null)}))";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(SqlRootExpression));

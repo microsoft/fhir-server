@@ -64,6 +64,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate})";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate.GetExpressionParameterNames()})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(SearchParamTableExpression));

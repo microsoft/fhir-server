@@ -57,6 +57,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Compartment {CompartmentType} '{CompartmentId}')";
         }
 
+        public override string GetExpressionParameterNames()
+        {
+            return $"(Compartment {CompartmentType})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(CompartmentSearchExpression));
