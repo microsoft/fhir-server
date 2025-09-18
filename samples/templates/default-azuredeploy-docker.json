@@ -863,26 +863,6 @@
                 },
                 "accessMode": "Learning"
             }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/cosmosdb-', uniqueString(variables('serviceName')))]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
         }
     ]
 }
