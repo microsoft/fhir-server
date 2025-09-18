@@ -8,7 +8,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class RedisNotificationChannels
     {
         public string SearchParameterUpdates { get; set; } = "fhir:notifications:searchparameters";
-
-        public string ResourceUpdates { get; set; } = "fhir:notifications:resources";
     }
 }
