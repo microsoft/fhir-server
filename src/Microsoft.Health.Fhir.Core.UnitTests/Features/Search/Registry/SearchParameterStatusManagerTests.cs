@@ -182,10 +182,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Id should not be modified in this test case
             var modifiedItems = _searchParameterInfos.Skip(1).ToArray();
 
-            await _mediator
+            // The manager now uses IUnifiedNotificationPublisher instead of IMediator directly
+            await _unifiedPublisher
                 .Received()
-                .Publish(
+                .PublishAsync(
                     Arg.Is<SearchParametersUpdatedNotification>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
+                    false, // isFromRemoteSync is false during initialization to prevent Redis loops
                     Arg.Any<CancellationToken>());
         }
 

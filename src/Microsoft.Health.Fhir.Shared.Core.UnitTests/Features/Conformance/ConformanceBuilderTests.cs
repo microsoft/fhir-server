@@ -55,9 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 Substitute.For<ISearchParameterStatusDataStore>(),
                 _searchParameterDefinitionManager,
                 Substitute.For<Core.Features.Search.Parameters.ISearchParameterSupportResolver>(),
-                Substitute.For<IMediator>(),
-                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
-                Options.Create(new Microsoft.Health.Fhir.Core.Configs.RedisConfiguration { Enabled = false }),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 Substitute.For<Microsoft.Extensions.Logging.ILogger<SearchParameterStatusManager>>());
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,

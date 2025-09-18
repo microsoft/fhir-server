@@ -283,9 +283,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
-                mediator,
-                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
-                Options.Create(new Microsoft.Health.Fhir.Core.Configs.RedisConfiguration { Enabled = false }),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             var queueClient = new TestQueueClient();

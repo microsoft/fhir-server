@@ -99,9 +99,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator,
-                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
-                Options.Create(new Microsoft.Health.Fhir.Core.Configs.RedisConfiguration { Enabled = false }),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
                 _authorizationService,

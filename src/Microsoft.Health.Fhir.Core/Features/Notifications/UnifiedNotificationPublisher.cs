@@ -90,18 +90,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
         private async Task PublishToRedis<TNotification>(TNotification notification, CancellationToken cancellationToken)
             where TNotification : class, INotification
         {
+            var redisNotification = ConvertToRedisNotification(notification);
+            if (redisNotification == null)
+            {
+                // Fail fast for unsupported notification types when Redis is enabled
+                throw new NotSupportedException(
+                    $"Notification type '{typeof(TNotification).Name}' does not support Redis publishing. " +
+                    $"Either disable Redis notifications for this type or implement Redis conversion support.");
+            }
+
             try
             {
-                var redisNotification = ConvertToRedisNotification(notification);
-                if (redisNotification != null)
-                {
-                    await _notificationService.PublishAsync(
-                        _redisConfiguration.NotificationChannels.SearchParameterUpdates,
-                        redisNotification,
-                        cancellationToken);
+                await _notificationService.PublishAsync(
+                    _redisConfiguration.NotificationChannels.SearchParameterUpdates,
+                    redisNotification,
+                    cancellationToken);
 
-                    _logger.LogDebug("Published Redis notification for {NotificationType}", typeof(TNotification).Name);
-                }
+                _logger.LogDebug("Published Redis notification for {NotificationType}", typeof(TNotification).Name);
             }
             catch (Exception ex)
             {
