@@ -215,8 +215,13 @@ stages:
             "resources": [
               {
                 "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-                "apiVersion": "2021-02-01-preview",
+                "apiVersion": "2023-07-01-preview",
                 "name": "[concat(parameters('nspName'), '/sqlserver-inttest-', uniqueString(parameters('sqlServerName')))]",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Network/networkSecurityPerimeters', parameters('nspName'))]",
+                  "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), parameters('profileName'))]",
+                  "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+                ],
                 "properties": {
                   "privateLinkResource": {
                     "id": "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
