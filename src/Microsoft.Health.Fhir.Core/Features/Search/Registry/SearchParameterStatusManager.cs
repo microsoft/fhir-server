@@ -122,8 +122,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogError("SearchParameterStatusManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
-            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), false, cancellationToken);
-            await _unifiedPublisher.PublishAsync(new SearchParametersInitializedNotification(), false, cancellationToken);
+            // These both stay local as we do not need to inform other istances of our initialization
+            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _unifiedPublisher.PublishAsync(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
         public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
@@ -267,6 +268,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
             }
 
+            // If isFromRemoteSync is true, then this call is originating from Redis remote subscription, so we do not want to send the notification back to Redis
+            // But we do want the local notification that we just changed status' locally for SearchParameterDefinitionManager to pick up the changes.
             await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), isFromRemoteSync ? false : true, cancellationToken);
         }
 
