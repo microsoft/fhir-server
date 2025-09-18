@@ -37,7 +37,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string GetExpressionParameterNames()
         {
-            return $"(Param {Parameter.Code} {Expression.GetExpressionParameterNames()})";
+            // ResourceType is a special case where the expression requires the value to be included.
+            if (Parameter.Code == SearchParameterNames.ResourceType)
+            {
+                return $"(Param {Parameter.Code} {Expression})";
+            }
+            else
+            {
+                return $"(Param {Parameter.Code} {Expression.GetExpressionParameterNames()})";
+            }
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

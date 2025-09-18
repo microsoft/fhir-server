@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
 {
     public sealed class QueryPlanSelector : IQueryPlanSelector<bool>
     {
+        private const int MaxEwmaEntries = 500;
         private const int MinIterationsForDecision = 6;
         private const double EwmaAlpha = 0.3;
 
@@ -35,6 +36,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
             lock (_lock)
             {
                 ewma = GetEwma(hash);
+            }
+
+            // Hard max limit to avoid memory leaks while using dictionaries.
+            // TODO: use dotnet memory cache with expiration instead of limiting the size of the dictionary.
+            if (ewma == null)
+            {
+                if (IsMaxLimitReached())
+                {
+                    return false;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"EWMA instance for hash '{hash}' should have been created.");
+                }
             }
 
             string metricNameValue = ewma.GetBestMetric();
@@ -64,11 +79,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
             }
             else
             {
+                if (IsMaxLimitReached())
+                {
+                    // Limit the size of the dictionary to avoid unbounded memory growth.
+                    // In a real-world scenario, consider using a more sophisticated eviction policy.
+                    return null;
+                }
+
                 var newEwma = new Ewma(_settings, MinIterationsForDecision, EwmaAlpha);
                 _ewmaByHash.Add(hash, newEwma);
 
                 return newEwma;
             }
         }
+
+        private bool IsMaxLimitReached() => _ewmaByHash.Count >= MaxEwmaEntries;
     }
 }

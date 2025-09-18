@@ -133,5 +133,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
             Assert.True(selector.GetQueryPlanCachingSetting(hash3));
             Assert.False(selector.GetQueryPlanCachingSetting(hash4));
         }
+
+        [Fact]
+        public void GivenSeveralCacheEntries_WhenReachedTheLimit_ThenTheDefaultValueShouldBeReturned()
+        {
+            const int maxNumberOfEntries = 500;
+
+            QueryPlanSelector selector = new QueryPlanSelector();
+
+            string hash = string.Empty;
+            bool setting = false;
+
+            for (int i = 0; i < maxNumberOfEntries; i++)
+            {
+                hash = $"hash{i}";
+
+                // Learning phase.
+                setting = selector.GetQueryPlanCachingSetting(hash);
+                Assert.False(setting);
+                selector.ReportExecutionTime(hash, setting, 1);
+
+                setting = selector.GetQueryPlanCachingSetting(hash);
+                Assert.True(setting);
+                selector.ReportExecutionTime(hash, setting, 1);
+            }
+
+            // After limit is reached, new entries are not allowed.
+            hash = $"hash{maxNumberOfEntries + 1}";
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+
+            // After limit is reached, new entries are not allowed.
+            hash = $"hash{maxNumberOfEntries + 2}";
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+            setting = selector.GetQueryPlanCachingSetting(hash);
+            Assert.False(setting);
+
+            // While older entries are still allowed.
+            for (int i = 0; i < maxNumberOfEntries; i++)
+            {
+                hash = $"hash{i}";
+
+                // Learning phase.
+                setting = selector.GetQueryPlanCachingSetting(hash);
+                Assert.False(setting);
+                selector.ReportExecutionTime(hash, setting, 1);
+
+                setting = selector.GetQueryPlanCachingSetting(hash);
+                Assert.True(setting);
+                selector.ReportExecutionTime(hash, setting, 1);
+            }
+        }
     }
 }
