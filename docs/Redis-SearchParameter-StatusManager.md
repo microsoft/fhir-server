@@ -11,7 +11,6 @@ The SearchParameterStatusManager leverages Redis through these key integration p
 1. **IUnifiedNotificationPublisher** - For publishing search parameter change notifications to other instances
 2. **NotificationBackgroundService** - For receiving and processing Redis notifications from other instances  
 3. **SearchParameterOperations** - For coordinating Redis vs. database polling fallback logic
-4. **SearchParameterValidator** - For ensuring cache consistency before validation operations
 
 ## Redis Coordination Strategy
 
@@ -44,11 +43,14 @@ public async Task ApplySearchParameterStatus(
     // Apply changes to local SearchParameterDefinitionManager cache
     // ...
     
+    // Always publish locally for SearchParameterDefinitionManager
+    await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+    
     // Prevent notification loops using isFromRemoteSync flag
-    await _unifiedPublisher.PublishAsync(
-        new SearchParametersUpdatedNotification(updated), 
-        isFromRemoteSync ? false : true,  // Don't Redis-publish if from Redis
-        cancellationToken);
+    if (!isFromRemoteSync)
+    {
+        await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+    }
 }
 ```
 
@@ -57,7 +59,7 @@ public async Task ApplySearchParameterStatus(
 When Redis is disabled, the system falls back to database polling:
 
 ```csharp
-// In SearchParameterValidator and SearchParameterOperations
+// In SearchParameterOperations
 if (!_redisConfiguration.Enabled)
 {
     await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
@@ -79,11 +81,49 @@ sequenceDiagram
     Instance1->>Database: Update SearchParameter Status
     Instance1->>Redis: Publish SearchParameterChangeNotification
     Redis->>BgService: Deliver Notification
+    BgService->>BgService: Check Instance ID (Skip if Same)
     BgService->>BgService: Apply Debounce Delay (10s)
     BgService->>Database: Query for Latest Changes
     BgService->>Instance2: Update Local Cache
     
+    Note over Instance1,Instance2: Instance ID check prevents self-processing
     Note over Instance1,Instance2: isFromRemoteSync prevents notification loops
+```
+
+### Instance ID Self-Processing Prevention
+
+The `NotificationBackgroundService` now includes instance ID validation to prevent processing notifications from the same instance:
+
+```csharp
+private async Task HandleSearchParameterChangeNotification(
+    SearchParameterChangeNotification notification,
+    CancellationToken cancellationToken)
+{
+    // Get the current instance ID for comparison
+    using var scope = _serviceProvider.CreateScope();
+    var unifiedPublisher = scope.ServiceProvider.GetRequiredService<IUnifiedNotificationPublisher>();
+    var currentInstanceId = unifiedPublisher.InstanceId;
+
+    // Skip processing if notification is from the same instance
+    if (string.Equals(notification.InstanceId, currentInstanceId, StringComparison.OrdinalIgnoreCase))
+    {
+        _logger.LogDebug(
+            "Skipping search parameter change notification from same instance {InstanceId}. ChangeType: {ChangeType}",
+            notification.InstanceId,
+            notification.ChangeType);
+        return;
+    }
+
+    // Process notification using DebounceConfig framework
+    var debounceConfig = new DebounceConfig
+    {
+        DelayMs = _redisConfiguration.SearchParameterNotificationDelayMs,
+        ProcessingAction = ProcessSearchParameterUpdate,
+        ProcessingName = "search parameter updates",
+    };
+
+    await ProcessWithOptionalDebouncing(debounceConfig, cancellationToken);
+}
 ```
 
 ### Message Structure
@@ -125,7 +165,7 @@ The instance ID (typically machine name) is used to:
 ### Core Status Update Methods
 
 #### UpdateSearchParameterStatusAsync
-Handles direct status changes with Redis coordination:
+Handles direct status changes with Redis coordination. **Note**: This method only publishes to Redis when the database operation succeeds:
 
 ```csharp
 public async Task UpdateSearchParameterStatusAsync(
@@ -141,16 +181,16 @@ public async Task UpdateSearchParameterStatusAsync(
         paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
     }
 
-    // Persist to database
+    // Persist to database - if this fails, no Redis notification will be sent
     await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
     
-    // Publish to Redis - other instances will receive this
+    // Only publish to Redis after successful database update
     await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
 }
 ```
 
 #### ApplySearchParameterStatus
-Processes updates from other instances (via Redis):
+Processes updates from other instances (via Redis). **Enhanced with dual publishing strategy**:
 
 ```csharp
 public async Task ApplySearchParameterStatus(
@@ -179,11 +219,14 @@ public async Task ApplySearchParameterStatus(
     _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
     _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
     
-    // Publish locally only if NOT from Redis to prevent loops
-    await _unifiedPublisher.PublishAsync(
-        new SearchParametersUpdatedNotification(updated),
-        isFromRemoteSync ? false : true,  // Key loop prevention logic
-        cancellationToken);
+    // ALWAYS publish locally for SearchParameterDefinitionManager to pick up changes
+    await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+
+    // Only publish to Redis if this is NOT from a Redis notification (prevent loops)
+    if (!isFromRemoteSync)
+    {
+        await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+    }
 }
 ```
 
@@ -202,32 +245,44 @@ public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchP
 
 ## Loop Prevention Strategy
 
-### The isFromRemoteSync Pattern
+### Enhanced Multi-Layer Loop Prevention
 
-The system uses a boolean flag to prevent infinite notification loops:
+The system now uses multiple layers of loop prevention:
 
+#### 1. Instance ID Check (NotificationBackgroundService)
+```csharp
+// Skip processing if notification is from the same instance
+if (string.Equals(notification.InstanceId, currentInstanceId, StringComparison.OrdinalIgnoreCase))
+{
+    _logger.LogDebug("Skipping search parameter change notification from same instance {InstanceId}", notification.InstanceId);
+    return;
+}
+```
+
+#### 2. The isFromRemoteSync Pattern (SearchParameterStatusManager)
 ```csharp
 // When processing Redis notifications in NotificationBackgroundService
 await searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true); // isFromRemoteSync = true
 
 // In ApplySearchParameterStatus method
-await _unifiedPublisher.PublishAsync(
-    new SearchParametersUpdatedNotification(updated), 
-    isFromRemoteSync ? false : true,  // Don't Redis-publish if from Redis
-    cancellationToken);
+if (!isFromRemoteSync)
+{
+    await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+}
 ```
 
 ### Flow Analysis:
 
 1. **Instance A** makes local change ? publishes to Redis (`isFromRemoteSync = false`)
-2. **Instance B** receives Redis notification ? processes with `isFromRemoteSync = true`  
+2. **Instance B** receives Redis notification ? checks instance ID (different) ? processes with `isFromRemoteSync = true`  
 3. **Instance B** publishes locally only (no Redis) ? no loop created
+4. **Instance A** would ignore its own notification due to instance ID check
 
 ## Debouncing and Background Processing
 
 ### NotificationBackgroundService Integration
 
-The background service handles Redis notifications with intelligent debouncing:
+The background service now uses the flexible `DebounceConfig` framework for intelligent debouncing:
 
 ```csharp
 private async Task HandleSearchParameterChangeNotification(
@@ -240,31 +295,38 @@ private async Task HandleSearchParameterChangeNotification(
         notification.Timestamp, 
         notification.ChangeType);
 
-    // Check if processing is currently happening
-    if (!await _processingGate.WaitAsync(0, cancellationToken))
+    // Instance ID validation for self-processing prevention
+    using var scope = _serviceProvider.CreateScope();
+    var unifiedPublisher = scope.ServiceProvider.GetRequiredService<IUnifiedNotificationPublisher>();
+    var currentInstanceId = unifiedPublisher.InstanceId;
+
+    if (string.Equals(notification.InstanceId, currentInstanceId, StringComparison.OrdinalIgnoreCase))
     {
-        // Queue this notification by setting flag and updating delay token
-        _isProcessingQueued = true;
-        // Cancel only the delay, not the active processing
-        lock (_delayLock)
-        {
-            _ = _currentDelayTokenSource?.CancelAsync();
-            _currentDelayTokenSource?.Dispose();
-            _currentDelayTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        }
+        _logger.LogDebug("Skipping search parameter change notification from same instance {InstanceId}. ChangeType: {ChangeType}",
+            notification.InstanceId, notification.ChangeType);
         return;
     }
 
-    try
+    // Use flexible DebounceConfig framework
+    var debounceConfig = new DebounceConfig
     {
-        await ProcessWithDebounceAndQueue(cancellationToken);
-    }
-    finally
-    {
-        _processingGate.Release();
-    }
+        DelayMs = _redisConfiguration.SearchParameterNotificationDelayMs,
+        ProcessingAction = ProcessSearchParameterUpdate,
+        ProcessingName = "search parameter updates"
+    };
+
+    await ProcessWithOptionalDebouncing(debounceConfig, cancellationToken);
 }
 ```
+
+### DebounceConfig Framework Features
+
+The new `DebounceConfig` framework provides:
+
+1. **Flexible Processing**: Immediate processing when `DelayMs = 0`, debounced when `DelayMs > 0`
+2. **Intelligent Queueing**: Uses boolean flags instead of memory-heavy queues
+3. **Cancellation Support**: Proper cancellation token handling for graceful shutdown
+4. **Extensibility**: Easy to add new notification types with custom processing strategies
 
 ### Debouncing Logic Benefits
 
@@ -272,6 +334,7 @@ private async Task HandleSearchParameterChangeNotification(
 2. **Database Load Reduction**: Multiple notifications result in single database query
 3. **Network Efficiency**: Fewer Redis messages during burst operations  
 4. **Processing Efficiency**: Single update cycle handles multiple related changes
+5. **Instance Isolation**: Prevents self-processing through instance ID validation
 
 ## Configuration Settings
 
@@ -291,7 +354,7 @@ private async Task HandleSearchParameterChangeNotification(
 ```
 
 **Key Settings:**
-- **`SearchParameterNotificationDelayMs`**: Debounce delay for batching notifications
+- **`SearchParameterNotificationDelayMs`**: Debounce delay for batching notifications (0 = immediate processing)
 - **`SearchParameterUpdates`**: Redis channel specifically for search parameter changes
 
 ## Error Handling
@@ -303,6 +366,17 @@ When Redis is unavailable, the SearchParameterStatusManager gracefully degrades:
 1. **Publishing Failures**: Fall back to local MediatR notifications only
 2. **Subscription Failures**: Continue with database polling mode
 3. **Processing Errors**: Log errors and continue with next notification
+
+### Database Operation Failures
+
+The system now ensures proper error handling in status updates:
+
+```csharp
+// UpdateSearchParameterStatusAsync only publishes to Redis AFTER successful database operation
+await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
+// If above throws, no Redis notification is sent
+await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+```
 
 ### SearchParameterNotSupportedException Handling
 
@@ -326,6 +400,7 @@ This allows bulk operations to continue processing valid parameters even if some
 ### Memory Management
 
 - **Efficient Queuing**: Boolean flag instead of queue data structures
+- **Instance ID Caching**: Single resolution per notification processing
 - **Automatic Cleanup**: Background service properly disposes resources  
 - **Bounded Processing**: Semaphore prevents concurrent processing overlap
 
@@ -334,9 +409,11 @@ This allows bulk operations to continue processing valid parameters even if some
 - **Batched Updates**: 10-second debounce reduces database query frequency
 - **Incremental Sync**: Only processes parameters changed since last sync
 - **Optimistic Concurrency**: LastUpdated timestamps prevent conflicts
+- **Conditional Publishing**: Only publishes to Redis after successful database operations
 
 ### Scalability Features
 
+- **Instance Isolation**: Self-processing prevention reduces unnecessary work
 - **Per-URI Granularity**: Different search parameters can be processed concurrently
 - **Instance Coordination**: No conflicts between multiple FHIR server instances
 - **Fallback Resilience**: System continues operating without Redis
@@ -349,15 +426,18 @@ This allows bulk operations to continue processing valid parameters even if some
 // Status updates
 _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status);
 
-// Redis notifications
+// Redis notifications with instance isolation
 _logger.LogInformation("Received search parameter change notification from instance {InstanceId} at {Timestamp}. ChangeType: {ChangeType}");
+_logger.LogDebug("Skipping search parameter change notification from same instance {InstanceId}. ChangeType: {ChangeType}");
 
 // Background processing
-_logger.LogInformation("Successfully applied search parameter updates.");
+_logger.LogInformation("Successfully processed search parameter updates.");
 ```
 
 ### Metrics to Monitor
 
+- **Instance ID Distribution**: Notifications received from different instances
+- **Self-Processing Prevention**: Number of notifications skipped due to same instance ID
 - **Notification Volume**: Number of search parameter change notifications received
 - **Processing Latency**: Time from Redis notification to local cache update
 - **Debounce Effectiveness**: Ratio of batched vs. individual updates
@@ -372,16 +452,19 @@ _logger.LogInformation("Successfully applied search parameter updates.");
    - Check `SearchParameterNotificationDelayMs` setting
    - Verify Redis connectivity and channel subscriptions
    - Monitor background service processing logs
+   - Check for instance ID mismatches
 
 2. **Inconsistent Cache States**:
    - Verify `isFromRemoteSync` flag usage in logs
    - Check for notification loop patterns
    - Compare search parameter statuses across instances
+   - Monitor instance ID validation logs
 
 3. **Performance Issues**:
    - Analyze debounce delay appropriateness for change frequency
    - Monitor database query patterns
    - Review Redis message volume and processing times
+   - Check for excessive self-processing attempts
 
 ### Diagnostic Steps
 
@@ -405,5 +488,11 @@ _logger.LogInformation("Successfully applied search parameter updates.");
    - Check instance IDs in logs
    - Compare search parameter hash values across instances
    - Monitor notification timestamps and processing delays
+   - Verify self-processing prevention is working
 
-This Redis integration enables the SearchParameterStatusManager to provide robust, real-time coordination of search parameter changes across distributed FHIR server deployments while maintaining high availability through intelligent fallback mechanisms.
+4. **Test DebounceConfig Framework**:
+   - Set `SearchParameterNotificationDelayMs` to 0 for immediate processing during testing
+   - Monitor processing patterns during burst operations
+   - Verify proper cancellation token handling during shutdown
+
+This Redis integration enables the SearchParameterStatusManager to provide robust, real-time coordination of search parameter changes across distributed FHIR server deployments while maintaining high availability through intelligent fallback mechanisms and comprehensive loop prevention strategies.

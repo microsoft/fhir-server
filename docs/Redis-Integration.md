@@ -233,15 +233,74 @@ public class UnifiedNotificationPublisher : IUnifiedNotificationPublisher
 
 ### NotificationBackgroundService
 
-Handles Redis subscriptions and processes incoming notifications with sophisticated debouncing logic:
+The `NotificationBackgroundService` is a hosted background service that subscribes to Redis notifications and coordinates cross-instance updates. It implements intelligent processing strategies including instance isolation and flexible debouncing.
 
-**Key Features:**
-- **Debounced Processing**: Configurable delay to batch multiple notifications
-- **Queue Management**: Handles overlapping notifications gracefully
-- **Error Recovery**: Retry logic for transient failures
-- **Resource Management**: Proper cancellation handling
+#### Service Architecture
 
-**Service Execution:**
+```csharp
+public class NotificationBackgroundService : BackgroundService
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly RedisConfiguration _redisConfiguration;
+    private readonly ILogger<NotificationBackgroundService> _logger;
+    
+    // Debouncing infrastructure
+    private readonly SemaphoreSlim _processingGate = new SemaphoreSlim(1, 1);
+    private volatile bool _isProcessingQueued = false;
+    private CancellationTokenSource _currentDelayTokenSource;
+    private readonly object _delayLock = new object();
+}
+```
+
+#### Redis Integration Features
+
+**1. Instance ID Validation**
+
+Prevents self-processing of notifications:
+
+```csharp
+private async Task HandleSearchParameterChangeNotification(
+    SearchParameterChangeNotification notification,
+    CancellationToken cancellationToken)
+{
+    // Get current instance ID for validation
+    using var scope = _serviceProvider.CreateScope();
+    var unifiedPublisher = scope.ServiceProvider.GetRequiredService<IUnifiedNotificationPublisher>();
+    var currentInstanceId = unifiedPublisher.InstanceId;
+
+    // Skip processing notifications from the same instance
+    if (string.Equals(notification.InstanceId, currentInstanceId, StringComparison.OrdinalIgnoreCase))
+    {
+        _logger.LogDebug("Skipping search parameter change notification from same instance {InstanceId}", 
+            notification.InstanceId);
+        return;
+    }
+
+    // Process notification with debouncing...
+}
+```
+
+**2. Flexible Debouncing Framework**
+
+Uses the `DebounceConfig` framework for intelligent notification batching:
+
+```csharp
+// Configure processing strategy
+var debounceConfig = new DebounceConfig
+{
+    DelayMs = _redisConfiguration.SearchParameterNotificationDelayMs,
+    ProcessingAction = ProcessSearchParameterUpdate,
+    ProcessingName = "search parameter updates"
+};
+
+// Process with optional debouncing based on configuration
+await ProcessWithOptionalDebouncing(debounceConfig, cancellationToken);
+```
+
+**3. Service Lifecycle Management**
+
+Automatically subscribes to Redis channels when enabled:
+
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
@@ -250,6 +309,8 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         _logger.LogInformation("Redis notifications are disabled. Notification background service will not start.");
         return;
     }
+
+    _logger.LogInformation("Starting notification background service.");
 
     using var scope = _serviceProvider.CreateScope();
     var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
@@ -260,41 +321,38 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         HandleSearchParameterChangeNotification,
         stoppingToken);
 
+    // Keep service running
     await Task.Delay(Timeout.Infinite, stoppingToken);
 }
 ```
 
-**Debouncing Logic:**
-```csharp
-private async Task ProcessWithDebounceAndQueue(CancellationToken cancellationToken)
-{
-    do
-    {
-        _isProcessingQueued = false;
+### Performance and Reliability Features
 
-        // Start debounce delay (can be cancelled by new notifications)
-        try
-        {
-            await Task.Delay(_redisConfiguration.SearchParameterNotificationDelayMs, delayToken);
-        }
-        catch (OperationCanceledException) when (delayToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-        {
-            // Delay was cancelled by a new notification, restart delay
-            continue;
-        }
+**Instance Isolation:**
+- Prevents unnecessary self-processing
+- Reduces Redis traffic and database load
+- Improves overall system efficiency
 
-        // Process the actual update (cannot be cancelled by notifications)
-        await ProcessSearchParameterUpdateWithRetry(cancellationToken);
-    }
-    while (_isProcessingQueued);
-}
-```
+**Intelligent Debouncing:**
+- Configurable delay timing (0 = immediate, >0 = debounced)
+- Efficient queueing with boolean flags
+- Dynamic delay cancellation for rapid updates
+
+**Graceful Degradation:**
+- Continues operating when Redis is unavailable
+- Comprehensive error handling without system disruption
+- Proper resource cleanup on service shutdown
+
+**Memory Efficiency:**
+- Minimal memory footprint with boolean queuing
+- Single semaphore coordination
+- Efficient cancellation token management
 
 ## Extending the Notification System
 
 ### Adding New Notification Types
 
-The Redis notification system is designed to be extensible. Here's how to add support for new notification types (e.g., Profile updates):
+The Redis notification system is designed to be extensible. The flexible debouncing framework allows new notification types to choose their processing strategy.
 
 #### 1. Define the Notification Message Model
 
@@ -332,96 +390,14 @@ public class RedisNotificationChannels
 }
 ```
 
-#### 3. Extend UnifiedNotificationPublisher
+#### 3. Subscribe to Notifications in NotificationBackgroundService
 
-Add conversion logic in `UnifiedNotificationPublisher` to handle the new notification type:
-
-```csharp
-private object ConvertToRedisNotification<TNotification>(TNotification notification)
-    where TNotification : class, INotification
-{
-    return notification switch
-    {
-        SearchParametersUpdatedNotification updatedNotification => new SearchParameterChangeNotification
-        {
-            InstanceId = InstanceId,
-            Timestamp = DateTimeOffset.UtcNow,
-            ChangeType = SearchParameterChangeType.StatusChanged,
-            AffectedParameterUris = updatedNotification.SearchParameters
-                .Select(sp => sp.Url?.ToString())
-                .Where(url => !string.IsNullOrEmpty(url))
-                .ToList(),
-            TriggerSource = "UnifiedNotificationPublisher",
-        },
-        ProfileUpdatedNotification profileNotification => new ProfileChangeNotification
-        {
-            InstanceId = InstanceId,
-            Timestamp = DateTimeOffset.UtcNow,
-            ChangeType = ProfileChangeType.Updated,
-            AffectedProfileUrls = profileNotification.ProfileUrls,
-            TriggerSource = "UnifiedNotificationPublisher",
-        },
-        _ => null,
-    };
-}
-```
-
-#### 4. Create a MediatR Notification
-
-Define the local MediatR notification that triggers Redis broadcasting:
-
-```csharp
-public class ProfileUpdatedNotification : INotification
-{
-    public ProfileUpdatedNotification(IReadOnlyCollection<string> profileUrls)
-    {
-        ProfileUrls = profileUrls ?? throw new ArgumentNullException(nameof(profileUrls));
-    }
-
-    public IReadOnlyCollection<string> ProfileUrls { get; }
-}
-```
-
-#### 5. Publish Notifications in Your Service
-
-In the service that manages profiles (e.g., `ProfileManager`), publish notifications:
-
-```csharp
-public class ProfileManager
-{
-    private readonly IUnifiedNotificationPublisher _notificationPublisher;
-    
-    public async Task UpdateProfileAsync(string profileUrl, StructureDefinition profile, CancellationToken cancellationToken)
-    {
-        // Update profile logic here
-        // ...
-        
-        // Notify other instances via Redis
-        await _notificationPublisher.PublishAsync(
-            new ProfileUpdatedNotification(new[] { profileUrl }), 
-            true, // Enable Redis notification
-            cancellationToken);
-    }
-}
-```
-
-#### 6. Subscribe to Notifications
-
-Extend `NotificationBackgroundService` to subscribe to the new channel:
+Extend `NotificationBackgroundService.ExecuteAsync` to subscribe to the new channel:
 
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-    if (!_redisConfiguration.Enabled) return;
-
-    using var scope = _serviceProvider.CreateScope();
-    var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-    // Subscribe to existing channels
-    await notificationService.SubscribeAsync<SearchParameterChangeNotification>(
-        _redisConfiguration.NotificationChannels.SearchParameterUpdates,
-        HandleSearchParameterChangeNotification,
-        stoppingToken);
+    // ... existing code ...
 
     // Subscribe to new profile change notifications
     await notificationService.SubscribeAsync<ProfileChangeNotification>(
@@ -431,7 +407,13 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 
     await Task.Delay(Timeout.Infinite, stoppingToken);
 }
+```
 
+#### 4. Create Handler Method with Flexible Debouncing
+
+Add a handler method that uses the debouncing framework:
+
+```csharp
 private async Task HandleProfileChangeNotification(
     ProfileChangeNotification notification,
     CancellationToken cancellationToken)
@@ -442,15 +424,185 @@ private async Task HandleProfileChangeNotification(
         notification.Timestamp,
         notification.ChangeType);
 
-    // Process the profile changes
+    // Choose appropriate processing strategy:
+    
+    // Option 1: Use debouncing (for high-frequency changes)
+    var debounceConfig = new DebounceConfig
+    {
+        DelayMs = 5000, // 5 second delay
+        ProcessingAction = (ct) => ProcessProfileChangeUpdate(notification, ct),
+        ProcessingName = "profile updates"
+    };
+
+    // Option 2: Process immediately (for critical changes)
+    // DelayMs = 0 for immediate processing
+    
+    // Option 3: Use custom delay based on change type
+    // DelayMs = notification.ChangeType == ProfileChangeType.Deleted ? 0 : 3000
+
+    await ProcessWithOptionalDebouncing(debounceConfig, cancellationToken);
+}
+```
+
+#### 5. Create Processing Method
+
+Implement the actual processing logic:
+
+```csharp
+private async Task ProcessProfileChangeUpdate(ProfileChangeNotification notification, CancellationToken cancellationToken)
+{
     using var scope = _serviceProvider.CreateScope();
     var profileManager = scope.ServiceProvider.GetRequiredService<IProfileManager>();
     
     await profileManager.RefreshProfilesAsync(notification.AffectedProfileUrls, cancellationToken);
+    
+    _logger.LogInformation("Successfully processed profile change notification");
 }
 ```
 
-#### 7. Configuration Updates
+#### 6. Extend UnifiedNotificationPublisher
+
+Add conversion logic to handle the new notification type:
+
+```csharp
+private object ConvertToRedisNotification<TNotification>(TNotification notification)
+    where TNotification : class, INotification
+{
+    return notification switch
+    {
+        SearchParametersUpdatedNotification updatedNotification => new SearchParameterChangeNotification
+        {
+            // ... existing mapping ...
+        },
+        ProfileUpdatedNotification profileNotification => new ProfileChangeNotification
+        {
+            InstanceId = InstanceId,
+            Timestamp = DateTimeOffset.UtcNow,
+            ChangeType = ProfileChangeType.Updated,
+            AffectedProfileUrls = profileNotification.ProfileUrls,
+            TriggerSource = "UnifiedNotificationPublisher"
+        },
+        _ => null,
+    };
+}
+```
+
+#### 7. Publish Notifications from Your Service
+
+This is the crucial step - actually publishing notifications from your business logic. Here's how to integrate notification publishing into your service:
+
+**Inject the Publisher:**
+```csharp
+public class ProfileManager
+{
+    private readonly IUnifiedNotificationPublisher _notificationPublisher;
+    private readonly IProfileRepository _profileRepository;
+    private readonly ILogger<ProfileManager> _logger;
+    
+    public ProfileManager(
+        IUnifiedNotificationPublisher notificationPublisher,
+        IProfileRepository profileRepository,
+        ILogger<ProfileManager> logger)
+    {
+        _notificationPublisher = notificationPublisher;
+        _profileRepository = profileRepository;
+        _logger = logger;
+    }
+    
+    // ... service methods ...
+}
+```
+
+**Publish Notifications on State Changes:**
+
+Option 1 - **Always Enable Redis** (for critical cross-instance synchronization):
+```csharp
+public async Task UpdateProfileAsync(string profileUrl, StructureDefinition profile, CancellationToken cancellationToken)
+{
+    try
+    {
+        // Update profile in database
+        await _profileRepository.UpdateAsync(profileUrl, profile, cancellationToken);
+        
+        _logger.LogInformation("Updated profile {ProfileUrl}", profileUrl);
+        
+        // Notify other instances via Redis (always enabled)
+        await _notificationPublisher.PublishAsync(
+            new ProfileUpdatedNotification(new[] { profileUrl }), 
+            enableRedisNotification: true, // Always broadcast to other instances
+            cancellationToken);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to update profile {ProfileUrl}", profileUrl);
+        throw;
+    }
+}
+```
+
+Option 2 - **Conditional Redis** (based on operation type):
+```csharp
+public async Task DeleteProfileAsync(string profileUrl, CancellationToken cancellationToken)
+{
+    try
+    {
+        await _profileRepository.DeleteAsync(profileUrl, cancellationToken);
+        
+        _logger.LogInformation("Deleted profile {ProfileUrl}", profileUrl);
+        
+        // Critical operations always use Redis, minor updates may not
+        bool useRedis = true; // Deletions are critical
+        
+        await _notificationPublisher.PublishAsync(
+            new ProfileUpdatedNotification(new[] { profileUrl }) 
+            { 
+                ChangeType = ProfileChangeType.Deleted 
+            },
+            enableRedisNotification: useRedis,
+            cancellationToken);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to delete profile {ProfileUrl}", profileUrl);
+        throw;
+    }
+}
+```
+
+Option 3 - **Batch Operations** (for multiple changes):
+```csharp
+public async Task UpdateMultipleProfilesAsync(
+    IReadOnlyCollection<(string Url, StructureDefinition Profile)> profiles, 
+    CancellationToken cancellationToken)
+{
+    var updatedUrls = new List<string>();
+    
+    try
+    {
+        foreach (var (url, profile) in profiles)
+        {
+            await _profileRepository.UpdateAsync(url, profile, cancellationToken);
+            updatedUrls.Add(url);
+        }
+        
+        _logger.LogInformation("Updated {Count} profiles", profiles.Count);
+        
+        // Single notification for batch operations
+        await _notificationPublisher.PublishAsync(
+            new ProfileUpdatedNotification(updatedUrls), 
+            enableRedisNotification: true,
+            cancellationToken);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to update profiles. Successfully updated: {UpdatedCount}/{TotalCount}", 
+            updatedUrls.Count, profiles.Count);
+        throw;
+    }
+}
+```
+
+#### 8. Configuration for New Notification Channel
 
 Update configuration files to include the new channel:
 
@@ -467,9 +619,9 @@ Update configuration files to include the new channel:
 }
 ```
 
-#### 8. Add Debouncing Configuration (Optional)
+#### 9. Add Debouncing Configuration (Optional)
 
-If the new notification type benefits from debouncing, add configuration:
+If the new notification type benefits from debouncing, add configuration to `RedisConfiguration`:
 
 ```csharp
 public class RedisConfiguration
@@ -479,37 +631,40 @@ public class RedisConfiguration
 }
 ```
 
-### Best Practices for New Notification Types
+### Processing Strategy Examples
 
-1. **Message Design**:
-   - Keep messages lightweight and focused
-   - Include essential context (InstanceId, Timestamp, ChangeType)
-   - Use collections for batch operations
+The flexible debouncing framework supports multiple processing strategies:
 
-2. **Channel Naming**:
-   - Use descriptive, hierarchical names
-   - Follow the pattern: `fhir:notifications:{domain}`
-   - Consider future extensibility
+#### Immediate Processing (Critical Updates)
+```csharp
+var immediateConfig = new DebounceConfig
+{
+    DelayMs = 0, // Process immediately
+    ProcessingAction = (ct) => ProcessCriticalUpdate(notification, ct),
+    ProcessingName = "critical update"
+};
+```
 
-3. **Error Handling**:
-   - Implement graceful degradation when Redis is unavailable
-   - Log errors without breaking core functionality
-   - Provide fallback mechanisms
+#### Custom Debouncing (Different Delays)
+```csharp
+var customConfig = new DebounceConfig
+{
+    DelayMs = 3000, // 3 seconds
+    ProcessingAction = (ct) => ProcessCustomUpdate(notification, ct),
+    ProcessingName = "custom update"
+};
+```
 
-4. **Performance**:
-   - Consider debouncing for high-frequency changes
-   - Batch related notifications when possible
-   - Monitor message size and frequency
-
-5. **Loop Prevention**:
-   - Use instance ID checking to prevent self-processing
-   - Implement `isFromRemoteSync` patterns when necessary
-   - Consider message deduplication for critical scenarios
-
-6. **Testing**:
-   - Write unit tests for notification publishing and handling
-   - Test Redis unavailability scenarios
-   - Verify cross-instance synchronization behavior
+#### Conditional Processing (Based on Notification Content)
+```csharp
+var conditionalDelay = notification.Priority == "High" ? 0 : 5000;
+var conditionalConfig = new DebounceConfig
+{
+    DelayMs = conditionalDelay,
+    ProcessingAction = (ct) => ProcessConditionalUpdate(notification, ct),
+    ProcessingName = "conditional update"
+};
+```
 
 ## Configuration Examples
 
@@ -573,22 +728,22 @@ public class RedisConfiguration
 ## Monitoring and Diagnostics
 
 ### Logging Levels
-- **Information**: Connection status, subscription events
-- **Debug**: Message publishing/receiving details
+- **Information**: Connection status, subscription events, processing activities
+- **Debug**: Message publishing/receiving details, debouncing events
 - **Error**: Connection failures, message handling errors
 
 ### Key Metrics to Monitor
 - Redis connection health and availability
 - Message publish/subscribe success rates
-- Notification processing latency
-- Background service health
+- Notification processing latency and debouncing effectiveness
+- Background service health and semaphore usage
 
 ## Best Practices
 
 ### Configuration
 - Always use secure connections in production (TLS/SSL)
 - Set appropriate timeout values based on network latency
-- Configure reasonable debounce delays
+- Configure reasonable debounce delays based on notification frequency
 
 ### Error Handling
 - Implement proper fallback mechanisms
@@ -599,10 +754,24 @@ public class RedisConfiguration
 - Monitor Redis memory usage and performance
 - Use connection pooling efficiently
 - Consider Redis clustering for high availability
+- Choose appropriate debouncing strategies for each notification type
 
 ### Security
 - Use Redis AUTH for authentication
 - Restrict network access to authorized instances
 - Encrypt sensitive data in Redis messages
 
-This Redis implementation provides a robust foundation for distributed state synchronization across multiple FHIR server instances while maintaining high availability through intelligent fallback mechanisms.
+### Debouncing Strategy Selection
+- **Immediate processing** (DelayMs = 0): For critical updates that must be processed immediately
+- **Short debouncing** (DelayMs = 1-5 seconds): For moderate-frequency updates
+- **Long debouncing** (DelayMs = 10+ seconds): For high-frequency updates that can be batched
+- **Conditional debouncing**: Based on notification content, priority, or type
+
+### Publishing Best Practices
+- **Always enable Redis for critical state changes** that need cross-instance synchronization
+- **Use batch operations** when updating multiple related items
+- **Choose appropriate timing** for when to publish (after successful database operations)
+- **Handle publisher errors gracefully** - the `UnifiedNotificationPublisher` provides automatic fallback
+- **Consider the business impact** of each notification type when deciding on Redis vs local publishing
+
+This Redis implementation provides a robust and flexible foundation for distributed state synchronization across multiple FHIR server instances, with intelligent debouncing strategies that can be tailored to each notification type's specific requirements.
