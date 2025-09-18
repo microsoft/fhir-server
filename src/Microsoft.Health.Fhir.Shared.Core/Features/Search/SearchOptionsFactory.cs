@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly CoreFeatureConfiguration _featureConfiguration;
         private SearchParameterInfo _resourceTypeSearchParameter;
         private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+        private readonly HashSet<string> _paginationParameterNames = new() { KnownQueryParameterNames.Page, KnownQueryParameterNames.PageSize, KnownQueryParameterNames.StartRow, KnownQueryParameterNames.EndRow };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -132,7 +133,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
-            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
+
+            // Filter out the pagination parameters when it's an include operation
+            var queryParameterList = (queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
+                .Where(q => !_queryHintParameterNames.Contains(q.Item1) &&
+                            (!searchOptions.IsIncludesOperation || !_paginationParameterNames.Contains(q.Item1)))
+                .ToList();
+
+            foreach (Tuple<string, string> query in queryParameterList)
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
@@ -157,19 +165,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Page, StringComparison.OrdinalIgnoreCase))
                 {
                     // if Pagination parameters are present, we set the SearchOptions to use them.
-                    searchOptions.PageNumber = int.TryParse(query.Item2, out int page) && page > 0 ? page : (int?)null;
+                    searchOptions.PageNumber = int.TryParse(query.Item2, out int page) && page > 0 ? page : null;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.PageSize, StringComparison.OrdinalIgnoreCase))
                 {
-                    searchOptions.PageSize = int.TryParse(query.Item2, out int pageSize) && pageSize > 0 ? pageSize : (int?)null;
+                    searchOptions.PageSize = int.TryParse(query.Item2, out int pageSize) && pageSize > 0 ? pageSize : null;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.StartRow, StringComparison.OrdinalIgnoreCase))
                 {
-                    searchOptions.RowStart = int.TryParse(query.Item2, out int startRow) && startRow > 0 ? startRow : (int?)null;
+                    searchOptions.RowStart = int.TryParse(query.Item2, out int startRow) && startRow > 0 ? startRow : null;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.EndRow, StringComparison.OrdinalIgnoreCase))
                 {
-                    searchOptions.RowEnd = int.TryParse(query.Item2, out int endRow) && endRow > 0 ? endRow : (int?)null;
+                    searchOptions.RowEnd = int.TryParse(query.Item2, out int endRow) && endRow > 0 ? endRow : null;
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
@@ -307,6 +315,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            // Validate pagination parameters
+            if ((searchOptions.PageNumber.HasValue || searchOptions.PageSize.HasValue) &&
+                (searchOptions.RowStart.HasValue || searchOptions.RowEnd.HasValue))
+            {
+                throw new BadRequestException("Cannot mix page-based and row-based pagination parameters.");
+            }
+
+            if (searchOptions.PageNumber.HasValue || searchOptions.PageSize.HasValue)
+            {
+                if (!searchOptions.PageNumber.HasValue || !searchOptions.PageSize.HasValue)
+                {
+                    throw new BadRequestException("Both PageNumber and PageSize must be provided together.");
+                }
+            }
+
+            if (searchOptions.RowStart.HasValue || searchOptions.RowEnd.HasValue)
+            {
+                if (!searchOptions.RowStart.HasValue || !searchOptions.RowEnd.HasValue)
+                {
+                    throw new BadRequestException("Both RowStart and RowEnd must be provided together for row-based pagination.");
+                }
+            }
+
             if (isIncludesOperation && string.IsNullOrEmpty(includesContinuationToken))
             {
                 throw new BadRequestException(Core.Resources.MissingIncludesContinuationToken);
@@ -346,6 +377,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 else
                 {
                     searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
+            } // if pagination parameters are present, check if asked nummber of records exceeds the limit
+            else if (searchOptions.PageNumber.HasValue || searchOptions.PageSize.HasValue || searchOptions.RowStart.HasValue || searchOptions.RowEnd.HasValue)
+            {
+                if (searchOptions.PageNumber.HasValue && searchOptions.PageSize.HasValue)
+                {
+                    if (searchOptions.PageSize > _featureConfiguration.MaxItemCountPerSearch)
+                    {
+                        searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
+                    }
+                    else
+                    {
+                        searchOptions.MaxItemCount = (int)searchOptions.PageSize;
+                    }
+                }
+                else if (searchOptions.RowStart.HasValue && searchOptions.RowEnd.HasValue)
+                {
+                    if ((searchOptions.RowEnd - searchOptions.RowStart) > _featureConfiguration.MaxItemCountPerSearch)
+                    {
+                        searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
+                    }
+                    else
+                    {
+                        searchOptions.MaxItemCount = (int)(searchOptions.RowEnd - searchOptions.RowStart);
+                    }
                 }
             }
             else

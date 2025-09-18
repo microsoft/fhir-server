@@ -194,8 +194,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (expression.SearchParamTableExpressions.Count == 0)
                 {
                     // If pagination is provided, we no longer use TOP clause.
-                    if (!searchOptions.PageNumber.HasValue || !searchOptions.PageSize.HasValue)
-                    { 
+                    if ((!searchOptions.PageNumber.HasValue || !searchOptions.PageSize.HasValue) && (!searchOptions.RowStart.HasValue || !searchOptions.RowEnd.HasValue))
+                    {
                         StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
                     }
                 }
@@ -306,7 +306,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                     }
 
-                    AppendPaginationClause(context);
+                    if (expression.SearchParamTableExpressions.Count == 0)
+                    {
+                        AppendPaginationClause(context);
+                    }
+
                     AddOptionClause();
                 }
             }
@@ -651,20 +655,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             const string selectStatement = "SELECT DISTINCT";
+            StringBuilder.Append(selectStatement);
 
             // If pagination is provided, we no longer use TOP clause.
-            if (!context.PageNumber.HasValue || !context.PageSize.HasValue)
+            if ((!context.PageNumber.HasValue || !context.PageSize.HasValue) && (!context.RowStart.HasValue || !context.RowEnd.HasValue))
             {
-                StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false));
+                StringBuilder.Append(" TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
             }
 
-            StringBuilder.Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+            StringBuilder.Append(" T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 
             AppendOrderBy();
+            StringBuilder.AppendLine();
             AppendPaginationClause(context);
-
             StringBuilder.AppendLine();
 
             if (hasIncludeExpression)
@@ -708,12 +713,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Append pagination clause based on row range or page numbers
             if (searchOptions.RowStart.HasValue && searchOptions.RowEnd.HasValue)
             {
-                if (searchOptions.RowStart.Value < 0 || searchOptions.RowEnd.Value < searchOptions.RowStart.Value)
+                if (searchOptions.RowStart.Value <= 0 || searchOptions.RowEnd.Value < searchOptions.RowStart.Value)
                 {
-                    throw new ArgumentException("Row range is invalid. Ensure RowEnd >= RowStart and RowStart >= 0.");
+                    throw new ArgumentException("Row range is invalid. Ensure RowEnd >= RowStart and RowStart > 0.");
                 }
+
                 int fetch = searchOptions.RowEnd.Value - searchOptions.RowStart.Value + 1;
-                StringBuilder.Append($" OFFSET {searchOptions.RowStart.Value} ROWS FETCH NEXT {fetch} ROWS ONLY");
+                int offset = searchOptions.RowStart.Value - 1;
+                StringBuilder.Append($" OFFSET {offset} ROWS FETCH NEXT {fetch} ROWS ONLY");
             }
             else if (searchOptions.PageNumber.HasValue && searchOptions.PageSize.HasValue)
             {
