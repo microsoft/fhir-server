@@ -276,18 +276,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
         }
 
         [Fact]
-        public async Task PublishAsync_WithUnsupportedNotificationType_ShouldNotPublishAnything()
+        public async Task PublishAsync_WithUnsupportedNotificationType_ShouldThrowNotSupportedException()
         {
             // Arrange
             var redisConfig = Options.Create(new RedisConfiguration { Enabled = true });
             var publisher = new UnifiedNotificationPublisher(_mediator, _notificationService, redisConfig, NullLogger<UnifiedNotificationPublisher>.Instance);
             var notification = new TestMediatRNotification { Message = "test" };
 
-            // Act - For unsupported types with enableRedisNotification=true, ConvertToRedisNotification returns null
+            // Act & Assert - Should throw NotSupportedException for unsupported types when Redis is enabled
+            var exception = await Assert.ThrowsAsync<NotSupportedException>(
+                () => publisher.PublishAsync(notification, enableRedisNotification: true, CancellationToken.None));
+
+            Assert.Contains("TestMediatRNotification", exception.Message);
+            Assert.Contains("does not support Redis publishing", exception.Message);
+
+            // Verify NO publishing occurred since the exception is thrown early
+            await _mediator.DidNotReceive().Publish(Arg.Any<TestMediatRNotification>(), Arg.Any<CancellationToken>());
+            await _notificationService.DidNotReceive().PublishAsync(Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task PublishAsync_WithUnsupportedNotificationTypeButRedisDisabled_ShouldNotThrowAndPublishLocally()
+        {
+            // Arrange
+            var redisConfig = Options.Create(new RedisConfiguration { Enabled = false });
+            var publisher = new UnifiedNotificationPublisher(_mediator, _notificationService, redisConfig, NullLogger<UnifiedNotificationPublisher>.Instance);
+            var notification = new TestMediatRNotification { Message = "test" };
+
+            // Act - Should not throw when Redis is disabled, even for unsupported types
             await publisher.PublishAsync(notification, enableRedisNotification: true, CancellationToken.None);
 
-            // Assert - Since ConvertToRedisNotification returns null for unsupported types, nothing is published
-            await _mediator.DidNotReceive().Publish(Arg.Any<TestMediatRNotification>(), Arg.Any<CancellationToken>());
+            // Assert - Should publish locally instead of throwing
+            await _mediator.Received(1).Publish(notification, Arg.Any<CancellationToken>());
             await _notificationService.DidNotReceive().PublishAsync(Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
 
