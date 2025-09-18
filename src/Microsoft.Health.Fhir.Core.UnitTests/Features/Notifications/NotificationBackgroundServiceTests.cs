@@ -292,5 +292,90 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
 
             service.Dispose();
         }
+
+        [Fact]
+        public async Task HandleSearchParameterChangeNotification_FromSameInstance_ShouldSkipProcessing()
+        {
+            // Arrange
+            const string instanceId = "test-instance-123";
+            var redisConfig = Options.Create(new RedisConfiguration { Enabled = true });
+
+            var services = new ServiceCollection();
+            var mockUnifiedPublisher = Substitute.For<IUnifiedNotificationPublisher>();
+            mockUnifiedPublisher.InstanceId.Returns(instanceId);
+
+            services.AddSingleton(_notificationService);
+            services.AddSingleton(_searchParameterOperations);
+            services.AddSingleton(mockUnifiedPublisher);
+            var serviceProvider = services.BuildServiceProvider();
+
+            var service = new NotificationBackgroundService(serviceProvider, redisConfig, NullLogger<NotificationBackgroundService>.Instance);
+
+            var notification = new SearchParameterChangeNotification
+            {
+                InstanceId = instanceId, // Same instance ID
+                Timestamp = DateTimeOffset.UtcNow,
+                ChangeType = SearchParameterChangeType.StatusChanged,
+                TriggerSource = "Test",
+            };
+
+            // Use reflection to access the private method for testing
+            var method = typeof(NotificationBackgroundService).GetMethod("HandleSearchParameterChangeNotification", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            // Act
+            await (Task)method.Invoke(service, new object[] { notification, CancellationToken.None });
+
+            // Assert - Should not call SearchParameterOperations when notification is from same instance
+            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>());
+
+            service.Dispose();
+        }
+
+        [Fact]
+        public async Task HandleSearchParameterChangeNotification_FromDifferentInstance_ShouldProcessNotification()
+        {
+            // Arrange
+            const string currentInstanceId = "current-instance-123";
+            const string differentInstanceId = "different-instance-456";
+            var redisConfig = Options.Create(new RedisConfiguration
+            {
+                Enabled = true,
+                SearchParameterNotificationDelayMs = 0, // No delay for test
+            });
+
+            var services = new ServiceCollection();
+            var mockUnifiedPublisher = Substitute.For<IUnifiedNotificationPublisher>();
+            mockUnifiedPublisher.InstanceId.Returns(currentInstanceId);
+
+            services.AddSingleton(_notificationService);
+            services.AddSingleton(_searchParameterOperations);
+            services.AddSingleton(mockUnifiedPublisher);
+            var serviceProvider = services.BuildServiceProvider();
+
+            var service = new NotificationBackgroundService(serviceProvider, redisConfig, NullLogger<NotificationBackgroundService>.Instance);
+
+            var notification = new SearchParameterChangeNotification
+            {
+                InstanceId = differentInstanceId, // Different instance ID
+                Timestamp = DateTimeOffset.UtcNow,
+                ChangeType = SearchParameterChangeType.StatusChanged,
+                TriggerSource = "Test",
+            };
+
+            // Use reflection to access the private method for testing
+            var method = typeof(NotificationBackgroundService).GetMethod("HandleSearchParameterChangeNotification", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            // Act
+            await (Task)method.Invoke(service, new object[] { notification, CancellationToken.None });
+
+            // Assert - Should call SearchParameterOperations when notification is from different instance
+            await _searchParameterOperations.Received(1).GetAndApplySearchParameterUpdates(
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>());
+
+            service.Dispose();
+        }
     }
 }

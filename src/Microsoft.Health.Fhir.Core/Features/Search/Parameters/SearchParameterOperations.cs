@@ -112,6 +112,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
                         await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
+
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (FhirException fex)
                     {
@@ -173,6 +175,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                         // Update the status of the search parameter in the definition manager once the status is updated in the store.
                         _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
+
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (FhirException fex)
                     {
@@ -256,6 +260,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                         _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                         await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
+
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
                     }
                     catch (FhirException fex)
                     {

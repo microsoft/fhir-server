@@ -72,10 +72,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
                 notification.ChangeType,
                 notification.TriggerSource);
 
+            // Get the current instance ID for comparison
+            using var scope = _serviceProvider.CreateScope();
+            var unifiedPublisher = scope.ServiceProvider.GetRequiredService<IUnifiedNotificationPublisher>();
+            var currentInstanceId = unifiedPublisher.InstanceId;
+
+            // Skip processing if notification is from the same instance
+            if (string.Equals(notification.InstanceId, currentInstanceId, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug(
+                    "Skipping search parameter change notification from same instance {InstanceId}. ChangeType: {ChangeType}",
+                    notification.InstanceId,
+                    notification.ChangeType);
+                return;
+            }
+
+            // Use debouncing for search parameter processing
+            var debounceConfig = new DebounceConfig
+            {
+                DelayMs = _redisConfiguration.SearchParameterNotificationDelayMs,
+                ProcessingAction = ProcessSearchParameterUpdate,
+                ProcessingName = "search parameter updates",
+            };
+
+            await ProcessWithOptionalDebouncing(debounceConfig, cancellationToken);
+        }
+
+        /// <summary>
+        /// Processes a notification with optional debouncing and queueing.
+        /// Debouncing is applied when DelayMs > 0, otherwise processes immediately.
+        /// </summary>
+        /// <param name="debounceConfig">Configuration for processing. Cannot be null.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public async Task ProcessWithOptionalDebouncing(DebounceConfig debounceConfig, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(debounceConfig);
+            debounceConfig.Validate();
+
+            if (debounceConfig.DelayMs <= 0)
+            {
+                // Process immediately without debouncing or semaphore management
+                _logger.LogDebug("Processing {ProcessingName} immediately (no debouncing)", debounceConfig.ProcessingName);
+                await ProcessWithRetry(debounceConfig, cancellationToken);
+                return;
+            }
+
             // Check if processing is currently happening
             if (!await _processingGate.WaitAsync(0, cancellationToken))
             {
-                _logger.LogInformation("Search parameter update is currently processing. Queueing new notification.");
+                _logger.LogInformation(
+                    "{ProcessingName} is currently processing. Queueing new notification.",
+                    debounceConfig.ProcessingName);
 
                 // Queue this notification by setting the flag and updating delay token
                 _isProcessingQueued = true;
@@ -94,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
             try
             {
                 // Start the debounced processing
-                await ProcessWithDebounceAndQueue(cancellationToken);
+                await ProcessWithDebounceAndQueue(debounceConfig, cancellationToken);
             }
             finally
             {
@@ -102,7 +149,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
             }
         }
 
-        private async Task ProcessWithDebounceAndQueue(CancellationToken cancellationToken)
+        /// <summary>
+        /// Generic method for debouncing and queueing any type of processing.
+        /// </summary>
+        /// <param name="debounceConfig">Configuration for the debounced processing.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        private async Task ProcessWithDebounceAndQueue(DebounceConfig debounceConfig, CancellationToken cancellationToken)
         {
             do
             {
@@ -119,54 +171,75 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
 
                 try
                 {
-                    _logger.LogDebug("Starting debounce delay of {DelayMs}ms for search parameter updates.", _redisConfiguration.SearchParameterNotificationDelayMs);
-                    await Task.Delay(_redisConfiguration.SearchParameterNotificationDelayMs, delayToken);
+                    _logger.LogDebug(
+                        "Starting debounce delay of {DelayMs}ms for {ProcessingName}.",
+                        debounceConfig.DelayMs,
+                        debounceConfig.ProcessingName);
+                    await Task.Delay(debounceConfig.DelayMs, delayToken);
                 }
                 catch (OperationCanceledException) when (delayToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
                     // Delay was cancelled by a new notification, continue the loop to restart delay
-                    _logger.LogDebug("Debounce delay was cancelled by newer notification, restarting delay.");
+                    _logger.LogDebug(
+                        "Debounce delay for {ProcessingName} was cancelled by newer notification, restarting delay.",
+                        debounceConfig.ProcessingName);
                     continue;
                 }
 
                 // Process the actual update (this cannot be cancelled by new notifications)
-                await ProcessSearchParameterUpdateWithRetry(cancellationToken);
+                await ProcessWithRetry(debounceConfig, cancellationToken);
             }
             while (_isProcessingQueued); // Continue processing if more notifications were queued during processing
         }
 
-        private async Task ProcessSearchParameterUpdateWithRetry(CancellationToken cancellationToken)
+        /// <summary>
+        /// Generic method for executing processing actions with retry logic and error handling.
+        /// </summary>
+        /// <param name="debounceConfig">Configuration for the processing.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        private async Task ProcessWithRetry(DebounceConfig debounceConfig, CancellationToken cancellationToken)
         {
-            using var statusScope = _serviceProvider.CreateScope();
-
             try
             {
-                var searchParameterOperations = statusScope.ServiceProvider.GetRequiredService<ISearchParameterOperations>();
+                _logger.LogInformation(
+                    "Processing {ProcessingName} after {DelayMs}ms delay.",
+                    debounceConfig.ProcessingName,
+                    debounceConfig.DelayMs);
 
-                _logger.LogInformation("Processing search parameter updates after {DelayMs}ms delay.", _redisConfiguration.SearchParameterNotificationDelayMs);
+                await debounceConfig.ProcessingAction(cancellationToken);
 
-                // Apply the latest search parameter updates from other instances
-                // Use only the service cancellation token, not the delay token
-                await searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
-
-                _logger.LogInformation("Successfully applied search parameter updates.");
+                _logger.LogInformation("Successfully processed {ProcessingName}.", debounceConfig.ProcessingName);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // Only log cancellation if it's from service shutdown
-                _logger.LogDebug("Search parameter update processing was cancelled due to service shutdown.");
+                _logger.LogDebug("{ProcessingName} processing was cancelled due to service shutdown.", debounceConfig.ProcessingName);
                 throw; // Re-throw to properly handle service shutdown
             }
             catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // Only log cancellation if it's from service shutdown
-                _logger.LogDebug("Search parameter update processing was cancelled due to service shutdown.");
+                _logger.LogDebug("{ProcessingName} processing was cancelled due to service shutdown.", debounceConfig.ProcessingName);
                 throw; // Re-throw to properly handle service shutdown
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to apply search parameter updates.");
+                _logger.LogError(ex, "Failed to process {ProcessingName}.", debounceConfig.ProcessingName);
             }
+        }
+
+        /// <summary>
+        /// Specific processing logic for search parameter updates.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        private async Task ProcessSearchParameterUpdate(CancellationToken cancellationToken)
+        {
+            using var statusScope = _serviceProvider.CreateScope();
+            var searchParameterOperations = statusScope.ServiceProvider.GetRequiredService<ISearchParameterOperations>();
+
+            // Apply the latest search parameter updates from other instances
+            // Use only the service cancellation token, not the delay token
+            await searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
         }
 
         public override void Dispose()

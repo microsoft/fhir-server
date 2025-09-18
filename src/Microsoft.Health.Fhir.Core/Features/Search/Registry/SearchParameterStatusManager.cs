@@ -195,8 +195,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
-
-            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
         }
 
         public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
@@ -268,9 +266,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
             }
 
-            // If isFromRemoteSync is true, then this call is originating from Redis remote subscription, so we do not want to send the notification back to Redis
-            // But we do want the local notification that we just changed status' locally for SearchParameterDefinitionManager to pick up the changes.
-            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), isFromRemoteSync ? false : true, cancellationToken);
+            // We always want the local notification for SearchParameterDefinitionManager to pick up the changes.
+            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+
+            // If isFromRemoteSync is false, then this call is originating from local change, so we send to Redis, otherwise we don't
+            if (!isFromRemoteSync)
+            {
+                await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+            }
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
