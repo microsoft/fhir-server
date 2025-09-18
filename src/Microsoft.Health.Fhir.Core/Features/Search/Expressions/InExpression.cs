@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} IN ({string.Join(", ", Values)}))";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return $"({(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
         }

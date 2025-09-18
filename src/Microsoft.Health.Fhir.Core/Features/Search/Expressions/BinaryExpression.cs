@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Field{BinaryOperator} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} {ValueToString()})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return $"(Field{BinaryOperator} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
         }

@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} '{Value}')";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             // ReferenceResourceType is a special case where the expression requires the value to be included.
             if (FieldName == FieldName.ReferenceResourceType)

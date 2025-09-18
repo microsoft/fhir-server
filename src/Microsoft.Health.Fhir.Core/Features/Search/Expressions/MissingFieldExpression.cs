@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(MissingField {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return ToString();
         }

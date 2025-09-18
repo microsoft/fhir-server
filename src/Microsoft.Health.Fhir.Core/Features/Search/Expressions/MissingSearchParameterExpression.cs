@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return ToString();
         }

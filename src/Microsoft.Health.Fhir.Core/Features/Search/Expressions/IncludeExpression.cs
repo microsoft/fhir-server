@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return ToString();
         }

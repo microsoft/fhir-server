@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Param {Parameter.Code} {Expression})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             // ResourceType is a special case where the expression requires the value to be included.
             if (Parameter.Code == SearchParameterNames.ResourceType)
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
             else
             {
-                return $"(Param {Parameter.Code} {Expression.GetExpressionParameterNames()})";
+                return $"(Param {Parameter.Code} {Expression.GetUniqueExpressionIdentifier()})";
             }
         }
 

@@ -322,9 +322,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public abstract override string ToString();
 
         /// <summary>
-        /// Given an expression, returns the names of all parameters that are used in the expression.
+        /// Given an expression, returns its unique identifier, ignoring parameterizable values.
         /// </summary>
-        public abstract string GetExpressionParameterNames();
+        public abstract string GetUniqueExpressionIdentifier();
 
         /// <summary>
         /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.

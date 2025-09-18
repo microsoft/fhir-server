@@ -40,9 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Not {Expression})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
-            return $"(Not {Expression.GetExpressionParameterNames()})";
+            return $"(Not {Expression.GetUniqueExpressionIdentifier()})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

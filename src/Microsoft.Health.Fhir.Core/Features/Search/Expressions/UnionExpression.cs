@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions)})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
-            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions.Select(e => e.GetExpressionParameterNames()))})";
+            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions.Select(e => e.GetUniqueExpressionIdentifier()))})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

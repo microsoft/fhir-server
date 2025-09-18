@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Compartment {CompartmentType} '{CompartmentId}')";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
             return $"(Compartment {CompartmentType})";
         }

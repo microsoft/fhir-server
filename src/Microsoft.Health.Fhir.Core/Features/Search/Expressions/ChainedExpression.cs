@@ -83,9 +83,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression})";
         }
 
-        public override string GetExpressionParameterNames()
+        public override string GetUniqueExpressionIdentifier()
         {
-            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression.GetExpressionParameterNames()})";
+            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression.GetUniqueExpressionIdentifier()})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
