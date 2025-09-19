@@ -41,10 +41,12 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.AspNetCore.JsonPatch" />
+    <PackageReference Include="Microsoft.Azure.StackExchangeRedis" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />

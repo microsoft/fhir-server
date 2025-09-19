@@ -7,7 +7,9 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
+using Microsoft.Azure.StackExchangeRedis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -15,6 +17,15 @@ using StackExchange.Redis;
 
 namespace Microsoft.Health.Fhir.Core.Features.Notifications
 {
+    /// <summary>
+    /// Redis-based notification service using Microsoft Entra ID authentication.
+    ///
+    /// Prerequisites:
+    /// - Azure Cache for Redis has Microsoft Entra authentication enabled
+    /// - The managed identity is added as a Redis user (Data Contributor/Owner)
+    /// - Connect over TLS port 6380
+    /// - Entra auth is supported on Basic/Standard/Premium tiers (not Enterprise)
+    /// </summary>
     public class RedisNotificationService : INotificationService, IDisposable
     {
         private readonly RedisConfiguration _configuration;
@@ -23,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
         private ConnectionMultiplexer _connection;
         private ISubscriber _subscriber;
         private bool _disposed;
+        private bool _initialized;
 
         public RedisNotificationService(
             IOptions<RedisConfiguration> configuration,
@@ -45,29 +57,165 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
 
         private async Task InitializeAsync()
         {
-            if (!_configuration.Enabled || string.IsNullOrEmpty(_configuration.ConnectionString))
+            if (!_configuration.Enabled)
             {
-                _logger.LogInformation("Redis notifications are disabled or connection string is not configured.");
+                _logger.LogInformation("Redis notifications are disabled.");
+                _initialized = true;
                 return;
             }
 
+            // Validate configuration before attempting connection
             try
             {
-                var configurationOptions = ConfigurationOptions.Parse(_configuration.ConnectionString);
+                _configuration.Validate();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Redis configuration validation failed: {Message}", ex.Message);
+                throw;
+            }
+
+            _logger.LogInformation(
+                "Initializing Redis connection with Microsoft Entra ID authentication to {Host}:{Port}",
+                _configuration.Host,
+                _configuration.Port);
+
+            try
+            {
+                // Create configuration options using Microsoft Entra integration
+                var configurationOptions = await CreateManagedIdentityConfigurationAsync();
+
+                // Apply common configuration settings
                 configurationOptions.AbortOnConnectFail = _configuration.Configuration.AbortOnConnectFail;
                 configurationOptions.ConnectRetry = _configuration.Configuration.ConnectRetry;
                 configurationOptions.ConnectTimeout = _configuration.Configuration.ConnectTimeout;
                 configurationOptions.SyncTimeout = _configuration.Configuration.SyncTimeout;
                 configurationOptions.AsyncTimeout = _configuration.Configuration.AsyncTimeout;
 
+                // Connect using Microsoft Entra-enabled configuration
                 _connection = await ConnectionMultiplexer.ConnectAsync(configurationOptions);
-                _subscriber = _connection.GetSubscriber();
 
-                _logger.LogInformation("Redis notification service initialized successfully.");
+                // Verify connection is working by testing it with a real command
+                await VerifyConnectionAsync();
+
+                _subscriber = _connection.GetSubscriber();
+                _initialized = true;
+
+                _logger.LogInformation(
+                    "Redis notification service initialized successfully to {Host}:{Port} with Microsoft Entra ID (Connected: {IsConnected})",
+                    _configuration.Host,
+                    _configuration.Port,
+                    _connection.IsConnected);
+            }
+            catch (RedisConnectionException ex) when (IsAuthenticationError(ex))
+            {
+                _logger.LogError(
+                    ex,
+                    "Redis authentication failed. Ensure Microsoft Entra ID authentication is enabled on Redis Cache and Managed Identity has proper permissions. Host: {Host}:{Port}",
+                    _configuration.Host,
+                    _configuration.Port);
+                throw new InvalidOperationException($"Redis authentication failed for {_configuration.Host}:{_configuration.Port}. Check Microsoft Entra ID configuration and permissions.", ex);
+            }
+            catch (RedisConnectionException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Redis connection failed to {Host}:{Port}. Error: {Message}",
+                    _configuration.Host,
+                    _configuration.Port,
+                    ex.Message);
+                throw new InvalidOperationException($"Unable to connect to Redis at {_configuration.Host}:{_configuration.Port}. Check network connectivity and configuration.", ex);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to initialize Redis notification service.");
+                _logger.LogError(
+                    ex,
+                    "Failed to initialize Redis notification service to {Host}:{Port}. Error: {Error}",
+                    _configuration.Host,
+                    _configuration.Port,
+                    ex.Message);
+                throw;
+            }
+        }
+
+        private static bool IsAuthenticationError(RedisConnectionException ex)
+        {
+            // Check for common authentication-related error messages
+            var message = ex.Message ?? string.Empty;
+            return message.Contains("NOAUTH", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("authentication", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("unauthorized", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Creates Redis configuration using Microsoft Azure StackExchangeRedis integration.
+        /// This handles token acquisition, refresh, and authentication automatically.
+        /// </summary>
+        private async Task<ConfigurationOptions> CreateManagedIdentityConfigurationAsync()
+        {
+            var options = new ConfigurationOptions
+            {
+                AbortOnConnectFail = false,
+                ClientName = "FHIRServer-ManagedIdentity",
+                Ssl = _configuration.UseSsl,
+                DefaultDatabase = 0,
+            };
+
+            var port = _configuration.Port == 0 ? 6380 : _configuration.Port;
+            options.EndPoints.Add(_configuration.Host, port);
+
+            // Managed Identity / Workload Identity credential
+            var credOptions = new DefaultAzureCredentialOptions
+            {
+                ExcludeVisualStudioCredential = true,
+                ExcludeVisualStudioCodeCredential = true,
+                ExcludeInteractiveBrowserCredential = true,
+                ManagedIdentityClientId = string.IsNullOrEmpty(_configuration.ManagedIdentityClientId) ? null : _configuration.ManagedIdentityClientId, // null for system-assigned
+            };
+            var credential = new DefaultAzureCredential(credOptions);
+
+            // Wire Microsoft Entra auth into StackExchange.Redis and enable automatic token refresh
+            await options.ConfigureForAzureWithTokenCredentialAsync(credential);
+
+            _logger.LogInformation("Configured Redis for Microsoft Entra ID auth (Managed Identity). Host={Host} Port={Port}", _configuration.Host, port);
+            return options;
+        }
+
+        private async Task VerifyConnectionAsync()
+        {
+            if (_connection == null || !_connection.IsConnected)
+            {
+                throw new InvalidOperationException("Redis connection was not established properly");
+            }
+
+            // Test the connection with a simple PING command to verify authentication
+            var database = _connection.GetDatabase();
+            try
+            {
+                _logger.LogDebug("Verifying Redis connection with PING command");
+                var pingResult = await database.PingAsync();
+                _logger.LogInformation("Redis PING successful: {PingTime}ms - Microsoft Entra ID authentication verified", pingResult.TotalMilliseconds);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("NOAUTH", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(ex, "Redis authentication failed - NOAUTH error during PING. This indicates Microsoft Entra ID is not configured properly on Redis Cache");
+
+                // Convert server-side NOAUTH error to connection exception
+                throw new RedisConnectionException(ConnectionFailureType.AuthenticationFailure, "Redis authentication required - NOAUTH error received. Check Microsoft Entra ID configuration on Redis Cache.", ex);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("WRONGPASS", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(ex, "Redis authentication failed - WRONGPASS error. This indicates Microsoft Entra ID token authentication is not configured properly");
+                throw new RedisConnectionException(ConnectionFailureType.AuthenticationFailure, "Redis authentication failed - wrong password. Ensure Microsoft Entra ID authentication is enabled on Redis Cache.", ex);
+            }
+            catch (RedisServerException ex)
+            {
+                _logger.LogError(ex, "Redis server error during connection verification: {Message}", ex.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during Redis connection verification: {Message}", ex.Message);
                 throw;
             }
         }
@@ -78,9 +226,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
             EnsureArg.IsNotNullOrWhiteSpace(channel, nameof(channel));
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (!_configuration.Enabled || _subscriber == null)
+            if (!_configuration.Enabled || !_initialized || _subscriber == null)
             {
-                _logger.LogDebug("Redis notifications are disabled. Skipping publish to channel: {Channel}", channel);
+                _logger.LogDebug("Redis notifications are disabled or not initialized. Skipping publish to channel: {Channel}", channel);
                 return;
             }
 
@@ -104,9 +252,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
             EnsureArg.IsNotNullOrWhiteSpace(channel, nameof(channel));
             EnsureArg.IsNotNull(handler, nameof(handler));
 
-            if (!_configuration.Enabled || _subscriber == null)
+            if (!_configuration.Enabled || !_initialized || _subscriber == null)
             {
-                _logger.LogDebug("Redis notifications are disabled. Skipping subscribe to channel: {Channel}", channel);
+                _logger.LogDebug("Redis notifications are disabled or not initialized. Skipping subscribe to channel: {Channel}", channel);
                 return;
             }
 
@@ -141,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Notifications
         {
             EnsureArg.IsNotNullOrWhiteSpace(channel, nameof(channel));
 
-            if (!_configuration.Enabled || _subscriber == null)
+            if (!_configuration.Enabled || !_initialized || _subscriber == null)
             {
                 return;
             }

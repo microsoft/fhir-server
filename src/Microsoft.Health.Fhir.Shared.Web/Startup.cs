@@ -371,13 +371,13 @@ namespace Microsoft.Health.Fhir.Web
             var redisConfig = new RedisConfiguration();
             Configuration.GetSection(RedisConfiguration.SectionName).Bind(redisConfig);
 
-            if (redisConfig.Enabled && !string.IsNullOrEmpty(redisConfig.ConnectionString))
+            if (redisConfig.Enabled && !string.IsNullOrEmpty(redisConfig.Host))
             {
                 // Register Redis connection multiplexer
                 services.AddSingleton<IConnectionMultiplexer>(provider =>
                 {
                     var config = provider.GetRequiredService<IOptions<RedisConfiguration>>().Value;
-                    var configurationOptions = ConfigurationOptions.Parse(config.ConnectionString);
+                    var configurationOptions = ConfigurationOptions.Parse(config.Host);
                     configurationOptions.AbortOnConnectFail = config.Configuration.AbortOnConnectFail;
                     configurationOptions.ConnectRetry = config.Configuration.ConnectRetry;
                     configurationOptions.ConnectTimeout = config.Configuration.ConnectTimeout;

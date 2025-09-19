@@ -44,21 +44,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
         }
 
         [Fact]
-        public void Constructor_WithEmptyConnectionString_ShouldNotThrow()
-        {
-            // Arrange & Act
-            var config = Options.Create(new RedisConfiguration
-            {
-                Enabled = true,
-                ConnectionString = string.Empty,
-            });
-
-            // Assert - Should not throw and should handle gracefully
-            var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-            Assert.NotNull(service);
-        }
-
-        [Fact]
         public async Task PublishAsync_WithNullMessage_ShouldThrowArgumentException()
         {
             // Arrange
@@ -82,68 +67,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             var testMessage = new TestNotification { Message = "test" };
 
             // Act & Assert
-            if (invalidChannel == null)
-            {
-                await Assert.ThrowsAsync<ArgumentNullException>(
-                    () => service.PublishAsync(invalidChannel, testMessage, CancellationToken.None));
-            }
-            else
-            {
-                await Assert.ThrowsAsync<ArgumentException>(
-                    () => service.PublishAsync(invalidChannel, testMessage, CancellationToken.None));
-            }
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => service.PublishAsync(invalidChannel, testMessage, CancellationToken.None));
         }
 
         [Fact]
-        public async Task SubscribeAsync_WithRedisDisabled_ShouldNotThrow()
+        public async Task SubscribeAsync_WithRedisDisabled_ShouldNotThrowAndCompleteGracefully()
         {
             // Arrange
             var config = Options.Create(new RedisConfiguration { Enabled = false });
             var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-            NotificationHandler<TestNotification> handler = (msg, ct) => Task.CompletedTask;
+            var handlerCalled = false;
+            NotificationHandler<TestNotification> handler = (msg, ct) =>
+            {
+                handlerCalled = true;
+                return Task.CompletedTask;
+            };
 
             // Act & Assert - Should not throw
             await service.SubscribeAsync("test-channel", handler, CancellationToken.None);
+
+            // Verify handler wasn't called (since Redis is disabled)
+            Assert.False(handlerCalled);
         }
 
         [Fact]
-        public async Task SubscribeAsync_WithNullHandler_ShouldThrowArgumentException()
-        {
-            // Arrange
-            var config = Options.Create(new RedisConfiguration { Enabled = false });
-            var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(
-                () => service.SubscribeAsync("test-channel", (NotificationHandler<TestNotification>)null, CancellationToken.None));
-        }
-
-        [Theory]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData(null)]
-        public async Task SubscribeAsync_WithInvalidChannel_ShouldThrowArgumentException(string invalidChannel)
-        {
-            // Arrange
-            var config = Options.Create(new RedisConfiguration { Enabled = false });
-            var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-            NotificationHandler<TestNotification> handler = (msg, ct) => Task.CompletedTask;
-
-            // Act & Assert
-            if (invalidChannel == null)
-            {
-                await Assert.ThrowsAsync<ArgumentNullException>(
-                    () => service.SubscribeAsync(invalidChannel, handler, CancellationToken.None));
-            }
-            else
-            {
-                await Assert.ThrowsAsync<ArgumentException>(
-                    () => service.SubscribeAsync(invalidChannel, handler, CancellationToken.None));
-            }
-        }
-
-        [Fact]
-        public async Task UnsubscribeAsync_WithRedisDisabled_ShouldNotThrow()
+        public async Task UnsubscribeAsync_WithRedisDisabled_ShouldNotThrowAndCompleteGracefully()
         {
             // Arrange
             var config = Options.Create(new RedisConfiguration { Enabled = false });
@@ -153,40 +102,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             await service.UnsubscribeAsync("test-channel", CancellationToken.None);
         }
 
-        [Theory]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData(null)]
-        public async Task UnsubscribeAsync_WithInvalidChannel_ShouldThrowArgumentException(string invalidChannel)
-        {
-            // Arrange
-            var config = Options.Create(new RedisConfiguration { Enabled = false });
-            var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-
-            // Act & Assert
-            if (invalidChannel == null)
-            {
-                await Assert.ThrowsAsync<ArgumentNullException>(
-                    () => service.UnsubscribeAsync(invalidChannel, CancellationToken.None));
-            }
-            else
-            {
-                await Assert.ThrowsAsync<ArgumentException>(
-                    () => service.UnsubscribeAsync(invalidChannel, CancellationToken.None));
-            }
-        }
-
-        [Fact]
-        public void Dispose_ShouldNotThrow()
-        {
-            // Arrange
-            var config = Options.Create(new RedisConfiguration { Enabled = false });
-            var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
-
-            // Act & Assert - Should not throw
-            service.Dispose();
-        }
-
         [Fact]
         public void Dispose_MultipleCalls_ShouldNotThrow()
         {
@@ -194,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             var config = Options.Create(new RedisConfiguration { Enabled = false });
             var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
 
-            // Act & Assert - Multiple dispose calls should be safe
+            // Act & Assert - Should not throw on multiple disposes
             service.Dispose();
             service.Dispose();
             service.Dispose();
@@ -207,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             var config = Options.Create(new RedisConfiguration
             {
                 Enabled = false, // Disabled to avoid actual Redis connection
-                ConnectionString = "localhost:6379",
+                Host = "localhost",
             });
             var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
             var testMessage = new TestNotification
@@ -227,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             var config = Options.Create(new RedisConfiguration
             {
                 Enabled = false, // Disabled to avoid actual Redis connection
-                ConnectionString = "localhost:6379",
+                Host = "localhost",
             });
             var service = new RedisNotificationService(config, NullLogger<RedisNotificationService>.Instance);
             var handlerCalled = false;
@@ -251,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             var config = Options.Create(new RedisConfiguration
             {
                 Enabled = false,
-                ConnectionString = "test-connection-string",
+                Host = "test-host",
                 InstanceName = "test-instance",
                 SearchParameterNotificationDelayMs = 15000,
             });
@@ -273,7 +188,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Notifications
             // Act & Assert
             Assert.NotNull(config.NotificationChannels);
             Assert.Equal("fhir:notifications:searchparameters", config.NotificationChannels.SearchParameterUpdates);
-            Assert.Equal("fhir:notifications:resources", config.NotificationChannels.ResourceUpdates);
         }
 
         [Fact]

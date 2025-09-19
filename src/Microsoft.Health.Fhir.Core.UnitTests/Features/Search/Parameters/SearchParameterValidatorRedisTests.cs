@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Parameters
 
             // Act & Assert - Verify default configuration state
             Assert.False(config.Enabled); // Redis should be disabled by default
-            Assert.Equal(string.Empty, config.ConnectionString);
+            Assert.Equal(string.Empty, config.Host);
             Assert.Equal(string.Empty, config.InstanceName);
             Assert.Equal(10000, config.SearchParameterNotificationDelayMs); // 10 seconds default
             Assert.NotNull(config.NotificationChannels);

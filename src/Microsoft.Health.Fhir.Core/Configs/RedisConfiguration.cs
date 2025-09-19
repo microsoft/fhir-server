@@ -13,7 +13,33 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public bool Enabled { get; set; } = false;
 
-        public string ConnectionString { get; set; } = string.Empty;
+        /// <summary>
+        /// When true, the application will use the managed identity of the Azure resource to authenticate to Redis.
+        /// Host property is required when this is true.
+        /// </summary>
+        public bool UseManagedIdentity { get; set; } = true;
+
+        /// <summary>
+        /// The Redis host endpoint (e.g., myredis.redis.cache.windows.net).
+        /// Required when UseManagedIdentity is true.
+        /// </summary>
+        public string Host { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The Redis port. Defaults to 6380 for SSL connections with Azure Redis Cache.
+        /// </summary>
+        public int Port { get; set; } = 6380;
+
+        /// <summary>
+        /// Whether to use SSL connection. Defaults to true for Azure Redis Cache.
+        /// </summary>
+        public bool UseSsl { get; set; } = true;
+
+        /// <summary>
+        /// The client ID for user-assigned managed identity. Leave empty for system-assigned managed identity.
+        /// Only used when UseManagedIdentity is true.
+        /// </summary>
+        public string ManagedIdentityClientId { get; set; } = string.Empty;
 
         public string InstanceName { get; set; } = string.Empty;
 
@@ -26,5 +52,22 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public RedisNotificationChannels NotificationChannels { get; } = new RedisNotificationChannels();
 
         public RedisConnectionConfiguration Configuration { get; } = new RedisConnectionConfiguration();
+
+        /// <summary>
+        /// Validates the Redis configuration.
+        /// </summary>
+        public void Validate()
+        {
+            if (Enabled)
+            {
+                if (UseManagedIdentity)
+                {
+                    if (string.IsNullOrEmpty(Host))
+                    {
+                        throw new InvalidOperationException("Host is required when UseManagedIdentity is true.");
+                    }
+                }
+            }
+        }
     }
 }
