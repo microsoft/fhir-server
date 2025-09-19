@@ -17,7 +17,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
@@ -28,6 +30,7 @@ using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -41,6 +44,7 @@ using Microsoft.Net.Http.Headers;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
+using StackExchange.Redis;
 using TelemetryConfiguration = Microsoft.Health.Fhir.Core.Configs.TelemetryConfiguration;
 
 namespace Microsoft.Health.Fhir.Web
@@ -99,6 +103,9 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.AddPrometheusMetrics(Configuration);
             }
+
+            // Add Redis notification services
+            AddRedisNotificationServices(services);
 
             AddTelemetryProvider(services);
         }
@@ -351,6 +358,49 @@ namespace Microsoft.Health.Fhir.Web
                     Startup.AddAzureMonitorOpenTelemetry(services, configuration);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Adds Redis notification services for multi-instance synchronization.
+        /// </summary>
+        private void AddRedisNotificationServices(IServiceCollection services)
+        {
+            // Configure Redis configuration
+            services.Configure<RedisConfiguration>(Configuration.GetSection(RedisConfiguration.SectionName));
+
+            var redisConfig = new RedisConfiguration();
+            Configuration.GetSection(RedisConfiguration.SectionName).Bind(redisConfig);
+
+            if (redisConfig.Enabled && !string.IsNullOrEmpty(redisConfig.Host))
+            {
+                // Register Redis connection multiplexer
+                services.AddSingleton<IConnectionMultiplexer>(provider =>
+                {
+                    var config = provider.GetRequiredService<IOptions<RedisConfiguration>>().Value;
+                    var configurationOptions = ConfigurationOptions.Parse(config.Host);
+                    configurationOptions.AbortOnConnectFail = config.Configuration.AbortOnConnectFail;
+                    configurationOptions.ConnectRetry = config.Configuration.ConnectRetry;
+                    configurationOptions.ConnectTimeout = config.Configuration.ConnectTimeout;
+                    configurationOptions.SyncTimeout = config.Configuration.SyncTimeout;
+                    configurationOptions.AsyncTimeout = config.Configuration.AsyncTimeout;
+
+                    return ConnectionMultiplexer.Connect(configurationOptions);
+                });
+
+                // Register Redis notification service
+                services.AddSingleton<INotificationService, RedisNotificationService>();
+
+                // Register background service for handling notifications
+                services.AddHostedService<NotificationBackgroundService>();
+            }
+            else
+            {
+                // Register null implementation when Redis is disabled
+                services.AddSingleton<INotificationService, NullNotificationService>();
+            }
+
+            // Register unified notification publisher (works with both Redis enabled and disabled)
+            services.AddSingleton<IUnifiedNotificationPublisher, UnifiedNotificationPublisher>();
         }
     }
 }

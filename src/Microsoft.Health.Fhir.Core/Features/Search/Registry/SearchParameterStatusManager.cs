@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,7 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
-        private readonly IMediator _mediator;
+        private readonly INotificationService _notificationService;
+        private readonly IUnifiedNotificationPublisher _unifiedPublisher;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
@@ -34,23 +36,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
-            IMediator mediator,
+            INotificationService notificationService,
+            IUnifiedNotificationPublisher unifiedPublisher,
             ILogger<SearchParameterStatusManager> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(notificationService, nameof(notificationService));
+            EnsureArg.IsNotNull(unifiedPublisher, nameof(unifiedPublisher));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusDataStore = searchParameterStatusDataStore;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterSupportResolver = searchParameterSupportResolver;
-            _mediator = mediator;
+            _notificationService = notificationService;
+            _unifiedPublisher = unifiedPublisher;
             _logger = logger;
 
             _latestSearchParams = DateTimeOffset.MinValue;
         }
+
+        /// <summary>
+        /// Gets the unique identifier for this FHIR server instance.
+        /// </summary>
+        public string InstanceId => _unifiedPublisher.InstanceId;
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
@@ -112,8 +122,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogError("SearchParameterStatusManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
-            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
+            // These both stay local as we do not need to inform other istances of our initialization
+            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _unifiedPublisher.PublishAsync(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
         public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
@@ -184,8 +195,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
-
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
         public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
@@ -217,7 +226,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        /// <param name="isFromRemoteSync">Whether or not call is orignating from Redis remote sub to prevent update loop</param>
+        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken, bool isFromRemoteSync = false)
         {
             if (!updatedSearchParameterStatus.Any())
             {
@@ -256,7 +266,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
             }
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            // We always want the local notification for SearchParameterDefinitionManager to pick up the changes.
+            await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+
+            // If isFromRemoteSync is false, then this call is originating from local change, so we send to Redis, otherwise we don't
+            if (!isFromRemoteSync)
+            {
+                await _unifiedPublisher.PublishAsync(new SearchParametersUpdatedNotification(updated), true, cancellationToken);
+            }
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)

@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -143,6 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
                 () => _searchService,
+                Options.Create(new RedisConfiguration { Enabled = false }),
                 NullLogger<SearchParameterOperations>.Instance);
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
@@ -230,6 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
+                            Options.Create(new RedisConfiguration { Enabled = false }),
                             NullLoggerFactory.Instance);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
@@ -1223,8 +1226,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 
-            _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, _searchParameterSupportResolver, mediator, NullLogger<SearchParameterStatusManager>.Instance);
-            await _searchParameterStatusManager2.EnsureInitializedAsync(CancellationToken.None);
+            _searchParameterStatusManager2 = new SearchParameterStatusManager(
+                _fixture.SearchParameterStatusDataStore,
+                _searchParameterDefinitionManager2,
+                _searchParameterSupportResolver,
+                Substitute.For<Microsoft.Health.Fhir.Core.Features.Notifications.INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
+                NullLogger<SearchParameterStatusManager>.Instance);
 
             _searchParameterOperations2 = new SearchParameterOperations(
                 _searchParameterStatusManager2,
@@ -1233,6 +1241,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
                 () => _searchService,
+                Options.Create(new RedisConfiguration { Enabled = false }),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

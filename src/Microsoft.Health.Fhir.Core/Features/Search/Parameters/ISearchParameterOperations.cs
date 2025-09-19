@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="isFromRemoteSync">Whether or not call is orignating from Redis remote sub to prevent update loop</param>
         /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken);
+        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool isFromRemoteSync = false);
     }
 }

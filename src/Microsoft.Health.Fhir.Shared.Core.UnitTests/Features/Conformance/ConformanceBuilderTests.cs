@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -54,7 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 Substitute.For<ISearchParameterStatusDataStore>(),
                 _searchParameterDefinitionManager,
                 Substitute.For<Core.Features.Search.Parameters.ISearchParameterSupportResolver>(),
-                Substitute.For<IMediator>(),
+                Substitute.For<INotificationService>(),
+                Substitute.For<IUnifiedNotificationPublisher>(),
                 Substitute.For<Microsoft.Extensions.Logging.ILogger<SearchParameterStatusManager>>());
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,

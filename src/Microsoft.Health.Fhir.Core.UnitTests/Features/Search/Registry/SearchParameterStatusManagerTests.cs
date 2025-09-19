@@ -10,9 +10,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Notifications;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -36,27 +39,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
         private static readonly string ResourceSource = "http://hl7.org/fhir/SearchParameter/Resource-source";
 
-        private readonly SearchParameterStatusManager _manager;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IMediator _mediator;
+        private readonly INotificationService _notificationService;
+        private readonly IOptions<RedisConfiguration> _redisConfiguration;
         private readonly SearchParameterInfo[] _searchParameterInfos;
         private readonly SearchParameterInfo _queryParameter;
-        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+        private readonly IUnifiedNotificationPublisher _unifiedPublisher = Substitute.For<IUnifiedNotificationPublisher>();
+        private readonly SearchParameterStatusManager _manager;
         private readonly ResourceSearchParameterStatus[] _resourceSearchParameterStatuses;
 
         public SearchParameterStatusManagerTests()
         {
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            _mediator = Substitute.For<IMediator>();
+            _notificationService = Substitute.For<INotificationService>();
+            _redisConfiguration = Substitute.For<IOptions<RedisConfiguration>>();
+
+            // Configure Redis configuration to be disabled for these tests
+            _redisConfiguration.Value.Returns(new RedisConfiguration { Enabled = false });
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator,
+                _notificationService,
+                _unifiedPublisher,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _resourceSearchParameterStatuses = new[]
@@ -172,10 +182,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Id should not be modified in this test case
             var modifiedItems = _searchParameterInfos.Skip(1).ToArray();
 
-            await _mediator
+            // The manager now uses IUnifiedNotificationPublisher instead of IMediator directly
+            await _unifiedPublisher
                 .Received()
-                .Publish(
+                .PublishAsync(
                     Arg.Is<SearchParametersUpdatedNotification>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
+                    false, // isFromRemoteSync is false during initialization to prevent Redis loops
                     Arg.Any<CancellationToken>());
         }
 
