@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
                 }
             }
-            else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled && IsEligibleForSqlQueryPlanCaching(sqlSearchOptions))
+            else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled)
             {
                 string hash = sqlSearchOptions.Expression.GetUniqueExpressionIdentifier();
                 bool reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
@@ -282,7 +282,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 _queryPlanSelector.ReportExecutionTime(hash, reuseQueryCachingPlan, stopwatch.Elapsed.TotalMilliseconds);
 
-                searchResult.SearchAnnotations.Add(new OperationOutcomeAnnotation("x-ms-query-plan", reuseQueryCachingPlan.ToString()));
+                if (_requestContextAccessor?.RequestContext?.ResponseHeaders != null)
+                {
+                    // Send back to client which plan was used for telemetry purposes.
+                    _requestContextAccessor.RequestContext.ResponseHeaders[KnownHeaders.QueryCacheSetting] = reuseQueryCachingPlan.ToString();
+                }
 
                 return searchResult;
             }
@@ -290,16 +294,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
             }
-        }
-
-        private static bool IsEligibleForSqlQueryPlanCaching(SqlSearchOptions sqlSearchOptions)
-        {
-            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken))
-            {
-                return false;
-            }
-
-            return true;
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)

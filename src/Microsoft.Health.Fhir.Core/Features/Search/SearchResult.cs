@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SortOrder = sortOrder;
             SearchIssues = searchIssues ?? Array.Empty<OperationOutcomeIssue>();
             IncludesContinuationToken = includesContinuationToken;
-            SearchAnnotations = new List<OperationOutcomeAnnotation>();
         }
 
         public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
@@ -53,7 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             TotalCount = totalCount;
             Results = Enumerable.Empty<SearchResultEntry>();
             SearchIssues = Array.Empty<OperationOutcomeIssue>();
-            SearchAnnotations = new List<OperationOutcomeAnnotation>();
         }
 
         /// <summary>
@@ -95,11 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// A list of issues that will be returned inside a search result.
         /// </summary>
         public IReadOnlyList<OperationOutcomeIssue> SearchIssues { get; }
-
-        /// <summary>
-        /// A list of annotations that will be returned as part of a search result.
-        /// </summary>
-        public IList<OperationOutcomeAnnotation> SearchAnnotations { get; }
 
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> SortOrder { get; }
 
