@@ -412,7 +412,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     else
                     {
-                        searchOptions.MaxItemCount = (int)(searchOptions.RowEnd - searchOptions.RowStart);
+                        searchOptions.MaxItemCount = (int)(searchOptions.RowEnd - searchOptions.RowStart + 1);
                     }
                 }
             }
