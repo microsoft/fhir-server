@@ -45,7 +45,9 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Token()
         {
-            var request = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>()?.Transaction?.Request;
+            var feature = HttpContext.Features.Get<OpenIddictServerAspNetCoreFeature>();
+            var transaction = feature?.Transaction;
+            var request = transaction?.Request;
             if (request == null)
             {
                 throw new RequestNotValidException("Invalid request: null");
@@ -71,6 +73,7 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
             // Add the claims that will be persisted in the tokens (use the client_id as the subject identifier).
             identity.SetClaim(Claims.Subject, await _applicationManager.GetClientIdAsync(application));
             identity.SetClaim(Claims.Name, await _applicationManager.GetDisplayNameAsync(application));
+            identity.SetClaim("fhirUser", CreateFhirUserClaim(request.ClientId, HttpContext.Request.Host.ToString()));
 
             var permissions = await _applicationManager.GetPermissionsAsync(application);
             var roles = permissions.Where(x => x.StartsWith($"{_authorizationConfiguration.RolesClaim}:", StringComparison.Ordinal));
@@ -85,7 +88,16 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
 
             // Set the list of scopes granted to the client application in access_token.
             identity.SetScopes(request.GetScopes());
-            identity.SetResources(await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes())));
+            var resources = await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes()));
+            resources.Add("fhir-api");
+            identity.SetResources(resources);
+
+            // Add a custom claim for the raw scope with dynamic query parameters.
+            if (transaction.Properties.TryGetValue("raw_scope", out var rawScopeObj) && rawScopeObj is string rawScope)
+            {
+                identity.SetClaim("raw_scope", rawScope);
+            }
+
             identity.SetDestinations(GetDestinations);
 
             return SignIn(new ClaimsPrincipal(identity), OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -122,6 +134,30 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
 
                 return list;
             }
+        }
+
+        private static string CreateFhirUserClaim(string userId, string host)
+        {
+            string userType = null;
+
+            if (userId.Contains("patient", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Patient";
+            }
+            else if (userId.Contains("practitioner", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Practitioner";
+            }
+            else if (userId.Contains("system", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "System";
+            }
+            else if (userId.Contains("smartUserClient", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Patient";
+            }
+
+            return $"https://{host}/{userType}/" + userId;
         }
     }
 }
