@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         private readonly IOptions<OperationsConfiguration> _operationsOptions = Substitute.For<IOptions<OperationsConfiguration>>();
         private readonly IOptions<FeatureConfiguration> _featureOptions = Substitute.For<IOptions<FeatureConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+        private readonly IOptions<ImplementationGuidesConfiguration> _implementationGuidesOptions = Substitute.For<IOptions<ImplementationGuidesConfiguration>>();
         private readonly OperationsConfiguration _operationsConfiguration = new();
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new();
         private readonly FeatureConfiguration _featureConfiguration = new();
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             _featureOptions.Value.Returns(_featureConfiguration);
             _coreFeatureOptions.Value.Returns(_coreFeatureConfiguration);
             _fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            _implementationGuidesOptions.Value.Returns(new ImplementationGuidesConfiguration());
         }
 
         [Theory]
@@ -53,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         {
             _coreFeatureConfiguration.SupportsSelectableSearchParameters = added;
 
-            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver, _fhirRuntimeConfiguration);
+            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
             provider.Build(builder);
 
@@ -71,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             _fhirRuntimeConfiguration.DataStore.Returns(dataStore);
             _coreFeatureConfiguration.SupportsIncludes = support;
 
-            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver, _fhirRuntimeConfiguration);
+            var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
             provider.Build(builder);
 

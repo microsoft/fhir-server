@@ -1,0 +1,64 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "docref",
+    "url": "[base]/OperationDefinition/docref",
+    "version": "1.0.0",
+    "name": "DocRef",
+    "status": "active",
+    "kind": "operation",
+    "description": "Search and retrieve all the references to documents related to a patient.",
+    "code": "search",
+    "system": false,
+    "type": true,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "patient",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "The id of the patient resource.",
+            "type": "id"
+        },
+        {
+            "name": "start",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The start date-time of the date range relates to care dates, not record currency dates.",
+            "type": "dateTime"
+        },
+        {
+            "name": "end",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The end date-time of date range relates to care dates, not record currency dates.",
+            "type": "dateTime"
+        },
+        {
+            "name": "type",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The type relates to document type.",
+            "type": "code"
+        },
+        {
+            "name": "on-demand",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The value dictating whether they are requesting only 'on-demand' or both 'on-demand' and 'stable' documents.",
+            "type": "boolean"
+        },
+        {
+            "name": "profile",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The value for requesting documents according to a specific profile using the profile's canonical reference.",
+            "type": "canonical"
+        }
+    ]
+}

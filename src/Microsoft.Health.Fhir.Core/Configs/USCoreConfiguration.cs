@@ -8,5 +8,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public sealed class USCoreConfiguration
     {
         public bool MissingData { get; set; } = false;
+
+        public bool EnableDocRef { get; set; } = false;
     }
 }
