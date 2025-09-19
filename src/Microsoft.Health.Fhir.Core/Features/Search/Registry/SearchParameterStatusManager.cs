@@ -268,6 +268,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (!updatedSearchParameterStatus.Any())
             {
+                // Even when there are no updates to apply, we need to update our cache timestamp
+                // to reflect that we've successfully synchronized with the database
+                await UpdateCacheTimestampAsync(cancellationToken);
+                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
                 return;
             }
 
@@ -298,12 +302,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            if (updatedSearchParameterStatus.Any())
-            {
-                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
-            }
+            await UpdateCacheTimestampAsync(cancellationToken);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+        }
+
+        /// <summary>
+        /// Updates the cache timestamp to indicate that a full cache refresh has been completed successfully.
+        /// This prevents unnecessary cache refreshes when no new updates are available.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task UpdateCacheTimestampAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Get the current max LastUpdated from database and update our cache timestamp
+                var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
+                _latestSearchParams = maxDbLastUpdated;
+
+                _logger.LogDebug(
+                    "Updated SearchParameter cache timestamp to {CacheTimestamp} after successful refresh.",
+                    _latestSearchParams);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update cache timestamp after successful refresh. This may cause unnecessary cache refreshes.");
+
+                // Don't throw - this is not critical for functionality
+            }
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)

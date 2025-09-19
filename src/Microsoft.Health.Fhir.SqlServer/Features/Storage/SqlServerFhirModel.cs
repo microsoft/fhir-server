@@ -391,7 +391,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         UPDATE dbo.SearchParam
                         SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
-                        ON dbo.SearchParam.Uri = sps.Uri;
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
 
                         SELECT @RowsAffected = @@ROWCOUNT;
                         COMMIT TRANSACTION;";

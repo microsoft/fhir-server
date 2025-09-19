@@ -232,5 +232,134 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // But GetAndApplySearchParameterUpdates should never be called when cache is fresh
             await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenCancellationRequested_ShouldStopGracefully()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                _coreFeatureConfiguration,
+                mockLogger);
+
+            // Act
+            var executeTask = service.StartAsync(cancellationTokenSource.Token);
+
+            // Allow some time for service to start
+            await Task.Delay(100);
+
+            // Cancel the service
+            cancellationTokenSource.Cancel();
+
+            // Wait for the service to stop
+            await executeTask;
+
+            // Assert - Verify that stopping was logged
+            mockLogger.Received().Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameterCacheRefreshBackgroundService stopping due to cancellation request.") ||
+                                    o.ToString().Contains("SearchParameterCacheRefreshBackgroundService was cancelled before initialization completed.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public async Task OnRefreshTimer_WhenServiceProviderDisposed_ShouldHandleGracefully()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Set up the status manager to throw ObjectDisposedException to simulate the service provider being disposed
+            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
+                .Returns<Task<bool>>(_ => throw new ObjectDisposedException("IServiceProvider"));
+
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                _coreFeatureConfiguration,
+                mockLogger);
+
+            // Act - Initialize and let timer run
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
+            // Wait for timer to fire and handle the exception
+            await Task.Delay(200);
+
+            // Assert - Verify that ObjectDisposedException was handled and logged appropriately
+            mockLogger.Received().Log(
+                LogLevel.Debug,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh encountered disposed service during shutdown.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+
+            service.Dispose();
+        }
+
+        [Fact]
+        public async Task OnRefreshTimer_WhenOperationCanceled_ShouldHandleGracefully()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Set up the status manager to throw OperationCanceledException
+            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
+                .Returns<Task<bool>>(_ => throw new OperationCanceledException());
+
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                _coreFeatureConfiguration,
+                mockLogger);
+
+            // Act - Initialize and let timer run
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
+            // Wait for timer to fire and handle the exception
+            await Task.Delay(200);
+
+            // Assert - Verify that OperationCanceledException was handled and logged appropriately
+            mockLogger.Received().Log(
+                LogLevel.Debug,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh was canceled during operation.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+
+            service.Dispose();
+        }
+
+        [Fact]
+        public async Task Handle_WhenServiceAlreadyCancelled_ShouldNotStartTimer()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                _coreFeatureConfiguration,
+                mockLogger);
+
+            // Start the service and then immediately cancel it
+            var executeTask = service.StartAsync(cancellationTokenSource.Token);
+            cancellationTokenSource.Cancel();
+            await executeTask;
+
+            // Act - Try to handle the notification after cancellation
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
+            // Assert - Timer should not fire, so no calls should be made
+            await Task.Delay(200); // Wait to see if timer would fire
+            await _searchParameterStatusManager.DidNotReceive().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
+
+            service.Dispose();
+        }
     }
 }
