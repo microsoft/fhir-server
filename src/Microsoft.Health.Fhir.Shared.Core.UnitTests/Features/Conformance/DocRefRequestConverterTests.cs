@@ -26,7 +26,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.Conformance)]
     public class DocRefRequestConverterTests
     {
         private readonly DocRefRequestConverter _converter;

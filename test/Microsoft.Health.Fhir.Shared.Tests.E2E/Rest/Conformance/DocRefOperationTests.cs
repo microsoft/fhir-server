@@ -29,7 +29,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.Conformance)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class DocRefOperationTests : IClassFixture<DocRefOperationTestFixture>
     {
