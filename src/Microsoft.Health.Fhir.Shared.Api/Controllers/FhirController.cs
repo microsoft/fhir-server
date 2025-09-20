@@ -222,15 +222,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header</param>
+        /// <param name="metaSilent">Optional query parameter to indicate if the version should not be updated if the only changes are to metadata</param>
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.SilentMeta)] bool metaSilent = false)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
-                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader),
+                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaSilent),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response);

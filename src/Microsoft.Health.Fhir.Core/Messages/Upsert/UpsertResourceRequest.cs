@@ -15,18 +15,21 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
     public class UpsertResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null)
+        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null, bool metaSilent = false)
             : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
             WeakETag = weakETag;
+            MetaSilent = metaSilent;
         }
 
         public ResourceElement Resource { get; }
 
         public WeakETag WeakETag { get; }
+
+        public bool MetaSilent { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

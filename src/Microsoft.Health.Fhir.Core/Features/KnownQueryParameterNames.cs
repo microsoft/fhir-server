@@ -148,5 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ReverseInclude = "_revinclude";
 
         public const string ReturnDetails = "_details";
+
+        public const string SilentMeta = "_silent-meta";
     }
 }
