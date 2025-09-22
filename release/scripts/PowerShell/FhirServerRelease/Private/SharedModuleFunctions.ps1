@@ -43,7 +43,8 @@ function Get-AzureAdServicePrincipalByAppId {
         [string]$AppId
     )
 
-    return Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
+    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
+    return Get-MgBetaServicePrincipal -Filter "appId eq '$AppId'"
 }
 
 function Get-ServiceAudience {
@@ -102,13 +103,19 @@ function Get-UserUpn {
 }
 
 function Get-AzureADAuthorityUri {
-    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
-    "$aadEndpoint$aadTenantId"
+    $context = Get-MgContext
+    if (-not $context) {
+        throw "No Microsoft Graph session found. Please connect using Connect-MgGraph."
+    }
+    
+    # For Microsoft Graph, use the standard authority endpoint
+    $tenantId = $context.TenantId
+    "https://login.microsoftonline.com/$tenantId"
 }
 
 function Get-AzureADOpenIdConfiguration {
-    Invoke-WebRequest "$(Get-AzureADAuthorityUri)/.well-known/openid-configuration" | ConvertFrom-Json
+    $authorityUri = Get-AzureADAuthorityUri
+    Invoke-WebRequest "$authorityUri/.well-known/openid-configuration" | ConvertFrom-Json
 }
 
 function Get-AzureADTokenEndpoint {
