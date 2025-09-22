@@ -17,7 +17,11 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
-        Install-Module Microsoft.Graph -Force
+        # Install only required Microsoft Graph modules for better performance
+        Install-Module -Name Microsoft.Graph.Authentication -Force
+        Install-Module -Name Microsoft.Graph.Applications -Force
+        Install-Module -Name Microsoft.Graph.Users -Force
+        Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force
         
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
