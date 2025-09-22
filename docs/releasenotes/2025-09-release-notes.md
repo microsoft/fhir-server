@@ -105,6 +105,50 @@ This document outlines the changes, improvements, and fixes implemented in the M
 **Impact:** Reduced SQL E2E test execution time from ~50 minutes to <25 minutes and improved overall testing efficiency.
 [PR #5118](https://github.com/microsoft/fhir-server/pull/5118)
 
+## Assets
+
+### Docker Images
+- **Azure Container Registry**: `healthplatformregistry.azurecr.io/fhir-server:4.0.516`
+- **Docker Hub**: `mcr.microsoft.com/healthcareapis/fhir-server:4.0.516`
+
+### NuGet Packages
+- **Microsoft.Health.Fhir.R4.Core**: 4.0.516
+- **Microsoft.Health.Fhir.R5.Core**: 4.0.516  
+- **Microsoft.Health.Fhir.Stu3.Core**: 4.0.516
+- **Microsoft.Health.Fhir.CosmosDb**: 4.0.516
+- **Microsoft.Health.Fhir.SqlServer**: 4.0.516
+
+### Release Artifacts
+- **Source Code**: Available as ZIP and TAR.GZ archives
+- **Release Notes**: This document
+- **Schema Scripts**: SQL Server schema version 96 migration scripts
+- **Configuration Templates**: ARM templates and deployment scripts
+
+## Contributors
+
+We thank the following contributors for their work on this release:
+
+### Microsoft FHIR Team
+- **John Estrada (@jestradaMS)** - Search parameter synchronization, reindex improvements, and concurrency management
+- **Apurva Bhale (@apurvabhaleMS)** - Bulk update enhancements, compartment search fixes, and async query optimization
+- **Fernando Henrique Inocêncio Borba Ferreira (@fhibf)** - Import statistics improvements and documentation updates
+- **Will Sugarman (@wsugarman)** - Bundle URL construction fixes for forwarded headers
+- **Richa Bansal (@rbans96)** - Network service perimeter configuration and infrastructure management
+- **Sergey Galuzo (@SergeyGaluzo)** - Performance testing improvements, parameter naming consistency, and documentation
+- **Robert Johnson (@LTA-Thinking)** - Code review and technical guidance
+- **Isao Yamauchi (@v-isyamauchi-gh)** - Custom search parameter bug fixes and conflict resolution
+
+### Community Contributors
+- **Dependabot** - Automated dependency updates for security and performance
+- **GitHub Advanced Security** - Automated code scanning and security improvements
+
+### Special Recognition
+- **Testing and Quality Assurance**: Multiple team members contributed to comprehensive testing that reduced E2E test execution time by 50%
+- **Documentation**: Enhanced architecture documentation and parameter guidance for better developer experience
+- **Performance Engineering**: Significant improvements to bulk operations and query optimization
+
+*Total Contributors: 8 Microsoft team members + community contributions*
+
 ## Summary
 
 September 2025 was focused on improving system reliability, performance, and fixing critical bugs related to search parameters and bulk operations. Key highlights include:
