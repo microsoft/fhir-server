@@ -45,7 +45,7 @@ function Set-FhirServerClientAppRoleAssignments {
     $mgClientServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
     $ObjectId = $mgClientServicePrincipal.Id
 
-    $existingRoleAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId} 
+    $existingRoleAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
 
     $expectedRoles = New-Object System.Collections.ArrayList
     $rolesToAdd = New-Object System.Collections.ArrayList
@@ -90,7 +90,7 @@ function Set-FhirServerClientAppRoleAssignments {
         Remove-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -AppRoleAssignmentId $roleAssignmentToRemove.Id | Out-Null
     }
 
-    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId} 
+    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
     $rolesNotAdded = @()
     $rolesNotRemoved = @()
     $finalRoleIds = @($finalRolesAssignments | Select-Object -ExpandProperty AppRoleId)
