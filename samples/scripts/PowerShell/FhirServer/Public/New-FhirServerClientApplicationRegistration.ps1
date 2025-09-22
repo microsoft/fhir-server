@@ -69,7 +69,12 @@ function New-FhirServerClientApplicationRegistration {
     # Required App Permission for the API application registration
     $reqApi = @{
         ResourceAppId  = $apiAppReg.AppId
-        ResourceAccess = @(@{
+        ResourceAccess = @()
+    }
+    
+    # Only add OAuth2 permission scope if it exists
+    if ($apiAppReg.Api -and $apiAppReg.Api.Oauth2PermissionScopes -and $apiAppReg.Api.Oauth2PermissionScopes.Count -gt 0) {
+        $reqApi.ResourceAccess = @(@{
             Id   = $apiAppReg.Api.Oauth2PermissionScopes[0].Id
             Type = "Scope"
         })

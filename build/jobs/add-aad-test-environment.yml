@@ -13,11 +13,12 @@ steps:
     ScriptType: inlineScript
     Inline: |
       # Install only required Microsoft Graph modules for better performance
-      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser
-      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser
-      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser
-      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser
-      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser
+      # Use AllowClobber to handle any version conflicts
+      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
 
       $module = Get-Module -Name Microsoft.Graph.Authentication
       Write-Host $module.version

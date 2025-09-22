@@ -22,8 +22,7 @@ function Get-AzureAdApplicationByDisplayName {
         [ValidateNotNullOrEmpty()]
         [string]$DisplayName
     )
-    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
-    return Get-MgBetaApplication -Filter "DisplayName eq '$DisplayName'"
+    return Get-MgApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
@@ -32,8 +31,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience
     )
-    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
-    return Get-MgBetaApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
+    return Get-MgApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -43,8 +41,7 @@ function Get-AzureAdServicePrincipalByAppId {
         [string]$AppId
     )
 
-    Install-Module -Name Microsoft.Graph.Beta.Applications -Force
-    return Get-MgBetaServicePrincipal -Filter "appId eq '$AppId'"
+    return Get-MgServicePrincipal -Filter "appId eq '$AppId'"
 }
 
 function Get-ServiceAudience {

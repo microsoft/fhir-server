@@ -73,6 +73,18 @@ function New-FhirServerApiApplicationRegistration {
         DisplayName    = $FhirServiceAudience
         IdentifierUris = @($FhirServiceAudience)
         AppRoles       = $desiredAppRoles
+        Api            = @{
+            Oauth2PermissionScopes = @(@{
+                Id                      = [System.Guid]::NewGuid().ToString()
+                AdminConsentDescription = "Allow the application to access $FhirServiceAudience on behalf of the signed-in user."
+                AdminConsentDisplayName = "Access $FhirServiceAudience"
+                IsEnabled               = $true
+                Type                    = "User"
+                UserConsentDescription  = "Allow the application to access $FhirServiceAudience on your behalf."
+                UserConsentDisplayName  = "Access $FhirServiceAudience"
+                Value                   = "user_impersonation"
+            })
+        }
     }
     
     $apiAppReg = New-MgApplication @appParams
