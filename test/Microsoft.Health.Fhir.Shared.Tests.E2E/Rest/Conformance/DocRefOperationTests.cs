@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 Validate(GetExpected(parameters, valid, unsupported), actual.documentReferences);
                 Validate(parameters, actual.operationOutcomes);
             }
-            catch (FhirClientException)
+            catch (FhirClientException ex) when ((int)ex.StatusCode >= 400 && (int)ex.StatusCode <= 499)
             {
                 Assert.False(valid);
             }
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 Validate(GetExpected(parameterCollections, valid, unsupported), actual.documentReferences);
                 Validate(parameterCollections, actual.operationOutcomes);
             }
-            catch (FhirClientException)
+            catch (FhirClientException ex) when ((int)ex.StatusCode >= 400 && (int)ex.StatusCode <= 499)
             {
                 Assert.False(valid);
             }
