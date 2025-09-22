@@ -4,7 +4,7 @@
     <HealthcareSharedPackageVersion>10.0.68</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>9.0.4</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>9.0.6</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -109,7 +109,7 @@
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.5.57" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.64.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
