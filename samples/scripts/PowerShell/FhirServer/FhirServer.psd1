@@ -15,7 +15,7 @@
         'Microsoft.Graph.Users',
         'Microsoft.Graph.Identity.DirectoryManagement'
     )
-    FunctionsToExport = 'Remove-FhirServerApplicationRegistration', 'New-FhirServerClientApplicationRegistration', 'New-FhirServerApiApplicationRegistration', 'Get-FhirServerAzureAdAccessToken', 'Set-FhirServerApiApplicationRoles','Set-FhirServerClientAppRoleAssignments','Set-FhirServerUserAppRoleAssignments','New-FhirServerSmartClientReplyUrl'
+    FunctionsToExport = 'Remove-FhirServerApplicationRegistration', 'New-FhirServerClientApplicationRegistration', 'New-FhirServerApiApplicationRegistration', 'Set-FhirServerApiApplicationRoles','Set-FhirServerClientAppRoleAssignments','Set-FhirServerUserAppRoleAssignments','New-FhirServerSmartClientReplyUrl'
     CmdletsToExport = @()
     AliasesToExport = @()    
 }
