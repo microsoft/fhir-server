@@ -21,6 +21,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />

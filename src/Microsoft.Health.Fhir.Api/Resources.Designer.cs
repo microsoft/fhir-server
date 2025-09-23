@@ -223,6 +223,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One or more invalid parameters are found: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameter {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource id must not be null or empty..
+        /// </summary>
+        public static string ExpandInvalidResourceId {
+            get {
+                return ResourceManager.GetString("ExpandInvalidResourceId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;url&apos; or &apos;valueSet&apos; parameter must be provided.
+        /// </summary>
+        public static string ExpandMissingRequiredParameter {
+            get {
+                return ResourceManager.GetString("ExpandMissingRequiredParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Core.Models;
 using OperationsConstants = Microsoft.Health.Fhir.Core.Features.Operations.OperationsConstants;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
@@ -104,5 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string Includes = "$includes";
         public const string IncludesResourceType = ResourceType + "/" + Includes;
         public const string IncludesOperationDefinition = OperationDefinition + "/" + OperationsConstants.Includes;
+
+        public const string Expand = "$expand";
+        public const string ExpandResourceType = KnownResourceTypes.ValueSet + "/" + Expand;
+        public const string ExpandResourceId = KnownResourceTypes.ValueSet + "/" + IdRouteSegment + "/" + Expand;
+        public const string ExpandOperationDefinition = OperationDefinition + "/" + OperationsConstants.ValueSetExpand;
     }
 }

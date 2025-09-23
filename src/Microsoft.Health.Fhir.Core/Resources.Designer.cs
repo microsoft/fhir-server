@@ -340,6 +340,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate..
+        /// </summary>
+        internal static string CosmosDbRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
         /// </summary>
         internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
@@ -463,6 +472,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string EverythingOperationResourceIrrelevant {
             get {
                 return ResourceManager.GetString("EverythingOperationResourceIrrelevant", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The value of &apos;{0}&apos; parameter is invalid..
+        /// </summary>
+        internal static string ExpandInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterValue", resourceCulture);
             }
         }
         
@@ -1948,15 +1966,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.
-        /// </summary>
-        internal static string CosmosDbRequestTimeout {
-            get {
-                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
             }
         }
     }
