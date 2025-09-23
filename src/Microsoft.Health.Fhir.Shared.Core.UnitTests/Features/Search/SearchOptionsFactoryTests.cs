@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     "Patient",
                     new List<ScopeRestriction>
                     {
-                        new ScopeRestriction("*", DataActions.Read, "patient", CreateSearchParams(("_type", "Practitioner,CarePlan,Organization"))),
+                        new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams(("_type", "Practitioner,CarePlan,Organization"))),
                         new ScopeRestriction("Observation", DataActions.Read, "patient", CreateSearchParams(("code2", "doo"))),
                     },
                     null,
