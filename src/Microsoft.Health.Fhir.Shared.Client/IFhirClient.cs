@@ -84,7 +84,5 @@ namespace Microsoft.Health.Fhir.Client
             where T : Resource;
 
         Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default);
-
-        Task<FhirResponse<Resource>> DocRefAsync(string url, string body, CancellationToken cancellationToken = default);
     }
 }

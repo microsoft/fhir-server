@@ -193,9 +193,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             List<OperationOutcome> operationOutcomes = new List<OperationOutcome>();
             while (!string.IsNullOrEmpty(url))
             {
-                var response = await Client.DocRefAsync(
+                var response = await Client.CreateAsync<Resource>(
                     url,
-                    parameters?.ToJson());
+                    parameters);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
                 var bundle = response.Resource as Bundle;
