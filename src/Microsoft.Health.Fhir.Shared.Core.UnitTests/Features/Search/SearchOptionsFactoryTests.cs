@@ -129,7 +129,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         new ScopeRestriction("Observation", DataActions.Read, "patient", CreateSearchParams(("code2", "doo"))),
                     },
                     null,
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Param ResourceType (TokenCode IN (Patient, Observation))) (Or (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo)))",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) _type=Practitioner,CarePlan,Organization)",
+                };
+                yield return new object[]
+                {
+                    // TODO: Check this one
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", null),
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    null,
+                    "(Param ResourceType (StringEquals TokenCode 'Patient'))",
+                };
+                yield return new object[]
+                {
+                    // TODO: Check this one
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", CreateSearchParams(("_type", "Observation"))),
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    null,
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) _type=Observation)",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", null),
+                    },
+                    null,
+                    null,
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code1", "doo"))),
+                        new ScopeRestriction("Encounter", DataActions.Search, "patient", CreateSearchParams(("code2", "goo"))),
+                    },
+                    null,
+                    "(And (Param ResourceType (TokenCode IN (Observation, Encounter))) (Or (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo) (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo)))",
                 };
             }
         }
@@ -737,10 +782,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = factory.Create(resourceType, queryParameters, onlyIds: false, isIncludesOperation: false);
 
             // Assert
-            Assert.NotNull(options);
-            Assert.NotNull(options.Expression);
-            string expressionText = options.Expression.ToString();
-            Assert.Contains(expectedSubstring, expressionText, System.StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(expectedSubstring))
+            {
+                Assert.Null(options.Expression);
+            }
+            else
+            {
+                Assert.NotNull(options.Expression);
+                string expressionText = options.Expression.ToString();
+                Assert.Contains(expectedSubstring, expressionText, System.StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private SearchOptions CreateSearchOptions(

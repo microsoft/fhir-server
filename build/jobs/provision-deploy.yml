@@ -25,6 +25,9 @@ parameters:
 - name: sqlServerName
   type: string
   default: ''
+- name: sqlComputeTier
+  type: string
+  default: 'Standard'
 - name: reindexEnabled
   type: boolean
   default: true
@@ -49,19 +52,18 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
-     
+
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
-     
+
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
-     
+
         $additionalProperties = $flattenedTestConfig
-     
+
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
-        $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 2
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
@@ -69,28 +71,29 @@ jobs:
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B3"
+            appServicePlanSku = "P2V3"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
-            additionalFhirServerConfigProperties = $additionalProperties 
+            additionalFhirServerConfigProperties = $additionalProperties
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
             enableImport = $true
-            backgroundTaskCount = 5
+            backgroundTaskCount = 4
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
         }
-     
+
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
+            $templateParameters["sqlDatabaseComputeTier"] = "${{parameters.sqlComputeTier}}"
         }
 
         $deploymentName = $webAppName
@@ -145,5 +148,5 @@ jobs:
         }
 
   - template: ./provision-healthcheck.yml
-    parameters: 
+    parameters:
       webAppName: ${{ parameters.webAppName }}

@@ -336,17 +336,17 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
-        public async Task ProcessingJobBytesToReadHonored()
+        public async Task ProcessingUnitBytesToReadHonored()
         {
             var ndJson = CreateTestPatient(Guid.NewGuid().ToString("N"));
 
             //// set small bytes to read, so there are multiple processing jobs
-            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
+            var request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingUnitBytesToRead: 10);
             var result = await ImportCheckAsync(request, null, 0, true);
             Assert.Equal(7, result.Output.Count); // 7 processing jobs
 
             //// no details
-            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 10);
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingUnitBytesToRead: 10);
             result = await ImportCheckAsync(request, null, 0, false);
             Assert.Single(result.Output);
 
@@ -356,7 +356,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single(result.Output);
 
             //// 0 should be ovewritten by default in orchestrator job
-            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingJobBytesToRead: 0);
+            request = CreateImportRequest((await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location, ImportMode.IncrementalLoad, processingUnitBytesToRead: 0);
             result = await ImportCheckAsync(request, null, 0, true);
             Assert.Single(result.Output);
         }
@@ -552,7 +552,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_LastUpdatedOnResourceCannotBeInTheFuture()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(20)); // set value higher than 10 seconds tolerance
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddSeconds(60)); // set value higher than 10 seconds tolerance
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             var result = await ImportCheckAsync(request, null, 1);
@@ -1184,7 +1184,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
+        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
         {
             var input = locations.Select(location =>
             {
@@ -1209,17 +1209,17 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 ErrorContainerName = errorContainerName,
             };
 
-            if (processingJobBytesToRead.HasValue)
+            if (processingUnitBytesToRead.HasValue)
             {
-                request.ProcessingJobBytesToRead = processingJobBytesToRead.Value;
+                request.ProcessingUnitBytesToRead = processingUnitBytesToRead.Value;
             }
 
             return request;
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingJobBytesToRead = null)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
         {
-            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingJobBytesToRead);
+            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
         }
 
         private static string PrepareResource(string id, string version, string lastUpdatedYear)
@@ -1961,7 +1961,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.NotEmpty(result.Output);
             if (errorCount != null && errorCount != 0)
             {
-                Assert.Equal(errorCount.Value, result.Error.First().Count);
+                Assert.Equal(errorCount.Value, result.Error.Count > 0 ? result.Error.First().Count : 0);
             }
             else
             {
