@@ -548,10 +548,10 @@
 						}
 					]
 				},
-				"subject": {
-					"reference": "Patient/9323ee3e-666f-4371-a6b6-4ec73873f27b",
-					"display": "P. van de Heuvel"
-				},
+                "subject": {
+                    "reference": "Patient/smart-patient-A",
+                    "display": "P. van de Heuvel"
+                },
 				"participant": [
 					{
 						"individual": {
