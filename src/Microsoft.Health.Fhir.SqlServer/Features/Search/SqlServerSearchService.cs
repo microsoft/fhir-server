@@ -376,6 +376,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
+                        else if (TryPopulateReadResourceCommand(expression, clonedSearchOptions, sqlCommand))
+                        {
+                            // Use ReadResource stored procedure for simple resource reads by ID
+                            _logger.LogInformation("Using ReadResource stored procedure for simple resource read by ID");
+                        }
                         else
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
@@ -709,6 +714,94 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
+        }
+
+        /// <summary>
+        /// Attempts to populate a SqlCommand to use the ReadResource stored procedure for simple resource reads by ID.
+        /// This provides better performance than the generated SQL for simple resource lookups.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="searchOptions">The search options</param>
+        /// <param name="command">The SQL command to populate</param>
+        /// <returns>True if the command was populated for a simple resource read, false otherwise</returns>
+        private bool TryPopulateReadResourceCommand(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlCommand command)
+        {
+            // Only use ReadResource stored proc for simple cases
+            if (searchOptions.CountOnly ||
+                searchOptions.IncludeCount != 0 ||
+                searchOptions.Sort?.Count > 0 ||
+                searchOptions.ResourceVersionTypes != ResourceVersionType.Latest ||
+                expression.SearchParamTableExpressions.Count > 0 ||
+                expression.ResourceTableExpressions.Count != 2) // Should have exactly ResourceType and Id
+            {
+                return false;
+            }
+
+            // Find ResourceType and Id expressions
+            SearchParameterExpression resourceTypeExpression = null;
+            SearchParameterExpression resourceIdExpression = null;
+
+            foreach (var resourceTableExpression in expression.ResourceTableExpressions)
+            {
+                if (resourceTableExpression is SearchParameterExpression searchParamExpression)
+                {
+                    if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
+                    {
+                        resourceTypeExpression = searchParamExpression;
+                    }
+                    else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
+                    {
+                        resourceIdExpression = searchParamExpression;
+                    }
+                }
+            }
+
+            // Must have both ResourceType and Id expressions
+            if (resourceTypeExpression == null || resourceIdExpression == null)
+            {
+                return false;
+            }
+
+            // Extract resource type and id values
+            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out string resourceTypeName) ||
+                !TryExtractSimpleStringValue(resourceIdExpression.Expression, out string resourceId))
+            {
+                return false;
+            }
+
+            // Get resource type ID
+            if (!_model.TryGetResourceTypeId(resourceTypeName, out short resourceTypeId))
+            {
+                return false;
+            }
+
+            // Populate command to use ReadResource stored procedure
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandText = "dbo.ReadResource";
+            command.Parameters.AddWithValue("@resourceTypeId", resourceTypeId);
+            command.Parameters.AddWithValue("@resourceId", resourceId);
+            command.Parameters.AddWithValue("@version", DBNull.Value); // null for latest version
+
+            return true;
+        }
+
+        /// <summary>
+        /// Attempts to extract a simple string value from an expression (e.g., StringExpression).
+        /// </summary>
+        /// <param name="expression">The expression to analyze</param>
+        /// <param name="value">The extracted string value</param>
+        /// <returns>True if a simple string value was extracted, false otherwise</returns>
+        private static bool TryExtractSimpleStringValue(Expression expression, out string value)
+        {
+            value = null;
+
+            if (expression is StringExpression stringExpression)
+            {
+                value = stringExpression.Value;
+                return !string.IsNullOrEmpty(value);
+            }
+
+            return false;
         }
 
         /// <summary>
