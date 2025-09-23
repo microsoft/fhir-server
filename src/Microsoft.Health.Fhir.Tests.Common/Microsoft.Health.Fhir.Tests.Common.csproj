@@ -187,6 +187,7 @@
     <EmbeddedResource Include="TestFiles\R4\SmartCommon.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientA.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientB.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartPatientD.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientC.json" />
     <EmbeddedResource Include="TestFiles\R5\Appointment.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
