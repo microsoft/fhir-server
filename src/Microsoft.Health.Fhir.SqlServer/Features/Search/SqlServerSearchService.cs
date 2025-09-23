@@ -741,18 +741,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchParameterExpression resourceTypeExpression = null;
             SearchParameterExpression resourceIdExpression = null;
 
-            foreach (var resourceTableExpression in expression.ResourceTableExpressions)
+            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
             {
-                if (resourceTableExpression is SearchParameterExpression searchParamExpression)
+                if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
                 {
-                    if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
-                    {
-                        resourceTypeExpression = searchParamExpression;
-                    }
-                    else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
-                    {
-                        resourceIdExpression = searchParamExpression;
-                    }
+                    resourceTypeExpression = searchParamExpression;
+                }
+                else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
+                {
+                    resourceIdExpression = searchParamExpression;
                 }
             }
 
