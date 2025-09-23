@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -43,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
             var bundle = TagResources(Samples.GetJsonSample<Bundle>(ExpandTestFileName));
             var response = await TestFhirClient.PostBundleAsync(bundle);
+            Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.NotNull(response?.Resource?.Entry);
             Assert.NotEmpty(response.Resource.Entry);

@@ -5,8 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Conformance

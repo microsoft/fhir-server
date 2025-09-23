@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     [Trait(Traits.Category, Categories.Conformance)]
     public class TerminologyControllerTests
     {
-        private TerminologyController _controller;
-        private TerminologyConfiguration _configuration;
-        private IMediator _mediator;
+        private readonly TerminologyController _controller;
+        private readonly TerminologyConfiguration _configuration;
+        private readonly IMediator _mediator;
 
         public TerminologyControllerTests()
         {

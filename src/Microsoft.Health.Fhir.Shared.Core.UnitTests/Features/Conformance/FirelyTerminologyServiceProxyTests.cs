@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
-using AngleSharp.Common;
 using FluentValidation;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;

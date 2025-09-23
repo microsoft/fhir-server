@@ -170,8 +170,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.ExpandMissingRequiredParameter);
             }
 
-            var invalid = parameters.Where(x => !ExpandParameterNames.Contains(x.Item1)).ToList();
-            if (invalid.Any())
+            var invalid = parameters?.Where(x => !ExpandParameterNames.Contains(x.Item1))?.ToList();
+            if (invalid != null && invalid.Any())
             {
                 StringBuilder s = new StringBuilder();
                 foreach (var i in invalid)
