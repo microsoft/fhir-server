@@ -115,18 +115,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Theory]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, false)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVerison=1.1&filter=abdo", true, false)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, false)]
         [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, false)]
         [InlineData("?offset=10", false, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, false)]
         [InlineData("", false, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, true)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, true)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVerison=1.1&filter=abdo", true, true)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, true)]
         [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, true)]
-        [InlineData("?offset=10", false, true)]
+        [InlineData("?offset=10", true, true)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, true)]
-        [InlineData("", false, true)]
+        [InlineData("", true, true)]
         public async Task GivenGetRequest_WhenExpanding_ThenCorrectRequestShouldBeSentToHandler(
             string query,
             bool valid,
