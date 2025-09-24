@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
@@ -86,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
+            SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
@@ -102,12 +104,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
+            EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _queryGeneratorFactory = queryGeneratorFactory;
             _sortRewriter = sortRewriter;
             _partitionEliminationRewriter = partitionEliminationRewriter;
             _compartmentSearchRewriter = compartmentSearchRewriter;
@@ -387,6 +391,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
+                                _queryGeneratorFactory,
                                 reuseQueryPlans,
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
@@ -1347,6 +1352,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
+                                _queryGeneratorFactory,
                                 _reuseQueryPlans.IsEnabled(_sqlRetryService),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);

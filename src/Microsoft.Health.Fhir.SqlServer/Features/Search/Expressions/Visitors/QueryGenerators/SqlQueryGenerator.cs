@@ -17,7 +17,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -57,12 +59,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _reuseQueryPlans;
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
             HashingSqlQueryParameterManager parameters,
             ISqlServerFhirModel model,
             SchemaInformation schemaInfo,
+            SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
             SqlException sqlException = null)
@@ -71,11 +75,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
+            EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
 
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
             _schemaInfo = schemaInfo;
+            _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
 
@@ -1179,7 +1185,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1190,6 +1196,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
+                // Determine the appropriate query generator for this specific inner expression
+                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
@@ -1255,6 +1264,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             sb.Append(")");
+        }
+
+        /// <summary>
+        /// Determines the appropriate query generator for a specific expression within a UNION.
+        /// This allows different expressions in a UNION to use different underlying SQL tables.
+        /// </summary>
+        private SearchParamTableExpressionQueryGenerator DetermineQueryGeneratorForExpression(Expression expression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        {
+            // Use the factory to determine the appropriate query generator for this expression
+            var specificGenerator = expression.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext);
+            return specificGenerator ?? defaultQueryGenerator;
         }
 
         private bool UseAppendWithJoin()
