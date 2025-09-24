@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -90,7 +91,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
+                .AsService<ISearchParameterStatusManager>()
                 .AsService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
+
+            // Register the SearchParameter cache refresh background service
+            services
+                .RemoveServiceTypeExact<SearchParameterCacheRefreshBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
+                .Add<SearchParameterCacheRefreshBackgroundService>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>()
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
@@ -150,6 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ISearchParameterValidator, SearchParameterValidator>();
             services.AddSingleton<SearchParameterFilterAttribute>();
             services.AddSingleton<ISearchParameterOperations, SearchParameterOperations>();
+            services.AddSingleton<ISearchParameterComparer<SearchParameterInfo>, SearchParameterComparer>();
 
             services.AddTransient<MissingDataFilterCriteria>();
             services.AddTransient<IDataResourceFilter, DataResourceFilter>();

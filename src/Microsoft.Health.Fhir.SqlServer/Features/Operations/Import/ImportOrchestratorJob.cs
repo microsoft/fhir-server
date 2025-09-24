@@ -40,8 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob
     {
-        public const int BytesToRead = 10000 * 1000; // each job should handle about 10000 resources. with about 1000 bytes per resource
-
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IQueueClient _queueClient;
@@ -50,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IAuditLogger _auditLogger;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        private const int BytesToReadDefault = 1000 * 10000;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -190,7 +189,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         internal static async Task SendNotification<T>(JobStatus status, JobInfo info, long succeeded, long failed, long bytes, ImportMode importMode, FhirRequestContext context, ILogger<T> logger, IAuditLogger auditLogger, IMediator mediator)
         {
-            logger.LogJobInformation(info, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", succeeded, failed);
+            // This statement is used as part of telemetry to indicate how many resources were processed as part of the import job.
+            // Please do not remove without checking with the FHIR team.
+            logger.LogJobInformation(
+                info,
+                "Import Statistics / ImportMode: {ImportMode} / SucceededResources: {SucceededResources} / FailedResources: {FailedResources}",
+                importMode == ImportMode.IncrementalLoad ? ImportMode.IncrementalLoad.ToString() : ImportMode.InitialLoad.ToString(),
+                succeeded,
+                failed);
 
             if (importMode == ImportMode.IncrementalLoad)
             {
@@ -237,11 +243,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 result.TotalBytes += blobLength;
-                foreach (var offset in GetOffsets(blobLength, BytesToRead))
+                var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
+                                ? BytesToReadDefault
+                                : coordDefinition.ProcessingUnitBytesToRead;
+                foreach (var offset in GetOffsets(blobLength, bytesToRead))
                 {
                     var newInput = input.Clone();
                     newInput.Offset = offset;
-                    newInput.BytesToRead = BytesToRead;
+                    newInput.BytesToRead = bytesToRead;
                     lock (inputs)
                     {
                         inputs.Add(newInput);

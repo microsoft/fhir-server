@@ -235,10 +235,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams)
-                        WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri FROM dbo.SearchParam;
+                        ;WITH Input AS (
+                          SELECT DISTINCT
+                                 j.Uri,
+                                 CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported
+                          FROM OPENJSON(@searchParams)
+                          WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported') AS j
+                        )
+                        INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+                        SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported
+                        FROM Input AS i
+                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam AS sp WHERE sp.Uri = i.Uri);
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
@@ -265,7 +272,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
-                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
+                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
                 string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
                 string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                 string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
@@ -386,10 +393,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
 
                         UPDATE dbo.SearchParam
-                        SET Status = ISNULL(dbo.SearchParam.Status, sps.Status), LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
-                        WHERE dbo.SearchParam.Status IS NULL OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
+                        WHERE dbo.SearchParam.Status = 'Initialized' OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
 
                         SELECT @RowsAffected = @@ROWCOUNT;
                         COMMIT TRANSACTION;";
@@ -397,8 +404,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
-                var collection = new SearchParameterStatusCollection();
+                // Use the appropriate collection based on schema version
+                bool includeLastUpdated = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
+                var collection = new SearchParameterStatusCollection(includeLastUpdated);
                 collection.AddRange(statuses);
+
+                // Use the appropriate table type based on schema version
+                string tableTypeName = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency
+                    ? "dbo.SearchParamList"
+                    : "dbo.SearchParamTableType_2";
 
                 var tableValuedParameter = new SqlParameter
                     {
@@ -406,7 +420,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SqlDbType = SqlDbType.Structured,
                         Value = collection,
                         Direction = ParameterDirection.Input,
-                        TypeName = "dbo.SearchParamTableType_2",
+                        TypeName = tableTypeName,
                     };
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);

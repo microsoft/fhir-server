@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 AllowNegativeVersions = request.AllowNegativeVersions,
                 EventualConsistency = request.EventualConsistency,
                 ErrorContainerName = request.ErrorContainerName,
+                ProcessingUnitBytesToRead = request.ProcessingUnitBytesToRead,
             };
 
             var jobInfo = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, definitions: definitionObj))[0];

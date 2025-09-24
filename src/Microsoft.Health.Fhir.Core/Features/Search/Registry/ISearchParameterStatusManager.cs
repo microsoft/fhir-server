@@ -25,5 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken);
 
         Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+
+        /// <summary>
+        /// Ensures the search parameter cache is fresh by validating against the database max LastUpdated timestamp.
+        /// Uses configurable time-based intervals to balance freshness with performance.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>True if cache was stale and needs full refresh, false if cache is up to date</returns>
+        Task<bool> EnsureCacheFreshnessAsync(CancellationToken cancellationToken = default);
     }
 }

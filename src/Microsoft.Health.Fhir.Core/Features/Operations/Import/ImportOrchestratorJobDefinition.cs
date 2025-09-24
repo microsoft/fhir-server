@@ -70,5 +70,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Custom container name for error logs. If not specified, the default container will be used.
         /// </summary>
         public string ErrorContainerName { get; set; }
+
+        /// <summary>
+        /// If not speficied it is 10 million bytes. In case of very large resources (binary data),
+        /// this should be increased to the resource size to avoid unnecessary input file scans.
+        /// </summary>
+        public int ProcessingUnitBytesToRead { get; set; }
     }
 }
