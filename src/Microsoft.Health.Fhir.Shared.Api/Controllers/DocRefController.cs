@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return $"{((Coding)value).System}|{((Coding)value).Code}";
             }
 
-            // NOTE: This won't work for many non-premitive types. We need a way to convert the value of those types to a string correctly.
+            // NOTE: This won't work for many non-primitive types. We need a way to convert the value of those types to a string correctly.
             return value.ToString();
         }
 
