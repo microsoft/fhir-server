@@ -106,5 +106,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// SearchParameter cache synchronized across instances. Default is 1 minute if not specified.
         /// </summary>
         public int SearchParameterCacheRefreshIntervalMinutes { get; set; } = 1;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server enables clinical reference duplication.
+        /// </summary>
+        public bool EnableClinicalReferenceDuplication { get; set; } = false;
     }
 }
