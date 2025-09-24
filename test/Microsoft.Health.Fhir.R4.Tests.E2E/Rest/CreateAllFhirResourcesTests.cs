@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [MemberData(nameof(GetResourceFileNames))]
         public async Task GivenValidResources_WhenCreateIsCalled_ShouldBeCreatedSuccessfully(object fileName)
         {
-           var resourceJson = Samples.GetJsonSample((string)fileName).ToPoco();
-           using var resource = await _client.CreateAsync(resourceJson);
-           Assert.Equal(System.Net.HttpStatusCode.Created, resource.StatusCode);
+            var resourceJson = Samples.GetJsonSample((string)fileName).ToPoco();
+            using var resource = await _client.CreateAsync(resourceJson);
+            Assert.Equal(System.Net.HttpStatusCode.Created, resource.StatusCode);
         }
 
         public static IEnumerable<object[]> GetResourceFileNames()
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "researchsubject-example" };
             yield return new object[] { "riskassessment-example" };
             yield return new object[] { "riskevidencesynthesis-example" };
-            yield return new object[] { "schedule-example" };            
+            yield return new object[] { "schedule-example" };
             yield return new object[] { "servicerequest-example" };
             yield return new object[] { "slot-example" };
             yield return new object[] { "specimendefinition-questionnaire" };
