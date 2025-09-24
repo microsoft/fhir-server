@@ -28,8 +28,13 @@ function Grant-ClientAppDelegatedPermissions {
 
     Write-Host "Granting delegated permissions for app ID $AppId"
 
-    # Get token to talk to graph api
-    $tenantId = (Get-AzureADCurrentSessionInfo).TenantId.ToString()
+    # Get token to talk to graph api using Microsoft Graph context
+    $context = Get-MgContext
+    if (-not $context) {
+        throw "No Microsoft Graph context found. Please connect using Connect-MgGraph first."
+    }
+    
+    $tenantId = $context.TenantId
 
     $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
     $resource = "https://graph.microsoft.com/"
@@ -52,14 +57,14 @@ function Grant-ClientAppDelegatedPermissions {
     }
 
     $windowsAadId = "00000002-0000-0000-c000-000000000000"  #ResourceId for Windows Azure Active Directory
-    $windowsAadServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$windowsAadId'"
-    $windowsAadObjectId = $windowsAadServicePrincipal.ObjectId
+    $windowsAadServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$windowsAadId'"
+    $windowsAadObjectId = $windowsAadServicePrincipal.Id
 
-    $resourceApiServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$ResourceApplicationId'"
-    $resourceApiObjectId = $resourceApiServicePrincipal.ObjectId
+    $resourceApiServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$ResourceApplicationId'"
+    $resourceApiObjectId = $resourceApiServicePrincipal.Id
 
-    $clientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
-    $clientObjectId = $clientServicePrincipal.ObjectId
+    $clientServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
+    $clientObjectId = $clientServicePrincipal.Id
 
     $header = @{
         'Authorization' = 'Bearer ' + $response.access_token
@@ -85,7 +90,7 @@ function Grant-ClientAppDelegatedPermissions {
         Write-Warning "Received failure when posting to $permissionGrantUrl to grant $userReadScope permission."
         Write-Warning "Error message: $error"
 
-        $existingPermission = Get-AzureADOAuth2PermissionGrant -All $true | ? {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $windowsAadObjectId -and $_.Scope -eq $userReadScope }
+        $existingPermission = Get-MgOauth2PermissionGrant -All | Where-Object {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $windowsAadObjectId -and $_.Scope -eq $userReadScope }
         if($existingPermission) {
             Write-Host "$userReadScope permission already exists."
         }
@@ -109,7 +114,7 @@ function Grant-ClientAppDelegatedPermissions {
         Write-Warning "Received failure when posting to $permissionGrantUrl to grant $userImpersonationScope permission."
         Write-Warning "Error message: $error"
 
-        $existingPermission = Get-AzureADOAuth2PermissionGrant -All $true | ? {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $resourceApiObjectId -and $_.Scope -eq $userImpersonationScope }
+        $existingPermission = Get-MgOauth2PermissionGrant -All | Where-Object {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $resourceApiObjectId -and $_.Scope -eq $userImpersonationScope }
         if($existingPermission) {
             Write-Host "$userImpersonationScope permission already exists."
         }
