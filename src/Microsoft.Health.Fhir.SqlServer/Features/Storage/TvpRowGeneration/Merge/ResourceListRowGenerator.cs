@@ -5,6 +5,8 @@
 
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -17,12 +19,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
     {
         private readonly ISqlServerFhirModel _model;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
 
-        public ResourceListRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter)
+        public ResourceListRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter, RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
@@ -34,7 +38,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash);
+
+                // Get partition ID from request context, with null for backwards compatibility
+                short? partitionId = null;
+                if (_contextAccessor.RequestContext != null)
+                {
+                    partitionId = (short?)_contextAccessor.RequestContext.GetEffectivePartitionId(wrapper.ResourceTypeName);
+                }
+
+                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash, partitionId);
             }
         }
     }

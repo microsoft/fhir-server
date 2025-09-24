@@ -13,6 +13,7 @@ CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
     RawResource                 varbinary(max)          NOT NULL,
     IsRawResourceMetaSet        bit                     NOT NULL,
     SearchParamHash             varchar(64)             NULL,
+    PartitionId                 smallint                NOT NULL DEFAULT 2,
     TransactionId               bigint                  NULL,
     HistoryTransactionId        bigint                  NULL
 )
@@ -31,7 +32,8 @@ CREATE TABLE dbo.Resource
     RawResource                 varbinary(max)          NOT NULL,
     IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0,
     SearchParamHash             varchar(64)             NULL,
-    TransactionId               bigint                  NULL,     -- used for main CRUD operation 
+    PartitionId                 smallint                NOT NULL DEFAULT 2, -- Default partition for regular resources
+    TransactionId               bigint                  NULL,     -- used for main CRUD operation
     HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
 
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
@@ -43,16 +45,18 @@ ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
 CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.Resource (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.Resource (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_PartitionId_ResourceTypeId_ResourceId_Version ON dbo.Resource
 (
+    PartitionId,
     ResourceTypeId,
     ResourceId,
     Version
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_PartitionId_ResourceTypeId_ResourceId ON dbo.Resource
 (
+    PartitionId,
     ResourceTypeId,
     ResourceId
 )

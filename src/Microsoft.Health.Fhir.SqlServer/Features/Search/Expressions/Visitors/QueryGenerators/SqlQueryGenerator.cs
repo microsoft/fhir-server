@@ -10,8 +10,11 @@ using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitioning;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -45,6 +48,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
+        private readonly int? _partitionId;
+        private readonly string _resourceType;
         private bool _sortVisited = false;
         private bool _unionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
@@ -65,6 +70,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SchemaInformation schemaInfo,
             bool reuseQueryPlans,
             bool isAsyncOperation,
+            int? partitionId = null,
+            string resourceType = null,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -76,6 +83,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Parameters = parameters;
             Model = model;
             _schemaInfo = schemaInfo;
+            _partitionId = partitionId;
+            _resourceType = resourceType;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
 
@@ -260,6 +269,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     AppendHistoryClause(delimitedClause, context.ResourceVersionTypes);
+
+                    AppendPartitionClause(delimitedClause);
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
                 }
@@ -454,6 +465,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
 
+                AppendPartitionClause(delimited, searchParamTableExpression);
+
                 if (searchParamTableExpression.Predicate != null)
                 {
                     delimited.BeginDelimitedElement();
@@ -538,6 +551,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, tableAlias, specialCaseTableName);
 
+                AppendPartitionClause(delimited, searchParamTableExpression, tableAlias);
+
                 if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !UseAppendWithJoin())
                 {
                     // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
@@ -573,6 +588,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited, context.ResourceVersionTypes);
+
+                    AppendPartitionClause(delimited);
+
                     AppendDeletedClause(delimited, context.ResourceVersionTypes);
                     if (searchParamTableExpression.Predicate != null)
                     {
@@ -591,6 +609,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited, context.ResourceVersionTypes);
+
+                    AppendPartitionClause(delimited);
+
                     AppendDeletedClause(delimited, context.ResourceVersionTypes);
                     if (searchParamTableExpression.Predicate != null)
                     {
@@ -748,6 +769,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
+
+                AppendPartitionClause(delimited, null, referenceTargetResourceTableAlias);
+
                 AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
 
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
@@ -838,6 +862,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
+
+                AppendPartitionClause(delimited, null, referenceTargetResourceTableAlias);
 
                 AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
 
@@ -1384,6 +1410,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 delimited.BeginDelimitedElement();
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 1 ");
+            }
+        }
+
+        private void AppendPartitionClause(in IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression expression = null, string tableAlias = null)
+        {
+            if (expression != null &&
+                expression.QueryGenerator.Table.TableName.EndsWith("SearchParam", StringComparison.OrdinalIgnoreCase))
+            {
+                // Partition clause is not applicable for search param tables since they join via ResourceSurrogateId
+                return;
+            }
+
+            // Skip if schema doesn't support partitioning
+            if (_schemaInfo.Current < SchemaVersionConstants.DataPartitioning)
+            {
+                return;
+            }
+
+            // Check if partitioning is enabled and partition context is available
+            if (_partitionId == null)
+            {
+                return; // Partitioning disabled or no partition context
+            }
+
+            delimited.BeginDelimitedElement();
+
+            if (!string.IsNullOrEmpty(_resourceType) && SystemResourceTypes.IsSystemResource(_resourceType))
+            {
+                // System resources always from system partition (ID = 1)
+                StringBuilder.Append(VLatest.Resource.PartitionId, tableAlias).Append(" = 1");
+            }
+            else
+            {
+                // Regular resources from current partition context
+                StringBuilder.Append(VLatest.Resource.PartitionId, tableAlias)
+                          .Append(" = ")
+                          .Append(Parameters.AddParameter(VLatest.Resource.PartitionId, _partitionId.Value, true));
             }
         }
 

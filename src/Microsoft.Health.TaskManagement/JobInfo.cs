@@ -36,5 +36,11 @@ namespace Microsoft.Health.JobManagement
         public DateTime? EndDate { get; set; }
 
         public DateTime HeartbeatDateTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the logical partition ID for data partitioning.
+        /// References the Partition.PartitionId for SQL Server implementations.
+        /// </summary>
+        public short? LogicalPartitionId { get; set; }
     }
 }

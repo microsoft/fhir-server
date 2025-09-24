@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitioning;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
@@ -46,6 +47,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
+        public int? LogicalPartitionId { get; set; }
+
+        public string PartitionName { get; set; }
+
+        public int GetEffectivePartitionId(string resourceType = null)
+        {
+            const int SystemPartitionId = 1;
+            const int DefaultPartitionId = 2;
+
+            // If partitioning is disabled, use default partition
+            if (LogicalPartitionId == null)
+            {
+                return DefaultPartitionId;
+            }
+
+            // System resources always use system partition
+            if (!string.IsNullOrEmpty(resourceType) && SystemResourceTypes.IsSystemResource(resourceType))
+            {
+                return SystemPartitionId;
+            }
+
+            // Regular resources use current partition context
+            return LogicalPartitionId.Value;
+        }
+
         public object Clone()
         {
             KeyValuePair<string, StringValues>[] requestHeaders = new KeyValuePair<string, StringValues>[RequestHeaders.Count];
@@ -69,6 +95,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;
             clone.AccessControlContext = AccessControlContext == null ? new AccessControlContext() : (AccessControlContext)AccessControlContext.Clone();
+            clone.LogicalPartitionId = LogicalPartitionId;
+            clone.PartitionName = PartitionName;
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {

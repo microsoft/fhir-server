@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Partitioning;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Newtonsoft.Json;
 
@@ -50,6 +51,9 @@ namespace Microsoft.AspNetCore.Builder
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
+
+            // Add partition routing middleware before routing
+            app.UsePartitionRouting();
 
             app.UseRouting();
             useDevelopmentIdentityProvider?.Invoke(app);

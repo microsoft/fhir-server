@@ -17,16 +17,18 @@ CREATE TABLE dbo.JobQueue
     ,Priority            tinyint       NOT NULL CONSTRAINT DF_JobQueue_Priority DEFAULT 100 
     ,Data                bigint        NULL
     ,Result              varchar(max)  NULL
-    ,CreateDate          datetime      NOT NULL CONSTRAINT DF_JobQueue_CreateDate DEFAULT getUTCdate() 
+    ,LogicalPartitionId  smallint      NOT NULL CONSTRAINT DF_JobQueue_LogicalPartitionId DEFAULT 2 -- Logical data partition (references Partition table)
+    ,CreateDate          datetime      NOT NULL CONSTRAINT DF_JobQueue_CreateDate DEFAULT getUTCdate()
     ,StartDate           datetime      NULL
-    ,EndDate             datetime      NULL 
-    ,HeartbeatDate       datetime      NOT NULL CONSTRAINT DF_JobQueue_HeartbeatDate DEFAULT getUTCdate() 
-    ,Worker              varchar(100)  NULL 
+    ,EndDate             datetime      NULL
+    ,HeartbeatDate       datetime      NOT NULL CONSTRAINT DF_JobQueue_HeartbeatDate DEFAULT getUTCdate()
+    ,Worker              varchar(100)  NULL
     ,Info                varchar(1000) NULL
     ,CancelRequested     bit           NOT NULL CONSTRAINT DF_JobQueue_CancelRequested DEFAULT 0
 
      CONSTRAINT PKC_JobQueue_QueueType_PartitionId_JobId PRIMARY KEY CLUSTERED (QueueType, PartitionId, JobId) ON TinyintPartitionScheme(QueueType)
     ,CONSTRAINT U_JobQueue_QueueType_JobId UNIQUE (QueueType, JobId)
+    ,CONSTRAINT FK_JobQueue_LogicalPartition FOREIGN KEY (LogicalPartitionId) REFERENCES dbo.Partition(PartitionId)
 )
 GO
 CREATE INDEX IX_QueueType_PartitionId_Status_Priority ON dbo.JobQueue (PartitionId, Status, Priority) ON TinyintPartitionScheme(QueueType) -- dequeue

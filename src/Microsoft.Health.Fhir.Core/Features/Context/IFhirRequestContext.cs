@@ -40,5 +40,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// Data informing the service how to apply fine grained access control
         /// </summary>
         AccessControlContext AccessControlContext { get; }
+
+        /// <summary>
+        /// The logical partition ID for data partitioning. Null if partitioning is disabled.
+        /// </summary>
+        int? LogicalPartitionId { get; set; }
+
+        /// <summary>
+        /// The partition name extracted from the URL. Null if no partition specified.
+        /// </summary>
+        string PartitionName { get; set; }
+
+        /// <summary>
+        /// Gets the effective partition ID for the specified resource type.
+        /// System resources always use the system partition (ID=1), while regular resources use the current partition context.
+        /// </summary>
+        /// <param name="resourceType">The resource type to get the partition ID for.</param>
+        /// <returns>The effective partition ID for the resource type.</returns>
+        int GetEffectivePartitionId(string resourceType = null);
     }
 }

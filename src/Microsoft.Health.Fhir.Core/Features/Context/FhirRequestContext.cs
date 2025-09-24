@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features.Partitioning;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
@@ -76,6 +77,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
+        /// <summary>
+        /// The logical partition ID for data partitioning. Null if partitioning is disabled.
+        /// </summary>
+        public int? LogicalPartitionId { get; set; }
+
+        /// <summary>
+        /// The partition name extracted from the URL. Null if no partition specified.
+        /// </summary>
+        public string PartitionName { get; set; }
+
+        /// <summary>
+        /// Gets the effective partition ID for the specified resource type.
+        /// System resources always use the system partition (ID=1), while regular resources use the current partition context.
+        /// </summary>
+        /// <param name="resourceType">The resource type to get the partition ID for.</param>
+        /// <returns>The effective partition ID for the resource type.</returns>
+        public int GetEffectivePartitionId(string resourceType = null)
+        {
+            const int SystemPartitionId = 1;
+            const int DefaultPartitionId = 2;
+
+            // If partitioning is disabled, use default partition
+            if (LogicalPartitionId == null)
+            {
+                return DefaultPartitionId;
+            }
+
+            // System resources always use system partition
+            if (!string.IsNullOrEmpty(resourceType) && SystemResourceTypes.Types.Contains(resourceType))
+            {
+                return SystemPartitionId;
+            }
+
+            // Regular resources use current partition context
+            return LogicalPartitionId.Value;
+        }
+
         public object Clone()
         {
             KeyValuePair<string, StringValues>[] requestHeaders = new KeyValuePair<string, StringValues>[RequestHeaders.Count];
@@ -100,6 +138,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;
             clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
+            clone.LogicalPartitionId = LogicalPartitionId;
+            clone.PartitionName = PartitionName;
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {

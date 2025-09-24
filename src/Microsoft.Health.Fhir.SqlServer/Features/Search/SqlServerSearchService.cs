@@ -382,6 +382,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
+                            // Get partition context from request context
+                            var fhirContext = _requestContextAccessor.RequestContext;
+                            var partitionId = fhirContext?.LogicalPartitionId;
+                            var resourceType = fhirContext?.ResourceType;
+
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
@@ -389,6 +394,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _schemaInformation,
                                 reuseQueryPlans,
                                 sqlSearchOptions.IsAsyncOperation,
+                                partitionId,
+                                resourceType,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
@@ -1342,6 +1349,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                             EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
+                            // Get partition context from request context
+                            var fhirContext = _requestContextAccessor.RequestContext;
+                            var partitionId = fhirContext?.LogicalPartitionId;
+                            var resourceType = fhirContext?.ResourceType;
+
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
@@ -1349,6 +1361,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 _schemaInformation,
                                 _reuseQueryPlans.IsEnabled(_sqlRetryService),
                                 sqlSearchOptions.IsAsyncOperation,
+                                partitionId,
+                                resourceType,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);

@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Partitioning;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -27,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitioning;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -53,6 +55,15 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerConnection(configureAction);
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
+
+            // Configure data partitioning
+            services.Configure<DataPartitioningConfiguration>(configuration =>
+            {
+                // Default configuration - can be overridden by app configuration
+                configuration.Enabled = false;
+                configuration.DefaultPartitionName = "default";
+                configuration.SystemPartitionName = "system";
+            });
 
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
                 .Singleton()
@@ -119,6 +130,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
             services.Add<SqlServerFhirModel>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerPartitionService>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
