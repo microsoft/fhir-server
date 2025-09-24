@@ -5,6 +5,7 @@
 
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Search.Hackathon;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -16,12 +17,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
     [Trait(Traits.Category, Categories.Search)]
     public sealed class QueryPlanSelectorTests
     {
+        private readonly Microsoft.Extensions.Logging.ILogger<QueryPlanSelector> _logger = NullLogger<QueryPlanSelector>.Instance;
+
         [Fact]
         public void GivenExecutionTimes_WhereSettingsTRUEHasABetterPerformance_ThenSelectorShouldPreferTrue()
         {
             // This test simulates the case then SQL Query Plan Caching is beneficial.
 
-            QueryPlanSelector selector = new QueryPlanSelector();
+            QueryPlanSelector selector = new QueryPlanSelector(_logger);
 
             string hash = "hash1";
 
@@ -46,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         {
             // This test simulates the case then SQL Query Plan Caching is not beneficial.
 
-            QueryPlanSelector selector = new QueryPlanSelector();
+            QueryPlanSelector selector = new QueryPlanSelector(_logger);
 
             string hash = "hash1";
 
@@ -69,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         [Fact]
         public void GivenMultipleSequentialRequests_WithMultipleHashes_ThenTheSelectorShouldHandleIt()
         {
-            QueryPlanSelector selector = new QueryPlanSelector();
+            QueryPlanSelector selector = new QueryPlanSelector(_logger);
 
             string hash1 = "hash1";
             string hash2 = "hash2";
@@ -98,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         [Fact]
         public async Task GivenMultipleParallelRequests_WithTwoDifferentHashes_ThenTheSelectorShouldHandleIt()
         {
-            QueryPlanSelector selector = new QueryPlanSelector();
+            QueryPlanSelector selector = new QueryPlanSelector(_logger);
 
             string hash1 = "hash1";
             string hash2 = "hash2";
@@ -139,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         {
             const int maxNumberOfEntries = 500;
 
-            QueryPlanSelector selector = new QueryPlanSelector();
+            QueryPlanSelector selector = new QueryPlanSelector(_logger);
 
             string hash = string.Empty;
             bool setting = false;

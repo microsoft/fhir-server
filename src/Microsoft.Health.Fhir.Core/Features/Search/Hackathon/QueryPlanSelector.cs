@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
 {
@@ -21,9 +22,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
 
         private readonly object _lock;
         private readonly Dictionary<string, Ewma> _ewmaByHash;
+        private readonly ILogger<QueryPlanSelector> _logger;
 
-        public QueryPlanSelector()
+        public QueryPlanSelector(ILogger<QueryPlanSelector> logger)
         {
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+
             _lock = new object();
             _ewmaByHash = new Dictionary<string, Ewma>();
         }
@@ -88,6 +92,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
 
                 var newEwma = new Ewma(_settings, MinIterationsForDecision, EwmaAlpha);
                 _ewmaByHash.Add(hash, newEwma);
+
+                if (IsMaxLimitReached())
+                {
+                    // If the max limit is reached after adding the new entry, log a warning.
+                    _logger.LogWarning("The maximum number of EWMA entries has been reached. New entries will not be created.");
+                }
 
                 return newEwma;
             }

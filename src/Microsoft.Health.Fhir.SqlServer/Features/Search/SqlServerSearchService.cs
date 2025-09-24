@@ -273,19 +273,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
             else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled)
             {
-                string hash = sqlSearchOptions.Expression.GetUniqueExpressionIdentifier();
-                bool reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
+                string hash = string.Empty;
+                bool reuseQueryCachingPlan = false;
+
+                try
+                {
+                    hash = sqlSearchOptions.Expression.GetUniqueExpressionIdentifier();
+                    reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
+                    _logger.LogInformation("Got Query Plan Caching Setting {ReuseQueryCachingPlan} for hash {Hash}.", reuseQueryCachingPlan, hash);
+                }
+                catch (Exception exception)
+                {
+                    // Swallow any exceptions and just run the query with the default setting.
+                    _logger.LogWarning(exception, "Failed to get Query Plan Caching Setting, running with default.");
+                }
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 SearchResult searchResult = await SearchImpl(sqlSearchOptions, reuseQueryCachingPlan, cancellationToken);
                 stopwatch.Stop();
 
-                _queryPlanSelector.ReportExecutionTime(hash, reuseQueryCachingPlan, stopwatch.Elapsed.TotalMilliseconds);
-
-                if (_requestContextAccessor?.RequestContext?.ResponseHeaders != null)
+                if (!string.IsNullOrEmpty(hash))
                 {
-                    // Send back to client which plan was used for telemetry purposes.
-                    _requestContextAccessor.RequestContext.ResponseHeaders[KnownHeaders.QueryCacheSetting] = reuseQueryCachingPlan.ToString();
+                    _queryPlanSelector.ReportExecutionTime(hash, reuseQueryCachingPlan, stopwatch.Elapsed.TotalMilliseconds);
+
+                    if (_requestContextAccessor?.RequestContext?.ResponseHeaders != null)
+                    {
+                        // Send back to client which plan was used for telemetry purposes.
+                        _requestContextAccessor.RequestContext.ResponseHeaders[KnownHeaders.QueryCacheSetting] = reuseQueryCachingPlan.ToString();
+                    }
                 }
 
                 return searchResult;
