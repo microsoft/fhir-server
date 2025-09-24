@@ -290,7 +290,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Collection(
                     bundle.Entry.Select(e => e.Resource),
-                    expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+                    expectedResources.Select(er => new Action<Resource>(r =>
+                    {
+                        if (er is OperationOutcome expectedOperationOutcome && r is OperationOutcome actualOperationOutcome)
+                        {
+                            // Operation outcome id is not predicable, so only the issues are checked.
+                            Assert.True(expectedOperationOutcome.Issue.IsExactly(actualOperationOutcome.Issue));
+                        }
+                        else
+                        {
+                            Assert.True(er.IsExactly(r));
+                        }
+                    })).ToArray());
             }
             catch (XunitException)
             {
