@@ -39,12 +39,15 @@ function New-FhirServerApiApplicationRegistration {
 
     Set-StrictMode -Version Latest
     
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No Microsoft Graph session found"
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
@@ -65,18 +68,36 @@ function New-FhirServerApiApplicationRegistration {
         }
     }
 
-    # Create the App Registration
-    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
-    New-AzureAdServicePrincipal -AppId $apiAppReg.AppId | Out-Null
+    # Create the App Registration using Microsoft Graph
+    $appParams = @{
+        DisplayName    = $FhirServiceAudience
+        IdentifierUris = @($FhirServiceAudience)
+        AppRoles       = $desiredAppRoles
+        Api            = @{
+            Oauth2PermissionScopes = @(@{
+                Id                      = [System.Guid]::NewGuid().ToString()
+                AdminConsentDescription = "Allow the application to access $FhirServiceAudience on behalf of the signed-in user."
+                AdminConsentDisplayName = "Access $FhirServiceAudience"
+                IsEnabled               = $true
+                Type                    = "User"
+                UserConsentDescription  = "Allow the application to access $FhirServiceAudience on your behalf."
+                UserConsentDisplayName  = "Access $FhirServiceAudience"
+                Value                   = "user_impersonation"
+            })
+        }
+    }
+    
+    $apiAppReg = New-MgApplication @appParams
+    New-MgServicePrincipal -AppId $apiAppReg.AppId | Out-Null
 
-    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
+    $tenantId = $context.TenantId
+    $authority = "https://login.microsoftonline.com/$tenantId"
 
     #Return Object
     @{
         AppId     = $apiAppReg.AppId;
-        TenantId  = $aadTenantId;
-        Authority = "$aadEndpoint$aadTenantId";
+        TenantId  = $tenantId;
+        Authority = $authority;
         Audience  = $FhirServiceAudience;
     }
 }
