@@ -164,8 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "researchsubject-example" };
             yield return new object[] { "riskassessment-example" };
             yield return new object[] { "riskevidencesynthesis-example" };
-            yield return new object[] { "schedule-example" };
-            // yield return new object[] { "searchparameter-example" };
+            yield return new object[] { "schedule-example" };            
             yield return new object[] { "servicerequest-example" };
             yield return new object[] { "slot-example" };
             yield return new object[] { "specimendefinition-questionnaire" };
