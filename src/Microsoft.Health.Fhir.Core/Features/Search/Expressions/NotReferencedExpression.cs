@@ -4,10 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -28,6 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return "NotReferenced";
+        }
+
+        public override string GetUniqueExpressionIdentifier()
+        {
+            return ToString();
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

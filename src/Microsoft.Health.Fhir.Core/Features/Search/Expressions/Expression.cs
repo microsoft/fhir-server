@@ -322,6 +322,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public abstract override string ToString();
 
         /// <summary>
+        /// Given an expression, returns its unique identifier, ignoring parameterizable values.
+        /// </summary>
+        public abstract string GetUniqueExpressionIdentifier();
+
+        /// <summary>
         /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.
         /// For example, date=2013&amp;name=Smith and date=2014&amp;name=Trudeau would have the same hash code.
         /// </summary>

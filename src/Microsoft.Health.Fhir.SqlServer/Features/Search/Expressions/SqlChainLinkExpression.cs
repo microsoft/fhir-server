@@ -76,6 +76,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
         }
 
+        public override string GetUniqueExpressionIdentifier()
+        {
+            return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource.GetUniqueExpressionIdentifier()}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget.GetUniqueExpressionIdentifier()}")})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(SqlChainLinkExpression));
