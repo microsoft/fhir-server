@@ -66,8 +66,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                         var rawResource = await _mediator.GetResourceAsync(
                             new ResourceKey(KnownResourceTypes.ValueSet, request.ResourceId),
                             cancellationToken);
-                        parameters.RemoveAll(
-                            x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase));
                         parameters.Add(Tuple.Create(TerminologyOperationParameterNames.Expand.ValueSet, rawResource?.RawResource?.Data));
                     }
                     catch (Exception ex)

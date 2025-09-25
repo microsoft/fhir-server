@@ -447,4 +447,7 @@
   <data name="ExpandInvalidParameter" xml:space="preserve">
     <value>One or more invalid parameters are found: {0}</value>
   </data>
+  <data name="ExpandInvalidParameterCount" xml:space="preserve">
+    <value>The number of the parameter must not be more than one: {0}</value>
+  </data>
 </root>

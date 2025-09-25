@@ -47,118 +47,121 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         private TestFhirServer Server => _fixture.TestFhirServer;
 
         [SkippableTheory]
-        [InlineData("?url=0", null)]
-        [InlineData("?offset=10", null)] // Invalid parameter (missing required parameter)
-        [InlineData("?valueSet={'bogusResource'}", "valueSet")] // Invalid parameter value
-        [InlineData("?url=0&unknown=unknown", "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData("?url=0", true, null)]
+        [InlineData("?offset=10", false, null)] // Invalid parameter (missing required parameter)
+        [InlineData("?valueSet={'bogusResource'}", true, "valueSet")] // Invalid parameter value handled by the proxy (OperationOutcome expected)
+        [InlineData("?url=0&unknown=unknown", false, "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData("?url=0&offset=1&offset=2", false, "offset")] // Invalid parameter count
         public async Task GivenQuery_WhenExpanding_ThenValueSetShouldBeExpanded(
             string query,
-            string invalid)
+            bool validQuery,
+            string invalidParameters)
         {
-            var valid = false;
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
                 Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
-                var parameters = ParseQuery(query, null, out valid);
+                var parameters = ParseQuery(query, null);
                 var url = $"{KnownResourceTypes.ValueSet}/{KnownRoutes.Expand}{ToQueryString(query, parameters.Collection)}";
                 var pUrl = parameters.Collection.GetValues(TerminologyOperationParameterNames.Expand.Url)?.FirstOrDefault();
                 var response = await Client.ReadAsync<Resource>(url);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                Validate(response.Resource, pUrl, parameters.Collection, invalid);
-                Assert.True(valid);
+                Validate(response.Resource, pUrl, parameters.Collection, invalidParameters);
+                Assert.True(validQuery);
             }
             catch (FhirClientException ex) when ((int)ex.StatusCode >= 400 && (int)ex.StatusCode <= 499)
             {
-                Assert.False(valid);
-                if (string.IsNullOrEmpty(invalid))
+                Assert.False(validQuery);
+                if (string.IsNullOrEmpty(invalidParameters))
                 {
                     Assert.Contains(Api.Resources.ExpandMissingRequiredParameter, ex.Message);
                 }
                 else
                 {
-                    Validate(ex, invalid);
+                    Validate(ex, invalidParameters);
                 }
             }
         }
 
         [SkippableTheory]
-        [InlineData(0, null, null)]
-        [InlineData(1, "?url=0", null)] // The url parameter should be ignored.
-        [InlineData(0, "?offset=10", null)]
-        [InlineData(1, "?valueSet={'bogusResource'}", null)] // Invalid parameter value should be replaced by a resource from the store.
-        [InlineData(0, "?unknown=unknown", "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData(0, null, true, null)]
+        [InlineData(1, "?url=0", true, null)] // The url parameter should be ignored.
+        [InlineData(0, "?offset=10", true, null)]
+        [InlineData(1, "?valueSet={'bogusResource'}", false, "valueSet")] // Invalid parameter count
+        [InlineData(0, "?unknown=unknown", false, "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData(1, "?count=1&count=2", false, "count")] // Invalid parameter count
         public async Task GivenResourceIdAndQuery_WhenExpanding_ThenValueSetShouldBeExpanded(
             int index,
             string query,
-            string invalid)
+            bool validQuery,
+            string invalidParameters)
         {
-            var valid = false;
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
                 Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
                 var resource = GetResource(index);
-                var parameters = ParseQuery(query, resource, out valid);
+                var parameters = ParseQuery(query, resource);
                 var url = $"{KnownResourceTypes.ValueSet}/{resource.Id}/{KnownRoutes.Expand}{ToQueryString(query, parameters.Collection)}";
                 var response = await Client.ReadAsync<Resource>(url);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                Validate(response.Resource, resource.Url, parameters.Collection, invalid);
-                Assert.True(valid);
+                Validate(response.Resource, resource.Url, parameters.Collection, invalidParameters);
+                Assert.True(validQuery);
             }
             catch (FhirClientException ex) when ((int)ex.StatusCode >= 400 && (int)ex.StatusCode <= 499)
             {
-                Assert.False(valid);
-                if (string.IsNullOrEmpty(invalid))
+                Assert.False(validQuery);
+                if (string.IsNullOrEmpty(invalidParameters))
                 {
                     Assert.Contains(Api.Resources.ExpandMissingRequiredParameter, ex.Message);
                 }
                 else
                 {
-                    Validate(ex, invalid);
+                    Validate(ex, invalidParameters);
                 }
             }
         }
 
         [SkippableTheory]
-        [InlineData("?url=0", null)]
-        [InlineData("?valueSet=0", null)]
-        [InlineData("?url=0&valueSet=1", null)] // LocalTerminologyService takes 'valueSet' over 'url' parameter.
-        [InlineData("?offset=10", null)] // Invalid parameter (missing required parameter)
-        [InlineData("?valueSet={'bogusResource'}", "valueSet")] // Invalid parameter value
-        [InlineData("?url=0&unknown=unknown", "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData("?url=0", true, null)]
+        [InlineData("?valueSet=0", true, null)]
+        [InlineData("?url=0&valueSet=1", true, null)] // LocalTerminologyService takes 'valueSet' over 'url' parameter.
+        [InlineData("?offset=10", false, null)] // Invalid parameter (missing required parameter)
+        [InlineData("?valueSet={'bogusResource'}", true, "valueSet")] // Invalid parameter value handled by the proxy (OperationOutcome expected)
+        [InlineData("?url=0&unknown=unknown", false, "unknown")] // Invalid parameter (unknown parameter)
+        [InlineData("?url=0&url=1", false, "url")] // Invalid parameter count
         public async Task GivenParameters_WhenExpanding_ThenValueSetShouldBeExpanded(
             string query,
-            string invalid)
+            bool validQuery,
+            string invalidParameters)
         {
-            var valid = false;
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
                 Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
-                var parameters = ParseQuery(query, null, out valid);
+                var parameters = ParseQuery(query, null);
                 var url = $"{KnownResourceTypes.ValueSet}/{KnownRoutes.Expand}";
                 var pUrl = GetUrl(query);
                 var response = await Client.CreateAsync<Resource>(
                     url,
                     parameters.Resource);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                Validate(response.Resource, pUrl, parameters.Collection, invalid);
-                Assert.True(valid);
+                Validate(response.Resource, pUrl, parameters.Collection, invalidParameters);
+                Assert.True(validQuery);
             }
             catch (FhirClientException ex) when ((int)ex.StatusCode >= 400 && (int)ex.StatusCode <= 499)
             {
-                Assert.False(valid);
-                if (string.IsNullOrEmpty(invalid))
+                Assert.False(validQuery);
+                if (string.IsNullOrEmpty(invalidParameters))
                 {
                     Assert.Contains(Api.Resources.ExpandMissingRequiredParameter, ex.Message);
                 }
                 else
                 {
-                    Validate(ex, invalid);
+                    Validate(ex, invalidParameters);
                 }
             }
         }
@@ -204,12 +207,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             return url;
         }
 
-        private (NameValueCollection Collection, Parameters Resource) ParseQuery(string query, Resource resource, out bool valid)
+        private (NameValueCollection Collection, Parameters Resource) ParseQuery(string query, Resource resource)
         {
-            valid = false;
             if (string.IsNullOrEmpty(query))
             {
-                valid = resource != null;
                 return (new NameValueCollection(), new Parameters());
             }
 
@@ -283,11 +284,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     });
             }
 
-            valid = (resource != null
-                || parameterCollection.AllKeys.Any(
-                        x => string.Equals(x, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(x, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase)))
-                && parameterCollection.AllKeys.All(x => ValidParameterNames.Contains(x));
             return (parameterCollection, parametersResource);
         }
 

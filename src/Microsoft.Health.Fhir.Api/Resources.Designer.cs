@@ -232,6 +232,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The number of the parameter must not be more than one: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameterCount {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The resource id must not be null or empty..
         /// </summary>
         public static string ExpandInvalidResourceId {

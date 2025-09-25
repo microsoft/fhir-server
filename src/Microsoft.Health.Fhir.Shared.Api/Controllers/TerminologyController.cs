@@ -35,6 +35,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             TerminologyOperationParameterNames.Expand.Names,
             StringComparer.OrdinalIgnoreCase);
 
+        private static readonly HashSet<string> ExpandParameterNamesMultipleAllowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            TerminologyOperationParameterNames.Expand.Designation,
+            TerminologyOperationParameterNames.Expand.ExcludeSystem,
+            TerminologyOperationParameterNames.Expand.SystemVersion,
+            TerminologyOperationParameterNames.Expand.CheckSystemVersion,
+            TerminologyOperationParameterNames.Expand.ForceSystemVersion,
+        };
+
         private readonly IMediator _mediator;
         private readonly TerminologyConfiguration _configuration;
 
@@ -135,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return $"{((Coding)value).System}|{((Coding)value).Code}";
             }
 
-            // NOTE: This won't work for many non-premitive types. We need a way to convert the value of those types to a string correctly.
+            // NOTE: This won't work for many non-primitive types. We need a way to convert the value of those types to a string correctly.
             return value.ToString();
         }
 
@@ -164,23 +173,52 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // LocalTerminologyService: https://docs.fire.ly/projects/Firely-NET-SDK/en/latest/validation/terminology-service.html#localterminologyservice
             if (string.IsNullOrEmpty(resourceId)
                 && (parameters == null
-                || (!parameters.Any(x => string.Equals(x.Item1, "url", StringComparison.OrdinalIgnoreCase))
-                && !parameters.Any(x => string.Equals(x.Item1, "valueSet", StringComparison.OrdinalIgnoreCase)))))
+                || (!parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase))
+                && !parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)))))
             {
                 throw new RequestNotValidException(Resources.ExpandMissingRequiredParameter);
             }
 
-            var invalid = parameters?.Where(x => !ExpandParameterNames.Contains(x.Item1))?.ToList();
-            if (invalid != null && invalid.Any())
+            if (parameters != null && parameters.Any())
             {
-                StringBuilder s = new StringBuilder();
-                foreach (var i in invalid)
+                var invalid = parameters
+                    .Where(x => !ExpandParameterNames.Contains(x.Item1))
+                    .Select(x => x.Item1)
+                    .ToList();
+                if (invalid.Any())
                 {
-                    s.AppendFormat("'{0}',", i.Item1);
+                    StringBuilder s = new StringBuilder();
+                    foreach (var i in invalid)
+                    {
+                        s.AppendFormat("'{0}',", i);
+                    }
+
+                    throw new RequestNotValidException(
+                        string.Format(Resources.ExpandInvalidParameter, s.ToString().TrimEnd(',')));
                 }
 
-                throw new RequestNotValidException(
-                    string.Format(Resources.ExpandInvalidParameter, s.ToString().TrimEnd(',')));
+                var invalidCount = parameters
+                    .GroupBy(x => x.Item1)
+                    .Where(x => x.Count() > 1 && !ExpandParameterNamesMultipleAllowed.Contains(x.Key))
+                    .Select(x => x.Key)
+                    .ToList();
+                if (!string.IsNullOrEmpty(resourceId)
+                    && parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)))
+                {
+                    invalidCount.Add(TerminologyOperationParameterNames.Expand.ValueSet);
+                }
+
+                if (invalidCount.Any())
+                {
+                    StringBuilder s = new StringBuilder();
+                    foreach (var i in invalidCount)
+                    {
+                        s.AppendFormat("'{0}',", i);
+                    }
+
+                    throw new RequestNotValidException(
+                        string.Format(Resources.ExpandInvalidParameterCount, s.ToString().TrimEnd(',')));
+                }
             }
         }
     }
