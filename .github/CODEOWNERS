@@ -1,9 +1,96 @@
-# These owners will be the default owners for everything in
-# the repo. Unless a later match takes precedence,
-# @global-owner1 and @global-owner2 will be requested for
-# review when someone opens a pull request.
+# CODEOWNERS for Microsoft FHIR Server
+# 
+# This file defines code ownership for feature verticals to ensure
+# the right reviewers are automatically assigned to pull requests.
 # Lines starting with '#' are comments.
-
-# These owners will be the default owners for everything in the repo.
-*       @microsoft/resolute-admins
+#
+# Global fallback - FHIR Server Team catch-all
 *       @microsoft/fhir-server-team
+
+# ============================================================================
+# SQL Server / Database Features - SQL Specialist
+# ============================================================================
+src/Microsoft.Health.Fhir.SqlServer/                                          @feordin @apurvabhaleMS @SergeyGaluzo @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.SqlServer.UnitTests/                               @feordin @apurvabhaleMS @SergeyGaluzo @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.SchemaManager/                                     @apurvabhaleMS @rbans96 @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.SchemaManager.UnitTests/                           @apurvabhaleMS @rbans96 @microsoft/fhir-server-team
+src/*/Features/Schema/                                                       @feordin @apurvabhaleMS @SergeyGaluzo @microsoft/fhir-server-team
+
+# ============================================================================
+# Storage & Data Persistence (CosmosDB and Core Storage)
+# ============================================================================
+src/Microsoft.Health.Fhir.CosmosDb/                                          @mikaelweave @fhibf @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.CosmosDb.*/                                        @mikaelweave @fhibf @microsoft/fhir-server-team
+src/*/Features/Storage/                                                       @mikaelweave @feordin @jestradaMS @microsoft/fhir-server-team
+src/*/Features/Persistence/                                                   @mikaelweave @feordin @microsoft/fhir-server-team
+
+# ============================================================================
+# Search Features
+# ============================================================================
+src/*/Features/Search/                                                        @mikaelweave @feordin @jestradaMS @microsoft/fhir-server-team
+
+# ============================================================================
+# Operations & Bulk Features (Import/Export/Reindex/Convert)
+# ============================================================================
+src/*/Features/Operations/                                                    @paorodma-ms @mikaelweave @LTA-Thinking @microsoft/fhir-server-team
+
+# ============================================================================
+# API Layer & Web Features
+# ============================================================================
+src/Microsoft.Health.Fhir.*.Api/                                             @paorodma-ms @rbans96 @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.*.Web/                                             @paorodma-ms @rbans96 @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.Shared.Api/                                        @paorodma-ms @rbans96 @microsoft/fhir-server-team
+src/*/Features/Resources/                                                     @paorodma-ms @rbans96 @microsoft/fhir-server-team
+src/*/Features/Routing/                                                       @paorodma-ms @rbans96 @microsoft/fhir-server-team
+src/*/Features/Formatters/                                                    @PTaladay @jestradaMS @microsoft/fhir-server-team
+src/*/Features/Headers/                                                       @abiisnn @fhibf @microsoft/fhir-server-team
+src/*/Features/ContentTypes/                                                  @abiisnn @fhibf @microsoft/fhir-server-team
+
+# ============================================================================
+# Security & Authentication Features
+# ============================================================================
+src/*/Features/Security/                                                      @apurvabhaleMS @fhibf @microsoft/fhir-server-team
+src/*/Features/SMART/                                                         @feordin @apurvabhaleMS @microsoft/fhir-server-team
+src/Microsoft.Health.Fhir.Api.OpenIddict/                                    @apurvabhaleMS @fhibf @microsoft/fhir-server-team
+
+# ============================================================================
+# Bundle Features
+# ============================================================================
+src/*/Features/Bundle/                                                        @abiisnn @fhibf @microsoft/fhir-server-team
+
+# ============================================================================
+# Validation Features
+# ============================================================================
+src/*/Features/Validation/                                                    @jestradaMS @PTaladay @microsoft/fhir-server-team
+
+# ============================================================================
+# Health & Monitoring Features
+# ============================================================================
+src/*/Features/Health/                                                        @abiisnn @LTA-Thinking @microsoft/fhir-server-team
+src/*/Features/Metrics/                                                       @abiisnn @fhibf @microsoft/fhir-server-team
+src/*/Features/Audit/                                                         @PTaladay @LTA-Thinking @microsoft/fhir-server-team
+
+# ============================================================================
+# Conformance & FHIR Specification Features
+# ============================================================================
+src/*/Features/Conformance/                                                   @mikaelweave @LTA-Thinking @microsoft/fhir-server-team
+src/*/Features/Definition/                                                    @mikaelweave @LTA-Thinking @microsoft/fhir-server-team
+
+# ============================================================================
+# Infrastructure & Background Services
+# ============================================================================
+src/*/Features/BackgroundJobService/                                          @LTA-Thinking @mikaelweave @microsoft/fhir-server-team
+src/*/Features/Watchdogs/                                                     @feordin @apurvabhaleMS @SergeyGaluzo @microsoft/fhir-server-team
+
+# ============================================================================
+# Core Framework & Shared Components
+# ============================================================================
+src/*/Features/Context/                                                       @PTaladay @rbans96 @microsoft/fhir-server-team
+src/*/Features/Exceptions/                                                    @PTaladay @rbans96 @microsoft/fhir-server-team
+src/*/Features/Filters/                                                       @jestradaMS @LTA-Thinking @microsoft/fhir-server-team
+
+# ============================================================================
+# Documentation & Configuration
+# ============================================================================
+*.md                                                                           @evachen96 @EXPEkesheth @microsoft/fhir-server-team
+build/                                                                         @jestradaMS @LTA-Thinking @microsoft/fhir-server-team
