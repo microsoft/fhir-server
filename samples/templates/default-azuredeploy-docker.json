@@ -828,7 +828,7 @@
             "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
             "apiVersion": "2023-07-01-preview",
             "name": "[concat(variables('networkSecurityPerimeterName'), '/sqlserver-', uniqueString(variables('sqlServerDerivedName')))]",
-            "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'new'))]",
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
