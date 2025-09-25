@@ -279,6 +279,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkUpdate:
                     routeName = RouteNames.GetBulkUpdateStatusById;
                     break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRef;
+                    break;
                 case OperationsConstants.ValueSetExpand:
                     routeName = RouteNames.Expand;
                     break;
@@ -344,6 +347,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     break;
                 case OperationsConstants.Includes:
                     routeName = RouteNames.IncludesOperationDefinition;
+                    break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRefOperationDefinition;
                     break;
                 case OperationsConstants.ValueSetExpand:
                     routeName = RouteNames.ExpandDefinition;

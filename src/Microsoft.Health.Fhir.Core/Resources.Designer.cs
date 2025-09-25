@@ -430,6 +430,42 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The number of the &apos;{0}&apos; parameter should not be more than one..
+        /// </summary>
+        internal static string DocRefInvalidParameterCount {
+            get {
+                return ResourceManager.GetString("DocRefInvalidParameterCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter should not have more than one value, delimited by commas..
+        /// </summary>
+        internal static string DocRefInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("DocRefInvalidParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter must be provided..
+        /// </summary>
+        internal static string DocRefMissingRequiredParameter {
+            get {
+                return ResourceManager.GetString("DocRefMissingRequiredParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter is not supported..
+        /// </summary>
+        internal static string DocRefParameterNotSupported {
+            get {
+                return ResourceManager.GetString("DocRefParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A resource should only appear once in each Bundle..
         /// </summary>
         internal static string DuplicatedResourceInABundle {
