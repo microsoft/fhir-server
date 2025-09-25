@@ -340,6 +340,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate..
+        /// </summary>
+        internal static string CosmosDbRequestTimeout {
+            get {
+                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
         /// </summary>
         internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
@@ -417,6 +426,42 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string DeleteVersionNotAllowed {
             get {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The number of the &apos;{0}&apos; parameter should not be more than one..
+        /// </summary>
+        internal static string DocRefInvalidParameterCount {
+            get {
+                return ResourceManager.GetString("DocRefInvalidParameterCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter should not have more than one value, delimited by commas..
+        /// </summary>
+        internal static string DocRefInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("DocRefInvalidParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter must be provided..
+        /// </summary>
+        internal static string DocRefMissingRequiredParameter {
+            get {
+                return ResourceManager.GetString("DocRefMissingRequiredParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter is not supported..
+        /// </summary>
+        internal static string DocRefParameterNotSupported {
+            get {
+                return ResourceManager.GetString("DocRefParameterNotSupported", resourceCulture);
             }
         }
         
@@ -1948,15 +1993,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.
-        /// </summary>
-        internal static string CosmosDbRequestTimeout {
-            get {
-                return ResourceManager.GetString("CosmosDbRequestTimeout", resourceCulture);
             }
         }
     }
