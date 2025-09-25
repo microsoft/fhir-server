@@ -20,12 +20,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         /// <param name="message">The exception message.</param>
         /// <param name="httpStatusCode">The status code to report to the user.</param>
         /// <param name="operationOutcomeIssues">A list of issues to include in the operation outcome.</param>
-        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
+        /// <param name="cancelled">Indicates if the operation was externally cancelled or not.</param>
+        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null, bool cancelled = false)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
 
             ResponseStatusCode = httpStatusCode;
+
+            IsCancelled = cancelled;
 
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
@@ -42,6 +45,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         }
 
         public HttpStatusCode ResponseStatusCode { get; }
+
+        public bool IsCancelled { get; }
 
         public bool IsErrorCausedDueClientFailure()
         {

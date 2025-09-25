@@ -116,8 +116,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     catch (OperationCanceledException ex)
                     {
-                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
-                        _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
+                        _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
                     }
                     catch (FhirTransactionFailedException ex)
                     {
@@ -125,6 +125,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         {
                             _logger.LogWarning(ex, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
                             statistics.MarkBundleAsFailedDueClientError();
+                        }
+                        else if (ex.IsCancelled)
+                        {
+                            _logger.LogWarning(ex, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
+                            statistics.MarkBundleAsCancelled();
                         }
                         else
                         {
@@ -374,7 +379,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     resourceExecutionContext.Context.HttpContext.Request.Method,
                     resourceExecutionContext.Context.HttpContext.Request.Path);
 
-                TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                TransactionExceptionHandler.ThrowTransactionException(
+                    errorMessage,
+                    httpStatusCode,
+                    (OperationOutcome)entryComponent.Response.Outcome,
+                    cancelled: cancellationToken.IsCancellationRequested && watch.Elapsed.TotalSeconds < MaxTransactionExecutionTimeInSeconds);
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;

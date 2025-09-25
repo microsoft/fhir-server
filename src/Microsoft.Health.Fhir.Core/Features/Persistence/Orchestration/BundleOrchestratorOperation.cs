@@ -206,6 +206,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 InitializeMergeTaskSafe(dataStore: null, cancellationToken);
             }
+            catch (OperationCanceledException oce)
+            {
+                SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
+
+                _logger.LogWarning(oce, "Bundle Operation {Id}. Canceled while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", Id, oce.Message);
+                throw;
+            }
             catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
@@ -334,7 +341,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
-                _logger.LogError(oce, "Bundle Operation {Id}. Bundle Orchestrator Operation canceled: {ErrorMessage}", Id, oce.Message);
+                _logger.LogWarning(oce, "Bundle Operation {Id}. Bundle Orchestrator Operation canceled: {ErrorMessage}", Id, oce.Message);
                 throw;
             }
             catch (Exception ex)
