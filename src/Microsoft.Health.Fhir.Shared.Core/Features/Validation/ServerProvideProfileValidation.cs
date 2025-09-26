@@ -33,15 +33,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <summary>
     /// Provides profiles by fetching them from the server.
     /// </summary>
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable. ServerProvideProfileValidation is a Singleton class.
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable. ServerProvideProfileValidation is a Singleton class.
     {
         private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+
+        private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly IMediator _mediator;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
+        private Dictionary<string, Resource> _resourcesByUri = new Dictionary<string, Resource>();
         private DateTime _expirationTime;
-        private object _lockSummaries = new object();
         private ILogger<ServerProvideProfileValidation> _logger;
 
         public ServerProvideProfileValidation(
@@ -71,35 +75,67 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             ListSummaries();
         }
 
-        public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
+        private IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
         {
-            if (disablePull)
+            var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+
+            try
+            {
+                return ListSummariesAsync(resetStatementIfNew, disablePull, cancellationTokenSource.Token).GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Profile refresh took too long, using cached profiles.");
+                return _summaries;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while refreshing profiles, using cached profiles.");
+                return _summaries;
+            }
+            finally
+            {
+                cancellationTokenSource.Dispose();
+            }
+        }
+
+        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(bool resetStatementIfNew, bool disablePull, CancellationToken cancellationToken)
+        {
+            if (disablePull || _expirationTime >= DateTime.UtcNow)
             {
                 return _summaries;
             }
 
-            lock (_lockSummaries)
+            await _cacheSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                if (_expirationTime < DateTime.UtcNow)
+                if (_expirationTime >= DateTime.UtcNow)
                 {
-                    _logger.LogDebug("Profile cache expired, updating.");
-
-                    var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
-                    var result = System.Threading.Tasks.Task.Run(() => GetSummaries()).GetAwaiter().GetResult();
-                    _summaries = result;
-                    var newHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
-                    _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
-
-                    if (newHash != oldHash)
-                    {
-                        _logger.LogDebug("New Profiles found.");
-                        System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles))).GetAwaiter().GetResult();
-                    }
-
-                    _logger.LogDebug("Profiles updated.");
+                    return _summaries;
                 }
 
+                _logger.LogDebug("Profile cache expired, updating.");
+
+                _resourcesByUri.Clear();
+
+                var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
+                var result = await GetSummaries();
+                _summaries = result;
+                var newHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
+                _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
+
+                if (newHash != oldHash)
+                {
+                    _logger.LogDebug("New Profiles found.");
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles), cancellationToken);
+                }
+
+                _logger.LogDebug("Profiles updated.");
                 return _summaries;
+            }
+            finally
+            {
+                _cacheSemaphore.Release();
             }
         }
 
@@ -156,11 +192,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        private static Resource LoadBySummary(ArtifactSummary summary)
+        private Resource LoadBySummary(ArtifactSummary summary)
         {
             if (summary == null)
             {
                 return null;
+            }
+
+            if (_resourcesByUri.TryGetValue(summary.ResourceUri, out Resource resource))
+            {
+                return resource;
             }
 
             using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(summary.Origin)))
@@ -170,8 +211,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     if (navStream.Current != null)
                     {
-                        // TODO: Cache this parsed resource, to prevent parsing again and again
-                        var resource = navStream.Current.ToPoco<Resource>();
+                        resource = navStream.Current.ToPoco<Resource>();
+                        _resourcesByUri[summary.ResourceUri] = resource;
                         return resource;
                     }
                 }
