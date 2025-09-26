@@ -9,28 +9,22 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
-    public sealed class FhirTransactionFailedException : BaseFhirTransactionException
+    public sealed class FhirTransactionCancelledException : BaseFhirTransactionException
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirTransactionFailedException"/> class.
+        /// Initializes a new instance of the <see cref="FhirTransactionCancelledException"/> class.
         /// Exception related to the processing of a FHIR transaction bundle.
         /// </summary>
         /// <param name="message">The exception message.</param>
-        /// <param name="httpStatusCode">The status code to report to the user.</param>
         /// <param name="operationOutcomeIssues">A list of issues to include in the operation outcome.</param>
-        public FhirTransactionFailedException(
+        public FhirTransactionCancelledException(
             string message,
-            HttpStatusCode httpStatusCode,
             IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
-            : base(message, httpStatusCode, operationOutcomeIssues)
+            : base(
+                message,
+                HttpStatusCode.RequestTimeout, // Use 408 Request Timeout to indicate that the client has cancelled.
+                operationOutcomeIssues)
         {
-        }
-
-        public bool IsErrorCausedDueClientFailure()
-        {
-            // A client error is defined as a 4xx status code.
-            // It can be caused by a malformed request, invalid data, precondition failures, etc.
-            return ResponseStatusCode >= HttpStatusCode.BadRequest && ResponseStatusCode < HttpStatusCode.InternalServerError;
         }
     }
 }

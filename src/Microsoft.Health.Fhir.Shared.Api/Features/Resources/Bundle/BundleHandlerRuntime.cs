@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Threading;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Headers;
@@ -38,6 +40,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Reaching this part of the code means that the bundle type is not set or it's using an invalid value.
             // Returning sequential as the default processing logic for both cases.
             return BundleProcessingLogic.Sequential;
+        }
+
+        /// <summary>
+        /// Determines whether a transaction has been cancelled by the client.
+        /// Íf the cancellation is requested and the elapsed time is less than the max bundle execution time, it is assumed that the client cancelled the request.
+        /// </summary>
+        public static bool IsTransactionCancelledByClient(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
+
+            return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
         }
 
         internal static bool IsBundleProcessingLogicValid(HttpContext outerHttpContext)
