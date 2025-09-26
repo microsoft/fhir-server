@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var result = BundleHandlerRuntime.IsTransactionCancelledByClient(
                 TimeSpan.FromSeconds(timeWhenCustomerCancelledTheOperation),
-                new BundleConfiguration { MaxTransactionExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
+                new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
                 new CancellationToken(canceled: true));
 
             Assert.True(result);
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             var result = BundleHandlerRuntime.IsTransactionCancelledByClient(
                 TimeSpan.FromSeconds(transactionElapsedTime),
-                new BundleConfiguration { MaxTransactionExecutionTimeInSeconds = maxTransactionExecutionTime },
+                new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTime },
                 new CancellationToken(canceled: isCancelled));
 
             Assert.False(result);

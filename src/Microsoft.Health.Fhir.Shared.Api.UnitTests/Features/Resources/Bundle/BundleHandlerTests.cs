@@ -478,8 +478,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var localAsyncFunction = (CallInfo callInfo) =>
             {
-                var routeContext = callInfo.Arg<RouteContext>();
-
                 // Forcing the cancellation of the token and stopping the entire execution.
                 tokenSource.Cancel();
             };

@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (ex is FhirTransactionCancelledException tce)
                         {
                             // Handles client cancelled operations.
-                            _logger.LogWarning(ex, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
+                            _logger.LogWarning(tce, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {tce.ResponseStatusCode}");
                             statistics.MarkBundleAsCancelled();
                         }
                         else if (ex is FhirTransactionFailedException tfe && tfe.IsErrorCausedDueClientFailure())

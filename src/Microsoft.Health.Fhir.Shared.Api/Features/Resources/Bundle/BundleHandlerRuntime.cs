@@ -44,13 +44,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         /// <summary>
         /// Determines whether a transaction has been cancelled by the client.
-        /// Íf the cancellation is requested and the elapsed time is less than the max transaction execution time, it is assumed that the client cancelled the request.
+        /// Íf the cancellation is requested and the elapsed time is less than the max bundle execution time, it is assumed that the client cancelled the request.
         /// </summary>
         public static bool IsTransactionCancelledByClient(TimeSpan elapsedTime, BundleConfiguration bundleConfiguration, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
 
-            return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxTransactionExecutionTimeInSeconds;
+            return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
         }
 
         internal static bool IsBundleProcessingLogicValid(HttpContext outerHttpContext)
