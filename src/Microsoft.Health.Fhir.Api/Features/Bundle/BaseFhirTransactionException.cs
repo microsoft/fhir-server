@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
             IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
             : base(message)
         {
-            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
             ResponseStatusCode = httpStatusCode;
 

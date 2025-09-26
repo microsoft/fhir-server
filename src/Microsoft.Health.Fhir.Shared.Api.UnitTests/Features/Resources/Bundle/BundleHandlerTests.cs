@@ -464,17 +464,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 {
                     Type = BundleType.Transaction,
                     Entry = new List<EntryComponent>
-                {
-                    new EntryComponent
                     {
-                        Request = new RequestComponent
+                        new EntryComponent
                         {
-                            Method = HTTPVerb.POST,
-                            Url = "/Observation",
+                            Request = new RequestComponent
+                            {
+                                Method = HTTPVerb.POST,
+                                Url = "/Observation",
+                            },
+                            Resource = new Observation(),
                         },
-                        Resource = new Observation(),
                     },
-                },
                 };
 
                 var localAsyncFunction = (CallInfo callInfo) =>
@@ -483,8 +483,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     tokenSource.Cancel();
                 };
 
-                _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
-                    .Do(localAsyncFunction);
+                _router.When(r => r.RouteAsync(Arg.Any<RouteContext>())).Do(localAsyncFunction);
 
                 var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
