@@ -512,6 +512,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value of &apos;{0}&apos; parameter is invalid..
+        /// </summary>
+        internal static string ExpandInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
         /// </summary>
         internal static string ExportFormatNotFound {
