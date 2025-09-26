@@ -793,7 +793,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public async Task Build(ICapabilityStatementBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
@@ -838,7 +838,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 watch = Stopwatch.StartNew();
-                builder = builder.SyncProfiles();
+                builder = await builder.SyncProfiles();
                 _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)

@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// Updates capability statement to lastest supported profiles by pulling them from database.
         /// </summary>
         /// <param name="disableCacheRefresh">Disable pull from database and check cached version in memory. Needed to prevent circular calls to sync profiles.</param>
-        ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false);
+        Task<ICapabilityStatementBuilder> SyncProfiles(bool disableCacheRefresh = false);
 
         /// <summary>
         /// Create json representation of capability statement.

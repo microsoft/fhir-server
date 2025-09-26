@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
             _logger = logger;
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public Task Build(ICapabilityStatementBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
@@ -54,6 +55,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
                     throw;
                 }
             });
+
+            return Task.CompletedTask;
         }
     }
 }

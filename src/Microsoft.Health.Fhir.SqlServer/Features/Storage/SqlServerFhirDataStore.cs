@@ -974,11 +974,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return value;
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public async Task Build(ICapabilityStatementBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.PopulateDefaultResourceInteractions()
+            await builder.PopulateDefaultResourceInteractions()
                 .SyncSearchParametersAsync()
                 .AddGlobalSearchParameters()
                 .SyncProfiles();

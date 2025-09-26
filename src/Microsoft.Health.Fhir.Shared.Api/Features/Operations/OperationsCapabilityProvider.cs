@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public Task Build(ICapabilityStatementBuilder builder)
         {
             if (_operationConfiguration.Export.Enabled)
             {
@@ -96,6 +97,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 builder.Apply(AddIncludesDetails);
             }
+
+            return Task.CompletedTask;
         }
 
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)

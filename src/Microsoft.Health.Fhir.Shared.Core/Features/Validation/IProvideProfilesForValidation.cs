@@ -8,7 +8,7 @@ using Hl7.Fhir.Specification.Source;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public interface IProvideProfilesForValidation : IResourceResolver, ISupportedProfilesStore
+    public interface IProvideProfilesForValidation : IAsyncResourceResolver, ISupportedProfilesStore
     {
     }
 }

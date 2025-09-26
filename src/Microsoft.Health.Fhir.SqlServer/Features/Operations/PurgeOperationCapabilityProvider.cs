@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             _resolver = resolver;
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public Task Build(ICapabilityStatementBuilder builder)
         {
             if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
             {
@@ -48,6 +49,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                     });
                 });
             }
+
+            return Task.CompletedTask;
         }
     }
 }

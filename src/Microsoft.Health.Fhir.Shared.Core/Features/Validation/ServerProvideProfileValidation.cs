@@ -70,43 +70,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public void Refresh()
         {
-            _logger.LogInformation("Refreshing profiles");
+            _logger.LogInformation("Marking profiles for refresh");
             _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
-            ListSummaries();
         }
 
-        private IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
-        {
-            var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-
-            try
-            {
-                return ListSummariesAsync(resetStatementIfNew, disablePull, cancellationTokenSource.Token).GetAwaiter().GetResult();
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Profile refresh took too long, using cached profiles.");
-                return _summaries;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while refreshing profiles, using cached profiles.");
-                return _summaries;
-            }
-            finally
-            {
-                cancellationTokenSource.Dispose();
-            }
-        }
-
-        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(bool resetStatementIfNew, bool disablePull, CancellationToken cancellationToken)
+        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(bool resetStatementIfNew = true, bool disablePull = false)
         {
             if (disablePull || _expirationTime >= DateTime.UtcNow)
             {
                 return _summaries;
             }
 
-            await _cacheSemaphore.WaitAsync(cancellationToken);
+            await _cacheSemaphore.WaitAsync();
             try
             {
                 if (_expirationTime >= DateTime.UtcNow)
@@ -127,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (newHash != oldHash)
                 {
                     _logger.LogDebug("New Profiles found.");
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles), cancellationToken);
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
                 _logger.LogDebug("Profiles updated.");
@@ -221,21 +196,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return null;
         }
 
-        public Resource ResolveByCanonicalUri(string uri)
+        public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
         {
-            var summary = ListSummaries().ResolveByCanonicalUri(uri);
+            var summary = (await ListSummariesAsync()).ResolveByCanonicalUri(uri);
             return LoadBySummary(summary);
         }
 
-        public Resource ResolveByUri(string uri)
+        public async Task<Resource> ResolveByUriAsync(string uri)
         {
-            var summary = ListSummaries().ResolveByUri(uri);
+            var summary = (await ListSummariesAsync()).ResolveByUri(uri);
             return LoadBySummary(summary);
         }
 
-        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
+        public async Task<IEnumerable<string>> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
         {
-            IEnumerable<ArtifactSummary> summary = ListSummaries(false, disableCacheRefresh);
+            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(false, disableCacheRefresh);
             return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>
                     {
