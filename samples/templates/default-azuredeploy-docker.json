@@ -883,6 +883,31 @@
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
                 }
             }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityPerimeters/loggingConfigurations",
+            "apiVersion": "2023-08-01-preview",
+            "name": "[concat(variables('networkSecurityPerimeterName'), '/instance')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]"
+            ],
+            "properties": {
+                "enabledLogCategories": [
+                    "NspPublicInboundPerimeterRulesAllowed",
+                    "NspPublicInboundPerimeterRulesDenied",
+                    "NspPublicOutboundPerimeterRulesAllowed",
+                    "NspPublicOutboundPerimeterRulesDenied",
+                    "NspOutboundAttempt",
+                    "NspIntraPerimeterInboundAllowed",
+                    "NspPublicInboundResourceRulesAllowed",
+                    "NspPublicInboundResourceRulesDenied",
+                    "NspPublicOutboundResourceRulesAllowed",
+                    "NspPublicOutboundResourceRulesDenied",
+                    "NspCrossPerimeterInboundAllowed",
+                    "NspCrossPerimeterOutboundAllowed",
+                    "NspPrivateInboundAllowed"
+                ]
+            }
         }
     ]
 }
