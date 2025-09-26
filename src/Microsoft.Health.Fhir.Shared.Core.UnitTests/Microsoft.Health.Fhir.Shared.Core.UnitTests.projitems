@@ -32,6 +32,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleTestsCommonFunctions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)features\resources\delete\RemoveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
@@ -137,5 +138,8 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonCompliantSamples.json" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlNonCompliantSamples.xml" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlCompliantSamples.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\" />
   </ItemGroup>
 </Project>
