@@ -197,6 +197,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             if (AllowedResourceTypesByScope != null &&
                 !AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
             {
+                // For _revinclude=*, restrict based on AllowedResourceTypesByScope
+                if (Reversed && WildCard)
+                {
+                    return AllowedResourceTypesByScope.ToList();
+                }
+
                 producedResources = producedResources.Intersect(AllowedResourceTypesByScope).ToList();
             }
 
