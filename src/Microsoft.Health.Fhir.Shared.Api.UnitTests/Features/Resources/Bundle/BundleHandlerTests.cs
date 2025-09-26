@@ -456,13 +456,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public async Task GivenATransaction_WithACancellationHappens_ReturnAProperError()
         {
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            CancellationToken cancellationToken = tokenSource.Token;
-
-            var bundle = new Hl7.Fhir.Model.Bundle
+            using (CancellationTokenSource tokenSource = new CancellationTokenSource())
             {
-                Type = BundleType.Transaction,
-                Entry = new List<EntryComponent>
+                CancellationToken cancellationToken = tokenSource.Token;
+
+                var bundle = new Hl7.Fhir.Model.Bundle
+                {
+                    Type = BundleType.Transaction,
+                    Entry = new List<EntryComponent>
                 {
                     new EntryComponent
                     {
@@ -474,23 +475,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                         Resource = new Observation(),
                     },
                 },
-            };
+                };
 
-            var localAsyncFunction = (CallInfo callInfo) =>
-            {
-                // Forcing the cancellation of the token and stopping the entire execution.
-                tokenSource.Cancel();
-            };
+                var localAsyncFunction = (CallInfo callInfo) =>
+                {
+                    // Forcing the cancellation of the token and stopping the entire execution.
+                    tokenSource.Cancel();
+                };
 
-            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
-                .Do(localAsyncFunction);
+                _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                    .Do(localAsyncFunction);
 
-            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+                var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
-            // As the cancellation is requested during the bundle execution and the before the max transaction time, a FhirTransactionCancelledException is expected.
-            // Resulting in a HTTP408 error.
-            FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
-            Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
+                // As the cancellation is requested during the bundle execution and the before the max transaction time, a FhirTransactionCancelledException is expected.
+                // Resulting in a HTTP408 error.
+                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
+                Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
+            }
         }
 
         [Fact]
