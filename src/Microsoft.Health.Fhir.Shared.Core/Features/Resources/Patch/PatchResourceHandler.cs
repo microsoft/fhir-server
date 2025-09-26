@@ -46,7 +46,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
+            // Check for granular permissions (Update) or legacy permissions (Read + Write)
+            var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, cancellationToken);
+            if ((granted & DataActions.Update) != DataActions.Update &&
+                (granted & (DataActions.Read | DataActions.Write)) != (DataActions.Read | DataActions.Write))
             {
                 throw new UnauthorizedFhirActionException();
             }
