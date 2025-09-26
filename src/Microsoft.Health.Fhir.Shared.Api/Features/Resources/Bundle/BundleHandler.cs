@@ -63,8 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private const int MaxTransactionExecutionTimeInSeconds = 100;
-
         private readonly HttpContext _outerHttpContext;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -389,9 +387,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 statistics.MarkBundleAsFailedDueClientError();
                 throw;
             }
-            catch (FhirTransactionFailedException tfe) when (tfe.IsCancelled)
+            catch (FhirTransactionCancelledException tce)
             {
-                _logger.LogWarning(tfe, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tfe.Message);
+                _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
                 statistics.MarkBundleAsCancelled();
                 throw;
             }
@@ -734,7 +732,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         errorMessage,
                         httpStatusCode,
                         (OperationOutcome)entryComponent.Response.Outcome,
-                        cancelled: cancellationToken.IsCancellationRequested && watch.Elapsed.TotalSeconds < MaxTransactionExecutionTimeInSeconds);
+                        cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;

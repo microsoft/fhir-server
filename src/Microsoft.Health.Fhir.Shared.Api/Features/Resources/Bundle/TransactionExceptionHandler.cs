@@ -17,6 +17,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
+            if (cancelled)
+            {
+                throw new FhirTransactionCancelledException(errorMessage, operationOutcomeIssues);
+            }
+
             throw new FhirTransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
