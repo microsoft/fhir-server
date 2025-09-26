@@ -31,10 +31,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExpandOperationTests : IClassFixture<ExpandOperationTestFixture>
     {
-        private static readonly HashSet<string> ValidParameterNames = new HashSet<string>(
-            TerminologyOperationParameterNames.Expand.Names,
-            StringComparer.OrdinalIgnoreCase);
-
         private readonly ExpandOperationTestFixture _fixture;
 
         public ExpandOperationTests(ExpandOperationTestFixture fixture)
