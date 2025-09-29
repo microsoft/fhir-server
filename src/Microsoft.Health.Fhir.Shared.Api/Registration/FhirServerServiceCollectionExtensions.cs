@@ -11,6 +11,7 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -102,6 +103,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
+                    options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
 
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit
@@ -113,6 +115,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
