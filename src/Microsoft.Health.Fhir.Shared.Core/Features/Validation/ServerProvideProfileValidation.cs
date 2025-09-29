@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 50,
                 TimeSpan.MaxValue,
                 _logger,
-                (string key, Resource value) => 1);
+                limitType: FhirCacheLimitType.Count);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
