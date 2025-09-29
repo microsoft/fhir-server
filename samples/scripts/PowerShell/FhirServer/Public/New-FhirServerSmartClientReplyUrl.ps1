@@ -23,22 +23,25 @@ function New-FhirServerSmartClientReplyUrl {
 
     Set-StrictMode -Version Latest
     
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No context found"
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
 
-    $appReg = Get-AzureADApplication -Filter "AppId eq '$AppId'"
+    $appReg = Get-MgApplication -Filter "AppId eq '$AppId'"
     if (!$appReg) {
         Write-Host "Application with AppId = $AppId was not found."
         return
     }
 
-    $origReplyUrls = $appReg.ReplyUrls
+    $origReplyUrls = [System.Collections.Generic.List[string]]$appReg.Web.RedirectUris
     
     # Form new reply URL: https://fhir-server/<base64url encoded reply url>/*
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($ReplyUrl)
@@ -52,7 +55,10 @@ function New-FhirServerSmartClientReplyUrl {
     # Add Reply URL if not already in the list 
     if ($origReplyUrls -NotContains $newReplyUrl) {
         $origReplyUrls.Add($newReplyUrl)
-        Set-AzureADApplication -ObjectId $appReg.ObjectId -ReplyUrls $origReplyUrls
+        $webParams = @{
+            RedirectUris = $origReplyUrls
+        }
+        Update-MgApplication -ApplicationId $appReg.Id -Web $webParams
     }
     else
     {

@@ -823,4 +823,16 @@
     <value>Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.</value>
     <comment>Error message for Cosmos DB 408 RequestTimeout due to insufficient RUs or high load.</comment>
   </data>
+  <data name="DocRefMissingRequiredParameter" xml:space="preserve">
+    <value>The '{0}' parameter must be provided.</value>
+  </data>
+  <data name="DocRefParameterNotSupported" xml:space="preserve">
+    <value>The '{0}' parameter is not supported.</value>
+  </data>
+  <data name="DocRefInvalidParameterCount" xml:space="preserve">
+    <value>The number of the '{0}' parameter should not be more than one.</value>
+  </data>
+  <data name="DocRefInvalidParameterValue" xml:space="preserve">
+    <value>The '{0}' parameter should not have more than one value, delimited by commas.</value>
+  </data>
 </root>
