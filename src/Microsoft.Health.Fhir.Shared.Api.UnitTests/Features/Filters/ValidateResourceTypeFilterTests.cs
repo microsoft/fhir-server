@@ -24,19 +24,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     [Trait(Traits.Category, Categories.Web)]
     public class ValidateResourceTypeFilterTests
     {
-        // Test helper class to expose protected ParseResource method
-        private class TestParameterCompatibleFilter : ParameterCompatibleFilter
-        {
-            public TestParameterCompatibleFilter(bool allowParametersResource) 
-                : base(allowParametersResource)
-            {
-            }
-
-            public Resource TestParseResource(Resource resource)
-            {
-                return ParseResource(resource);
-            }
-        }
         [Fact]
         public void GivenAnObservationAction_WhenPostingAPatientObject_ThenATypeMistatchExceptionShouldBeThrown()
         {
@@ -138,11 +125,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "otherParam", Value = new FhirString("test") }
+                new Parameters.ParameterComponent { Name = "otherParam", Value = new FhirString("test") },
             };
             var context = CreateContext(parameters);
 
-            // Should throw ResourceNotValidException, not NullReferenceException  
+            // Should throw ResourceNotValidException, not NullReferenceException
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
@@ -155,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "resource", Resource = null } // This should not cause NullReferenceException
+                new Parameters.ParameterComponent { Name = "resource", Resource = null }, // This should not cause NullReferenceException
             };
             var context = CreateContext(parameters);
 
@@ -171,9 +158,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             // Create Parameters with null Parameter collection
             var parameters = new Parameters();
             parameters.Parameter = null; // This should not cause NullReferenceException
-            
+
             var result = filter.TestParseResource(parameters);
-            
+
             // Should return the original Parameters resource, not throw NullReferenceException
             Assert.NotNull(result);
             Assert.Same(parameters, result);
@@ -188,11 +175,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "otherParam", Value = new FhirString("test") }
+                new Parameters.ParameterComponent { Name = "otherParam", Value = new FhirString("test") },
             };
-            
+
             var result = filter.TestParseResource(parameters);
-            
+
             // Should return the original Parameters resource, not throw NullReferenceException
             Assert.NotNull(result);
             Assert.Same(parameters, result);
@@ -207,11 +194,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "resource", Resource = null } // This should not cause NullReferenceException
+                new Parameters.ParameterComponent { Name = "resource", Resource = null }, // This should not cause NullReferenceException
             };
-            
+
             var result = filter.TestParseResource(parameters);
-            
+
             // Should return the original Parameters resource, not throw NullReferenceException
             Assert.NotNull(result);
             Assert.Same(parameters, result);
@@ -227,17 +214,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "resource", Resource = innerResource }
+                new Parameters.ParameterComponent { Name = "resource", Resource = innerResource },
             };
-            
+
             var result = filter.TestParseResource(parameters);
-            
+
             // Should extract and return the inner resource
             Assert.NotNull(result);
             Assert.Same(innerResource, result);
         }
 
-        [Fact] 
+        [Fact]
         public void ParseResource_WhenAllowParametersResourceIsFalse_ShouldReturnOriginalResource()
         {
             var filter = new TestParameterCompatibleFilter(false); // allowParametersResource = false
@@ -247,11 +234,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var parameters = new Parameters();
             parameters.Parameter = new List<Parameters.ParameterComponent>
             {
-                new Parameters.ParameterComponent { Name = "resource", Resource = innerResource }
+                new Parameters.ParameterComponent { Name = "resource", Resource = innerResource },
             };
-            
+
             var result = filter.TestParseResource(parameters);
-            
+
             // Should return the original Parameters resource since allowParametersResource is false
             Assert.NotNull(result);
             Assert.Same(parameters, result);
@@ -264,6 +251,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { (!paramsResource) ? "resource" : "paramsResource", type } },
                 FilterTestsHelper.CreateMockFhirController());
+        }
+
+        // Test helper class to expose protected ParseResource method
+        private class TestParameterCompatibleFilter : ParameterCompatibleFilter
+        {
+            public TestParameterCompatibleFilter(bool allowParametersResource)
+                : base(allowParametersResource)
+            {
+            }
+
+            public Resource TestParseResource(Resource resource)
+            {
+                return ParseResource(resource);
+            }
         }
     }
 }

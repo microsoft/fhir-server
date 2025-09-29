@@ -25,11 +25,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 var parameters = (Parameters)resource;
                 var resourceParam = parameters.Parameter?.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (resourceParam?.Resource != null)
                 {
                     resource = resourceParam.Resource;
                 }
+
                 // If no resource parameter found or it's null, return the original Parameters resource
                 // This maintains backward compatibility while preventing the crash
             }
