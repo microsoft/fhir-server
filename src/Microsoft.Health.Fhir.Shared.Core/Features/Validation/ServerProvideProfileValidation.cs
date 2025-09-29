@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
+        private readonly Dictionary<string, Resource> _resourcesByUri = new Dictionary<string, Resource>();
         private readonly IMediator _mediator;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
-        private Dictionary<string, Resource> _resourcesByUri = new Dictionary<string, Resource>();
         private DateTime _expirationTime;
         private ILogger<ServerProvideProfileValidation> _logger;
 
