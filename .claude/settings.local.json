@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "WebSearch",
+      "WebFetch(domain:hl7.org)",
+      "Bash(dotnet test:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet script:*)",
+      "Bash(dotnet run:*)",
+      "Bash(timeout:*)",
+      "Bash(cat:*)",
+      "Bash(rm:*)",
+      "mcp__ide__getDiagnostics"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
