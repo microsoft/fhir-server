@@ -556,7 +556,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To get the intersection we need to AppendIntersectionWithPredecessor
                 if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !UseAppendWithJoin())
                 {
-                    if (!context.DoNotAppendIntersectionWithPredecessor)
+                    if (!context.SkipAppendIntersectionWithPredecessor)
                     {
                         // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, tableAlias);
@@ -1324,7 +1324,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
-                context.DoNotAppendIntersectionWithPredecessor = false;
+                context.SkipAppendIntersectionWithPredecessor = false;
                 if (innerExpression is MultiaryExpression innerMultiaryExpression)
                 {
                     bool firstQueryParamExpression = true;
@@ -1339,7 +1339,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             childExpression,
                             SearchParamTableExpressionKind.Normal);
 
-                        context.DoNotAppendIntersectionWithPredecessor = firstQueryParamExpression;
+                        context.SkipAppendIntersectionWithPredecessor = firstQueryParamExpression;
                         firstQueryParamExpression = false;
                         childSearchParamExpression.AcceptVisitor(this, context);
                         StringBuilder.AppendLine("),");
@@ -1362,7 +1362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            context.DoNotAppendIntersectionWithPredecessor = false;
+            context.SkipAppendIntersectionWithPredecessor = false;
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 
             // Create a final CTE aggregating results from all previous CTEs.
@@ -1659,13 +1659,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Check if expression can contain child expressions.
             if (expression is IExpressionsContainer container)
             {
-                foreach (Expression child in container.Expressions)
-                {
-                    if (ContainsSmartV2UnionFlag(child))
-                    {
-                        return true;
-                    }
-                }
+                return container.Expressions.Any(ContainsSmartV2UnionFlag);
             }
 
             return false;
