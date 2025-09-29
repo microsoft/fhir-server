@@ -156,6 +156,35 @@
         },
 		{
             "resource": {
+				"resourceType": "Group",
+				"id": "smart-group-3",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.081+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"type": "person",
+				"actual": true,
+				"member": [
+					{
+						"entity": {
+							"reference": "Patient/smartUserClient"
+						}
+					}
+				]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Group/smart-group-3"
+            }
+        },
+		{
+            "resource": {
 			  "resourceType": "Account",
 			  "id": "smart-account-PA1",
 			  "text": {
@@ -1268,6 +1297,88 @@
             "request": {
                 "method": "PUT",
                 "url": "MedicationDispense/smart-medicationdispense-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "MedicationRequest",
+				"id": "smart-medicationrequest-smartUserClient",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.998+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "completed",
+				"intent": "order",
+				"medicationCodeableConcept": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "16590-619-30"
+						}
+					],
+					"text": "Percocet tablet"
+				},
+				"subject": {
+					"reference": "Patient/smartUserClient"
+				},
+				"requester": {
+					"reference": "Practitioner/smart-practitioner-B"
+				}
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MedicationRequest/smart-medicationrequest-smartUserClient"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "MedicationDispense",
+				"id": "smart-medicationdispense-smartUserClient",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.022+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "in-progress",
+				"medicationCodeableConcept": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "108505002"
+						}
+					],
+					"text": "Tramadol hydrochloride (substance)"
+				},
+				"subject": {
+					"reference": "Patient/smartUserClient"
+				},
+				"performer": [
+					{
+						"actor": {
+							"reference": "Practitioner/smart-practitioner-B"
+						}
+					}
+				],
+				"authorizingPrescription": [
+					{
+						"reference": "MedicationRequest/smart-medicationrequest-smartUserClient"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MedicationDispense/smart-medicationdispense-smartUserClient"
             }
         },
 		{

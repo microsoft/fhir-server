@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
+            if (expression.IsSmartV2UnionExpressionForScopesSearchParameters)
+            {
+                return expression;
+            }
+
             expression = (MultiaryExpression)base.VisitMultiary(expression, context);
             if (expression.Expressions.Count == 1)
             {

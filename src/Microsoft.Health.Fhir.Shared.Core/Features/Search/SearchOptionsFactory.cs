@@ -781,32 +781,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     // Form the AND expression for resource type and its searchParameters restrictions.
                     var smartSearchExpressions = new List<Expression>();
-                    var smartSearchParams = new SearchParams();
 
                     // Check if there are any search parameter constraint for this clinicalScopeResourceType
                     // If search parameters are defined in the restriction, add them to searchParams.
                     if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                     {
-                        smartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
+                        var andedSmartSmartSearchExpressions = new List<Expression>();
                         foreach (var param in restriction.SearchParameters.Parameters)
                         {
+                            // TODO : Can we call searchOptionsFactory here????
+                            var fineGrainedSmartSearchExpressions = new List<Expression>();
+                            fineGrainedSmartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
+
+                            // We need to parse the search parameters for each resource type since the same search parameter can have different definitions for different resource types
+                            var smartSearchParams = new SearchParams();
                             smartSearchParams.Add(param.Item1, param.Item2);
+                            fineGrainedSmartSearchExpressions.AddRange(smartSearchParams.Parameters.Select(
+                                q =>
+                                {
+                                    try
+                                    {
+                                        return _expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2);
+                                    }
+                                    catch (SearchParameterNotSupportedException)
+                                    {
+                                        return null;
+                                    }
+                                })
+                                .Where(item => item != null));
+                            andedSmartSmartSearchExpressions.Add(Expression.And(fineGrainedSmartSearchExpressions.ToArray()));
+                            andedSmartSmartSearchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
                         }
 
-                        smartSearchExpressions.AddRange(smartSearchParams.Parameters.Select(
-                        q =>
-                        {
-                            try
-                            {
-                                return _expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2);
-                            }
-                            catch (SearchParameterNotSupportedException)
-                            {
-                                return null;
-                            }
-                        })
-                        .Where(item => item != null));
-
+                        finalSmartSearchExpressions.Add(Expression.And(andedSmartSmartSearchExpressions.ToArray()));
+                        finalSmartSearchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                    }
+                    else
+                    {
+                        smartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
                         finalSmartSearchExpressions.Add(Expression.And(smartSearchExpressions.ToArray()));
                     }
 
@@ -815,19 +827,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (!allowAllResourceTypes)
                 {
-                    if (clinicalScopeResources.Any())
+                    // Builds the search expression like ((ResourceType = A AND <search params 1 for A>) OR (ResourceType = A AND <search params 2 for A>) OR (ResourceType = B AND <search params 1 for B>) OR (ResourceType = B AND <search params 2 for B>))
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
-                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
-                    }
-                    else // block all queries
-                    {
-                        searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
-                    }
-                }
+                        searchExpressions.Add(Expression.Union(UnionOperator.All, finalSmartSearchExpressions));
 
-                if (finalSmartSearchExpressions.Any())
-                {
-                    searchExpressions.Add(Expression.Or(finalSmartSearchExpressions.ToArray()));
+                        // Set the last added expressions flag to be true
+                        searchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                    }
+                    else
+                    {
+                        // If ApplyFineGrainedAccessControlWithSearchParameters is false, we only filter by resource type and use format like (ResourceType in (A, B))
+                        if (clinicalScopeResources.Any())
+                        {
+                            searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                        }
+                        else // block all queries
+                        {
+                            searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                        }
+                    }
                 }
             }
         }

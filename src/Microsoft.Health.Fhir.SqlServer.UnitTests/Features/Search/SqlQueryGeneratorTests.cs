@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 public class SqlQueryGeneratorTests
 {
     private readonly ISqlServerFhirModel _fhirModel;
+    private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
     private readonly SchemaInformation _schemaInformation = new(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
     private readonly IndentedStringBuilder _strBuilder = new(new StringBuilder());
     private readonly SqlQueryGenerator _queryGenerator;
@@ -41,6 +43,11 @@ public class SqlQueryGeneratorTests
     public SqlQueryGeneratorTests()
     {
         _fhirModel = Substitute.For<ISqlServerFhirModel>();
+
+        // Create real instances instead of mocking since factory is internal
+        var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
+        _queryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
+
         _schemaInformation.Current = SchemaVersionConstants.Max;
 
         using Data.SqlClient.SqlCommand command = new();
@@ -51,6 +58,7 @@ public class SqlQueryGeneratorTests
             parameters,
             _fhirModel,
             _schemaInformation,
+            _queryGeneratorFactory,
             false,
             false);
     }
