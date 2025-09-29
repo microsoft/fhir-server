@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private CapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
+        private CapabilityStatementBuilder SyncSearchParams(string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
@@ -261,14 +262,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private async Task<ICapabilityStatementBuilder> SyncProfile(string resourceType, bool disableCacheRefresh)
+        private async Task<ICapabilityStatementBuilder> SyncProfileAsync(string resourceType, bool disableCacheRefresh, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
             await ApplyToResourceAsync(resourceType, async resourceComponent =>
             {
-                var supportedProfiles = await _supportedProfiles.GetSupportedProfiles(resourceType, disableCacheRefresh);
+                var supportedProfiles = await _supportedProfiles.GetSupportedProfilesAsync(resourceType, cancellationToken, disableCacheRefresh);
                 if (supportedProfiles != null)
                 {
                     if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
@@ -348,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder SyncSearchParametersAsync()
+        public ICapabilityStatementBuilder SyncSearchParameters()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
@@ -363,13 +364,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                SyncSearchParamsAsync(resource);
+                SyncSearchParams(resource);
             }
 
             return this;
         }
 
-        public async Task<ICapabilityStatementBuilder> SyncProfiles(bool disableCacheRefresh = false)
+        public async Task<ICapabilityStatementBuilder> SyncProfilesAsync(CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
             if (!disableCacheRefresh)
             {
@@ -387,7 +388,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                await SyncProfile(resource, disableCacheRefresh);
+                await SyncProfileAsync(resource, disableCacheRefresh, cancellationToken);
             }
 
             return this;

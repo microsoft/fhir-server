@@ -974,14 +974,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return value;
         }
 
-        public async Task Build(ICapabilityStatementBuilder builder)
+        public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
             await builder.PopulateDefaultResourceInteractions()
-                .SyncSearchParametersAsync()
+                .SyncSearchParameters()
                 .AddGlobalSearchParameters()
-                .SyncProfiles();
+                .SyncProfilesAsync(cancellationToken);
 
             if (_coreFeatures.SupportsBatch)
             {

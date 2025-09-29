@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Options;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
             _featureConfiguration = featureConfiguration.Value;
         }
 
-        public Task Build(ICapabilityStatementBuilder builder)
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             if (_featureConfiguration.SupportsXml)
             {

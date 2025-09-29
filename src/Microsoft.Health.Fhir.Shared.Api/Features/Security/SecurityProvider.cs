@@ -5,6 +5,7 @@
 
 using System;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public Task Build(ICapabilityStatementBuilder builder)
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             if (_securityConfiguration.Enabled)
             {

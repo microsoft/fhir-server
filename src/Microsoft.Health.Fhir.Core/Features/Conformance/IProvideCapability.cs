@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
@@ -16,6 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// Allows this component to configure the server's CapabilityStatement.
         /// </summary>
         /// <param name="builder">Instance of the CapabilityStatementBuilder.</param>
-        Task Build(ICapabilityStatementBuilder builder);
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken);
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
             _logger = logger;
         }
 
-        public Task Build(ICapabilityStatementBuilder builder)
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 

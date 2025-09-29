@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             _resolver = resolver;
         }
 
-        public Task Build(ICapabilityStatementBuilder builder)
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
             {

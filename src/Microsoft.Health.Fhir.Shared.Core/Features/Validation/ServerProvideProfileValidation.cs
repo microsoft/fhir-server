@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
         }
 
-        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(bool resetStatementIfNew = true, bool disablePull = false)
+        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(CancellationToken cancellationToken, bool resetStatementIfNew = true, bool disablePull = false)
         {
             if (disablePull || _expirationTime >= DateTime.UtcNow)
             {
                 return _summaries;
             }
 
-            await _cacheSemaphore.WaitAsync();
+            await _cacheSemaphore.WaitAsync(cancellationToken);
             try
             {
                 if (_expirationTime >= DateTime.UtcNow)
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 _resourcesByUri.Clear();
 
                 var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
-                var result = await GetSummaries();
+                var result = await GetSummariesAsync(cancellationToken);
                 _summaries = result;
                 var newHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
                 _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        private async Task<List<ArtifactSummary>> GetSummaries()
+        private async Task<List<ArtifactSummary>> GetSummariesAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, ArtifactSummary>();
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                 queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, ct));
                             }
 
-                            var searchResult = await searchService.Value.SearchAsync(type, queryParameters, CancellationToken.None);
+                            var searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
                             foreach (var searchItem in searchResult.Results)
                             {
                                 using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(searchItem.Resource.RawResource.Data)))
@@ -198,19 +198,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
         {
-            var summary = (await ListSummariesAsync()).ResolveByCanonicalUri(uri);
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByCanonicalUri(uri);
             return LoadBySummary(summary);
         }
 
         public async Task<Resource> ResolveByUriAsync(string uri)
         {
-            var summary = (await ListSummariesAsync()).ResolveByUri(uri);
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByUri(uri);
             return LoadBySummary(summary);
         }
 
-        public async Task<IEnumerable<string>> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
+        public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
-            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(false, disableCacheRefresh);
+            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
             return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>
                     {
