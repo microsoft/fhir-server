@@ -81,6 +81,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures.Query));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
@@ -88,7 +89,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.ConvertData));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.IntegrationDataStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Query));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
