@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [InlineData(55 * Megabyte)]
         public void GivenAnEmptyCache_CheckTheCacheMemoryLimit(long expectedLimitSizeInBytes)
         {
-            var cache = new FhirMemoryCache<string>(name: "cache", limitSizeInBytes: expectedLimitSizeInBytes, entryExpirationTime: TimeSpan.FromMinutes(1), _logger);
+            var cache = new FhirMemoryCache<string>(name: "cache", limitSizeInBytes: expectedLimitSizeInBytes, entryExpirationTime: TimeSpan.FromMinutes(1), _logger, null);
 
             Assert.Equal(expectedLimitSizeInBytes, cache.CacheMemoryLimit);
         }
@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                 limitSizeInBytes: maxCacheSize,
                 entryExpirationTime: TimeSpan.FromMinutes(10),
                 _logger,
+                null,
                 compactionPercentage: 0);
 
             long totalSizeAddedToCache = 0;
@@ -107,20 +108,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                     null,
                     limitSizeInBytes: 0,
                     TimeSpan.FromMinutes(1),
-                    _logger));
+                    _logger,
+                    null));
 
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => new FhirMemoryCache<string>(
                     Guid.NewGuid().ToString(),
                     limitSizeInBytes: 0,
                     TimeSpan.FromMinutes(1),
-                    _logger));
+                    _logger,
+                    null));
 
             Assert.Throws<ArgumentNullException>(
                 () => new FhirMemoryCache<string>(
                     Guid.NewGuid().ToString(),
                     limitSizeInBytes: Megabyte,
                     TimeSpan.FromMinutes(1),
+                    null,
                     null));
 
             var cache = CreateRegularMemoryCache<string>();
@@ -161,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseEnabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInBytes: Megabyte, TimeSpan.FromMinutes(1), _logger, ignoreCase: true);
+            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInBytes: Megabyte, TimeSpan.FromMinutes(1), _logger, null, ignoreCase: true);
 
             cache.GetOrAdd(DefaultKey, DefaultValue);
 
@@ -264,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 
         private IFhirMemoryCache<T> CreateRegularMemoryCache<T>()
         {
-            return new FhirMemoryCache<T>(name: "cache", limitSizeInBytes: Megabyte, entryExpirationTime: TimeSpan.FromMinutes(10), _logger);
+            return new FhirMemoryCache<T>(name: "cache", limitSizeInBytes: Megabyte, entryExpirationTime: TimeSpan.FromMinutes(10), _logger, null);
         }
     }
 }

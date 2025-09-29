@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
-        private readonly MostRecentlyUsedCache<Resource> _resourcesByUri = new MostRecentlyUsedCache<Resource>(50);
+        private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
@@ -63,6 +63,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _validateOperationConfig = options.Value;
             _mediator = mediator;
             _logger = logger;
+
+            _resourcesByUri = new FhirMemoryCache<Resource>(
+                nameof(ServerProvideProfileValidation),
+                50,
+                TimeSpan.MaxValue,
+                _logger,
+                (string key, Resource value) => 1);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
@@ -173,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 return null;
             }
 
-            if (_resourcesByUri.TryGetValue(summary.ResourceUri, out Resource resource))
+            if (_resourcesByUri.TryGet(summary.ResourceUri, out Resource resource))
             {
                 return resource;
             }
@@ -186,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     if (navStream.Current != null)
                     {
                         resource = navStream.Current.ToPoco<Resource>();
-                        _resourcesByUri.Add(summary.ResourceUri, resource);
+                        _resourcesByUri.TryAdd(summary.ResourceUri, resource);
                         return resource;
                     }
                 }
@@ -240,6 +247,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public void Dispose()
         {
+            _resourcesByUri?.Dispose();
             _cacheSemaphore?.Dispose();
         }
     }

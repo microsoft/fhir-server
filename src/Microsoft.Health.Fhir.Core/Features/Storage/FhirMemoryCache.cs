@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         private readonly MemoryCacheOptions _cacheOptions;
         private readonly TimeSpan _entryExpirationTime;
         private readonly bool _ignoreCase;
+        private readonly Func<string, T, long> _entrySize;
 
         private bool _disposed;
 
@@ -32,7 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
                 name,
                 limitSizeInBytes: DefaultLimitSizeInBytes,
                 entryExpirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
-                logger)
+                logger,
+                SizeOfEntryInCache)
         {
         }
 
@@ -41,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             long limitSizeInBytes,
             TimeSpan entryExpirationTime,
             ILogger logger,
+            Func<string, T, long> entrySize,
             bool ignoreCase = false,
             double compactionPercentage = DefaultCompactionPercentage)
         {
@@ -63,6 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             _ignoreCase = ignoreCase;
 
             _disposed = false;
+
+            _entrySize = entrySize ?? SizeOfEntryInCache;
         }
 
         public string Name => _cacheName;
@@ -105,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             T cachedValue = _cache.GetOrCreate(key, entry =>
             {
-                MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(SizeOfEntryInCache(key, value), priority);
+                MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(_entrySize(key, value), priority);
                 SetEntryPolicy(entry, newCacheEntryPolicy);
 
                 return value;
@@ -144,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             key = FormatKey(key);
 
-            MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(SizeOfEntryInCache(key, value), priority);
+            MemoryCacheEntryOptions newCacheEntryPolicy = GetDefaultCacheItemPolicy(_entrySize(key, value), priority);
 
             _cache.Set<T>(key, value, newCacheEntryPolicy);
 
@@ -210,6 +215,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             }
 
             return false;
+        }
+
+        public void Clear()
+        {
+            CheckDisposed();
+            _cache.Compact(1.0);
         }
 
         public void Dispose()
