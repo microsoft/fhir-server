@@ -25,6 +25,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
-        private readonly Dictionary<string, Resource> _resourcesByUri = new Dictionary<string, Resource>();
+        private readonly MostRecentlyUsedCache<Resource> _resourcesByUri = new MostRecentlyUsedCache<Resource>(50);
         private readonly IMediator _mediator;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     if (navStream.Current != null)
                     {
                         resource = navStream.Current.ToPoco<Resource>();
-                        _resourcesByUri[summary.ResourceUri] = resource;
+                        _resourcesByUri.Add(summary.ResourceUri, resource);
                         return resource;
                     }
                 }
