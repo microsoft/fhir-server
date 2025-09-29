@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
             else
             {
-                return $"(Param {Parameter.Code} {Expression.GetUniqueExpressionIdentifier()})";
+                return $"(Param {Parameter.Code} {Expression?.GetUniqueExpressionIdentifier()})";
             }
         }
 

@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(andWithoutIncludes.ToString(), Expression.And(includeExpression, fieldExpression, fieldExpression).AcceptVisitor(RemoveIncludesRewriter.Instance).ToString());
             Assert.Equal(andWithoutIncludes.ToString(), Expression.And(fieldExpression, includeExpression, fieldExpression).AcceptVisitor(RemoveIncludesRewriter.Instance).ToString());
             Assert.Equal(andWithoutIncludes.ToString(), Expression.And(fieldExpression, fieldExpression, includeExpression).AcceptVisitor(RemoveIncludesRewriter.Instance).ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(andWithoutIncludes);
         }
     }
 }

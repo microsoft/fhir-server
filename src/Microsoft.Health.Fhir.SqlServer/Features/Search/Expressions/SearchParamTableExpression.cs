@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string GetUniqueExpressionIdentifier()
         {
-            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate.GetUniqueExpressionIdentifier()})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate?.GetUniqueExpressionIdentifier()})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

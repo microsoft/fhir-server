@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string GetUniqueExpressionIdentifier()
         {
-            return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions.Select(x => x.GetUniqueExpressionIdentifier())) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions.Select(x => x.GetUniqueExpressionIdentifier())) : null)}))";
+            return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions.Select(x => x?.GetUniqueExpressionIdentifier())) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions.Select(x => x?.GetUniqueExpressionIdentifier())) : null)}))";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

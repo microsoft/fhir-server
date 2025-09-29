@@ -278,14 +278,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 try
                 {
-                    hash = sqlSearchOptions.Expression.GetUniqueExpressionIdentifier();
-                    reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
-                    _logger.LogInformation("Got Query Plan Caching Setting {ReuseQueryCachingPlan} for hash {Hash}.", reuseQueryCachingPlan, hash);
+                    hash = sqlSearchOptions.Expression.GetHashedUniqueExpressionIdentifier();
+                    if (string.IsNullOrEmpty(hash))
+                    {
+                        _logger.LogWarning("Got empty hash, running with default Query Plan Caching Setting.");
+                        reuseQueryCachingPlan = false;
+                    }
+                    else
+                    {
+                        reuseQueryCachingPlan = _queryPlanSelector.GetQueryPlanCachingSetting(hash);
+                        _logger.LogInformation("Got Query Plan Caching Setting {ReuseQueryCachingPlan} for hash {Hash}.", reuseQueryCachingPlan, hash);
+                    }
                 }
                 catch (Exception exception)
                 {
                     // Swallow any exceptions and just run the query with the default setting.
                     _logger.LogWarning(exception, "Failed to get Query Plan Caching Setting, running with default.");
+                    reuseQueryCachingPlan = false;
                 }
 
                 Stopwatch stopwatch = Stopwatch.StartNew();

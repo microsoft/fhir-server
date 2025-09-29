@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string GetUniqueExpressionIdentifier()
         {
-            return $"(Not {Expression.GetUniqueExpressionIdentifier()})";
+            return $"(Not {Expression?.GetUniqueExpressionIdentifier()})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

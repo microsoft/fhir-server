@@ -72,6 +72,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(
                 "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo'))))",
                 rewritten.ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(rewritten);
         }
 
         [Fact]
@@ -84,6 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression rewritten = inputExpression.AcceptVisitor(_rewriter);
 
             Assert.Same(inputExpression, rewritten);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(rewritten);
         }
 
         [Fact]
@@ -98,6 +102,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(
                 "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _type (StringEquals TokenCode 'Claim')) (Param _resourceSurrogateId (FieldGreaterThan 100 22))))",
                 rewritten.ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(rewritten);
         }
 
         [Fact]
@@ -136,6 +142,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(
                 "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _primaryKey (FieldLessThan 108 (PrimaryKeyRange (PrimaryKey 3 22) (Next 2))))))",
                 rewritten.ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(rewritten);
         }
 
         private static StringExpression Token(string parameterValue) => StringEquals(FieldName.TokenCode, null, parameterValue, false);

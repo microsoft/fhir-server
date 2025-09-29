@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -314,6 +315,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public static NotReferencedExpression NotReferenced()
         {
             return new NotReferencedExpression();
+        }
+
+        public string GetHashedUniqueExpressionIdentifier()
+        {
+            return GetUniqueExpressionIdentifier()?.ComputeHash();
         }
 
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);

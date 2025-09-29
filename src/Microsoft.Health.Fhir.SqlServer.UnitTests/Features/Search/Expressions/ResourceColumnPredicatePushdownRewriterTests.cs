@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.SearchParameter(new SearchParameterInfo("abc", "abc"), Expression.Equals(FieldName.Number, null, 1)));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -37,6 +39,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Theory]
@@ -58,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(
                 Expression.And(inputExpression.SearchParamTableExpressions[0].Predicate, inputExpression.ResourceTableExpressions[0]).ToString(),
                 visitedExpression.SearchParamTableExpressions[0].Predicate.ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -75,6 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(Expression.And(inputExpression.ResourceTableExpressions).ToString(), visitedExpression.SearchParamTableExpressions[0].Predicate.ToString());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Theory]
@@ -111,6 +119,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Same(inputExpression.ResourceTableExpressions, visitedExpression.ResourceTableExpressions);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Theory]
@@ -140,6 +150,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression.ResourceTableExpressions[0], ((SqlChainLinkExpression)visitedExpression.SearchParamTableExpressions[0].Predicate).ExpressionOnSource);
             Assert.Equal(inputExpression.SearchParamTableExpressions[0].ChainLevel, visitedExpression.SearchParamTableExpressions[0].ChainLevel);
             Assert.Same(inputExpression.SearchParamTableExpressions[1], visitedExpression.SearchParamTableExpressions[1]);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
     }
 }

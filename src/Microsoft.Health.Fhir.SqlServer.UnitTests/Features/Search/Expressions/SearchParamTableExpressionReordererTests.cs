@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Equal(inputExpression, visitedExpression);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -45,6 +47,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -59,6 +63,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -74,6 +80,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -88,6 +96,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -102,6 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
     }
 }

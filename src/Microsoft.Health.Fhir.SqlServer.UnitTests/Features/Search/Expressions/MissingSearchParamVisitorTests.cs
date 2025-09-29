@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -33,6 +34,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 e => { Assert.Equal(SearchParamTableExpressionKind.All, e.Kind); },
                 e => { Assert.NotNull(e.Predicate as MissingSearchParameterExpression); });
             Assert.Equal(tableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -46,6 +49,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -60,6 +65,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -77,6 +84,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 visitedExpression.SearchParamTableExpressions,
                 e => { Assert.Equal(tableExpressions[0], e); },
                 e => { Assert.Equal(SearchParamTableExpressionKind.NotExists, e.Kind); });
+
+            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
     }
 }
