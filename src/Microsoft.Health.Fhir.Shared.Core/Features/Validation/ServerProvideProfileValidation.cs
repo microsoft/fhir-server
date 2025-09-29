@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _resourcesByUri = new FhirMemoryCache<Resource>(
                 nameof(ServerProvideProfileValidation),
                 50,
-                TimeSpan.MaxValue,
+                TimeSpan.FromDays(1000),
                 _logger,
                 limitType: FhirCacheLimitType.Count);
         }
