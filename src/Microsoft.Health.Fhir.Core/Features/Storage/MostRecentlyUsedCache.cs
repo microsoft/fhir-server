@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
     {
         private readonly int _capacity;
         private readonly Dictionary<string, T> _cache;
+        private readonly List<string> _usageOrder;
 
         public MostRecentlyUsedCache(int capacity)
         {
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             _capacity = capacity;
             _cache = new Dictionary<string, T>(capacity);
+            _usageOrder = new List<string>(capacity);
         }
 
         public void Add(string key, T item)
@@ -41,21 +43,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
                 if (_cache.Count >= _capacity)
                 {
                     // Remove the least recently used item (first item in the dictionary)
-                    var firstKey = _cache.Keys.First();
+                    var firstKey = _usageOrder.First();
                     _cache.Remove(firstKey);
+                    _usageOrder.Remove(firstKey);
                 }
 
                 _cache[key] = item; // Add new item
+                _usageOrder.Add(key);
             }
         }
 
         public bool Remove(string key)
         {
-            return _cache.Remove(key);
+            if (_cache.ContainsKey(key))
+            {
+                _usageOrder.Remove(key);
+                _cache.Remove(key);
+                return true;
+            }
+
+            return false;
         }
 
         public void Clear()
         {
+            _usageOrder.Clear();
             _cache.Clear();
         }
 
@@ -64,8 +76,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             if (_cache.TryGetValue(key, out item))
             {
                 // Move the accessed item to the end to mark it as recently used
-                _cache.Remove(key);
-                _cache[key] = item;
+                _usageOrder.Remove(key);
+                _usageOrder.Add(key);
                 return true;
             }
 
