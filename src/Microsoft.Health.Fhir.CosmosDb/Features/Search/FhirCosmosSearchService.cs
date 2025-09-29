@@ -662,7 +662,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     // Check SMART scopes
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
-                    if (revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*")
+                    if (revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*")
                     {
                         sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, revIncludeExpression.AllowedResourceTypesByScope));
                     }
@@ -689,7 +689,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     Expression expression = referenceExpression;
 
                     // If source type is a not a wildcard, include the sourceTypeExpression in the subquery
-                    if ((revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*") || revIncludeExpression.SourceResourceType != "*")
+                    if ((revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*") || revIncludeExpression.SourceResourceType != "*")
                     {
                         expression = Expression.And(sourceTypeExpression, referenceExpression);
                     }
