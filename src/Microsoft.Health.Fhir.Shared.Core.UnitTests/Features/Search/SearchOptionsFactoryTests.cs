@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         new ScopeRestriction("Observation", DataActions.Read, "patient", new SearchParams("code2", "doo")),
                     },
                     new List<Tuple<string, string>>(),
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Param ResourceType (TokenCode IN (Patient, Observation))) (Or (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo)))",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) System.Collections.Generic.List`1[Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression] (And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo)) (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))))",
                 };
                 yield return new object[]
                 {
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         Tuple.Create("_type", "Patient,Observation,Practitioner"),
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Param ResourceType (TokenCode IN (Patient, Observation))) (Or (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo code2=goo) (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo)) _type=Patient,Observation,Practitioner tag=xyz)",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) System.Collections.Generic.List`1[Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression] (And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))) _type=Patient,Observation,Practitioner tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     {
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Param ResourceType (TokenCode IN (Patient, Observation))) (Or (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo code2=goo) (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo)) tag=xyz)",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) System.Collections.Generic.List`1[Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression] (And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))) tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         new ScopeRestriction("Encounter", DataActions.Search, "patient", CreateSearchParams(("code2", "goo"))),
                     },
                     null,
-                    "(And (Param ResourceType (TokenCode IN (Observation, Encounter))) (Or (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo) (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo)))",
+                    "(Union (All) System.Collections.Generic.List`1[Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression] (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo)) (And (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo)))",
                 };
             }
         }
