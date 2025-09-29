@@ -34,9 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <summary>
     /// Provides profiles by fetching them from the server.
     /// </summary>
-#pragma warning disable CA1001 // Types that own disposable fields should be disposable. ServerProvideProfileValidation is a Singleton class.
-    public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
-#pragma warning restore CA1001 // Types that own disposable fields should be disposable. ServerProvideProfileValidation is a Singleton class.
+    public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation, IDisposable
     {
         private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
 
@@ -238,6 +236,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                .Select(x => x.ResourceUri).ToList().ForEach(url => sb.Append(url));
 
             return sb.ToString().ComputeHash();
+        }
+
+        public void Dispose()
+        {
+            _cacheSemaphore?.Dispose();
         }
     }
 }
