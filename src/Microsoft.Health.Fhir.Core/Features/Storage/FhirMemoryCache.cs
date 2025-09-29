@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
     public sealed class FhirMemoryCache<T> : IFhirMemoryCache<T>, IDisposable
     {
-        private const int DefaultLimitSizeInBytes = 50 * 1024 * 1024;
+        private const int DefaultLimit = 50 * 1024 * 1024;
         private const int DefaultExpirationTimeInMinutes = 24 * 60;
         private const double DefaultCompactionPercentage = 0.05;
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         public FhirMemoryCache(string name, ILogger logger, bool ignoreCase = false, FhirCacheLimitType limitType = FhirCacheLimitType.Byte)
             : this(
                 name,
-                limitSizeInBytes: DefaultLimitSizeInBytes,
+                sizeLimit: DefaultLimit,
                 entryExpirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
                 logger,
                 ignoreCase,
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
         public FhirMemoryCache(
             string name,
-            long limitSizeInBytes,
+            long sizeLimit,
             TimeSpan entryExpirationTime,
             ILogger logger,
             bool ignoreCase = false,
@@ -49,14 +49,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             FhirCacheLimitType limitType = FhirCacheLimitType.Byte)
         {
             EnsureArg.IsNotNull(name, nameof(name));
-            EnsureArg.IsGt(limitSizeInBytes, 0, nameof(limitSizeInBytes));
+            EnsureArg.IsGt(sizeLimit, 0, nameof(sizeLimit));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cacheName = name;
 
             _cacheOptions = new MemoryCacheOptions()
             {
-                SizeLimit = limitSizeInBytes, // Sets the maximum size of the cache.
+                SizeLimit = sizeLimit, // Sets the maximum size of the cache.
                 CompactionPercentage = compactionPercentage, // Sets the amount the cache is compacted by when the maximum size is exceeded.
             };
 
