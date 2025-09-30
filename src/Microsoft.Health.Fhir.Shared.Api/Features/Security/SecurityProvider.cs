@@ -5,6 +5,8 @@
 
 using System;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -47,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public void Build(ICapabilityStatementBuilder builder)
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             if (_securityConfiguration.Enabled)
             {
@@ -71,6 +73,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     throw;
                 }
             }
+
+            return Task.CompletedTask;
         }
 
         private void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, string authorizeRouteName, string tokenRouteName)

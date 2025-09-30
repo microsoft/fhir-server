@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         private readonly ILogger<BundleOrchestrator> _logger;
 
+        private readonly int _maxExecutionTimeInSeconds;
+
         /// <summary>
         /// Creates a new instance of <see cref="BundleOrchestrator"/>.
         /// </summary>
@@ -33,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             IsEnabled = bundleConfiguration.Value.SupportsBundleOrchestrator;
+            _maxExecutionTimeInSeconds = bundleConfiguration.Value.MaxExecutionTimeInSeconds;
 
             _logger = logger;
             _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
@@ -45,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, _logger);
+            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, _logger, maxExecutionTimeInSeconds: _maxExecutionTimeInSeconds);
 
             if (!_operationsById.TryAdd(newOperation.Id, newOperation))
             {

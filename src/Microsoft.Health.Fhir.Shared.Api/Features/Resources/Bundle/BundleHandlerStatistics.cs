@@ -61,6 +61,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public bool FailedDueClientError { get; private set; }
 
+        public bool Cancelled { get; private set; }
+
         public override string GetLoggingCategory() => LoggingCategory;
 
         public override string GetStatisticsAsJson()
@@ -89,6 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 registeredEntries = RegisteredEntries,
                 executionTime = ElapsedMilliseconds,
                 clientError = FailedDueClientError,
+                cancelled = Cancelled,
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,
@@ -117,6 +120,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public void MarkBundleAsFailedDueClientError()
         {
             FailedDueClientError = true;
+        }
+
+        public void MarkBundleAsCancelled()
+        {
+            Cancelled = true;
         }
 
         private sealed class BundleHandlerStatisticEntry

@@ -23,7 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ProfileValidator : IProfileValidator
     {
+        private readonly TimeSpan _validatatorRefresh = TimeSpan.FromMinutes(30);
         private readonly IResourceResolver _resolver;
+        private Validator _validator;
+        private DateTime _lastValidatorRefresh = DateTime.MinValue;
         private ILogger<ProfileValidator> _logger;
 
         public ProfileValidator(
@@ -50,6 +53,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private Validator GetValidator()
         {
+            if (_validator != null && (DateTime.UtcNow - _lastValidatorRefresh) < _validatatorRefresh)
+            {
+                return _validator;
+            }
+
+            _logger.LogInformation("Refreshing validator");
+            _lastValidatorRefresh = DateTime.UtcNow;
+
             var expanderSettings = new ValueSetExpanderSettings
             {
                 MaxExpansionSize = 20000, // Set your desired max expansion size here
@@ -66,9 +77,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 TerminologyService = terminologyService,
             };
 
-            var validator = new Validator(ctx);
+            _validator = new Validator(ctx);
 
-            return validator;
+            return _validator;
         }
 
         public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)
